@@ -73,7 +73,9 @@ class LoginScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: wawuSizes.spaceBtwSections,),
-
+                    
+                    //sign in
+                    SizedBox(width: double.infinity, child: ElevatedButton(onPressed: (){}, child: Text("Login"),),)
 
                   ],
                 ),

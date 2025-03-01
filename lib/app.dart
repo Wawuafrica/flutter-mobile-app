@@ -4,6 +4,7 @@ import 'package:wawu_mobile/features/authentication/screens/onboarding/onboardin
 import 'package:wawu_mobile/utils/theme/theme.dart';
 
 import 'features/authentication/controllers/onboarding_controller.dart';
+import 'features/authentication/screens/login/login_screen.dart';
 
 class App extends StatelessWidget {
   const App({super.key});
