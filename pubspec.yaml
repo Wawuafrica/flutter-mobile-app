@@ -11,9 +11,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_native_splash: ^2.4.0
 
 # Utility Packages
+  flutter_native_splash: ^2.4.0
   provider: ^6.1.2
   http: ^1.3.0
   intl: ^0.20.2
@@ -21,18 +21,22 @@ dependencies:
   url_launcher: ^6.3.1
   smooth_page_indicator: ^1.2.1
   shared_preferences: ^2.5.2
-
+  cupertino_icons: ^1.0.8
+  iconsax_plus: ^1.0.0
+  iconsax: ^0.0.8
+  google_fonts: ^6.2.1
+  carousel_slider: ^5.0.0
+  flutter_svg: ^2.0.17
+  flutter_staggered_grid_view: ^0.7.0
 
 flutter_native_splash:
   color: "#ffffff"  # Change this to your desired background color
   image: assets/logo/logo.png  # Path to your splash image
   android: true
   ios: true
-
-
-cupertino_icons: ^1.0.8
-iconsax_plus: ^1.0.0
-iconsax: ^0.0.8
+  android_12:
+    color: "#ffffff"  # Change this to your desired background color
+    image: assets/logo/logo.png  # Path to your splash image
 
 dev_dependencies:
   flutter_test:
@@ -40,13 +44,14 @@ dev_dependencies:
 
   flutter_lints: ^5.0.0
 
-
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/fonts
-    - assets/icons
-    - assets/logo
+    # - assets/fonts
+    # - assets/icons
+    - assets/logo/
     - assets/images/onboarding_images/
-
+    - assets/images/svg/
+    - assets/images/roles/
+    - assets/images/other/

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class wawuColors{
+class wawuColors {
   wawuColors._();
 
   //App basic colors
@@ -21,6 +21,9 @@ class wawuColors{
   static const Color lightContainer = Color(0xFFF6F6F6);
   static const Color darkContainer = Colors.black;
   static const Color purpleContainer = Color(0xF59510C9);
+  static const Color purpleDarkContainer = Color(0xF5471471);
+  // static const Color purpleDarkerContainer = Color(0xF5471471);
+  static const Color purpleDarkestContainer = Color(0xF5290D43);
 
   //Button colors
   static const Color buttonPrimary = Color(0xFF9510C9);
@@ -44,5 +47,4 @@ class wawuColors{
   static const Color softGrey = Color(0xFFF4F4F4);
   static const Color lightGrey = Color(0xFFF9F9F9);
   static const Color white = Colors.white;
-
 }
