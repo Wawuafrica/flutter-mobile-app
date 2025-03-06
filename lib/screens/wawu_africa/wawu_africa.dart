@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/image_carousel/image_carousel.dart';
@@ -58,6 +59,12 @@ class WawuAfrica extends StatelessWidget {
                 ),
                 SizedBox(height: 25),
                 InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => SignIn()),
+                    );
+                  },
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),

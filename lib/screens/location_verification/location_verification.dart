@@ -13,7 +13,7 @@ class LocationVerification extends StatefulWidget {
 }
 
 class _LocationVerificationState extends State<LocationVerification> {
-  String? selectedValue;
+  // String? selectedValue;
 
   @override
   Widget build(BuildContext context) {
@@ -32,12 +32,12 @@ class _LocationVerificationState extends State<LocationVerification> {
             CustomDropdown(
               options: const ['Nigeria', 'South Africa', 'Ghana'],
               label: 'Select an option',
-              selectedValue: selectedValue,
-              onChanged: (value) {
-                setState(() {
-                  selectedValue = value;
-                });
-              },
+              // selectedValue: selectedValue,
+              // onChanged: (value) {
+              //   setState(() {
+              //     selectedValue = value;
+              //   });
+              // },
               overlayColor: Colors.black.withOpacity(0.8),
               modalBackgroundColor: Colors.white,
               borderRadius: 20.0,

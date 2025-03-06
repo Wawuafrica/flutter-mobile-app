@@ -4,8 +4,8 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 class CustomDropdown extends StatefulWidget {
   final List<String> options;
   final String label;
-  final String? selectedValue;
-  final ValueChanged<String?> onChanged; // Callback when an option is selected
+  // final String? selectedValue;
+  // final ValueChanged<String?> onChanged; // Callback when an option is selected
   final Color overlayColor;
   final Color modalBackgroundColor;
   final double borderRadius;
@@ -15,8 +15,8 @@ class CustomDropdown extends StatefulWidget {
     super.key,
     required this.options,
     required this.label,
-    this.selectedValue,
-    required this.onChanged,
+    // this.selectedValue,
+    // required this.onChanged,
     this.overlayColor = Colors.black54,
     this.modalBackgroundColor = Colors.white,
     this.borderRadius = 20.0,
@@ -28,6 +28,8 @@ class CustomDropdown extends StatefulWidget {
 }
 
 class _CustomDropdownState extends State<CustomDropdown> {
+  String? selectedValue;
+
   void _showCustomDropdown() {
     showModalBottomSheet(
       context: context,
@@ -81,7 +83,10 @@ class _CustomDropdownState extends State<CustomDropdown> {
   Widget _buildOption(String option) {
     return InkWell(
       onTap: () {
-        widget.onChanged(option); // Notify the parent of the selected value
+        // widget.onChanged(option);
+        setState(() {
+          selectedValue = option;
+        });
         Navigator.pop(context); // Close the modal after selection
       },
       child: Container(
@@ -92,7 +97,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
           style: TextStyle(
             fontSize: 16,
             color:
-                widget.selectedValue == option
+                selectedValue == option
                     ? wawuColors.buttonPrimary
                     : Colors.black,
           ),
@@ -117,7 +122,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
           children: [
             Expanded(
               child: Text(
-                widget.selectedValue ?? widget.label,
+                selectedValue ?? widget.label,
                 style: const TextStyle(fontSize: 16),
               ),
             ),

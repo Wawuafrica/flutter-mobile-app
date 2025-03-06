@@ -6,14 +6,14 @@ import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 
-class SignUp extends StatefulWidget {
-  const SignUp({super.key});
+class SignIn extends StatefulWidget {
+  const SignIn({super.key});
 
   @override
-  State<SignUp> createState() => _SignUpState();
+  State<SignIn> createState() => _SignInState();
 }
 
-class _SignUpState extends State<SignUp> {
+class _SignInState extends State<SignIn> {
   bool isChecked = false;
 
   @override
@@ -27,7 +27,7 @@ class _SignUpState extends State<SignUp> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CustomIntroBar(
-                text: 'Sign Up',
+                text: 'Welcome Back',
                 desc: 'The first step to the world of possibilities',
               ),
               CustomTextfield(
@@ -37,48 +37,14 @@ class _SignUpState extends State<SignUp> {
               ),
               SizedBox(height: 20),
               CustomTextfield(
-                labelText: 'First Name',
-                hintText: 'Enter your first name',
-                labelTextStyle2: true,
-              ),
-              SizedBox(height: 20),
-              CustomTextfield(
-                labelText: 'Last Name',
-                hintText: 'Enter your last name',
-                labelTextStyle2: true,
-              ),
-              SizedBox(height: 20),
-              CustomTextfield(
                 labelText: 'Password',
                 hintText: 'Enter your password',
                 labelTextStyle2: true,
               ),
               SizedBox(height: 20),
-              CustomTextfield(
-                labelText: 'Referral Code',
-                hintText: '******',
-                labelTextStyle2: true,
-              ),
-              SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Checkbox(
-                    value: isChecked,
-                    onChanged: (value) {
-                      setState(() {
-                        isChecked = value!;
-                      });
-                    },
-                  ),
-                  Flexible(
-                    child: Text(
-                      'By continuing you agree to our terms of use and privacy policy',
-                      style: TextStyle(fontSize: 13),
-                      softWrap: true,
-                    ),
-                  ),
-                ],
+              Text(
+                'Forgot Password',
+                style: TextStyle(color: wawuColors.buttonSecondary),
               ),
               SizedBox(height: 20),
               CustomButton(
@@ -89,7 +55,7 @@ class _SignUpState extends State<SignUp> {
                   );
                 },
                 widget: Text(
-                  'Sign Up',
+                  'Sign In',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
@@ -103,12 +69,12 @@ class _SignUpState extends State<SignUp> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Already have an account?',
+                    "Don't have an account?",
                     style: TextStyle(fontSize: 13),
                   ),
                   SizedBox(width: 5),
                   Text(
-                    'Login',
+                    'Sign Up',
                     style: TextStyle(
                       color: wawuColors.buttonSecondary,
                       fontSize: 13,
