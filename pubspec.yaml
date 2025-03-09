@@ -1,5 +1,5 @@
 name: wawu_mobile
-description: "A new Flutter project."
+description: "A Platform for the African Creative"
 
 publish_to: 'none'
 version: 1.0.0+1
@@ -21,19 +21,19 @@ dependencies:
   url_launcher: ^6.3.1
   smooth_page_indicator: ^1.2.1
   shared_preferences: ^2.5.2
-  cupertino_icons: ^1.0.8
-  iconsax_plus: ^1.0.0
-  iconsax: ^0.0.8
   google_fonts: ^6.2.1
   carousel_slider: ^5.0.0
   flutter_svg: ^2.0.17
   flutter_staggered_grid_view: ^0.7.0
+  image_picker: ^1.1.2
+  permission_handler: ^11.4.0
 
 flutter_native_splash:
   color: "#ffffff"  # Change this to your desired background color
   image: assets/logo/logo.png  # Path to your splash image
   android: true
   ios: true
+  android_gravity: center
   android_12:
     color: "#ffffff"
     image: assets/logo/logo.png
@@ -50,10 +50,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    # - assets/fonts
-    # - assets/icons
     - assets/logo/
     - assets/images/onboarding_images/
     - assets/images/svg/
     - assets/images/roles/
     - assets/images/other/
+    - assets/images/section/

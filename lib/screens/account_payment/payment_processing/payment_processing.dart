@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 
@@ -30,6 +31,12 @@ class PaymentProcessing extends StatelessWidget {
                 ),
               ),
               color: wawuColors.primary,
+              function: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => MainScreen()),
+                );
+              },
             ),
           ],
         ),

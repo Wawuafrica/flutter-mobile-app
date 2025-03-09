@@ -1,10 +1,36 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:wawu_mobile/screens/account_payment/payment_processing/payment_processing.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 
-class VerifyPayment extends StatelessWidget {
+class VerifyPayment extends StatefulWidget {
   const VerifyPayment({super.key});
+
+  @override
+  State<VerifyPayment> createState() => _VerifyPaymentState();
+}
+
+class _VerifyPaymentState extends State<VerifyPayment> {
+  File? _image;
+
+  Future<void> _pickImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _image = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      print("Error picking image: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,25 +135,44 @@ class VerifyPayment extends StatelessWidget {
               ),
             ),
             SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 300,
-              padding: EdgeInsets.all(20.0),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                color: wawuColors.primary.withAlpha(50),
-              ),
-              child: Column(
-                spacing: 20,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Select Transfer Image',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  Icon(Icons.camera_alt, size: 50, color: wawuColors.primary),
-                ],
+            InkWell(
+              onTap: _pickImage,
+              child: Container(
+                width: double.infinity,
+                height: 300,
+                clipBehavior: Clip.hardEdge,
+                // padding: EdgeInsets.all(20.0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: wawuColors.primary.withAlpha(50),
+                ),
+                child:
+                    _image == null
+                        ? Column(
+                          spacing: 20,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Select Transfer Image',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Icon(
+                              Icons.camera_alt,
+                              size: 50,
+                              color: wawuColors.primary,
+                            ),
+                          ],
+                        )
+                        : Image.file(
+                          _image!,
+                          height: 300,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
               ),
             ),
             SizedBox(height: 20),

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
@@ -20,6 +23,28 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   final List<String> _skills = [];
   final int _maxAboutLength = 200;
   String? selectedCertificateValue;
+  File? _profileImage;
+  File? _coverImage;
+
+  Future<void> _pickImage(String imageType) async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        switch (imageType) {
+          case 'profile':
+            _profileImage = File(pickedFile.path);
+            break;
+          case 'cover':
+            _coverImage = File(pickedFile.path);
+            break;
+        }
+      });
+    }
+  }
 
   void _addSkill() {
     if (_skillController.text.trim().isNotEmpty) {
@@ -40,65 +65,102 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
             padding: EdgeInsets.all(20.0),
             child: Column(
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      height: 100,
-                      padding: EdgeInsets.all(20.0),
-                      color: wawuColors.primary.withAlpha(50),
-                      child: Text(
-                        'Add Cover Photo',
-                        textAlign: TextAlign.center,
+                SizedBox(
+                  width: double.infinity,
+                  height: 160,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        height: 100,
+                        color: wawuColors.primary.withAlpha(50),
+                        child:
+                            _coverImage == null
+                                ? Text(
+                                  'Add Cover Photo',
+                                  textAlign: TextAlign.center,
+                                )
+                                : Image.file(_coverImage!, fit: BoxFit.cover),
                       ),
-                    ),
-                    Positioned(
-                      top: 50,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            ClipOval(
-                              child: Container(
-                                width: 100,
-                                height: 100,
-                                color: Colors.white,
-                                child: Image.asset(
-                                  'assets/images/other/avatar.png',
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
+
+                      Positioned(
+                        top: 50,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: ClipOval(
+                            child: Container(
+                              padding: const EdgeInsets.all(2.0),
+                              color: wawuColors.white,
                               child: ClipOval(
                                 child: Container(
-                                  width: 30,
-                                  height: 30,
-                                  color: const Color.fromARGB(
-                                    255,
-                                    219,
-                                    219,
-                                    219,
+                                  width: 100,
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
                                   ),
-                                  child: Icon(
-                                    Icons.camera_alt,
-                                    size: 13,
-                                    color: wawuColors.primary,
-                                  ),
+                                  child:
+                                      _profileImage == null
+                                          ? Image.asset(
+                                            'assets/images/other/avatar.png',
+                                          )
+                                          : Image.file(
+                                            _profileImage!,
+                                            fit: BoxFit.cover,
+                                          ),
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        right: 120,
+                        bottom: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            _pickImage('profile');
+                          },
+                          child: ClipOval(
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              color: const Color.fromARGB(255, 219, 219, 219),
+                              child: Icon(
+                                Icons.camera_alt,
+                                size: 13,
+                                color: wawuColors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        right: 20,
+                        bottom: 45,
+                        child: GestureDetector(
+                          onTap: () {
+                            _pickImage('cover');
+                          },
+                          child: ClipOval(
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              color: const Color.fromARGB(255, 219, 219, 219),
+                              child: Icon(
+                                Icons.camera_alt,
+                                size: 13,
+                                color: wawuColors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 70),
+                SizedBox(height: 10),
                 Text(
                   'Mavis Nwaokorie',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
