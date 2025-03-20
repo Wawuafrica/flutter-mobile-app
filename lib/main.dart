@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/screens/messages_screen/single_message_screen/single_message_screen.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:google_fonts/google_fonts.dart';
 

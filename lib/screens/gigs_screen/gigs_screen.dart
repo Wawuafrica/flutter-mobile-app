@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/screens/gigs_screen/create_gig_screen/create_gig_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
 import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
@@ -74,6 +75,24 @@ class GigsScreen extends StatelessWidget {
               },
             ),
           ],
+        ),
+      ),
+
+      floatingActionButton: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => CreateGigScreen()),
+          );
+        },
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: wawuColors.primary,
+          ),
+          child: Icon(Icons.add, color: Colors.white),
         ),
       ),
     );

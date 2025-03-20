@@ -36,6 +36,7 @@ dependencies:
   font_awesome_flutter: ^10.8.0
   flutter_markdown: ^0.7.6+2
   share_plus: ^10.1.4
+  pluto_grid: ^8.0.0
 
 flutter_native_splash:
   color: "#ffffff"  # Change this to your desired background color

@@ -11,6 +11,8 @@ class CustomTextfield extends StatelessWidget {
   final double borderRadius;
   final Function(String)? onChanged;
   final TextEditingController? controller;
+  final bool maxLines;
+  final int maxLinesNum;
 
   const CustomTextfield({
     super.key,
@@ -24,6 +26,8 @@ class CustomTextfield extends StatelessWidget {
     this.onChanged,
     this.controller,
     this.labelTextStyle2 = false,
+    this.maxLines = false,
+    this.maxLinesNum = 5,
   });
 
   @override
@@ -45,6 +49,7 @@ class CustomTextfield extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           onChanged: onChanged,
+          maxLines: maxLines ? maxLinesNum : null,
           decoration: InputDecoration(
             labelText: labelTextStyle2 ? null : labelText,
             hintText: hintText,

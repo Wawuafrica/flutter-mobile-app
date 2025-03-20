@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/about_us_screen/about_us_screen.dart';
+import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
 import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
+import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
 import 'package:wawu_mobile/screens/terms_of_use_screen/terms_of_use_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
@@ -122,10 +124,21 @@ class SettingsScreen extends StatelessWidget {
             SettingsButtonCard(
               title: 'Invite People',
               navigate: () {
-                _shareContent();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => InvitePeopleScreen()),
+                );
               },
             ),
-            SettingsButtonCard(title: 'Contact Us', navigate: () {}),
+            SettingsButtonCard(
+              title: 'Contact Us',
+              navigate: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ContactUsScreen()),
+                );
+              },
+            ),
             SettingsButtonCard(
               title: 'About Us',
               navigate: () {
