@@ -25,7 +25,7 @@ class AccountTypeCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.all(20.0),
-        height: 180,
+        height: 200,
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(10),

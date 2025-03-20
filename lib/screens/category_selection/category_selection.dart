@@ -23,7 +23,7 @@ class CategorySelection extends StatelessWidget {
               CustomIntroBar(
                 text: 'Hi Mavis Nwaokorie',
                 desc:
-                    'Tell us a little about yourself so we can create a better experience for you.',
+                    'So, wanna tell us more about your superpower? What makes you tick, basically. This is your initial proposal outlining the value proposition of your expertise to prospective clients.',
               ),
               Text(
                 'Select Your Role',

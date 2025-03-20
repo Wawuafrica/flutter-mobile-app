@@ -8,10 +8,17 @@ class MessagesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 5.0),
         child: ListView(
           children: [
             SizedBox(height: 20),
+            MessageCard(),
+            MessageCard(),
+            MessageCard(),
+            MessageCard(),
+            MessageCard(),
+            MessageCard(),
+            MessageCard(),
             MessageCard(),
             MessageCard(),
             MessageCard(),

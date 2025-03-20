@@ -27,7 +27,7 @@ class _LocationVerificationState extends State<LocationVerification> {
             CustomIntroBar(
               text: 'Verify Your Location',
               desc:
-                  'Help us to boost sales and lessen fraud and scam by providing the necessary information for security measures.',
+                  'Hello, where are you joining us from?  The next big party might be near you!',
             ),
             CustomDropdown(
               options: const ['Nigeria', 'South Africa', 'Ghana'],

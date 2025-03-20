@@ -28,7 +28,7 @@ class _SignInState extends State<SignIn> {
             children: [
               CustomIntroBar(
                 text: 'Welcome Back',
-                desc: 'The first step to the world of possibilities',
+                desc: "We're not gonna get tired of you, that's a promise.",
               ),
               CustomTextfield(
                 labelText: 'Email Address',

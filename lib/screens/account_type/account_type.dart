@@ -12,10 +12,10 @@ class AccountType extends StatelessWidget {
     return Scaffold(
       body: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 35.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 0.0),
+        child: ListView(
           children: [
+            SizedBox(height: 10.0),
             CustomIntroBar(
               text: 'Account Type',
               desc: 'Select the user account type you want to sign up as',
@@ -32,7 +32,7 @@ class AccountType extends StatelessWidget {
               cardColor: wawuColors.darkContainer,
               text: 'Professionals',
               desc:
-                  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim.',
+                  'A highly accomplished and experienced superwoman with a proven track record, formal qualifications, and relevant certifications, operating a registered business.',
               textColor: Colors.white,
             ),
             SizedBox(height: 20),
@@ -48,7 +48,7 @@ class AccountType extends StatelessWidget {
               cardColor: wawuColors.purpleContainer,
               text: 'Artisan',
               desc:
-                  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim.',
+                  'A super-skilled, confident, and experienced woman ready to work but waiting to get her qualifications, certifications, and business registered.',
               textColor: Colors.white,
             ),
             SizedBox(height: 20),
@@ -64,10 +64,11 @@ class AccountType extends StatelessWidget {
               cardColor: wawuColors.white,
               text: 'Buyer',
               desc:
-                  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim.',
+                  'High-achieving professionals, entrepreneurs, industry leaders, change agents, creative geniuses, and individuals ready to pay a Superwoman to get the Wow Experience.',
               textColor: Colors.black,
               borderBlack: true,
             ),
+            SizedBox(height: 20.0),
           ],
         ),
       ),

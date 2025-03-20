@@ -34,7 +34,7 @@ class MoreCategories extends StatelessWidget {
             text: 'Hello Mavis Nwaokorie',
             topPadding: false,
             desc:
-                'Tell us a little about yourself so we can create a better experience for you.',
+                'So, wanna tell us more about your superpower? What makes you tick, basically. This is your initial proposal outlining the value proposition of your expertise to prospective clients.',
           ),
           const SizedBox(height: 16),
           Text(

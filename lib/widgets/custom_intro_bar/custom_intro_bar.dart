@@ -29,13 +29,13 @@ class _CustomIntroBarState extends State<CustomIntroBar> {
           style: TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w900,
-            fontSize: 25,
+            fontSize: 23,
           ),
         ),
         SizedBox(height: 10),
         Text(
           widget.desc,
-          style: TextStyle(fontWeight: FontWeight.normal, fontSize: 16),
+          style: TextStyle(fontWeight: FontWeight.normal, fontSize: 15),
         ),
         SizedBox(height: 30),
       ],

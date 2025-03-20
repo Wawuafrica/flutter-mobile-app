@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/screens/about_us_screen/about_us_screen.dart';
+import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
+import 'package:wawu_mobile/screens/terms_of_use_screen/terms_of_use_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
+import 'package:share_plus/share_plus.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -104,13 +108,42 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: 20),
-            SettingsButtonCard(title: 'My Profile'),
-            SettingsButtonCard(title: 'Checkout Details'),
-            SettingsButtonCard(title: 'FAQ'),
-            SettingsButtonCard(title: 'Invite People'),
-            SettingsButtonCard(title: 'Contact Us'),
-            SettingsButtonCard(title: 'About Us'),
-            SettingsButtonCard(title: 'Terms of Use'),
+            SettingsButtonCard(title: 'My Profile', navigate: () {}),
+            // SettingsButtonCard(title: 'Checkout Details', navigate: () {}),
+            SettingsButtonCard(
+              title: 'FAQ',
+              navigate: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => FAQScreen()),
+                );
+              },
+            ),
+            SettingsButtonCard(
+              title: 'Invite People',
+              navigate: () {
+                _shareContent();
+              },
+            ),
+            SettingsButtonCard(title: 'Contact Us', navigate: () {}),
+            SettingsButtonCard(
+              title: 'About Us',
+              navigate: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AboutUsScreen()),
+                );
+              },
+            ),
+            SettingsButtonCard(
+              title: 'Terms of Use',
+              navigate: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => TermsOfUseScreen()),
+                );
+              },
+            ),
             SizedBox(height: 40),
             Center(
               child: Text(
@@ -137,5 +170,16 @@ class SettingsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _shareContent() {
+    final String text = 'Download Wawu Now';
+    final String link = 'https://example.com'; // Replace with your link
+
+    // Combine text and link
+    final String shareText = '$text\n$link';
+
+    // Trigger the native share dialog
+    Share.share(shareText);
   }
 }

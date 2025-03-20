@@ -100,13 +100,23 @@ class UpdateProfile extends StatelessWidget {
             ),
             SizedBox(height: 20),
             Text(
-              'Update your profile to gain full access and enjoy all WAWU has to offer, add verified certificates for sellers, verify your ID, purchase a system verified badge, doing all these would get you stars to boost your relevance in the market, these are part of our T’s & C’s, to aid the marketing system of services and lessen fraud and scam. ',
+              'Hey Superwoman,  being a pro on WawuAfrica means awesome and fun stuff.  Your skills are a game-changer! But you gotta update your profile so clients can find you faster.',
               style: TextStyle(
                 fontSize: 13,
                 color: const Color.fromARGB(255, 125, 125, 125),
                 fontWeight: FontWeight.w200,
               ),
             ),
+
+            Text(
+              "We're so proud to have you! Have fun, make some cash, and stay safe.",
+              style: TextStyle(
+                fontSize: 13,
+                color: const Color.fromARGB(255, 125, 125, 125),
+                fontWeight: FontWeight.w200,
+              ),
+            ),
+
             SizedBox(height: 30),
             CustomButton(
               function: () {

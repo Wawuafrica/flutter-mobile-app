@@ -28,7 +28,7 @@ class _SignUpState extends State<SignUp> {
             children: [
               CustomIntroBar(
                 text: 'Sign Up',
-                desc: 'The first step to the world of possibilities',
+                desc: 'Wanna show off your superpower?  Start here.',
               ),
               CustomTextfield(
                 labelText: 'Email Address',
@@ -73,7 +73,7 @@ class _SignUpState extends State<SignUp> {
                   ),
                   Flexible(
                     child: Text(
-                      'By continuing you agree to our terms of use and privacy policy',
+                      'Hi superwomen by continuing, you agree to these easy rules to keep us both safe and get you better service',
                       style: TextStyle(fontSize: 13),
                       softWrap: true,
                     ),

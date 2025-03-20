@@ -15,8 +15,8 @@ class Wawu extends StatelessWidget {
           children: [
             SizedBox(height: 10),
             CustomIntroBar(
-              text: 'Welcome To Wawu Mobile',
-              desc: 'The world of possibilities',
+              text: 'Welcome to a Wow Experience',
+              desc: 'We are the home of the best girl service providers.',
             ),
             Expanded(
               flex: 5,
@@ -28,6 +28,7 @@ class Wawu extends StatelessWidget {
                   );
                 },
                 child: Container(
+                  width: double.infinity,
                   decoration: BoxDecoration(
                     color: wawuColors.white,
                     borderRadius: BorderRadius.circular(10),
@@ -41,7 +42,7 @@ class Wawu extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Wawu Africa',
+                        'JOIN WAWU',
                         style: TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
@@ -59,7 +60,7 @@ class Wawu extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'This is just a dummy text, Content will be uploaded soon',
+                        'You either want GIVE a Wow Experience, or GET a Wow Experience.',
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: 13,
@@ -84,6 +85,7 @@ class Wawu extends StatelessWidget {
                   );
                 },
                 child: Container(
+                  width: double.infinity,
                   decoration: BoxDecoration(
                     color: wawuColors.primaryBackground,
                     borderRadius: BorderRadius.circular(10),
@@ -97,7 +99,7 @@ class Wawu extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Wawu Marketplace',
+                        'WOW MERCH',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -115,7 +117,7 @@ class Wawu extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'This is just a dummy text, Content will be uploaded soon',
+                        'Looking and feeling good is empowering',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 13,
