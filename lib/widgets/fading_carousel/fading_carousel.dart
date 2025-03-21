@@ -4,8 +4,14 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 class FadingCarousel extends StatefulWidget {
   final List<Widget> children;
   final double height;
+  final bool isBorderRadius;
 
-  const FadingCarousel({super.key, required this.children, this.height = 250});
+  const FadingCarousel({
+    super.key,
+    required this.children,
+    this.height = 250,
+    this.isBorderRadius = true,
+  });
 
   @override
   FadingCarouselState createState() => FadingCarouselState();

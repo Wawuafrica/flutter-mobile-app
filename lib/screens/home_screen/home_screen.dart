@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/screens/services/filtered_gigs/filtered_gigs.dart';
+import 'package:wawu_mobile/screens/services/services.dart';
+import 'package:wawu_mobile/screens/wawu_ecommerce_screen/wawu_ecommerce_screen.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
@@ -41,7 +43,16 @@ class HomeScreen extends StatelessWidget {
             SizedBox(height: 20),
             FadingCarousel(height: 250, children: carouselItems),
             SizedBox(height: 20),
-            CustomIntroText(text: 'Popular Services', isRightText: true),
+            CustomIntroText(
+              text: 'Popular Services',
+              isRightText: true,
+              navFunction: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Services()),
+                );
+              },
+            ),
             SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
@@ -50,14 +61,32 @@ class HomeScreen extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 children: [
                   ImageTextCard(
+                    function: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => FilteredGigs()),
+                      );
+                    },
                     text: 'Graphics & Design',
                     asset: 'assets/images/section/graphics.png',
                   ),
                   ImageTextCard(
+                    function: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => FilteredGigs()),
+                      );
+                    },
                     text: 'Programming',
                     asset: 'assets/images/section/programming.png',
                   ),
                   ImageTextCard(
+                    function: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => FilteredGigs()),
+                      );
+                    },
                     text: 'Video & Animation',
                     asset: 'assets/images/section/video.png',
                   ),
@@ -65,7 +94,18 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             SizedBox(height: 30),
-            CustomIntroText(text: 'Wawu E-commerce', isRightText: true),
+            CustomIntroText(
+              text: 'Wawu E-commerce',
+              isRightText: true,
+              navFunction: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WawuEcommerceScreen(),
+                  ),
+                );
+              },
+            ),
             SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

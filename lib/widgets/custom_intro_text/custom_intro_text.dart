@@ -4,10 +4,12 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 class CustomIntroText extends StatelessWidget {
   final String text;
   final bool isRightText;
+  final GestureTapCallback? navFunction;
   const CustomIntroText({
     super.key,
     required this.text,
     this.isRightText = false,
+    this.navFunction,
   });
 
   @override
@@ -25,9 +27,12 @@ class CustomIntroText extends StatelessWidget {
           ),
         ),
         if (isRightText)
-          Text(
-            'See All',
-            style: TextStyle(color: wawuColors.primary, fontSize: 12),
+          GestureDetector(
+            onTap: navFunction,
+            child: Text(
+              'See All',
+              style: TextStyle(color: wawuColors.primary, fontSize: 12),
+            ),
           ),
       ],
     );

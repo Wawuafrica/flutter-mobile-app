@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
 import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
-import 'dart:io';
 import 'dart:async';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';

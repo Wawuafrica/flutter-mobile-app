@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/screens/blog_screen/single_blog_screen/single_blog_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
@@ -97,113 +98,123 @@ class BlogScreen extends StatelessWidget {
                 widgets: backendData,
                 filterOptions: ['All', 'Wawu', 'Updates', 'Business'],
                 itemBuilder: (widgetData) {
-                  return Container(
-                    width: double.infinity,
-                    height: 90,
-                    padding: EdgeInsets.symmetric(horizontal: 12.0),
-                    child: Row(
-                      spacing: 10.0,
-                      children: [
-                        Image.asset(
-                          'assets/images/section/video.png',
-                          width: 80,
-                          // height: 80,
-                          fit: BoxFit.cover,
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SingleBlogScreen(),
                         ),
-                        Expanded(
-                          child: Column(
-                            spacing: 8.0,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt...',
-                                  style: TextStyle(fontSize: 13),
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      height: 90,
+                      padding: EdgeInsets.symmetric(horizontal: 12.0),
+                      child: Row(
+                        spacing: 10.0,
+                        children: [
+                          Image.asset(
+                            'assets/images/section/video.png',
+                            width: 80,
+                            // height: 80,
+                            fit: BoxFit.cover,
+                          ),
+                          Expanded(
+                            child: Column(
+                              spacing: 8.0,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt...',
+                                    style: TextStyle(fontSize: 13),
+                                  ),
                                 ),
-                              ),
-                              Row(
-                                spacing: 5.0,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  Container(
-                                    width: 80,
-                                    height: 25,
-                                    decoration: BoxDecoration(
-                                      color: wawuColors.primary.withAlpha(70),
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        widgetData['title'] ?? '',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: wawuColors.primary,
+                                Row(
+                                  spacing: 5.0,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 25,
+                                      decoration: BoxDecoration(
+                                        color: wawuColors.primary.withAlpha(70),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          widgetData['title'] ?? '',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: wawuColors.primary,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  Container(
-                                    width: 50,
-                                    height: 25,
-                                    decoration: BoxDecoration(
-                                      color: wawuColors.primary.withAlpha(70),
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.thumb_up_alt,
-                                          size: 10,
-                                          color: wawuColors.primary,
-                                        ),
-                                        Text(
-                                          '2K',
-                                          style: TextStyle(
-                                            fontSize: 11,
+                                    Container(
+                                      width: 50,
+                                      height: 25,
+                                      decoration: BoxDecoration(
+                                        color: wawuColors.primary.withAlpha(70),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.thumb_up_alt,
+                                            size: 10,
                                             color: wawuColors.primary,
                                           ),
-                                        ),
-                                      ],
+                                          Text(
+                                            '2K',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: wawuColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  Container(
-                                    width: 50,
-                                    height: 25,
-                                    decoration: BoxDecoration(
-                                      color: wawuColors.primary.withAlpha(70),
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.mode_comment,
-                                          size: 10,
-                                          color: wawuColors.primary,
-                                        ),
-                                        Text(
-                                          '1.1K',
-                                          style: TextStyle(
-                                            fontSize: 11,
+                                    Container(
+                                      width: 50,
+                                      height: 25,
+                                      decoration: BoxDecoration(
+                                        color: wawuColors.primary.withAlpha(70),
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.mode_comment,
+                                            size: 10,
                                             color: wawuColors.primary,
                                           ),
-                                        ),
-                                      ],
+                                          Text(
+                                            '1.1K',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: wawuColors.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
