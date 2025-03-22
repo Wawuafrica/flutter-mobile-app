@@ -11,7 +11,6 @@ class Services extends StatefulWidget {
 }
 
 class _ServicesState extends State<Services> {
-  int _selectedIndex = 0;
   bool _isSearchOpen = false;
   final TextEditingController _searchController = TextEditingController();
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/account_payment/account_payment.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/plan_card/plan_card.dart';
 
 class Plan extends StatelessWidget {

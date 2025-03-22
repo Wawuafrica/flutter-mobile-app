@@ -195,10 +195,6 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
 
   @override
   Widget build(BuildContext context) {
-    final progress =
-        _duration.inMilliseconds > 0
-            ? _position.inMilliseconds / _duration.inMilliseconds
-            : 0.0;
     final iconColor = widget.isLeft ? wawuColors.primary : wawuColors.white;
 
     return Column(

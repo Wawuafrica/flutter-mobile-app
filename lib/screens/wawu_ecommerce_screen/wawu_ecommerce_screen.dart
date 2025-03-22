@@ -10,7 +10,6 @@ class WawuEcommerceScreen extends StatefulWidget {
 }
 
 class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
-  int _selectedIndex = 0;
   bool _isSearchOpen = false;
   final TextEditingController _searchController = TextEditingController();
 

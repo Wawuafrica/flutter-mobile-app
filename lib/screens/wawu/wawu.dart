@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/wawu_africa/wawu_africa.dart';
+import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 
@@ -81,7 +82,7 @@ class Wawu extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => WawuAfrica()),
+                    MaterialPageRoute(builder: (context) => WawuMerchMain()),
                   );
                 },
                 child: Container(

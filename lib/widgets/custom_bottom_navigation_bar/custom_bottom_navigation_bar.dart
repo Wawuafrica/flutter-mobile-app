@@ -5,11 +5,13 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 class CustomBottomNavigationBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
+  final bool isStyleTwo;
 
   const CustomBottomNavigationBar({
     Key? key,
     required this.selectedIndex,
     required this.onItemTapped,
+    this.isStyleTwo = false,
   }) : super(key: key);
 
   @override
@@ -29,13 +31,27 @@ class CustomBottomNavigationBar extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(0, 'assets/images/svg/home.svg', 'Home'),
-          _buildNavItem(1, 'assets/images/svg/blog.svg', 'Blog'),
-          _buildNavItem(2, 'assets/images/svg/message.svg', 'Message'),
-          _buildNavItem(3, 'assets/images/svg/gigs.svg', 'Gigs'),
-          _buildNavItem(4, 'assets/images/svg/settings.svg', 'Settings'),
-        ],
+        children:
+            !isStyleTwo
+                ? [
+                  _buildNavItem(0, 'assets/images/svg/home.svg', 'Home'),
+                  _buildNavItem(1, 'assets/images/svg/blog.svg', 'Blog'),
+                  _buildNavItem(2, 'assets/images/svg/message.svg', 'Message'),
+                  _buildNavItem(3, 'assets/images/svg/gigs.svg', 'Gigs'),
+                  _buildNavItem(
+                    4,
+                    'assets/images/svg/settings.svg',
+                    'Settings',
+                  ),
+                ]
+                : [
+                  _buildNavItem(0, 'assets/images/svg/home.svg', 'Home'),
+                  _buildNavItem(
+                    1,
+                    'assets/images/svg/settings.svg',
+                    'Settings',
+                  ),
+                ],
       ),
     );
   }

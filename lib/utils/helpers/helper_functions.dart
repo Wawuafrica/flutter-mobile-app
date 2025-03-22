@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
-class wawuHelperFunctions{
+class wawuHelperFunctions {
   static double screenHeight(BuildContext context) {
     return MediaQuery.of(context).size.height;
   }

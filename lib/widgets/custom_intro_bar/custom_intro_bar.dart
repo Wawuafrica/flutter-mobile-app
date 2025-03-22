@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 
 class CustomIntroBar extends StatefulWidget {
   final String text;

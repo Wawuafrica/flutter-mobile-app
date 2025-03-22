@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wawu_mobile/screens/category_selection/more_categories/more_categories.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 
 class CategorySelection extends StatelessWidget {
