@@ -1,4 +1,4 @@
-package com.example.wawu_mobile
+package com.wawuafrica.wawu
 
 import io.flutter.embedding.android.FlutterActivity
 
