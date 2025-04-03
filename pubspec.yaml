@@ -40,16 +40,22 @@ dependencies:
 
 flutter_native_splash:
   color: "#ffffff"  # Change this to your desired background color
-  image: assets/logo/logo.png  # Path to your splash image
   android: true
   ios: true
   web: false
-  android_gravity: center
+  image: assets/logo/logo_white.png
   android_12:
     color: "#ffffff"
-    image: assets/logo/logo.png
+    color_dark: "#121212"
+    image_dark: assets/logo/logo_black.png
+    image: assets/logo/logo_white.png
     icon_background_color: "#ffffff"
     icon_background_color_dark: "#121212"
+  # Prevent stretching or filling (this avoids cropping)
+  # Android-specific gravity (optional, tweak if needed)
+  android_gravity: fill  # Options: center, fill, top, etc.
+  # iOS-specific content mode (optional, tweak if needed)
+  ios_content_mode: center
 
 dev_dependencies:
   change_app_package_name: ^1.5.0
@@ -65,6 +71,7 @@ flutter_launcher_icons:
   image_path: "assets/logo1.png"
   remove_alpha_ios: true
   min_sdk_android: 21 # android min sdk min:16, default 21
+  adaptive_icon_background: "#FFFFFF"
 
 flutter:
   uses-material-design: true

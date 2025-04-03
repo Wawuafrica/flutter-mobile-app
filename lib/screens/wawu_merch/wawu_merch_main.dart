@@ -23,7 +23,7 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
     Row(
       spacing: 10.0,
       children: [
-        Image.asset('assets/images/other/avatar.png', height: 40),
+        Image.asset('assets/images/other/avatar.jpg', height: 40),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -125,14 +125,14 @@ class SingleGigScreen extends StatelessWidget {
                     padding: EdgeInsets.all(2.0),
                     child: Container(
                       clipBehavior: Clip.hardEdge,
-                      width: 89,
-                      height: 89,
+                      width: 100,
+                      height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
                       ),
                       child: Image.asset(
-                        'assets/images/section/programming.png',
+                        'assets/images/other/avatar.jpg',
                         // fit: BoxFit.cover,
                       ),
                     ),

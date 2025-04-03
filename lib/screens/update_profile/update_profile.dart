@@ -26,8 +26,15 @@ class UpdateProfile extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ClipOval(
-                    child: Image.asset('assets/images/other/avatar.png'),
+                  Container(
+                    width: 100,
+                    height: 100,
+                    clipBehavior: Clip.hardEdge,
+                    decoration: BoxDecoration(shape: BoxShape.circle),
+                    child: Image.asset(
+                      'assets/images/other/avatar.jpg',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   SizedBox(height: 10),
                   Text(

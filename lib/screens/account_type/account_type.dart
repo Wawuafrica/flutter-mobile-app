@@ -29,7 +29,7 @@ class AccountType extends StatelessWidget {
                   ),
                 );
               },
-              cardColor: wawuColors.darkContainer,
+              cardColor: wawuColors.purpleDarkestContainer,
               text: 'Professionals',
               desc:
                   'A highly accomplished and experienced superwoman with a proven track record, formal qualifications, and relevant certifications, operating a registered business.',

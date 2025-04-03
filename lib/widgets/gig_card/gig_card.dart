@@ -56,13 +56,14 @@ class GigCard extends StatelessWidget {
                       Row(
                         spacing: 5.0,
                         children: [
-                          ClipOval(
-                            child: Container(
-                              width: 35,
-                              height: 35,
-                              child: Image.asset(
-                                'assets/images/other/avatar.png',
-                              ),
+                          Container(
+                            width: 35,
+                            height: 35,
+                            clipBehavior: Clip.hardEdge,
+                            decoration: BoxDecoration(shape: BoxShape.circle),
+                            child: Image.asset(
+                              'assets/images/other/avatar.jpg',
+                              fit: BoxFit.cover,
                             ),
                           ),
                           Column(

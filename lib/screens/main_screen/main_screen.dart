@@ -34,7 +34,16 @@ class MainScreenState extends State<MainScreen> {
     Row(
       spacing: 10.0,
       children: [
-        Image.asset('assets/images/other/avatar.png', height: 40),
+        Container(
+          width: 40,
+          height: 40,
+          clipBehavior: Clip.hardEdge,
+          decoration: BoxDecoration(shape: BoxShape.circle),
+          child: Image.asset(
+            'assets/images/other/avatar.jpg',
+            fit: BoxFit.cover,
+          ),
+        ),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

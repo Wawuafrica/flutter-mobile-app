@@ -31,7 +31,7 @@ class MerchSettingsScreen extends StatelessWidget {
                     right: 0,
                     child: Center(
                       child: Image.asset(
-                        'assets/images/other/avatar.png',
+                        'assets/images/other/avatar.jpg',
                         width: 100,
                       ),
                     ),

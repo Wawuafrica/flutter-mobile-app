@@ -24,11 +24,14 @@ class MessageCard extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                ClipOval(
+                Container(
+                  width: 50,
+                  height: 50,
+                  clipBehavior: Clip.hardEdge,
+                  decoration: BoxDecoration(shape: BoxShape.circle),
                   child: Image.asset(
-                    'assets/images/other/avatar.png',
-                    width: 50,
-                    height: 50,
+                    'assets/images/other/avatar.jpg',
+                    fit: BoxFit.cover,
                   ),
                 ),
                 Positioned(

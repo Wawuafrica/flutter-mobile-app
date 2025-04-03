@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.wawu_mobile"
+    namespace = "com.wawuafrica.wawu"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 

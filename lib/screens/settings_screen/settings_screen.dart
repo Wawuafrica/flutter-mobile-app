@@ -32,9 +32,15 @@ class SettingsScreen extends StatelessWidget {
                     left: 0,
                     right: 0,
                     child: Center(
-                      child: Image.asset(
-                        'assets/images/other/avatar.png',
+                      child: Container(
                         width: 100,
+                        height: 100,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(shape: BoxShape.circle),
+                        child: Image.asset(
+                          'assets/images/other/avatar.jpg',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                   ),

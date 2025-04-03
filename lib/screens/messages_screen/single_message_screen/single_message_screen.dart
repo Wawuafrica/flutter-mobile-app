@@ -189,8 +189,12 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                 Container(
                   width: 40,
                   height: 40,
+                  clipBehavior: Clip.hardEdge,
                   decoration: BoxDecoration(shape: BoxShape.circle),
-                  child: Image.asset('assets/images/other/avatar.png'),
+                  child: Image.asset(
+                    'assets/images/other/avatar.jpg',
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 Positioned(
                   right: 0,
