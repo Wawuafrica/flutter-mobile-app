@@ -38,7 +38,7 @@ class GigCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Image.asset(
-                  'assets/images/section/programming.png',
+                  'assets/images/section/graphics.png',
                   width: 100,
                   height: 110,
                   fit: BoxFit.cover,

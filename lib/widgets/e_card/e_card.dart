@@ -32,7 +32,7 @@ class ECard extends StatelessWidget {
                 child: Image.asset(
                   height: 160,
                   width: isMargin ? 140 : double.infinity,
-                  'assets/images/section/video.png',
+                  'assets/images/section/graphics.png',
                   fit: BoxFit.cover,
                 ),
               ),

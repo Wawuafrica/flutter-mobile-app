@@ -40,7 +40,7 @@ class CategorySelection extends StatelessWidget {
                       onTap: () {},
                       child: Container(
                         width: double.infinity,
-                        padding: EdgeInsets.all(20.0),
+                        padding: EdgeInsets.symmetric(horizontal: 20.0),
                         decoration: BoxDecoration(
                           color: wawuColors.purpleDarkestContainer,
                           borderRadius: BorderRadius.circular(20),
@@ -49,12 +49,18 @@ class CategorySelection extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: Text(
-                                'Designer',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(height: 20.0),
+                                  Text(
+                                    'Designer',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             Image.asset('assets/images/roles/designer.png'),
@@ -68,13 +74,15 @@ class CategorySelection extends StatelessWidget {
                     mainAxisCellCount: 2.5,
                     child: Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(20.0),
+                      clipBehavior: Clip.hardEdge,
+                      padding: EdgeInsets.symmetric(horizontal: 10.0),
                       decoration: BoxDecoration(
                         color: wawuColors.secondary,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
                         children: [
+                          SizedBox(height: 20.0),
                           Expanded(
                             child: Text(
                               'Data Analyst',
@@ -94,22 +102,26 @@ class CategorySelection extends StatelessWidget {
                     mainAxisCellCount: 3,
                     child: Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(20.0),
+                      // height:,
+                      clipBehavior: Clip.hardEdge,
+                      padding: EdgeInsets.symmetric(horizontal: 10.0),
                       decoration: BoxDecoration(
                         color: wawuColors.purpleDarkContainer,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
                         children: [
-                          Text(
-                            'Programmer',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
+                          SizedBox(height: 20.0),
                           Expanded(
-                            child: Image.asset(
-                              'assets/images/roles/programmer.png',
+                            child: Text(
+                              'Programmer',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
+                          Image.asset('assets/images/roles/programmer.png'),
                         ],
                       ),
                     ),
@@ -119,22 +131,24 @@ class CategorySelection extends StatelessWidget {
                     mainAxisCellCount: 3,
                     child: Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(20.0),
+                      padding: EdgeInsets.symmetric(horizontal: 10.0),
                       decoration: BoxDecoration(
                         color: wawuColors.purpleContainer,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Column(
                         children: [
-                          Text(
-                            'Marketer',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
+                          SizedBox(height: 20.0),
                           Expanded(
-                            child: Image.asset(
-                              'assets/images/roles/marketer.png',
+                            child: Text(
+                              'Marketer',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
+                          Image.asset('assets/images/roles/marketer.png'),
                         ],
                       ),
                     ),
@@ -144,7 +158,7 @@ class CategorySelection extends StatelessWidget {
                     mainAxisCellCount: 2.5,
                     child: Container(
                       width: double.infinity,
-                      padding: EdgeInsets.all(20.0),
+                      padding: EdgeInsets.symmetric(horizontal: 10.0),
                       decoration: BoxDecoration(
                         color: wawuColors.secondary,
                         borderRadius: BorderRadius.circular(20),
@@ -160,18 +174,17 @@ class CategorySelection extends StatelessWidget {
                         },
                         child: Column(
                           children: [
-                            Text(
-                              'More',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                            ),
+                            SizedBox(height: 20.0),
                             Expanded(
-                              child: Image.asset(
-                                'assets/images/roles/more.png',
+                              child: Text(
+                                'More',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
                               ),
                             ),
+                            Image.asset('assets/images/roles/more.png'),
                           ],
                         ),
                       ),

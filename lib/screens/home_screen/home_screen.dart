@@ -68,7 +68,7 @@ class HomeScreen extends StatelessWidget {
                       );
                     },
                     text: 'Graphics & Design',
-                    asset: 'assets/images/section/graphics.png',
+                    asset: 'assets/images/section/photography.png',
                   ),
                   ImageTextCard(
                     function: () {
