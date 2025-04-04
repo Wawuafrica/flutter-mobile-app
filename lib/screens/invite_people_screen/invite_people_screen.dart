@@ -18,7 +18,7 @@ class InvitePeopleScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               height: 300,
-              child: Image.asset('assets/images/onboarding_images/oi3.png'),
+              child: Image.asset('assets/images/onboarding_images/oi3.webp'),
             ),
             SizedBox(height: 40),
             Text('Invite your people to our app and have fun together'),

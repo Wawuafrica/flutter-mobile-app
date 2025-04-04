@@ -11,15 +11,15 @@ class ImageTextCarousel extends StatefulWidget {
 
 final List<Map<String, String>> carouselItems = [
   {
-    'image': 'assets/images/onboarding_images/oi1.png',
+    'image': 'assets/images/onboarding_images/oi1.webp',
     'text': 'Welcome to Wawu Mobile!',
   },
   {
-    'image': 'assets/images/onboarding_images/oi2.png',
+    'image': 'assets/images/onboarding_images/oi2.webp',
     'text': 'Explore amazing features.',
   },
   {
-    'image': 'assets/images/onboarding_images/oi3.png',
+    'image': 'assets/images/onboarding_images/oi3.webp',
     'text': 'Get started now!',
   },
 ];

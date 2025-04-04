@@ -55,7 +55,7 @@ class Wawu extends StatelessWidget {
                       Expanded(
                         flex: 1,
                         child: Image.asset(
-                          'assets/images/onboarding_images/oi1.png',
+                          'assets/images/onboarding_images/oi1.webp',
                           width: 150,
                         ),
                       ),
@@ -112,7 +112,7 @@ class Wawu extends StatelessWidget {
                       Expanded(
                         flex: 1,
                         child: Image.asset(
-                          'assets/images/onboarding_images/oi2.png',
+                          'assets/images/onboarding_images/oi2.webp',
                           width: 150,
                         ),
                       ),
