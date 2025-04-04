@@ -9,7 +9,7 @@ class Disclaimer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Processing Payment')),
+      appBar: AppBar(title: Text('Disclaimer')),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -21,17 +21,16 @@ class Disclaimer extends StatelessWidget {
                 color: wawuColors.primary.withAlpha(30),
                 borderRadius: BorderRadius.circular(10),
               ),
+              child: Center(child: Image.asset('assets/images/other/book.png')),
             ),
             SizedBox(height: 30),
             Text(
               "Hey, so WawAfrica helps women connect and find opportunities, but we're not liable for any financial losses, damage, or scams that may happen on our site.  Your safety's important to us; be careful, double-check things, and be smart about transactions.  Use secure payment methods and don't visit strangers or  share private info.",
-              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
             ),
             SizedBox(height: 20),
             Text(
               "Using WawAfrica means you've read this, and you're taking the risk yourself",
-              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
             ),
             SizedBox(height: 30),

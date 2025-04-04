@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
-import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 
@@ -20,12 +19,10 @@ class PaymentProcessing extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
             ),
-            SizedBox(height: 20),
-            Image.asset('assets/images/other/processing.png'),
-            SizedBox(height: 50),
+            SizedBox(child: Image.asset('assets/images/other/process.png')),
             CustomButton(
               widget: Text(
-                'Proceed To Wawu',
+                'Next',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
