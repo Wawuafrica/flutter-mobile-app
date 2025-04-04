@@ -16,11 +16,7 @@ class ServiceDetailed extends StatelessWidget {
             Container(
               padding: EdgeInsets.all(20.0),
               height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [wawuColors.primary, wawuColors.buttonSecondary],
-                ),
-              ),
+              decoration: BoxDecoration(color: wawuColors.purpleDarkContainer),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -33,10 +29,6 @@ class ServiceDetailed extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                  ),
-                  Text(
-                    'Stewards',
-                    style: TextStyle(fontSize: 12, color: Colors.white),
                   ),
                 ],
               ),

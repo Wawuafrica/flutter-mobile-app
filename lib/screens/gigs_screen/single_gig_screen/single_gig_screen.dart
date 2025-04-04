@@ -34,7 +34,7 @@ class SingleGigScreen extends StatelessWidget {
                       child: Opacity(
                         opacity: 0.7,
                         child: Image.asset(
-                          'assets/images/section/programming.png',
+                          'assets/images/section/graphics.png',
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -45,7 +45,7 @@ class SingleGigScreen extends StatelessWidget {
                       child: Opacity(
                         opacity: 0.7,
                         child: Image.asset(
-                          'assets/images/section/programming.png',
+                          'assets/images/section/graphics.png',
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -56,7 +56,7 @@ class SingleGigScreen extends StatelessWidget {
                       child: Opacity(
                         opacity: 0.7,
                         child: Image.asset(
-                          'assets/images/section/programming.png',
+                          'assets/images/section/graphics.png',
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -132,7 +132,7 @@ class SingleGigScreen extends StatelessWidget {
                         color: Colors.white,
                       ),
                       child: Image.asset(
-                        'assets/images/other/avatar.jpg',
+                        'assets/images/other/avatar.webp',
                         // fit: BoxFit.cover,
                       ),
                     ),

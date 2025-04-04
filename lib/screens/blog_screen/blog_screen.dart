@@ -115,7 +115,7 @@ class BlogScreen extends StatelessWidget {
                         spacing: 10.0,
                         children: [
                           Image.asset(
-                            'assets/images/section/video.png',
+                            'assets/images/section/graphics.png',
                             width: 80,
                             // height: 80,
                             fit: BoxFit.cover,

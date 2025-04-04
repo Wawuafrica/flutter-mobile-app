@@ -102,7 +102,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                                   child:
                                       _profileImage == null
                                           ? Image.asset(
-                                            'assets/images/other/avatar.jpg',
+                                            'assets/images/other/avatar.webp',
                                           )
                                           : Image.file(
                                             _profileImage!,

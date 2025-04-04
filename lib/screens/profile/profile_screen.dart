@@ -103,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   child:
                                       _profileImage == null
                                           ? Image.asset(
-                                            'assets/images/other/avatar.jpg',
+                                            'assets/images/other/avatar.webp',
                                           )
                                           : Image.file(
                                             _profileImage!,

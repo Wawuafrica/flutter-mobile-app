@@ -21,11 +21,13 @@ class Disclaimer extends StatelessWidget {
                 color: wawuColors.primary.withAlpha(30),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Center(child: Image.asset('assets/images/other/book.png')),
+              child: Center(
+                child: Image.asset('assets/images/other/book.webp'),
+              ),
             ),
             SizedBox(height: 30),
             Text(
-              "Hey, so WawAfrica helps women connect and find opportunities, but we're not liable for any financial losses, damage, or scams that may happen on our site.  Your safety's important to us; be careful, double-check things, and be smart about transactions.  Use secure payment methods and don't visit strangers or  share private info.",
+              "Hey, so WawuAfrica helps women connect and find opportunities, but we're not liable for any financial losses, damage, or scams that may happen on our site.  Your safety's important to us; be careful, double-check things, and be smart about transactions.  Use secure payment methods and don't visit strangers or  share private info.",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
             ),
             SizedBox(height: 20),

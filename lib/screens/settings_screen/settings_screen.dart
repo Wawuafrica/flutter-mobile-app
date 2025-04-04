@@ -38,7 +38,7 @@ class SettingsScreen extends StatelessWidget {
                         clipBehavior: Clip.hardEdge,
                         decoration: BoxDecoration(shape: BoxShape.circle),
                         child: Image.asset(
-                          'assets/images/other/avatar.jpg',
+                          'assets/images/other/avatar.webp',
                           fit: BoxFit.cover,
                         ),
                       ),

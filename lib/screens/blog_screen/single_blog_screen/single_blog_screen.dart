@@ -13,21 +13,21 @@ class SingleBlogScreen extends StatelessWidget {
       Container(
         decoration: BoxDecoration(color: Colors.red.withAlpha(0)),
         child: Image.asset(
-          'assets/images/section/video.png',
+          'assets/images/section/graphics.png',
           fit: BoxFit.cover,
         ),
       ),
       Container(
         decoration: BoxDecoration(color: Colors.red.withAlpha(0)),
         child: Image.asset(
-          'assets/images/section/video.png',
+          'assets/images/section/graphics.png',
           fit: BoxFit.cover,
         ),
       ),
       Container(
         decoration: BoxDecoration(color: Colors.red.withAlpha(0)),
         child: Image.asset(
-          'assets/images/section/video.png',
+          'assets/images/section/graphics.png',
           fit: BoxFit.cover,
         ),
       ),

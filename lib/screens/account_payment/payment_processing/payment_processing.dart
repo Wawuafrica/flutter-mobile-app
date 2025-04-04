@@ -19,7 +19,7 @@ class PaymentProcessing extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
             ),
-            SizedBox(child: Image.asset('assets/images/other/process.png')),
+            SizedBox(child: Image.asset('assets/images/other/service.webp')),
             CustomButton(
               widget: Text(
                 'Next',

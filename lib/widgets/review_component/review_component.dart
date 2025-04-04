@@ -33,7 +33,7 @@ class ReviewComponent extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: Colors.grey,
                 ),
-                child: Image.asset('assets/images/section/programming.png'),
+                child: Image.asset('assets/images/other/avatar.webp'),
               ),
               Expanded(
                 child: Column(
