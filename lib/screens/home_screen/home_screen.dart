@@ -68,7 +68,7 @@ class HomeScreen extends StatelessWidget {
                       );
                     },
                     text: 'Graphics & Design',
-                    asset: 'assets/images/section/photography.png',
+                    asset: 'assets/images/section/photography.webp',
                   ),
                   ImageTextCard(
                     function: () {
@@ -78,7 +78,7 @@ class HomeScreen extends StatelessWidget {
                       );
                     },
                     text: 'Programming',
-                    asset: 'assets/images/section/programming.png',
+                    asset: 'assets/images/section/programming.webp',
                   ),
                   ImageTextCard(
                     function: () {
@@ -88,7 +88,7 @@ class HomeScreen extends StatelessWidget {
                       );
                     },
                     text: 'Video & Animation',
-                    asset: 'assets/images/section/video.png',
+                    asset: 'assets/images/section/video.webp',
                   ),
                 ],
               ),
