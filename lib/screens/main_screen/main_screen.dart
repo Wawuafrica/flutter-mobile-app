@@ -41,6 +41,7 @@ class MainScreenState extends State<MainScreen> {
           decoration: BoxDecoration(shape: BoxShape.circle),
           child: Image.asset(
             'assets/images/other/avatar.webp',
+            cacheWidth: 40,
             fit: BoxFit.cover,
           ),
         ),

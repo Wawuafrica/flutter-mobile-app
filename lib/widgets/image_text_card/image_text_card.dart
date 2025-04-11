@@ -23,13 +23,18 @@ class ImageTextCard extends StatelessWidget {
           children: [
             Expanded(
               child: Container(
-                padding: EdgeInsets.fromLTRB(0, 10.0, 0, 0),
+                padding: EdgeInsets.fromLTRB(0, 6.0, 0, 0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  color: wawuColors.purpleDarkContainer.withAlpha(50),
+                  color: wawuColors.primary.withAlpha(50),
                 ),
                 clipBehavior: Clip.hardEdge,
-                child: Image.asset(asset, width: 140, fit: BoxFit.cover),
+                child: Image.asset(
+                  asset,
+                  width: 140,
+                  fit: BoxFit.cover,
+                  cacheWidth: 140,
+                ),
               ),
             ),
             Text(text, style: TextStyle(overflow: TextOverflow.ellipsis)),
