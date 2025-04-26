@@ -1,5 +1,5 @@
 class HttpService {
-  final String baseUrl = 'http://localhost:3000';
+  final String baseUrl = 'https://staging.wawuafrica.com/';
 
   // Future<http.Response> get(String path) async {
   //   final response = await http.get(Uri.parse('$_baseUrl$path'));

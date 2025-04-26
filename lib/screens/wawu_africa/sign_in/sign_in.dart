@@ -49,10 +49,10 @@ class _SignInState extends State<SignIn> {
               SizedBox(height: 20),
               CustomButton(
                 function: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => AccountType()),
-                  );
+                  // Navigator.push(
+                  //   context,
+                  //   MaterialPageRoute(builder: (context) => AccountType()),
+                  // );
                 },
                 widget: Text(
                   'Sign In',

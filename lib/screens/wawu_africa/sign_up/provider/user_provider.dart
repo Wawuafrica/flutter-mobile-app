@@ -21,7 +21,7 @@ class UserProvider extends ChangeNotifier {
   ) async {
     _setLoading(true);
     final String requestBody = jsonEncode(userData);
-    final Uri url = Uri.parse(service.baseUrl);
+    final Uri url = Uri.parse('${service.baseUrl}/api/user/register');
 
     try {
       final http.Response response = await http.post(
@@ -57,7 +57,7 @@ class UserProvider extends ChangeNotifier {
   ) async {
     _setLoading(true);
     final String requestBody = jsonEncode(loginData);
-    final Uri url = Uri.parse('${service.baseUrl}/login');
+    final Uri url = Uri.parse('${service.baseUrl}/api/user/login');
 
     try {
       final http.Response response = await http.post(
