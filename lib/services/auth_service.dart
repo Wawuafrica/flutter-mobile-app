@@ -31,7 +31,7 @@ class AuthService {
     }
   }
 
-  Future<void> _saveToken(String token) async {
+  Future<void> saveToken(String token) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_authTokenKey, token);
     _token = token;
@@ -88,7 +88,7 @@ class AuthService {
         final User user = User.fromJson(
           response['user'] as Map<String, dynamic>,
         );
-        await _saveToken(token);
+        await saveToken(token);
         await _saveUser(user);
         _logger.i('Login successful for user: ${user.email}');
         return user;
@@ -132,7 +132,7 @@ class AuthService {
         final User user = User.fromJson(
           response['user'] as Map<String, dynamic>,
         );
-        await _saveToken(token);
+        await saveToken(token);
         await _saveUser(user);
         _logger.i('Registration successful for user: ${user.email}');
         return user;

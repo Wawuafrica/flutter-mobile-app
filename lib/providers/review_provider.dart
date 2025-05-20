@@ -57,7 +57,7 @@ class ReviewProvider extends BaseProvider {
       }
     }, errorMessage: 'Failed to fetch user reviews');
 
-    return result ?? [];
+    final List<Review> typedResult = result?.cast<Review>() ?? []; return typedResult;
   }
 
   /// Fetches reviews for a specific gig
@@ -87,7 +87,7 @@ class ReviewProvider extends BaseProvider {
       }
     }, errorMessage: 'Failed to fetch gig reviews');
 
-    return result ?? [];
+    final List<Review> typedResult = result?.cast<Review>() ?? []; return typedResult;
   }
 
   /// Creates a new review

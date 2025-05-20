@@ -14,6 +14,8 @@ import 'providers/user_provider.dart';
 import 'providers/message_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/gig_provider.dart';
+import 'providers/application_provider.dart';
+import 'providers/review_provider.dart';
 import 'providers/blog_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/category_provider.dart';
@@ -26,16 +28,16 @@ void main() async {
 
   try {
     final apiService = ApiService();
+    final authService = AuthService(apiService: apiService, logger: logger);
     await apiService.initialize(
-      baseUrl: const String.fromEnvironment(
+      apiBaseUrl: const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'https://api.wawu.com/api',
+        defaultValue: 'https://staging.wawuafrica.com/api',
       ),
+      authService: authService,
     );
 
     final pusherService = PusherService();
-
-    final authService = AuthService(apiService: apiService, logger: logger);
 
     runApp(
       MultiProvider(
@@ -71,6 +73,20 @@ void main() async {
           ChangeNotifierProvider(
             create:
                 (context) => GigProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => ApplicationProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => ReviewProvider(
                   apiService: apiService,
                   pusherService: pusherService,
                 ),

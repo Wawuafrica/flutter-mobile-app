@@ -92,7 +92,7 @@ class GigProvider extends BaseProvider {
       }
     }, errorMessage: 'Failed to fetch available gigs');
 
-    return result ?? [];
+    final List<Gig> typedResult = result?.cast<Gig>() ?? []; return typedResult;
   }
 
   /// Fetches gigs created by a specific user
@@ -123,7 +123,7 @@ class GigProvider extends BaseProvider {
       }
     }, errorMessage: 'Failed to fetch user gigs');
 
-    return result ?? [];
+    final List<Gig> typedResult = result?.cast<Gig>() ?? []; return typedResult;
   }
 
   /// Creates a new gig
@@ -147,7 +147,7 @@ class GigProvider extends BaseProvider {
         'description': description,
         'service_id': serviceId, // This is the required identifier for the specific service
         'budget': budget,
-        'currency': currency ?? 'USD',
+        'currency': currency,
         'deadline': deadline.toIso8601String(),
         'location': location,
       };
@@ -230,21 +230,22 @@ class GigProvider extends BaseProvider {
           return gig;
         }).toList();
 
-      // Update in user gigs if present
-      _userGigs =
-          _userGigs.map((gig) {
-            if (gig.id == gigId) {
-              return updatedGig;
-            }
-            return gig;
-          }).toList();
+        // Update in user gigs if present
+        _userGigs = _userGigs.map((gig) {
+          if (gig.id == gigId) {
+            return updatedGig;
+          }
+          return gig;
+        }).toList();
 
-      // Update selected gig if it's the one being edited
-      if (_selectedGig != null && _selectedGig!.id == gigId) {
-        _selectedGig = updatedGig;
+        // Update selected gig if it's the one being edited
+        if (_selectedGig != null && _selectedGig!.id == gigId) {
+          _selectedGig = updatedGig;
+        }
+
+        return updatedGig;
       }
-
-      return updatedGig;
+      throw Exception('Invalid response format when updating gig');
     }, errorMessage: 'Failed to update gig');
   }
 

@@ -3,39 +3,9 @@ import 'package:wawu_mobile/screens/location_verification/location_verification.
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/account_type_card/account_type_card.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
-import 'package:provider/provider.dart';
 
 class AccountType extends StatelessWidget {
-  final Map<String, dynamic> userData;
-
-  const AccountType({super.key, required this.userData});
-
-  void _handleAccountTypeSelection(BuildContext context, String accountType) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    userData['accountType'] = accountType; // Add account type to user data
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Center(child: CircularProgressIndicator());
-      },
-    );
-
-    userProvider
-        .handleSignUp(userData, context)
-        .then((_) {
-          Navigator.pop(context); // Close the loading dialog
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => LocationVerification()),
-          );
-        })
-        .catchError((error) {
-          Navigator.pop(context); // Close the loading dialog
-          // Handle error, show notification or dialog
-        });
-  }
+  const AccountType({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -51,8 +21,14 @@ class AccountType extends StatelessWidget {
               desc: 'Select the user account type you want to sign up as',
             ),
             AccountTypeCard(
-              navigate:
-                  () => _handleAccountTypeSelection(context, 'Professionals'),
+              navigate: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LocationVerification(),
+                  ),
+                );
+              },
               cardColor: wawuColors.purpleDarkestContainer,
               text: 'Professionals',
               desc:
@@ -61,7 +37,14 @@ class AccountType extends StatelessWidget {
             ),
             SizedBox(height: 20),
             AccountTypeCard(
-              navigate: () => _handleAccountTypeSelection(context, 'Artisan'),
+              navigate: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LocationVerification(),
+                  ),
+                );
+              },
               cardColor: wawuColors.purpleContainer,
               text: 'Artisan',
               desc:
@@ -70,7 +53,14 @@ class AccountType extends StatelessWidget {
             ),
             SizedBox(height: 20),
             AccountTypeCard(
-              navigate: () => _handleAccountTypeSelection(context, 'Buyer'),
+              navigate: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => LocationVerification(),
+                  ),
+                );
+              },
               cardColor: wawuColors.white,
               text: 'Buyer',
               desc:
