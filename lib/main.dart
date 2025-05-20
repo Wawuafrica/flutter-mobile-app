@@ -1,9 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:logger/logger.dart';
 
-void main() {
-  runApp(const MyApp());
+// Services
+import 'services/api_service.dart';
+import 'services/pusher_service.dart';
+import 'services/auth_service.dart';
+
+// Providers
+import 'providers/user_provider.dart';
+import 'providers/message_provider.dart';
+import 'providers/notification_provider.dart';
+import 'providers/gig_provider.dart';
+import 'providers/blog_provider.dart';
+import 'providers/product_provider.dart';
+import 'providers/category_provider.dart';
+import 'providers/plan_provider.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final logger = Logger();
+
+  try {
+    final apiService = ApiService();
+    await apiService.initialize(
+      baseUrl: const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'https://api.wawu.com/api',
+      ),
+    );
+
+    final pusherService = PusherService();
+
+    final authService = AuthService(apiService: apiService, logger: logger);
+
+    runApp(
+      MultiProvider(
+        providers: [
+          Provider<Logger>.value(value: logger),
+          Provider<ApiService>.value(value: apiService),
+          Provider<PusherService>.value(value: pusherService),
+          Provider<AuthService>.value(value: authService),
+
+          ChangeNotifierProvider(
+            create:
+                (context) => UserProvider(
+                  authService: authService,
+                  apiService: apiService,
+                  pusherService: pusherService,
+                  logger: logger,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => MessageProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => NotificationProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => GigProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => BlogProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => ProductProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) =>
+                    CategoryProvider(apiService: apiService, logger: logger),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) =>
+                    PlanProvider(apiService: apiService, logger: logger),
+          ),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  } catch (e, stackTrace) {
+    logger.e('Error initializing app: $e\n$stackTrace');
+    runApp(const MyApp());
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -20,6 +123,7 @@ class MyApp extends StatelessWidget {
           Theme.of(context).primaryTextTheme,
         ),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
       home: Wawu(),
     );

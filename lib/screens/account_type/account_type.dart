@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/location_verification/location_verification.dart';
-import 'package:wawu_mobile/screens/wawu_africa/sign_up/provider/user_provider.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/account_type_card/account_type_card.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';

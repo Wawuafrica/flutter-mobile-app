@@ -78,15 +78,18 @@ class AuthService {
   Future<User> login(String email, String password) async {
     try {
       _logger.i('Attempting login for email: $email');
-      final response = await _apiService.post<Map<String, dynamic>>(
-        '/auth/login',
+      final response = await _apiService.post(
+        '/api/user/login',
         data: {'email': email, 'password': password},
       );
 
-      if (response.containsKey('access_token') && response.containsKey('user')) {
-        final String token = response['access_token'] as String;
+      if (response != null &&
+          response['data'] != null &&
+          response['data']['token'] != null &&
+          response['data']['user'] != null) {
+        final String token = response['data']['token'] as String;
         final User user = User.fromJson(
-          response['user'] as Map<String, dynamic>,
+          response['data']['user'] as Map<String, dynamic>,
         );
         await _saveToken(token);
         await _saveUser(user);
@@ -95,10 +98,11 @@ class AuthService {
       } else {
         _logger.w('Login response missing token or user data: $response');
         throw ApiException(
-          response['message'] as String? ??
+          response?['message'] as String? ??
               'Login failed: Invalid response structure',
           DioException(
-            requestOptions: RequestOptions(path: '/auth/login'),
+            requestOptions: RequestOptions(path: '/api/user/login'),
+            response: response is Response ? response as Response : null,
             type: DioExceptionType.badResponse,
           ),
         );
@@ -121,28 +125,29 @@ class AuthService {
 
   Future<User> register(Map<String, dynamic> userData) async {
     try {
-      _logger.i('Attempting registration with data: $userData');
-      final response = await _apiService.post<Map<String, dynamic>>(
-        '/auth/register',
+      _logger.i('Attempting registration for email: ${userData['email']}');
+      final response = await _apiService.post(
+        '/api/user/register',
         data: userData,
       );
 
-      if (response.containsKey('access_token') && response.containsKey('user')) {
-        final String token = response['access_token'] as String;
-        final User user = User.fromJson(
-          response['user'] as Map<String, dynamic>,
-        );
-        await _saveToken(token);
-        await _saveUser(user);
+      if (response != null && response['data'] != null) {
+        final user = User.fromJson(response['data'] as Map<String, dynamic>);
         _logger.i('Registration successful for user: ${user.email}');
+        if (response['data']['token'] != null) {
+          final String token = response['data']['token'] as String;
+          await _saveToken(token);
+          await _saveUser(user);
+        }
         return user;
       } else {
-        _logger.w('Registration response missing token or user data: $response');
+        _logger.w('Register response missing data: $response');
         throw ApiException(
-          response['message'] as String? ??
+          response?['message'] as String? ??
               'Registration failed: Invalid response structure',
           DioException(
-            requestOptions: RequestOptions(path: '/auth/register'),
+            requestOptions: RequestOptions(path: '/api/user/register'),
+            response: response is Response ? response as Response : null,
             type: DioExceptionType.badResponse,
           ),
         );
@@ -155,7 +160,7 @@ class AuthService {
       throw ApiException(
         e.toString(),
         DioException(
-          requestOptions: RequestOptions(path: '/auth/register'),
+          requestOptions: RequestOptions(path: '/api/user/register'),
           error: e,
           type: DioExceptionType.unknown,
         ),
@@ -165,39 +170,49 @@ class AuthService {
 
   Future<void> logout() async {
     try {
-      _logger.i('Logging out user');
-      await _apiService.post('/auth/logout');
-      await _clearToken();
-      await _clearUser();
-      _logger.i('Logout successful');
+      _logger.i('Attempting logout.');
+      if (isAuthenticated) {
+        // Only attempt API logout if authenticated
+        await _apiService.post('/api/user/logout', data: {});
+      }
     } catch (e) {
-      _logger.e('Error during logout: $e');
-      // Still clear token and user locally even if API call fails
+      _logger.e('API logout failed: $e');
+      // Do not rethrow if API call fails, still proceed to clear local data
+    } finally {
       await _clearToken();
       await _clearUser();
+      _logger.i('Local logout completed (token & user data cleared).');
     }
   }
 
   Future<User> getCurrentUserProfile() async {
-    try {
-      _logger.i('Fetching current user profile');
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '/auth/me',
+    if (!isAuthenticated) {
+      throw ApiException(
+        'Not authenticated',
+        DioException(
+          requestOptions: RequestOptions(path: '/api/user/profile'),
+          type: DioExceptionType.unknown,
+        ),
       );
-
-      if (response.containsKey('user')) {
+    }
+    try {
+      _logger.i('Fetching current user profile.');
+      final response = await _apiService.get('/api/user/profile');
+      if (response != null && response['data'] != null) {
         final User user = User.fromJson(
-          response['user'] as Map<String, dynamic>,
+          response['data'] as Map<String, dynamic>,
         );
-        await _saveUser(user); // Store user profile in SharedPreferences
-        _logger.i('Successfully fetched user profile: ${user.email}');
+        await _saveUser(user);
+        _logger.i('Fetched profile for user: ${user.email}');
         return user;
       } else {
-        _logger.w('User profile response missing data: $response');
+        _logger.w('Get profile response missing data: $response');
         throw ApiException(
-          response['message'] as String? ?? 'Failed to fetch user profile',
+          response?['message'] as String? ??
+              'Failed to get profile: Invalid response structure',
           DioException(
-            requestOptions: RequestOptions(path: '/auth/me'),
+            requestOptions: RequestOptions(path: '/api/user/profile'),
+            response: response is Response ? response as Response : null,
             type: DioExceptionType.badResponse,
           ),
         );
@@ -272,7 +287,7 @@ class AuthService {
     try {
       _logger.i('Requesting password reset for email: $email');
       await _apiService.post(
-        '/auth/forgot-password',
+        '/api/user/password/forgot',
         data: {'email': email},
       );
       _logger.i('Forgot password request successful for email: $email');
@@ -284,7 +299,7 @@ class AuthService {
       throw ApiException(
         e.toString(),
         DioException(
-          requestOptions: RequestOptions(path: '/auth/forgot-password'),
+          requestOptions: RequestOptions(path: '/api/user/password/forgot'),
           error: e,
           type: DioExceptionType.unknown,
         ),
@@ -300,13 +315,16 @@ class AuthService {
   ) async {
     try {
       _logger.i('Resetting password for email: $email');
+      // Make sure the key for password confirmation matches the API
+      // Based on Postman snippet for Reset Password, it was "passwordConfirmation", not "password_confirmation"
+      // However, the User model for register used "password_confirmation". I will assume "passwordConfirmation" for reset password endpoint.
       await _apiService.post(
-        '/auth/reset-password',
+        '/api/user/password/reset',
         data: {
           'email': email,
-          'token': otp,
+          'otp': otp,
           'password': newPassword,
-          'password_confirmation': confirmPassword,
+          'passwordConfirmation': confirmPassword,
         },
       );
       _logger.i('Reset password successful for email: $email');
@@ -318,7 +336,7 @@ class AuthService {
       throw ApiException(
         e.toString(),
         DioException(
-          requestOptions: RequestOptions(path: '/auth/reset-password'),
+          requestOptions: RequestOptions(path: '/api/user/password/reset'),
           error: e,
           type: DioExceptionType.unknown,
         ),
