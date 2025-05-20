@@ -63,7 +63,7 @@ class ApplicationProvider extends BaseProvider {
       }
     }, errorMessage: 'Failed to fetch gig applications');
 
-    return result ?? [];
+    final List<GigApplication> typedResult = result?.cast<GigApplication>() ?? []; return typedResult;
   }
 
   /// Fetches applications made by the current user
@@ -93,7 +93,7 @@ class ApplicationProvider extends BaseProvider {
       }
     }, errorMessage: 'Failed to fetch user applications');
 
-    return result ?? [];
+    final List<GigApplication> typedResult = result?.cast<GigApplication>() ?? []; return typedResult;
   }
 
   /// Creates a new application
@@ -310,3 +310,4 @@ class ApplicationProvider extends BaseProvider {
     super.dispose();
   }
 }
+

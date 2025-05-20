@@ -29,7 +29,7 @@ class CategoryProvider extends BaseProvider {
       super();
 
   Future<List<Category>> fetchCategories() async {
-    return await handleAsync(() async {
+    final result = await handleAsync<List<Category>>(() async {
       _logger.i('Fetching all top-level categories');
       
       final response = await _apiService.get<Map<String, dynamic>>(
@@ -49,10 +49,11 @@ class CategoryProvider extends BaseProvider {
         throw Exception('Failed to fetch categories: Invalid response structure');
       }
     }, errorMessage: 'Failed to fetch categories');
+    return result ?? [];
   }
 
   Future<Category?> fetchCategoryById(String categoryId) async {
-    return await handleAsync(() async {
+    final result = await handleAsync<Category>(() async {
       _logger.i('Fetching category by ID: $categoryId');
       final response = await _apiService.get<Map<String, dynamic>>(
         '/categories/$categoryId',
@@ -63,18 +64,19 @@ class CategoryProvider extends BaseProvider {
           response['data'] as Map<String, dynamic>,
         );
         _logger.i('Fetched category: ${_selectedCategory?.name}');
-        return _selectedCategory;
+        return _selectedCategory!;
       } else {
         _logger.w('Fetch category by ID response missing data: $response');
         _selectedCategory = null;
         throw Exception('Failed to fetch category: Invalid response structure');
       }
     }, errorMessage: 'Failed to fetch category details');
+    return result;
   }
   
   // Get all sub-categories for a specific category
   Future<List<SubCategory>> fetchSubCategories(String categoryId) async {
-    return await handleAsync(() async {
+    final result = await handleAsync<List<SubCategory>>(() async {
       _logger.i('Fetching sub-categories for category ID: $categoryId');
       final response = await _apiService.get<Map<String, dynamic>>(
         '/categories/$categoryId/subcategories',
@@ -93,11 +95,12 @@ class CategoryProvider extends BaseProvider {
         throw Exception('Failed to fetch sub-categories: Invalid response structure');
       }
     }, errorMessage: 'Failed to fetch sub-categories');
+    return result ?? [];
   }
   
   // Get all services for a specific sub-category
   Future<List<Service>> fetchServices(String subCategoryId) async {
-    return await handleAsync(() async {
+    final result = await handleAsync<List<Service>>(() async {
       _logger.i('Fetching services for sub-category ID: $subCategoryId');
       final response = await _apiService.get<Map<String, dynamic>>(
         '/subcategories/$subCategoryId/services',
@@ -116,6 +119,7 @@ class CategoryProvider extends BaseProvider {
         throw Exception('Failed to fetch services: Invalid response structure');
       }
     }, errorMessage: 'Failed to fetch services');
+    return result ?? [];
   }
 
   Future<Category?> createCategory(Map<String, dynamic> categoryData) async {

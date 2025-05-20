@@ -1,4 +1,5 @@
 class Category {
+  String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
   final String? slug;
@@ -35,6 +36,7 @@ class Category {
 }
 
 class SubCategory {
+  String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
   final String? slug;
@@ -75,6 +77,7 @@ class SubCategory {
 }
 
 class Service {
+  String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
   final String? description;
