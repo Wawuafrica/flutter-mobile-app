@@ -20,6 +20,7 @@ class User {
   final String? referralCode;
   final String? referredBy;
   final bool? isSubscribed;
+  final bool? termsAccepted;
   final AdditionalInfo? additionalInfo;
   final List<Portfolio>? portfolios;
   // Token is usually handled separately and not part of the User model itself
@@ -49,6 +50,7 @@ class User {
     this.isSubscribed,
     this.additionalInfo,
     this.portfolios,
+    this.termsAccepted,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -77,7 +79,7 @@ class User {
       referralCode: json['referralCode'] as String?,
       referredBy: json['referredBy'] as String?,
       isSubscribed: json['isSubscribed'] as bool?,
-      additionalInfo:
+        additionalInfo:
           json['additionalInfo'] != null && (json['additionalInfo'] is Map)
               ? AdditionalInfo.fromJson(
                 json['additionalInfo'] as Map<String, dynamic>,

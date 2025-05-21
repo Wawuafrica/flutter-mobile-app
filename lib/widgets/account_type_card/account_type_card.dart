@@ -7,6 +7,7 @@ class AccountTypeCard extends StatelessWidget {
   final String desc;
   final bool borderBlack;
   final GestureTapCallback navigate;
+  final bool selected;
 
   const AccountTypeCard({
     super.key,
@@ -16,6 +17,7 @@ class AccountTypeCard extends StatelessWidget {
     required this.textColor,
     this.borderBlack = false,
     required this.navigate,
+    this.selected = false,
   });
 
   @override
@@ -29,8 +31,9 @@ class AccountTypeCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(10),
-          border:
-              borderBlack
+          border: selected
+              ? Border.all(color: Colors.blue, width: 2.0)
+              : borderBlack
                   ? Border.all(color: const Color.fromARGB(255, 213, 213, 213))
                   : Border.all(color: cardColor),
         ),

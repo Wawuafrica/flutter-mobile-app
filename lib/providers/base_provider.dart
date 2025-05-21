@@ -58,7 +58,7 @@ class BaseProvider extends ChangeNotifier {
       final result = await operation();
       setSuccess();
       return result;
-    } catch (e, stackTrace) {
+    } catch (e) {
       _logger.e('Error in ${runtimeType.toString()}');
       setError(errorMessage ?? e.toString());
       return null;

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import '../models/application.dart';
-import '../models/gig.dart';
 import '../providers/base_provider.dart';
 import '../services/api_service.dart';
 import '../services/pusher_service.dart';
