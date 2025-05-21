@@ -79,11 +79,12 @@ class AuthService {
     try {
       _logger.i('Attempting login for email: $email');
       final response = await _apiService.post<Map<String, dynamic>>(
-        '/auth/login',
+        '/user/login',
         data: {'email': email, 'password': password},
       );
 
-      if (response.containsKey('access_token') && response.containsKey('user')) {
+      if (response.containsKey('access_token') &&
+          response.containsKey('user')) {
         final String token = response['access_token'] as String;
         final User user = User.fromJson(
           response['user'] as Map<String, dynamic>,
@@ -98,7 +99,7 @@ class AuthService {
           response['message'] as String? ??
               'Login failed: Invalid response structure',
           DioException(
-            requestOptions: RequestOptions(path: '/auth/login'),
+            requestOptions: RequestOptions(path: '/user/login'),
             type: DioExceptionType.badResponse,
           ),
         );
@@ -111,7 +112,7 @@ class AuthService {
       throw ApiException(
         e.toString(),
         DioException(
-          requestOptions: RequestOptions(path: '/api/user/login'),
+          requestOptions: RequestOptions(path: '/user/login'),
           error: e,
           type: DioExceptionType.unknown,
         ),
@@ -123,11 +124,12 @@ class AuthService {
     try {
       _logger.i('Attempting registration with data: $userData');
       final response = await _apiService.post<Map<String, dynamic>>(
-        '/auth/register',
+        '/user/register',
         data: userData,
       );
 
-      if (response.containsKey('access_token') && response.containsKey('user')) {
+      if (response.containsKey('access_token') &&
+          response.containsKey('user')) {
         final String token = response['access_token'] as String;
         final User user = User.fromJson(
           response['user'] as Map<String, dynamic>,
@@ -137,12 +139,14 @@ class AuthService {
         _logger.i('Registration successful for user: ${user.email}');
         return user;
       } else {
-        _logger.w('Registration response missing token or user data: $response');
+        _logger.w(
+          'Registration response missing token or user data: $response',
+        );
         throw ApiException(
           response['message'] as String? ??
               'Registration failed: Invalid response structure',
           DioException(
-            requestOptions: RequestOptions(path: '/auth/register'),
+            requestOptions: RequestOptions(path: '/user/register'),
             type: DioExceptionType.badResponse,
           ),
         );
@@ -155,7 +159,7 @@ class AuthService {
       throw ApiException(
         e.toString(),
         DioException(
-          requestOptions: RequestOptions(path: '/auth/register'),
+          requestOptions: RequestOptions(path: '/user/register'),
           error: e,
           type: DioExceptionType.unknown,
         ),
@@ -181,9 +185,7 @@ class AuthService {
   Future<User> getCurrentUserProfile() async {
     try {
       _logger.i('Fetching current user profile');
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '/auth/me',
-      );
+      final response = await _apiService.get<Map<String, dynamic>>('/auth/me');
 
       if (response.containsKey('user')) {
         final User user = User.fromJson(
@@ -271,10 +273,7 @@ class AuthService {
   Future<void> forgotPassword(String email) async {
     try {
       _logger.i('Requesting password reset for email: $email');
-      await _apiService.post(
-        '/auth/forgot-password',
-        data: {'email': email},
-      );
+      await _apiService.post('/auth/forgot-password', data: {'email': email});
       _logger.i('Forgot password request successful for email: $email');
     } on DioException catch (e) {
       _logger.e('Forgot password failed (DioException): ${e.message}');

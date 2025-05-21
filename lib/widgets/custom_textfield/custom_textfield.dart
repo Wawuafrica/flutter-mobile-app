@@ -49,7 +49,12 @@ class CustomTextfield extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           onChanged: onChanged,
-          maxLines: maxLines ? maxLinesNum : null,
+          maxLines:
+              obscureText
+                  ? 1
+                  : maxLines
+                  ? maxLinesNum
+                  : null,
           decoration: InputDecoration(
             labelText: labelTextStyle2 ? null : labelText,
             hintText: hintText,
