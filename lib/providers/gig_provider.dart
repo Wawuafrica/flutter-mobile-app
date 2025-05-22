@@ -39,7 +39,7 @@ class GigProvider extends BaseProvider {
     List<String>? skills,
     String? serviceId,
   }) async {
-    final result = await handleAsync(() async {
+    try {
       // Build query parameters
       final Map<String, dynamic> queryParams = {
         // Default to first page, 20 items per page
@@ -90,14 +90,15 @@ class GigProvider extends BaseProvider {
         _availableGigs = [];
         return [];
       }
-    }, errorMessage: 'Failed to fetch available gigs');
-
-    final List<Gig> typedResult = result?.cast<Gig>() ?? []; return typedResult;
+    } catch (e) {
+      print('Failed to fetch available gigs: $e');
+      return [];
+    }
   }
 
   /// Fetches gigs created by a specific user
   Future<List<Gig>> fetchUserGigs(String userId) async {
-    final result = await handleAsync(() async {
+    try {
       // Get my gigs
       final response = await _apiService.get<Map<String, dynamic>>(
         '/gigs/my-gigs',
@@ -121,9 +122,10 @@ class GigProvider extends BaseProvider {
         _userGigs = [];
         return [];
       }
-    }, errorMessage: 'Failed to fetch user gigs');
-
-    final List<Gig> typedResult = result?.cast<Gig>() ?? []; return typedResult;
+    } catch (e) {
+      print('Failed to fetch user gigs: $e');
+      return [];
+    }
   }
 
   /// Creates a new gig
@@ -140,7 +142,7 @@ class GigProvider extends BaseProvider {
     List<String>? skills,
     Map<String, dynamic>? additionalDetails,
   }) async {
-    return await handleAsync(() async {
+    try {
       // Create the API request payload
       final Map<String, dynamic> payload = {
         'title': title,
@@ -173,9 +175,13 @@ class GigProvider extends BaseProvider {
 
         return gig;
       } else {
-        throw Exception('Invalid response format when creating gig');
+        print('Invalid response format when creating gig');
+        return null;
       }
-    }, errorMessage: 'Failed to create gig');
+    } catch (e) {
+      print('Failed to create gig: $e');
+      return null;
+    }
   }
 
   /// Updates an existing gig
@@ -195,7 +201,7 @@ class GigProvider extends BaseProvider {
     String? assignedTo,
     Map<String, dynamic>? additionalDetails,
   }) async {
-    return await handleAsync(() async {
+    try {
       // Build the update payload with only fields that need to be updated
       final Map<String, dynamic> updateData = {};
       
@@ -244,14 +250,19 @@ class GigProvider extends BaseProvider {
         }
 
         return updatedGig;
+      } else {
+        print('Invalid response format when updating gig');
+        return null;
       }
-      throw Exception('Invalid response format when updating gig');
-    }, errorMessage: 'Failed to update gig');
+    } catch (e) {
+      print('Failed to update gig: $e');
+      return null;
+    }
   }
 
   /// Assigns a gig to a user
   Future<bool> assignGig(String gigId, String userId) async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API endpoint for assigning a gig application
       await _apiService.post<Map<String, dynamic>>(
         '/gigs/$gigId/applications/$userId/accept',
@@ -262,14 +273,15 @@ class GigProvider extends BaseProvider {
       await updateGig(gigId: gigId, status: 'assigned', assignedTo: userId);
 
       return true;
-    }, errorMessage: 'Failed to assign gig');
-
-    return result ?? false;
+    } catch (e) {
+      print('Failed to assign gig: $e');
+      return false;
+    }
   }
 
   /// Marks a gig as completed
   Future<bool> completeGig(String gigId) async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API endpoint for completing a gig
       await _apiService.post<Map<String, dynamic>>(
         '/gigs/$gigId/complete',
@@ -280,9 +292,10 @@ class GigProvider extends BaseProvider {
       await updateGig(gigId: gigId, status: 'completed');
 
       return true;
-    }, errorMessage: 'Failed to complete gig');
-
-    return result ?? false;
+    } catch (e) {
+      print('Failed to complete gig: $e');
+      return false;
+    }
   }
 
   /// Sets the selected gig
@@ -311,69 +324,73 @@ class GigProvider extends BaseProvider {
     // Use the gigs channel as specified in the API document
     const channelName = 'gigs';
 
-    final channel = await _pusherService.subscribeToChannel(channelName);
-    if (channel != null) {
-      _isSubscribed = true;
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel != null) {
+        _isSubscribed = true;
 
-      // Bind to gig created event
-      _pusherService.bindToEvent(channelName, 'GigCreated', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
+        // Bind to gig created event
+        _pusherService.bindToEvent(channelName, 'GigCreated', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          if (jsonData.containsKey('gig') && jsonData['gig'] is Map<String, dynamic>) {
-            final gigData = jsonData['gig'] as Map<String, dynamic>;
-            final gig = Gig.fromJson(gigData);
+            if (jsonData.containsKey('gig') && jsonData['gig'] is Map<String, dynamic>) {
+              final gigData = jsonData['gig'] as Map<String, dynamic>;
+              final gig = Gig.fromJson(gigData);
 
-            // Add to available gigs if it's open
-            if (gig.isOpen()) {
-              _availableGigs.add(gig);
-              _availableGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-              notifyListeners();
+              // Add to available gigs if it's open
+              if (gig.isOpen()) {
+                _availableGigs.add(gig);
+                _availableGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                notifyListeners();
+              }
             }
           }
-        }
-      });
+        });
 
-      // Bind to gig updated event
-      _pusherService.bindToEvent(channelName, 'GigUpdated', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
+        // Bind to gig updated event
+        _pusherService.bindToEvent(channelName, 'GigUpdated', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          if (jsonData.containsKey('gig') && jsonData['gig'] is Map<String, dynamic>) {
-            final gigData = jsonData['gig'] as Map<String, dynamic>;
-            final updatedGig = Gig.fromJson(gigData);
+            if (jsonData.containsKey('gig') && jsonData['gig'] is Map<String, dynamic>) {
+              final gigData = jsonData['gig'] as Map<String, dynamic>;
+              final updatedGig = Gig.fromJson(gigData);
 
-            // Update in available gigs
-            for (int i = 0; i < _availableGigs.length; i++) {
-              if (_availableGigs[i].id == updatedGig.id) {
-                // Remove if no longer open
-                if (!updatedGig.isOpen()) {
-                  _availableGigs.removeAt(i);
-                } else {
-                  _availableGigs[i] = updatedGig;
+              // Update in available gigs
+              for (int i = 0; i < _availableGigs.length; i++) {
+                if (_availableGigs[i].id == updatedGig.id) {
+                  // Remove if no longer open
+                  if (!updatedGig.isOpen()) {
+                    _availableGigs.removeAt(i);
+                  } else {
+                    _availableGigs[i] = updatedGig;
+                  }
+                  notifyListeners();
+                  break;
                 }
-                notifyListeners();
-                break;
               }
-            }
 
-            // Update in user gigs
-            for (int i = 0; i < _userGigs.length; i++) {
-              if (_userGigs[i].id == updatedGig.id) {
-                _userGigs[i] = updatedGig;
-                notifyListeners();
-                break;
+              // Update in user gigs
+              for (int i = 0; i < _userGigs.length; i++) {
+                if (_userGigs[i].id == updatedGig.id) {
+                  _userGigs[i] = updatedGig;
+                  notifyListeners();
+                  break;
+                }
               }
-            }
 
-            // Update selected gig if it's the one being updated
-            if (_selectedGig != null && _selectedGig!.id == updatedGig.id) {
-              _selectedGig = updatedGig;
-              notifyListeners();
+              // Update selected gig if it's the one being updated
+              if (_selectedGig != null && _selectedGig!.id == updatedGig.id) {
+                _selectedGig = updatedGig;
+                notifyListeners();
+              }
             }
           }
-        }
-      });
+        });
+      }
+    } catch (e) {
+      print('Failed to subscribe to gigs channel: $e');
     }
   }
 

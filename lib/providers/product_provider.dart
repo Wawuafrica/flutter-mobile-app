@@ -66,7 +66,7 @@ class ProductProvider extends BaseProvider {
       return _products;
     }
 
-    final result = await handleAsync(() async {
+    try {
       // TODO: Replace with actual endpoint
       final response = await _apiService.get<Map<String, dynamic>>(
         '/products',
@@ -106,14 +106,15 @@ class ProductProvider extends BaseProvider {
       }
 
       return _products;
-    }, errorMessage: 'Failed to fetch products');
-
-    return result ?? [];
+    } catch (e) {
+      print('Failed to fetch products: $e');
+      return [];
+    }
   }
 
   /// Fetches featured products
   Future<List<Product>> fetchFeaturedProducts() async {
-    final result = await handleAsync(() async {
+    try {
       // TODO: Replace with actual endpoint
       final response = await _apiService.get<Map<String, dynamic>>(
         '/products/featured',
@@ -128,14 +129,15 @@ class ProductProvider extends BaseProvider {
       _featuredProducts = featured;
 
       return featured;
-    }, errorMessage: 'Failed to fetch featured products');
-
-    return result ?? [];
+    } catch (e) {
+      print('Failed to fetch featured products: $e');
+      return [];
+    }
   }
 
   /// Fetches details of a specific product
   Future<Product?> fetchProductDetails(String productId) async {
-    return await handleAsync(() async {
+    try {
       // TODO: Replace with actual endpoint
       final response = await _apiService.get<Map<String, dynamic>>(
         '/products/$productId',
@@ -162,7 +164,10 @@ class ProductProvider extends BaseProvider {
       _selectedProduct = product;
 
       return product;
-    }, errorMessage: 'Failed to fetch product details');
+    } catch (e) {
+      print('Failed to fetch product details: $e');
+      return null;
+    }
   }
 
   /// Sets the selected product
@@ -269,7 +274,7 @@ class ProductProvider extends BaseProvider {
       return null;
     }
 
-    return await handleAsync(() async {
+    try {
       // Prepare order items
       final List<Map<String, dynamic>> items = [];
 
@@ -312,7 +317,10 @@ class ProductProvider extends BaseProvider {
       clearCart();
 
       return response;
-    }, errorMessage: 'Failed to submit order');
+    } catch (e) {
+      print('Failed to submit order: $e');
+      return null;
+    }
   }
 
   /// Subscribes to product channel for real-time updates
@@ -320,61 +328,62 @@ class ProductProvider extends BaseProvider {
     // Channel name: 'products'
     const channelName = 'products';
 
-    final channel = await _pusherService.subscribeToChannel(channelName);
-    if (channel != null) {
-      _isSubscribed = true;
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel != null) {
+        _isSubscribed = true;
 
-      // Bind to product updated event
-      _pusherService.bindToEvent(channelName, 'product-updated', (data) async {
-        if (data is String) {
-          final productData = jsonDecode(data) as Map<String, dynamic>;
-          final updatedProduct = Product.fromJson(productData);
+        // Bind to product updated event
+        _pusherService.bindToEvent(channelName, 'product-updated', (data) async {
+          if (data is String) {
+            final productData = jsonDecode(data) as Map<String, dynamic>;
+            final updatedProduct = Product.fromJson(productData);
 
-          // Update in products list
-          for (int i = 0; i < _products.length; i++) {
-            if (_products[i].id == updatedProduct.id) {
-              _products[i] = updatedProduct;
-              break;
+            // Update in products list
+            for (int i = 0; i < _products.length; i++) {
+              if (_products[i].id == updatedProduct.id) {
+                _products[i] = updatedProduct;
+                break;
+              }
             }
-          }
 
-          // Update in featured products
-          for (int i = 0; i < _featuredProducts.length; i++) {
-            if (_featuredProducts[i].id == updatedProduct.id) {
-              _featuredProducts[i] = updatedProduct;
-              break;
+            // Update in featured products
+            for (int i = 0; i < _featuredProducts.length; i++) {
+              if (_featuredProducts[i].id == updatedProduct.id) {
+                _featuredProducts[i] = updatedProduct;
+                break;
+              }
             }
-          }
 
-          // Update selected product if it's the one being updated
-          if (_selectedProduct != null &&
-              _selectedProduct!.id == updatedProduct.id) {
-            _selectedProduct = updatedProduct;
-          }
-
-          // Check if product in cart is no longer available or in stock
-          if (_cartItems.containsKey(updatedProduct.id)) {
-            if (!updatedProduct.isAvailable || !updatedProduct.isInStock()) {
-              _cartItems.remove(updatedProduct.id);
-              setError(
-                'Product "${updatedProduct.name}" has been removed from your cart because it\'s no longer available.',
-              );
-            } else if (_cartItems[updatedProduct.id]! >
-                updatedProduct.stockQuantity) {
-              // Adjust quantity if current quantity exceeds new stock
-              _cartItems[updatedProduct.id] = updatedProduct.stockQuantity;
-              setError(
-                'The quantity of "${updatedProduct.name}" in your cart has been adjusted due to stock changes.',
-              );
+            // Update selected product if it's the one being updated
+            if (_selectedProduct != null &&
+                _selectedProduct!.id == updatedProduct.id) {
+              _selectedProduct = updatedProduct;
             }
+
+            // Check if product in cart is no longer available or in stock
+            if (_cartItems.containsKey(updatedProduct.id)) {
+              if (!updatedProduct.isAvailable || !updatedProduct.isInStock()) {
+                _cartItems.remove(updatedProduct.id);
+                setError(
+                  'Product "${updatedProduct.name}" has been removed from your cart because it is no longer available.',
+                );
+              } else if (_cartItems[updatedProduct.id]! >
+                  updatedProduct.stockQuantity) {
+                // Adjust quantity if current quantity exceeds new stock
+                _cartItems[updatedProduct.id] = updatedProduct.stockQuantity;
+                setError(
+                  'The quantity of "${updatedProduct.name}" in your cart has been adjusted due to stock changes.',
+                );
+              }
+            }
+
+            notifyListeners();
           }
+        });
 
-          notifyListeners();
-        }
-      });
-
-      // Bind to product stock updated event (for stock-only updates)
-      _pusherService.bindToEvent(channelName, 'product-stock-updated', (
+        // Bind to product stock updated event (for stock-only updates)
+        _pusherService.bindToEvent(channelName, 'product-stock-updated', (
         data,
       ) async {
         if (data is String) {
@@ -412,7 +421,7 @@ class ProductProvider extends BaseProvider {
             if (newStock <= 0) {
               _cartItems.remove(productId);
               setError(
-                'Product has been removed from your cart because it\'s out of stock.',
+                'Product has been removed from your cart because it is out of stock.',
               );
             } else if (_cartItems[productId]! > newStock) {
               // Adjust quantity if current quantity exceeds new stock
@@ -427,7 +436,10 @@ class ProductProvider extends BaseProvider {
         }
       });
     }
+  } catch (e) {
+    print('Failed to subscribe to product channel: $e');
   }
+}
 
   /// Clears all product data except cart
   void clearProductData() {

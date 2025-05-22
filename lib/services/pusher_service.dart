@@ -57,14 +57,15 @@ class PusherService {
       await subscribeToChannel('gigs');
       await subscribeToChannel('blog');
     } catch (e) {
-      _logger.e('Error initializing Pusher: $e');
-      rethrow;
+      print('Error initializing Pusher: $e');
+      
     }
   }
 
   Future<Channel?> subscribeToChannel(String channelName) async {
     if (!_isInitialized) {
-      throw Exception('PusherService not initialized');
+      print('PusherService not initialized');
+      return null;
     }
 
     try {
@@ -79,8 +80,8 @@ class PusherService {
       }
       return channel;
     } catch (e) {
-      _logger.e('Error subscribing to channel $channelName: $e');
-      rethrow;
+      print('Error subscribing to channel \$channelName: \$e');
+      return null;
     }
   }
 
@@ -99,7 +100,7 @@ class PusherService {
 
     channel.bind(eventName, (event) {
       _logger.i(
-        'Received event $eventName on channel $channelName: ${event?.data}',
+        'Received event \$eventName on channel \$channelName: \${event?.data}',
       );
       onEvent(event?.data);
     });

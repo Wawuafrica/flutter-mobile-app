@@ -181,11 +181,13 @@ class _SignUpState extends State<SignUp> {
                         style: TextStyle(fontSize: 13),
                       ),
                       SizedBox(width: 5),
-                      Text(
-                        'Login',
-                        style: TextStyle(
-                          color: wawuColors.buttonSecondary,
-                          fontSize: 13,
+                      GestureDetector(
+                        child: Text(
+                          'Login',
+                          style: TextStyle(
+                            color: wawuColors.buttonSecondary,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],

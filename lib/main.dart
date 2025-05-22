@@ -1,34 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:logger/logger.dart';
+import 'package:wawu_mobile/screens/wawu/wawu.dart';
 
 // Services
 import 'services/api_service.dart';
-import 'services/pusher_service.dart';
 import 'services/auth_service.dart';
+import 'services/pusher_service.dart';
 
 // Providers
-import 'providers/user_provider.dart';
+import 'providers/application_provider.dart';
+import 'providers/blog_provider.dart';
+import 'providers/category_provider.dart';
+import 'providers/gig_provider.dart';
 import 'providers/message_provider.dart';
 import 'providers/notification_provider.dart';
-import 'providers/gig_provider.dart';
-import 'providers/application_provider.dart';
-import 'providers/review_provider.dart';
-import 'providers/blog_provider.dart';
-import 'providers/product_provider.dart';
-import 'providers/category_provider.dart';
 import 'providers/plan_provider.dart';
+import 'providers/product_provider.dart';
+import 'providers/review_provider.dart';
+import 'providers/user_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final logger = Logger();
-
   try {
     final apiService = ApiService();
-    final authService = AuthService(apiService: apiService, logger: logger);
+    final authService = AuthService(apiService: apiService);
     await apiService.initialize(
       apiBaseUrl: const String.fromEnvironment(
         'API_BASE_URL',
@@ -42,86 +39,78 @@ void main() async {
     runApp(
       MultiProvider(
         providers: [
-          Provider<Logger>.value(value: logger),
           Provider<ApiService>.value(value: apiService),
-          Provider<PusherService>.value(value: pusherService),
           Provider<AuthService>.value(value: authService),
-
+          Provider<PusherService>.value(value: pusherService),
           ChangeNotifierProvider(
-            create:
-                (context) => UserProvider(
-                  authService: authService,
-                  apiService: apiService,
-                  pusherService: pusherService,
-                  logger: logger,
-                ),
+            create: (context) => UserProvider(
+              authService: authService,
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) => MessageProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
+            create: (context) => MessageProvider(
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) => NotificationProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
+            create: (context) => NotificationProvider(
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) => GigProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
+            create: (context) => GigProvider(
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) => ApplicationProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
+            create: (context) => ApplicationProvider(
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) => ReviewProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
+            create: (context) => ReviewProvider(
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) => BlogProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
+            create: (context) => BlogProvider(
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) => ProductProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
+            create: (context) => ProductProvider(
+              apiService: apiService,
+              pusherService: pusherService,
+            ),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) =>
-                    CategoryProvider(apiService: apiService, logger: logger),
+            create: (context) => CategoryProvider(apiService: apiService),
           ),
           ChangeNotifierProvider(
-            create:
-                (context) =>
-                    PlanProvider(apiService: apiService, logger: logger),
+            create: (context) => PlanProvider(apiService: apiService),
           ),
         ],
         child: const MyApp(),
       ),
     );
-  } catch (e, stackTrace) {
-    logger.e('Error initializing app: $e\n$stackTrace');
-    runApp(const MyApp());
+  } catch (e) {
+    runApp(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('Failed to initialize app'),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -141,7 +130,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: Wawu(),
+      home: const Wawu(),
     );
   }
 }

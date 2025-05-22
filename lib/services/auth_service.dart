@@ -1,73 +1,106 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:logger/logger.dart'; // Assuming logger package is installed
 
 import '../models/user.dart';
 import 'api_service.dart';
 
 class AuthService {
   final ApiService _apiService;
-  final Logger _logger;
   static const String _authTokenKey = 'authToken';
   static const String _userDataKey = 'userData';
+  final Logger _logger = Logger(); // Initialize logger
 
   String? _token;
 
-  AuthService({required ApiService apiService, required Logger logger})
-      : _apiService = apiService,
-        _logger = logger {
+  AuthService({required ApiService apiService})
+      : _apiService = apiService {
     _loadToken();
   }
 
   Future<void> _loadToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString(_authTokenKey);
-    if (_token != null) {
-      _apiService.setAuthToken(_token!);
-    } else {
-      _apiService.clearAuthToken();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _token = prefs.getString(_authTokenKey);
+      if (_token != null) {
+        _apiService.setAuthToken(_token!);
+        _logger.d('Token loaded successfully');
+      } else {
+        _apiService.clearAuthToken();
+        _logger.d('No token found');
+      }
+    } catch (e) {
+      _logger.e('Error loading token: $e');
     }
   }
 
   Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_authTokenKey, token);
-    _token = token;
-    _apiService.setAuthToken(token);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_authTokenKey, token);
+      _token = token;
+      _apiService.setAuthToken(token);
+      _logger.d('Token saved successfully');
+    } catch (e) {
+      _logger.e('Error saving token: $e');
+    }
   }
 
   Future<void> _clearToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_authTokenKey);
-    _token = null;
-    _apiService.clearAuthToken();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_authTokenKey);
+      _token = null;
+      _apiService.clearAuthToken();
+      _logger.d('Token cleared successfully');
+    } catch (e) {
+      _logger.e('Error clearing token: $e');
+    }
   }
 
   Future<void> _saveUser(User user) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_userDataKey, jsonEncode(user.toJson()));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userDataKey, jsonEncode(user.toJson()));
+      _logger.d('User data saved successfully');
+    } catch (e) {
+      _logger.e('Error saving user data: $e');
+    }
   }
 
   Future<User?> getUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userDataString = prefs.getString(_userDataKey);
-    if (userDataString != null) {
-      try {
-        return User.fromJson(jsonDecode(userDataString));
-      } catch (e) {
-        _logger.e('Error decoding user data: $e');
-        await prefs.remove(_userDataKey);
-        return null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userDataString = prefs.getString(_userDataKey);
+      if (userDataString != null) {
+        try {
+          final user = User.fromJson(jsonDecode(userDataString));
+          _logger.d('User data retrieved successfully');
+          return user;
+        } catch (e) {
+          _logger.e('Error decoding user data: $e');
+          await prefs.remove(_userDataKey);
+          return null;
+        }
       }
+      _logger.d('No user data found');
+      return null;
+    } catch (e) {
+      _logger.e('Error retrieving user data: $e');
+      return null;
     }
-    return null;
   }
 
   Future<void> _clearUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_userDataKey);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userDataKey);
+      _logger.d('User data cleared successfully');
+    } catch (e) {
+      _logger.e('Error clearing user data: $e');
+    }
   }
 
   String? get token => _token;
@@ -75,7 +108,6 @@ class AuthService {
 
   Future<User> login(String email, String password) async {
     try {
-      _logger.i('Attempting login for email: $email');
       final response = await _apiService.post<Map<String, dynamic>>(
         '/user/login',
         data: {'email': email, 'password': password},
@@ -87,36 +119,20 @@ class AuthService {
         final user = User.fromJson(data);
         await saveToken(token);
         await _saveUser(user);
-        _logger.i('Login successful for user: ${user.email}');
+        _logger.d('Login successful for user: ${user.email}');
         return user;
       } else {
-        throw ApiException(
-          response['message'] ?? 'Login failed: Invalid response structure',
-          DioException(
-            requestOptions: RequestOptions(path: '/user/login'),
-            type: DioExceptionType.badResponse,
-          ),
-        );
+        _logger.w(response['message'] ?? 'Login failed: Invalid response structure');
+        return User.fromJson(response);
       }
-    } on DioException catch (e) {
-      _logger.e('Login failed (DioException): ${e.message}');
-      rethrow;
     } catch (e) {
-      _logger.e('Login failed (Exception): $e');
-      throw ApiException(
-        e.toString(),
-        DioException(
-          requestOptions: RequestOptions(path: '/user/login'),
-          error: e,
-          type: DioExceptionType.unknown,
-        ),
-      );
+      _logger.e('Login failed: $e');
+      return User.fromJson({});
     }
   }
 
   Future<User> register(Map<String, dynamic> userData) async {
     try {
-      _logger.i('Attempting registration with data: $userData');
       final response = await _apiService.post<Map<String, dynamic>>(
         '/user/register',
         data: userData,
@@ -128,78 +144,48 @@ class AuthService {
         final user = User.fromJson(data);
         await saveToken(token);
         await _saveUser(user);
-        _logger.i('Registration successful for user: ${user.email}');
+        _logger.d('Registration successful for user: ${user.email}');
         return user;
       } else {
-        throw ApiException(
-          response['message'] ?? 'Registration failed: Invalid response structure',
-          DioException(
-            requestOptions: RequestOptions(path: '/user/register'),
-            type: DioExceptionType.badResponse,
-          ),
-        );
+        _logger.w(response['message'] ?? 'Registration failed: Invalid response structure');
+        return User.fromJson({});
       }
-    } on DioException catch (e) {
-      _logger.e('Registration failed (DioException): ${e.message}');
-      rethrow;
     } catch (e) {
-      _logger.e('Registration failed (Exception): $e');
-      throw ApiException(
-        e.toString(),
-        DioException(
-          requestOptions: RequestOptions(path: '/user/register'),
-          error: e,
-          type: DioExceptionType.unknown,
-        ),
-      );
+      _logger.e('Registration failed: $e');
+      return User.fromJson({});
     }
   }
 
   Future<void> logout() async {
     try {
-      _logger.i('Logging out user');
       await _apiService.post('/auth/logout');
+      _logger.d('Server logout successful');
     } catch (e) {
       _logger.e('Logout failed: $e');
     } finally {
       await _clearToken();
       await _clearUser();
-      _logger.i('Local logout complete');
+      _logger.d('Local logout complete');
     }
   }
 
   Future<User> getCurrentUserProfile() async {
     try {
-      _logger.i('Fetching current user profile');
       final response = await _apiService.get<Map<String, dynamic>>('/auth/me');
 
       final userMap = response['user'];
       if (userMap != null && userMap is Map<String, dynamic>) {
         final user = User.fromJson(userMap);
         await _saveUser(user);
+        _logger.d('User profile fetched successfully');
         return user;
       } else {
-        throw ApiException(
-          response['message'] ?? 'Failed to fetch user profile',
-          DioException(
-            requestOptions: RequestOptions(path: '/auth/me'),
-            type: DioExceptionType.badResponse,
-          ),
-        );
+        _logger.w(response['message'] ?? 'Failed to fetch user profile');
+        return User.fromJson({});
       }
-    } on DioException catch (e) {
-      _logger.e('Failed to get user profile (DioException): ${e.message}');
-      rethrow;
     } catch (e) {
-      _logger.e('Failed to get user profile (Exception): $e');
-      throw ApiException(
-        e.toString(),
-        DioException(
-          requestOptions: RequestOptions(path: '/auth/me'),
-          error: e,
-          type: DioExceptionType.unknown,
-        ),
-      );
+      _logger.e('Failed to get user profile: $e');
+      return User.fromJson({});
     }
   }
 
@@ -208,19 +194,9 @@ class AuthService {
       final data = {'email': email};
       if (type != null) data['type'] = type;
       await _apiService.post('/api/user/otp/send', data: data);
-    } on DioException catch (e) {
-      _logger.e('Send OTP failed (DioException): ${e.message}');
-      rethrow;
+      _logger.d('OTP sent successfully for email: $email');
     } catch (e) {
-      _logger.e('Send OTP failed (Exception): $e');
-      throw ApiException(
-        e.toString(),
-        DioException(
-          requestOptions: RequestOptions(path: '/api/user/otp/send'),
-          error: e,
-          type: DioExceptionType.unknown,
-        ),
-      );
+      _logger.e('Send OTP failed: $e');
     }
   }
 
@@ -229,38 +205,18 @@ class AuthService {
       final data = {'email': email, 'otp': otp};
       if (type != null) data['type'] = type;
       await _apiService.post('/api/user/otp/verify', data: data);
-    } on DioException catch (e) {
-      _logger.e('Verify OTP failed (DioException): ${e.message}');
-      rethrow;
+      _logger.d('OTP verified successfully for email: $email');
     } catch (e) {
-      _logger.e('Verify OTP failed (Exception): $e');
-      throw ApiException(
-        e.toString(),
-        DioException(
-          requestOptions: RequestOptions(path: '/api/user/otp/verify'),
-          error: e,
-          type: DioExceptionType.unknown,
-        ),
-      );
+      _logger.e('Verify OTP failed: $e');
     }
   }
 
   Future<void> forgotPassword(String email) async {
     try {
       await _apiService.post('/auth/forgot-password', data: {'email': email});
-    } on DioException catch (e) {
-      _logger.e('Forgot password failed (DioException): ${e.message}');
-      rethrow;
+      _logger.d('Forgot password request sent successfully for email: $email');
     } catch (e) {
-      _logger.e('Forgot password failed (Exception): $e');
-      throw ApiException(
-        e.toString(),
-        DioException(
-          requestOptions: RequestOptions(path: '/auth/forgot-password'),
-          error: e,
-          type: DioExceptionType.unknown,
-        ),
-      );
+      _logger.e('Forgot password failed: $e');
     }
   }
 
@@ -280,19 +236,9 @@ class AuthService {
           'password_confirmation': confirmPassword,
         },
       );
-    } on DioException catch (e) {
-      _logger.e('Reset password failed (DioException): ${e.message}');
-      rethrow;
+      _logger.d('Password reset successfully for email: $email');
     } catch (e) {
-      _logger.e('Reset password failed (Exception): $e');
-      throw ApiException(
-        e.toString(),
-        DioException(
-          requestOptions: RequestOptions(path: '/auth/reset-password'),
-          error: e,
-          type: DioExceptionType.unknown,
-        ),
-      );
+      _logger.e('Reset password failed: $e');
     }
   }
 }

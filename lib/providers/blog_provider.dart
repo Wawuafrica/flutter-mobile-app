@@ -31,8 +31,8 @@ class BlogProvider extends BaseProvider {
   int get currentPage => _currentPage;
 
   BlogProvider({ApiService? apiService, PusherService? pusherService})
-    : _apiService = apiService ?? ApiService(),
-      _pusherService = pusherService ?? PusherService();
+      : _apiService = apiService ?? ApiService(),
+        _pusherService = pusherService ?? PusherService();
 
   /// Fetches blog posts with optional filtering and pagination
   Future<List<BlogPost>> fetchPosts({
@@ -41,22 +41,21 @@ class BlogProvider extends BaseProvider {
     String? authorId,
     bool refresh = false,
   }) async {
-    if (refresh) {
-      _currentPage = 1;
-      _hasMorePosts = true;
-    }
+    try {
+      if (refresh) {
+        _currentPage = 1;
+        _hasMorePosts = true;
+      }
 
-    if (!_hasMorePosts && !refresh) {
-      return _posts;
-    }
+      if (!_hasMorePosts && !refresh) {
+        return _posts;
+      }
 
-    final result = await handleAsync(() async {
-      // TODO: Replace with actual endpoint
-      final response = await _apiService.get<Map<String, dynamic>>(
+      final response = await _apiService.get(
         '/blog/posts',
         queryParameters: {
           'page': _currentPage.toString(),
-          'limit': '10', // Fixed page size of 10 posts
+          'limit': '10',
           'status': 'published',
           if (categories != null && categories.isNotEmpty)
             'categories': categories.join(','),
@@ -65,86 +64,69 @@ class BlogProvider extends BaseProvider {
         },
       );
 
-      final List<dynamic> postsJson = response['posts'] as List<dynamic>;
-      final List<BlogPost> fetchedPosts =
-          postsJson
-              .map((json) => BlogPost.fromJson(json as Map<String, dynamic>))
-              .toList();
-
-      final bool hasMorePages = response['has_more'] as bool? ?? false;
-
-      if (refresh) {
-        _posts = fetchedPosts;
-      } else {
-        _posts.addAll(fetchedPosts);
+      if (response['posts'] == null) {
+        throw Exception('Failed to fetch blog posts: Invalid response');
       }
 
-      _hasMorePosts = hasMorePages;
+      final List<dynamic> postsJson = response['posts'];
+      final fetchedPosts = postsJson
+          .map((json) => BlogPost.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      _hasMorePosts = response['has_more'] ?? false;
+      _posts = refresh ? fetchedPosts : [..._posts, ...fetchedPosts];
       _currentPage++;
 
-      // Subscribe to blog channel if not already subscribed
       if (!_isSubscribed) {
         await _subscribeToBlogChannel();
       }
 
+      notifyListeners();
       return _posts;
-    }, errorMessage: 'Failed to fetch blog posts');
-
-    return result ?? [];
+    } catch (e) {
+      throw Exception('Failed to fetch blog posts: $e');
+    }
   }
 
   /// Fetches featured blog posts
   Future<List<BlogPost>> fetchFeaturedPosts() async {
-    final result = await handleAsync(() async {
-      // TODO: Replace with actual endpoint
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '/blog/featured',
-      );
+    try {
+      final response = await _apiService.get('/blog/featured');
 
-      final List<dynamic> postsJson = response['posts'] as List<dynamic>;
-      final List<BlogPost> featured =
-          postsJson
-              .map((json) => BlogPost.fromJson(json as Map<String, dynamic>))
-              .toList();
+      if (response['posts'] == null) {
+        throw Exception('Failed to fetch featured posts: Invalid response');
+      }
 
-      _featuredPosts = featured;
+      final List<dynamic> postsJson = response['posts'];
+      _featuredPosts = postsJson
+          .map((json) => BlogPost.fromJson(json as Map<String, dynamic>))
+          .toList();
 
-      return featured;
-    }, errorMessage: 'Failed to fetch featured posts');
-
-    return result ?? [];
+      notifyListeners();
+      return _featuredPosts;
+    } catch (e) {
+      throw Exception('Failed to fetch featured posts: $e');
+    }
   }
 
   /// Fetches details of a specific blog post
   Future<BlogPost?> fetchPostDetails(String postId) async {
-    return await handleAsync(() async {
-      // TODO: Replace with actual endpoint
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '/blog/posts/$postId',
-      );
+    try {
+      final response = await _apiService.get('/blog/posts/$postId');
+
+      if (response.isEmpty) {
+        throw Exception('Failed to fetch post details: Empty response');
+      }
 
       final post = BlogPost.fromJson(response);
-
-      // Update in posts list if already loaded
-      for (int i = 0; i < _posts.length; i++) {
-        if (_posts[i].id == postId) {
-          _posts[i] = post;
-          break;
-        }
-      }
-
-      // Update in featured posts if present
-      for (int i = 0; i < _featuredPosts.length; i++) {
-        if (_featuredPosts[i].id == postId) {
-          _featuredPosts[i] = post;
-          break;
-        }
-      }
-
+      _updatePostInLists(postId, post);
       _selectedPost = post;
 
+      notifyListeners();
       return post;
-    }, errorMessage: 'Failed to fetch post details');
+    } catch (e) {
+      throw Exception('Failed to fetch post details: $e');
+    }
   }
 
   /// Creates a new blog post (for authorized users)
@@ -160,9 +142,8 @@ class BlogProvider extends BaseProvider {
     bool isFeatured = false,
     String status = 'draft',
   }) async {
-    return await handleAsync(() async {
-      // TODO: Replace with actual endpoint
-      final response = await _apiService.post<Map<String, dynamic>>(
+    try {
+      final response = await _apiService.post(
         '/blog/posts',
         data: {
           'title': title,
@@ -178,20 +159,23 @@ class BlogProvider extends BaseProvider {
         },
       );
 
-      final post = BlogPost.fromJson(response);
+      if (response.isEmpty) {
+        throw Exception('Failed to create blog post: Empty response');
+      }
 
-      // Add to posts list if it's published
+      final post = BlogPost.fromJson(response);
       if (post.isPublished()) {
         _posts.insert(0, post);
-
-        // Add to featured posts if it's featured
         if (post.isFeatured) {
           _featuredPosts.insert(0, post);
         }
       }
 
+      notifyListeners();
       return post;
-    }, errorMessage: 'Failed to create blog post');
+    } catch (e) {
+      throw Exception('Failed to create blog post: $e');
+    }
   }
 
   /// Updates an existing blog post (for authorized users)
@@ -205,9 +189,8 @@ class BlogProvider extends BaseProvider {
     bool? isFeatured,
     String? status,
   }) async {
-    return await handleAsync(() async {
-      // TODO: Replace with actual endpoint
-      final response = await _apiService.put<Map<String, dynamic>>(
+    try {
+      final response = await _apiService.put(
         '/blog/posts/$postId',
         data: {
           if (title != null) 'title': title,
@@ -220,62 +203,56 @@ class BlogProvider extends BaseProvider {
         },
       );
 
+      if (response.isEmpty) {
+        throw Exception('Failed to update blog post: Empty response');
+      }
+
       final updatedPost = BlogPost.fromJson(response);
-
-      // Update in posts list if present
-      for (int i = 0; i < _posts.length; i++) {
-        if (_posts[i].id == postId) {
-          // Remove if it's no longer published
-          if (!updatedPost.isPublished()) {
-            _posts.removeAt(i);
-          } else {
-            _posts[i] = updatedPost;
-          }
-          break;
-        }
-      }
-
-      // Update in featured posts if present or add if now featured
-      bool foundInFeatured = false;
-      for (int i = 0; i < _featuredPosts.length; i++) {
-        if (_featuredPosts[i].id == postId) {
-          foundInFeatured = true;
-          // Remove if no longer featured
-          if (!updatedPost.isFeatured) {
-            _featuredPosts.removeAt(i);
-          } else {
-            _featuredPosts[i] = updatedPost;
-          }
-          break;
-        }
-      }
-
-      // Add to featured if it's now featured but wasn't before
-      if (!foundInFeatured && updatedPost.isFeatured) {
-        _featuredPosts.add(updatedPost);
-      }
-
-      // Update selected post if it's the one being edited
-      if (_selectedPost != null && _selectedPost!.id == postId) {
+      _updatePostInLists(postId, updatedPost);
+      if (_selectedPost?.id == postId) {
         _selectedPost = updatedPost;
       }
 
+      notifyListeners();
       return updatedPost;
-    }, errorMessage: 'Failed to update blog post');
+    } catch (e) {
+      throw Exception('Failed to update blog post: $e');
+    }
+  }
+
+  /// Updates a post in posts and featuredPosts lists
+  void _updatePostInLists(String postId, BlogPost updatedPost) {
+    _posts = _posts.map((post) {
+      return post.id == postId && updatedPost.isPublished() ? updatedPost : post;
+    }).where((post) => post.isPublished()).toList();
+
+    if (updatedPost.isPublished() && !_posts.any((post) => post.id == postId)) {
+      _posts.insert(0, updatedPost);
+    }
+
+    _featuredPosts = _featuredPosts.map((post) {
+      return post.id == postId && updatedPost.isFeatured ? updatedPost : post;
+    }).where((post) => post.isFeatured).toList();
+
+    if (updatedPost.isFeatured && !_featuredPosts.any((post) => post.id == postId)) {
+      _featuredPosts.insert(0, updatedPost);
+    }
   }
 
   /// Sets the selected blog post
   void selectPost(String postId) {
-    _selectedPost = _posts.firstWhere(
-      (post) => post.id == postId,
-      orElse:
-          () => _featuredPosts.firstWhere(
-            (post) => post.id == postId,
-            orElse: () => throw Exception('Blog post not found: $postId'),
-          ),
-    );
-
-    notifyListeners();
+    try {
+      _selectedPost = _posts.firstWhere(
+        (post) => post.id == postId,
+        orElse: () => _featuredPosts.firstWhere(
+          (post) => post.id == postId,
+          orElse: () => throw Exception('Blog post not found: $postId'),
+        ),
+      );
+      notifyListeners();
+    } catch (e) {
+      throw Exception('Failed to select post: $e');
+    }
   }
 
   /// Clears the selected blog post
@@ -286,87 +263,53 @@ class BlogProvider extends BaseProvider {
 
   /// Subscribes to blog channel for real-time updates
   Future<void> _subscribeToBlogChannel() async {
-    // Channel name: 'blog'
     const channelName = 'blog';
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel == null) {
+        throw Exception('Failed to subscribe to blog channel');
+      }
 
-    final channel = await _pusherService.subscribeToChannel(channelName);
-    if (channel != null) {
       _isSubscribed = true;
 
-      // Bind to post created event
-      _pusherService.bindToEvent(channelName, 'post-created', (data) async {
-        if (data is String) {
+      _pusherService.bindToEvent(channelName, 'post-created', (data) {
+        try {
+          if (data is! String) {
+            throw Exception('Invalid post-created event data');
+          }
           final postData = jsonDecode(data) as Map<String, dynamic>;
           final post = BlogPost.fromJson(postData);
 
-          // Add to posts list if it's published
           if (post.isPublished()) {
             _posts.insert(0, post);
-
-            // Add to featured posts if it's featured
             if (post.isFeatured) {
               _featuredPosts.insert(0, post);
             }
-
             notifyListeners();
           }
+        } catch (e) {
+          throw Exception('Failed to handle post-created event: $e');
         }
       });
 
-      // Bind to post updated event
-      _pusherService.bindToEvent(channelName, 'post-updated', (data) async {
-        if (data is String) {
+      _pusherService.bindToEvent(channelName, 'post-updated', (data) {
+        try {
+          if (data is! String) {
+            throw Exception('Invalid post-updated event data');
+          }
           final postData = jsonDecode(data) as Map<String, dynamic>;
           final updatedPost = BlogPost.fromJson(postData);
-
-          // Update in posts list
-          bool updatedInPosts = false;
-          for (int i = 0; i < _posts.length; i++) {
-            if (_posts[i].id == updatedPost.id) {
-              updatedInPosts = true;
-              // Remove if it's no longer published
-              if (!updatedPost.isPublished()) {
-                _posts.removeAt(i);
-              } else {
-                _posts[i] = updatedPost;
-              }
-              break;
-            }
-          }
-
-          // Add to posts if it's now published but wasn't before
-          if (!updatedInPosts && updatedPost.isPublished()) {
-            _posts.insert(0, updatedPost);
-          }
-
-          // Update in featured posts
-          bool foundInFeatured = false;
-          for (int i = 0; i < _featuredPosts.length; i++) {
-            if (_featuredPosts[i].id == updatedPost.id) {
-              foundInFeatured = true;
-              // Remove if no longer featured
-              if (!updatedPost.isFeatured) {
-                _featuredPosts.removeAt(i);
-              } else {
-                _featuredPosts[i] = updatedPost;
-              }
-              break;
-            }
-          }
-
-          // Add to featured if it's now featured but wasn't before
-          if (!foundInFeatured && updatedPost.isFeatured) {
-            _featuredPosts.add(updatedPost);
-          }
-
-          // Update selected post if it's the one being updated
-          if (_selectedPost != null && _selectedPost!.id == updatedPost.id) {
+          _updatePostInLists(updatedPost.id, updatedPost);
+          if (_selectedPost?.id == updatedPost.id) {
             _selectedPost = updatedPost;
           }
-
           notifyListeners();
+        } catch (e) {
+          throw Exception('Failed to handle post-updated event: $e');
         }
       });
+    } catch (e) {
+      throw Exception('Failed to subscribe to blog channel: $e');
     }
   }
 

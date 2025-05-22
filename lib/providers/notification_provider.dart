@@ -28,7 +28,7 @@ class NotificationProvider extends BaseProvider {
 
   /// Fetches notifications for a user
   Future<List<Notification>> fetchNotifications(String userId) async {
-    final result = await handleAsync(() async {
+    try {
       // Get notifications with pagination
       final response = await _apiService.get<Map<String, dynamic>>(
         '/notifications',
@@ -59,16 +59,18 @@ class NotificationProvider extends BaseProvider {
 
         return notifications;
       } else {
-        throw Exception('Invalid response format from notifications endpoint');
+        print('Invalid response format from notifications endpoint');
+        return [];
       }
-    }, errorMessage: 'Failed to fetch notifications');
-
-    return result ?? [];
+    } catch (e) {
+      print('Failed to fetch notifications: $e');
+      return [];
+    }
   }
 
   /// Marks a notification as read
   Future<bool> markAsRead(String notificationId) async {
-    final result = await handleAsync(() async {
+    try {
       // Use the correct endpoint for marking a notification as read
       await _apiService.post<Map<String, dynamic>>(
         '/notifications/$notificationId/read',
@@ -87,14 +89,15 @@ class NotificationProvider extends BaseProvider {
       notifyListeners(); // Notify UI about the change
 
       return true;
-    }, errorMessage: 'Failed to mark notification as read');
-
-    return result ?? false;
+    } catch (e) {
+      print('Failed to mark notification as read: $e');
+      return false;
+    }
   }
 
   /// Marks all notifications as read
   Future<bool> markAllAsRead(String userId) async {
-    final result = await handleAsync(() async {
+    try {
       // Use the correct endpoint for marking all notifications as read
       await _apiService.post<Map<String, dynamic>>(
         '/notifications/read-all',
@@ -110,14 +113,15 @@ class NotificationProvider extends BaseProvider {
       notifyListeners(); // Notify UI about the change
 
       return true;
-    }, errorMessage: 'Failed to mark all notifications as read');
-
-    return result ?? false;
+    } catch (e) {
+      print('Failed to mark all notifications as read: $e');
+      return false;
+    }
   }
 
   /// Deletes a notification
   Future<bool> deleteNotification(String notificationId) async {
-    final result = await handleAsync(() async {
+    try {
       // Use the correct endpoint for deleting a notification
       await _apiService.delete<Map<String, dynamic>>(
         '/notifications/$notificationId',
@@ -131,9 +135,10 @@ class NotificationProvider extends BaseProvider {
       notifyListeners(); // Notify UI about the change
 
       return true;
-    }, errorMessage: 'Failed to delete notification');
-
-    return result ?? false;
+    } catch (e) {
+      print('Failed to delete notification: $e');
+      return false;
+    }
   }
 
   /// Subscribes to notification channel for real-time updates
@@ -141,35 +146,36 @@ class NotificationProvider extends BaseProvider {
     // Use the notifications channel as specified in the API document
     final channelName = 'notifications';
 
-    final channel = await _pusherService.subscribeToChannel(channelName);
-    if (channel != null) {
-      _isSubscribed = true;
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel != null) {
+        _isSubscribed = true;
 
-      // Bind to new notification events
-      _pusherService.bindToEvent(channelName, 'NotificationCreated', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
+        // Bind to new notification events
+        _pusherService.bindToEvent(channelName, 'NotificationCreated', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          if (jsonData.containsKey('notification') && 
-              jsonData['notification'] is Map<String, dynamic>) {
+            if (jsonData.containsKey('notification') && 
+                jsonData['notification'] is Map<String, dynamic>) {
             
-            final notificationData = jsonData['notification'] as Map<String, dynamic>;
-            final notification = Notification.fromJson(notificationData);
+              final notificationData = jsonData['notification'] as Map<String, dynamic>;
+              final notification = Notification.fromJson(notificationData);
 
-            // Only add if it's for this user
-            if (notification.userId == userId) {
-              // Add notification to list and sort
-              _notifications.add(notification);
-              _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+              // Only add if it's for this user
+              if (notification.userId == userId) {
+                // Add notification to list and sort
+                _notifications.add(notification);
+                _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-              notifyListeners();
+                notifyListeners();
+              }
             }
           }
-        }
-      });
+        });
 
-      // Bind to notification read events
-      _pusherService.bindToEvent(channelName, 'NotificationRead', (
+        // Bind to notification read events
+        _pusherService.bindToEvent(channelName, 'NotificationRead', (
         data,
       ) async {
         if (data is String) {
@@ -238,7 +244,10 @@ class NotificationProvider extends BaseProvider {
         }
       });
     }
+  } catch (e) {
+    print('Failed to subscribe to user notifications: $e');
   }
+}
 
   /// Clears all notification data
   void clearAll() {

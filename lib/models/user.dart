@@ -2,7 +2,7 @@ class User {
   final String uuid;
   final String? firstName;
   final String? lastName;
-  final String email;
+  final String? email;
   final String? phoneNumber;
   final DateTime? emailVerifiedAt;
   final String? jobType;
@@ -11,7 +11,7 @@ class User {
   final String? professionalRole;
   final String? country;
   final String? state;
-  final DateTime createdAt;
+  final DateTime? createdAt;
   final String? status;
   final String? profileImage;
   final String? coverImage;
@@ -53,45 +53,64 @@ class User {
     this.deliveryAddresses,
   });
 
-  factory User.fromJson(Map<String, dynamic> json) {
-    return User(
-      uuid: json['uuid'] as String,
-      firstName: json['firstName'] as String?,
-      lastName: json['lastName'] as String?,
-      email: json['email'] as String,
-      phoneNumber: json['phoneNumber'] as String?,
-      emailVerifiedAt: json['emailVerifiedAt'] != null
-          ? DateTime.tryParse(json['emailVerifiedAt'])
-          : null,
-      jobType: json['jobType'] as String?,
-      type: json['type'] as String?,
-      location: json['location'] as String?,
-      professionalRole: json['professionalRole'] as String?,
-      country: json['country'] as String?,
-      state: json['state'] as String?,
-      createdAt: DateTime.parse(json['createdAt']),
-      status: json['status'] as String?,
-      profileImage: json['profileImage'] as String?,
-      coverImage: json['coverImage'] as String?,
-      role: json['role'] as String?,
-      profileCompletionRate: json['profileCompletionRate'] as int?,
-      referralCode: json['referralCode'] as String?,
-      referredBy: json['referredBy'] as String?,
-      isSubscribed: json['isSubscribed'] as bool?,
-      termsAccepted: json['termsAccepted'] as bool?,
-      additionalInfo: json['additionalInfo'] != null
-          ? AdditionalInfo.fromJson(json['additionalInfo'])
-          : null,
-      portfolios: (json['portfolios'] as List<dynamic>?)
-              ?.map((e) => Portfolio.fromJson(e))
-              .toList() ??
-          [],
-      deliveryAddresses: (json['deliveryAddresses'] as List<dynamic>?)
-              ?.map((e) => DeliveryAddress.fromJson(e))
-              .toList() ??
-          [],
-    );
+factory User.fromJson(Map<String, dynamic> json) {
+  final uuid = json['uuid'];
+  if (uuid == null) {
+    throw FormatException('Missing required field: uuid');
   }
+  final email = json['email'];
+  if (email == null) {
+    throw FormatException('Missing required field: email');
+  }
+  final createdAtStr = json['createdAt'];
+  if (createdAtStr == null) {
+    throw FormatException('Missing required field: createdAt');
+  }
+  DateTime createdAt;
+  try {
+    createdAt = DateTime.parse(createdAtStr);
+  } catch (e) {
+    throw FormatException('Invalid createdAt format: $createdAtStr');
+  }
+
+  return User(
+    uuid: uuid as String,
+    firstName: json['firstName'] as String?,
+    lastName: json['lastName'] as String?,
+    email: email as String,
+    phoneNumber: json['phoneNumber'] as String?,
+    emailVerifiedAt: json['emailVerifiedAt'] != null
+        ? DateTime.tryParse(json['emailVerifiedAt'])
+        : null,
+    jobType: json['jobType'] as String?,
+    type: json['type'] as String?,
+    location: json['location'] as String?,
+    professionalRole: json['professionalRole'] as String?,
+    country: json['country'] as String?,
+    state: json['state'] as String?,
+    createdAt: createdAt,
+    status: json['status'] as String?,
+    profileImage: json['profileImage'] as String?,
+    coverImage: json['coverImage'] as String?,
+    role: json['role'] as String?,
+    profileCompletionRate: json['profileCompletionRate'] as int?,
+    referralCode: json['referralCode'] as String?,
+    referredBy: json['referredBy'] as String?,
+    isSubscribed: json['isSubscribed'] as bool?,
+    termsAccepted: json['termsAccepted'] as bool?,
+    additionalInfo: json['additionalInfo'] != null
+        ? AdditionalInfo.fromJson(json['additionalInfo'])
+        : null,
+    portfolios: (json['portfolios'] as List<dynamic>?)
+            ?.map((e) => Portfolio.fromJson(e))
+            .toList() ??
+        [],
+    deliveryAddresses: (json['deliveryAddresses'] as List<dynamic>?)
+            ?.map((e) => DeliveryAddress.fromJson(e))
+            .toList() ??
+        [],
+  );
+}
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -106,7 +125,7 @@ class User {
         'professionalRole': professionalRole,
         'country': country,
         'state': state,
-        'createdAt': createdAt.toIso8601String(),
+        'createdAt': createdAt,
         'status': status,
         'profileImage': profileImage,
         'coverImage': coverImage,
