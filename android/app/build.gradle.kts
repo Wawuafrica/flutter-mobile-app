@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.wawuafrica.wawu"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "29.0.13113456"
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
