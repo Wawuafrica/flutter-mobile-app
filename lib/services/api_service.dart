@@ -149,7 +149,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      rethrow;
+      // rethrow;
     }
   }
 
@@ -174,7 +174,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      rethrow;
+      // rethrow;
     }
   }
 
@@ -199,7 +199,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      rethrow;
+      // rethrow;
     }
   }
 
@@ -224,7 +224,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      rethrow;
+      // rethrow;
     }
   }
   
@@ -280,7 +280,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      rethrow;
+      // rethrow;
     }
   }
   
@@ -336,7 +336,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      rethrow;
+      // rethrow;
     }
   }
 

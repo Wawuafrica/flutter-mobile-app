@@ -21,7 +21,7 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController referralCodeController = TextEditingController();
+  final TextEditingController countryController = TextEditingController();
 
   @override
   void dispose() {
@@ -29,7 +29,7 @@ class _SignUpState extends State<SignUp> {
     firstNameController.dispose();
     lastNameController.dispose();
     passwordController.dispose();
-    referralCodeController.dispose();
+    countryController.dispose();
     super.dispose();
   }
 
@@ -82,10 +82,10 @@ class _SignUpState extends State<SignUp> {
                   ),
                   SizedBox(height: 20),
                   CustomTextfield(
-                    labelText: 'Referral Code',
-                    hintText: '******',
+                    labelText: 'Country',
+                    hintText: 'Nigeria',
                     labelTextStyle2: true,
-                    controller: referralCodeController,
+                    controller: countryController,
                   ),
                   SizedBox(height: 20),
                   Row(
@@ -141,14 +141,11 @@ class _SignUpState extends State<SignUp> {
                       // Prepare user data for registration
                       final userData = {
                         'email': emailController.text,
-                        'first_name': firstNameController.text,
-                        'last_name': lastNameController.text,
+                        'firstName': firstNameController.text,
+                        'lastName': lastNameController.text,
                         'password': passwordController.text,
-                        'referral_code':
-                            referralCodeController.text.isNotEmpty
-                                ? referralCodeController.text
-                                : null,
-                        'terms_accepted': isChecked,
+                        'country': countryController.text,
+                        'termsAccepted': isChecked,
                         'role': 1,
                       };
 
