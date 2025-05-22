@@ -27,7 +27,7 @@ class ReviewProvider extends BaseProvider {
 
   /// Fetches reviews for a specific user
   Future<List<Review>> fetchUserReviews(String userId) async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API to get reviews for a user
       final response = await _apiService.get<Map<String, dynamic>>(
         '/users/$userId/reviews',
@@ -55,14 +55,15 @@ class ReviewProvider extends BaseProvider {
         _reviews = [];
         return [];
       }
-    }, errorMessage: 'Failed to fetch user reviews');
-
-    final List<Review> typedResult = result?.cast<Review>() ?? []; return typedResult;
+    } catch (e) {
+      print('Failed to fetch user reviews: $e');
+      return [];
+    }
   }
 
   /// Fetches reviews for a specific gig
   Future<List<Review>> fetchGigReviews(String gigId) async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API to get reviews for a gig
       final response = await _apiService.get<Map<String, dynamic>>(
         '/gigs/$gigId/reviews',
@@ -85,9 +86,10 @@ class ReviewProvider extends BaseProvider {
         _reviews = [];
         return [];
       }
-    }, errorMessage: 'Failed to fetch gig reviews');
-
-    final List<Review> typedResult = result?.cast<Review>() ?? []; return typedResult;
+    } catch (e) {
+      print('Failed to fetch gig reviews: $e');
+      return [];
+    }
   }
 
   /// Creates a new review
@@ -97,7 +99,7 @@ class ReviewProvider extends BaseProvider {
     required double rating,
     required String comment,
   }) async {
-    return await handleAsync(() async {
+    try {
       // Create the API request payload
       final Map<String, dynamic> payload = {
         'gig_id': gigId,
@@ -125,9 +127,13 @@ class ReviewProvider extends BaseProvider {
 
         return review;
       } else {
-        throw Exception('Invalid response format when creating review');
+        print('Invalid response format when creating review');
+        return null;
       }
-    }, errorMessage: 'Failed to create review');
+    } catch (e) {
+      print('Failed to create review: $e');
+      return null;
+    }
   }
 
   /// Updates an existing review
@@ -136,7 +142,7 @@ class ReviewProvider extends BaseProvider {
     required double rating,
     required String comment,
   }) async {
-    return await handleAsync(() async {
+    try {
       // Create the API request payload
       final Map<String, dynamic> payload = {
         'rating': rating,
@@ -163,14 +169,18 @@ class ReviewProvider extends BaseProvider {
 
         return updatedReview;
       } else {
-        throw Exception('Invalid response format when updating review');
+        print('Invalid response format when updating review');
+        return null;
       }
-    }, errorMessage: 'Failed to update review');
+    } catch (e) {
+      print('Failed to update review: $e');
+      return null;
+    }
   }
 
   /// Deletes a review
   Future<bool> deleteReview(String reviewId) async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API to delete the review
       await _apiService.delete<Map<String, dynamic>>(
         '/reviews/$reviewId',
@@ -181,9 +191,10 @@ class ReviewProvider extends BaseProvider {
       notifyListeners();
 
       return true;
-    }, errorMessage: 'Failed to delete review');
-
-    return result ?? false;
+    } catch (e) {
+      print('Failed to delete review: $e');
+      return false;
+    }
   }
 
   /// Subscribes to reviews channel for real-time updates
@@ -191,65 +202,69 @@ class ReviewProvider extends BaseProvider {
     // Channel for reviews
     const channelName = 'reviews';
 
-    final channel = await _pusherService.subscribeToChannel(channelName);
-    if (channel != null) {
-      _isSubscribed = true;
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel != null) {
+        _isSubscribed = true;
 
-      // Bind to review created event
-      _pusherService.bindToEvent(channelName, 'ReviewCreated', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
+        // Bind to review created event
+        _pusherService.bindToEvent(channelName, 'ReviewCreated', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          if (jsonData.containsKey('review') && jsonData['review'] is Map<String, dynamic>) {
-            final reviewData = jsonData['review'] as Map<String, dynamic>;
-            final review = Review.fromJson(reviewData);
+            if (jsonData.containsKey('review') && jsonData['review'] is Map<String, dynamic>) {
+              final reviewData = jsonData['review'] as Map<String, dynamic>;
+              final review = Review.fromJson(reviewData);
 
-            // Add to reviews if we're currently viewing reviews for this user or gig
-            if (_reviews.isNotEmpty && 
-                (_reviews.first.reviewedId == review.reviewedId || _reviews.first.gigId == review.gigId)) {
-              _reviews.add(review);
-              _reviews.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-              notifyListeners();
-            }
-          }
-        }
-      });
-
-      // Bind to review updated event
-      _pusherService.bindToEvent(channelName, 'ReviewUpdated', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
-          
-          if (jsonData.containsKey('review') && jsonData['review'] is Map<String, dynamic>) {
-            final reviewData = jsonData['review'] as Map<String, dynamic>;
-            final updatedReview = Review.fromJson(reviewData);
-
-            // Update in reviews list if present
-            for (int i = 0; i < _reviews.length; i++) {
-              if (_reviews[i].id == updatedReview.id) {
-                _reviews[i] = updatedReview;
+              // Add to reviews if we're currently viewing reviews for this user or gig
+              if (_reviews.isNotEmpty && 
+                  (_reviews.first.reviewedId == review.reviewedId || _reviews.first.gigId == review.gigId)) {
+                _reviews.add(review);
+                _reviews.sort((a, b) => b.createdAt.compareTo(a.createdAt));
                 notifyListeners();
-                break;
               }
             }
           }
-        }
-      });
+        });
 
-      // Bind to review deleted event
-      _pusherService.bindToEvent(channelName, 'ReviewDeleted', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
+        // Bind to review updated event
+        _pusherService.bindToEvent(channelName, 'ReviewUpdated', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          if (jsonData.containsKey('review_id')) {
-            final reviewId = jsonData['review_id'] as String;
-            
-            // Remove from reviews list if present
-            _reviews.removeWhere((review) => review.id == reviewId);
-            notifyListeners();
+            if (jsonData.containsKey('review') && jsonData['review'] is Map<String, dynamic>) {
+              final reviewData = jsonData['review'] as Map<String, dynamic>;
+              final updatedReview = Review.fromJson(reviewData);
+
+              // Update in reviews list if present
+              for (int i = 0; i < _reviews.length; i++) {
+                if (_reviews[i].id == updatedReview.id) {
+                  _reviews[i] = updatedReview;
+                  notifyListeners();
+                  break;
+                }
+              }
+            }
           }
-        }
-      });
+        });
+
+        // Bind to review deleted event
+        _pusherService.bindToEvent(channelName, 'ReviewDeleted', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
+          
+            if (jsonData.containsKey('review_id')) {
+              final reviewId = jsonData['review_id'] as String;
+            
+              // Remove from reviews list if present
+              _reviews.removeWhere((review) => review.id == reviewId);
+              notifyListeners();
+            }
+          }
+        });
+      }
+    } catch (e) {
+      print('Failed to subscribe to reviews channel: $e');
     }
   }
 

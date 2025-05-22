@@ -32,10 +32,10 @@ class ApplicationProvider extends BaseProvider {
 
   /// Fetches applications for a specific gig
   Future<List<GigApplication>> fetchGigApplications(String gigId) async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API to get applications for a gig
       final response = await _apiService.get<Map<String, dynamic>>(
-        '/gigs/$gigId/applications',
+        '/gigs/\$gigId/applications',
       );
 
       if (response.containsKey('data') && response['data'] is List) {
@@ -60,14 +60,15 @@ class ApplicationProvider extends BaseProvider {
         _applications = [];
         return [];
       }
-    }, errorMessage: 'Failed to fetch gig applications');
-
-    final List<GigApplication> typedResult = result?.cast<GigApplication>() ?? []; return typedResult;
+    } catch (e) {
+      print('Failed to fetch gig applications: \$e');
+      return [];
+    }
   }
 
   /// Fetches applications made by the current user
   Future<List<GigApplication>> fetchUserApplications() async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API to get user's applications
       final response = await _apiService.get<Map<String, dynamic>>(
         '/applications/my-applications',
@@ -90,9 +91,10 @@ class ApplicationProvider extends BaseProvider {
         _userApplications = [];
         return [];
       }
-    }, errorMessage: 'Failed to fetch user applications');
-
-    final List<GigApplication> typedResult = result?.cast<GigApplication>() ?? []; return typedResult;
+    } catch (e) {
+      print('Failed to fetch user applications: \$e');
+      return [];
+    }
   }
 
   /// Creates a new application
@@ -101,7 +103,7 @@ class ApplicationProvider extends BaseProvider {
     required String coverLetter,
     double? proposedBudget,
   }) async {
-    return await handleAsync(() async {
+    try {
       // Create the API request payload
       final Map<String, dynamic> payload = {
         'gig_id': gigId,
@@ -113,7 +115,7 @@ class ApplicationProvider extends BaseProvider {
 
       // Call the API to create the application
       final response = await _apiService.post<Map<String, dynamic>>(
-        '/gigs/$gigId/applications',
+        '/gigs/\$gigId/applications',
         data: payload,
       );
 
@@ -126,9 +128,13 @@ class ApplicationProvider extends BaseProvider {
 
         return application;
       } else {
-        throw Exception('Invalid response format when creating application');
+        print('Invalid response format when creating application');
+        return null;
       }
-    }, errorMessage: 'Failed to apply to gig');
+    } catch (e) {
+      print('Failed to apply to gig: \$e');
+      return null;
+    }
   }
 
   /// Updates the status of an application
@@ -137,15 +143,16 @@ class ApplicationProvider extends BaseProvider {
     required String applicationId,
     required String status, // 'accepted', 'rejected'
   }) async {
-    return await handleAsync(() async {
+    try {
       // Call the API to update the application status
       String endpoint;
       if (status == 'accepted') {
-        endpoint = '/gigs/$gigId/applications/$applicationId/accept';
+        endpoint = '/gigs/\$gigId/applications/\$applicationId/accept';
       } else if (status == 'rejected') {
-        endpoint = '/gigs/$gigId/applications/$applicationId/reject';
+        endpoint = '/gigs/\$gigId/applications/\$applicationId/reject';
       } else {
-        throw Exception('Invalid status: $status');
+        print('Invalid status: \$status');
+        return null;
       }
 
       final response = await _apiService.post<Map<String, dynamic>>(
@@ -179,17 +186,21 @@ class ApplicationProvider extends BaseProvider {
 
         return updatedApplication;
       } else {
-        throw Exception('Invalid response format when updating application status');
+        print('Invalid response format when updating application status');
+        return null;
       }
-    }, errorMessage: 'Failed to update application status');
+    } catch (e) {
+      print('Failed to update application status: \$e');
+      return null;
+    }
   }
 
   /// Withdraws an application made by the user
   Future<bool> withdrawApplication(String applicationId) async {
-    final result = await handleAsync(() async {
+    try {
       // Call the API to withdraw the application
       await _apiService.delete<Map<String, dynamic>>(
-        '/applications/$applicationId',
+        '/applications/\$applicationId',
       );
 
       // Remove from user applications
@@ -201,9 +212,10 @@ class ApplicationProvider extends BaseProvider {
       }
 
       return true;
-    }, errorMessage: 'Failed to withdraw application');
-
-    return result ?? false;
+    } catch (e) {
+      print('Failed to withdraw application: \$e');
+      return false;
+    }
   }
 
   /// Sets the selected application
@@ -213,7 +225,7 @@ class ApplicationProvider extends BaseProvider {
       (app) => app.id == applicationId,
       orElse: () => _userApplications.firstWhere(
         (app) => app.id == applicationId,
-        orElse: () => throw Exception('Application not found: $applicationId'),
+        orElse: () => throw Exception('Application not found: \$applicationId'),
       ),
     );
 
@@ -231,64 +243,68 @@ class ApplicationProvider extends BaseProvider {
     // Channel for applications
     const channelName = 'applications';
 
-    final channel = await _pusherService.subscribeToChannel(channelName);
-    if (channel != null) {
-      _isSubscribed = true;
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel != null) {
+        _isSubscribed = true;
 
-      // Bind to application created event
-      _pusherService.bindToEvent(channelName, 'ApplicationCreated', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
-          
-          if (jsonData.containsKey('application') && jsonData['application'] is Map<String, dynamic>) {
-            final appData = jsonData['application'] as Map<String, dynamic>;
-            final application = GigApplication.fromJson(appData);
+        // Bind to application created event
+        _pusherService.bindToEvent(channelName, 'ApplicationCreated', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
 
-            // Add to applications if it's for a gig we're currently viewing
-            if (_applications.isNotEmpty && _applications.first.gigId == application.gigId) {
-              _applications.add(application);
-              _applications.sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
-              notifyListeners();
-            }
-          }
-        }
-      });
+            if (jsonData.containsKey('application') && jsonData['application'] is Map<String, dynamic>) {
+              final appData = jsonData['application'] as Map<String, dynamic>;
+              final application = GigApplication.fromJson(appData);
 
-      // Bind to application updated event
-      _pusherService.bindToEvent(channelName, 'ApplicationUpdated', (data) async {
-        if (data is String) {
-          final jsonData = jsonDecode(data) as Map<String, dynamic>;
-          
-          if (jsonData.containsKey('application') && jsonData['application'] is Map<String, dynamic>) {
-            final appData = jsonData['application'] as Map<String, dynamic>;
-            final updatedApplication = GigApplication.fromJson(appData);
-
-            // Update in applications list
-            for (int i = 0; i < _applications.length; i++) {
-              if (_applications[i].id == updatedApplication.id) {
-                _applications[i] = updatedApplication;
+              // Add to applications if it's for a gig we're currently viewing
+              if (_applications.isNotEmpty && _applications.first.gigId == application.gigId) {
+                _applications.add(application);
+                _applications.sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
                 notifyListeners();
-                break;
               }
             }
+          }
+        });
 
-            // Update in user applications
-            for (int i = 0; i < _userApplications.length; i++) {
-              if (_userApplications[i].id == updatedApplication.id) {
-                _userApplications[i] = updatedApplication;
+        // Bind to application updated event
+        _pusherService.bindToEvent(channelName, 'ApplicationUpdated', (data) async {
+          if (data is String) {
+            final jsonData = jsonDecode(data) as Map<String, dynamic>;
+
+            if (jsonData.containsKey('application') && jsonData['application'] is Map<String, dynamic>) {
+              final appData = jsonData['application'] as Map<String, dynamic>;
+              final updatedApplication = GigApplication.fromJson(appData);
+
+              // Update in applications list
+              for (int i = 0; i < _applications.length; i++) {
+                if (_applications[i].id == updatedApplication.id) {
+                  _applications[i] = updatedApplication;
+                  notifyListeners();
+                  break;
+                }
+              }
+
+              // Update in user applications
+              for (int i = 0; i < _userApplications.length; i++) {
+                if (_userApplications[i].id == updatedApplication.id) {
+                  _userApplications[i] = updatedApplication;
+                  notifyListeners();
+                  break;
+                }
+              }
+
+              // Update selected application if it's the one being updated
+              if (_selectedApplication != null && _selectedApplication!.id == updatedApplication.id) {
+                _selectedApplication = updatedApplication;
                 notifyListeners();
-                break;
               }
             }
-
-            // Update selected application if it's the one being updated
-            if (_selectedApplication != null && _selectedApplication!.id == updatedApplication.id) {
-              _selectedApplication = updatedApplication;
-              notifyListeners();
-            }
           }
-        }
-      });
+        });
+      }
+    } catch (e) {
+      print('Failed to subscribe to applications channel: \$e');
     }
   }
 
@@ -309,4 +325,3 @@ class ApplicationProvider extends BaseProvider {
     super.dispose();
   }
 }
-

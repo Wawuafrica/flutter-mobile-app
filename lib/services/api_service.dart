@@ -149,7 +149,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      // rethrow;
+      rethrow;
     }
   }
 
@@ -174,7 +174,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      // rethrow;
+      rethrow;
     }
   }
 
@@ -199,7 +199,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      // rethrow;
+      rethrow;
     }
   }
 
@@ -224,7 +224,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      // rethrow;
+      rethrow;
     }
   }
   
@@ -280,7 +280,7 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      // rethrow;
+      rethrow;
     }
   }
   
@@ -336,11 +336,11 @@ class ApiService {
       return response.data as T;
     } on DioException catch (e) {
       _handleError(e);
-      // rethrow;
+      rethrow;
     }
   }
 
-  Never _handleError(DioException error) {
+  void _handleError(DioException error) {
     String message;
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
@@ -352,7 +352,7 @@ class ApiService {
         message = _handleBadResponse(error.response);
         // Handle specific status codes
         if (error.response?.statusCode == 403) {
-          message = 'You don\'t have permission to access this resource';
+          message = 'You dont have permission to access this resource';
         } else if (error.response?.statusCode == 404) {
           message = 'The requested resource was not found';
         } else if (error.response?.statusCode == 500) {
@@ -368,7 +368,7 @@ class ApiService {
       default:
         message = 'An unexpected error occurred';
     }
-    throw ApiException(message, error);
+    print(message);
   }
 
   String _handleBadResponse(Response? response) {
@@ -400,16 +400,4 @@ class ApiService {
       return 'Server error: ${response.statusCode}';
     }
   }
-}
-
-class ApiException implements Exception {
-  final String message;
-  final DioException originalError;
-  final int? statusCode;
-
-  ApiException(this.message, this.originalError)
-      : statusCode = originalError.response?.statusCode;
-
-  @override
-  String toString() => message;
 }

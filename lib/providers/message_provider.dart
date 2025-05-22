@@ -60,7 +60,7 @@ class MessageProvider extends BaseProvider {
       _currentConversationId = conversationId.join('_');
     }
 
-    await handleAsync(() async {
+    try {
       // Get conversation or create it if it doesn't exist
       final response = await _apiService.get<Map<String, dynamic>>(
         '/messages/conversations',
@@ -91,14 +91,17 @@ class MessageProvider extends BaseProvider {
           // Mark messages as read automatically when loaded
           await markMessagesAsRead(conversationId, userId);
           
-          return messages;
+          return;
         }
       }
       
       // If no messages found, initialize with empty list
       _conversations[_currentConversationId!] = [];
-      return <Message>[];
-    }, errorMessage: 'Failed to load messages');
+      return;
+    } catch (e) {
+      print('Failed to load messages: $e');
+      return;
+    }
   }
 
   /// Sends a new message to another user
@@ -109,7 +112,7 @@ class MessageProvider extends BaseProvider {
     String? attachmentUrl,
     String? attachmentType,
   }) async {
-    return await handleAsync(() async {
+    try {
       // Create the message payload
       final Map<String, dynamic> messageData = {
         'receiver_id': receiverId,
@@ -149,14 +152,18 @@ class MessageProvider extends BaseProvider {
 
         return message;
       } else {
-        throw Exception('Failed to send message: Invalid response');
+        print('Failed to send message: Invalid response');
+        return null;
       }
-    }, errorMessage: 'Failed to send message');
+    } catch (e) {
+      print('Failed to send message: $e');
+      return null;
+    }
   }
 
   /// Marks messages as read
   Future<void> markMessagesAsRead(String conversationId, String userId) async {
-    await handleAsync(() async {
+    try {
       // Mark all messages in the conversation as read
       await _apiService.post<Map<String, dynamic>>(
         '/messages/conversations/$conversationId/read',
@@ -177,8 +184,11 @@ class MessageProvider extends BaseProvider {
         notifyListeners();
       }
 
-      return true;
-    }, errorMessage: 'Failed to mark messages as read');
+      return;
+    } catch (e) {
+      print('Failed to mark messages as read: $e');
+      return;
+    }
   }
 
   /// Subscribes to Pusher channel for real-time message updates
@@ -186,61 +196,65 @@ class MessageProvider extends BaseProvider {
     // Subscribe to the messages channel
     final channelName = 'messages';
 
-    final channel = await _pusherService.subscribeToChannel(channelName);
-    if (channel != null) {
-      // Bind to new message events
-      _pusherService.bindToEvent(channelName, 'MessageSent', (data) async {
-        if (data is String) {
-          final messageData = jsonDecode(data) as Map<String, dynamic>;
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel != null) {
+        // Bind to new message events
+        _pusherService.bindToEvent(channelName, 'MessageSent', (data) async {
+          if (data is String) {
+            final messageData = jsonDecode(data) as Map<String, dynamic>;
           
-          // Check if this message belongs to our current conversation
-          if (messageData.containsKey('message') && 
-              messageData['message'] is Map<String, dynamic>) {
+            // Check if this message belongs to our current conversation
+            if (messageData.containsKey('message') && 
+                messageData['message'] is Map<String, dynamic>) {
             
-            final Map<String, dynamic> msgData = messageData['message'] as Map<String, dynamic>;
-            final Message message = Message.fromJson(msgData);
+              final Map<String, dynamic> msgData = messageData['message'] as Map<String, dynamic>;
+              final Message message = Message.fromJson(msgData);
             
-            // Create the conversation ID to match our format
-            final msgConvMembers = [message.senderId, message.receiverId]..sort();
-            final msgConversationId = msgConvMembers.join('_');
+              // Create the conversation ID to match our format
+              final msgConvMembers = [message.senderId, message.receiverId]..sort();
+              final msgConversationId = msgConvMembers.join('_');
             
-            // Only add if it belongs to our current conversation
-            if (msgConversationId == _currentConversationId) {
-              if (!_conversations.containsKey(_currentConversationId)) {
-                _conversations[_currentConversationId!] = [];
-              }
+              // Only add if it belongs to our current conversation
+              if (msgConversationId == _currentConversationId) {
+                if (!_conversations.containsKey(_currentConversationId)) {
+                  _conversations[_currentConversationId!] = [];
+                }
               
-              // Add to conversation if not already there (by ID)
-              if (!_conversations[_currentConversationId!]!.any((m) => m.id == message.id)) {
-                _conversations[_currentConversationId!]!.add(message);
-                notifyListeners();
+                // Add to conversation if not already there (by ID)
+                if (!_conversations[_currentConversationId!]!.any((m) => m.id == message.id)) {
+                  _conversations[_currentConversationId!]!.add(message);
+                  notifyListeners();
+                }
               }
             }
           }
-        }
-      });
+        });
 
-      // Bind to message read events
-      _pusherService.bindToEvent(channelName, 'message-read', (data) async {
-        if (data is String) {
-          final readData = jsonDecode(data) as Map<String, dynamic>;
-          final String messageId = readData['message_id'] as String;
+        // Bind to message read events
+        _pusherService.bindToEvent(channelName, 'message-read', (data) async {
+          if (data is String) {
+            final readData = jsonDecode(data) as Map<String, dynamic>;
+            final String messageId = readData['message_id'] as String;
 
-          // Update message read status
-          if (_conversations.containsKey(conversationId)) {
-            final updatedMessages =
-                _conversations[conversationId]!.map((message) {
-                  if (message.id == messageId) {
-                    return message.copyWith(isRead: true);
-                  }
-                  return message;
-                }).toList();
+            // Update message read status
+            if (_conversations.containsKey(conversationId)) {
+              final updatedMessages =
+                  _conversations[conversationId]!.map((message) {
+                    if (message.id == messageId) {
+                      return message.copyWith(isRead: true);
+                    }
+                    return message;
+                  }).toList();
 
-            _conversations[conversationId] = updatedMessages;
-            notifyListeners();
+              _conversations[conversationId] = updatedMessages;
+              notifyListeners();
+            }
           }
-        }
-      });
+        });
+      }
+    } catch (e) {
+      print('Failed to subscribe to conversation: $e');
     }
   }
 

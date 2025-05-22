@@ -1,10 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:logger/logger.dart';
 
 enum LoadingState { idle, loading, error, success }
 
 class BaseProvider extends ChangeNotifier {
-  final Logger _logger = Logger();
   LoadingState _state = LoadingState.idle;
   String? _errorMessage;
   bool _disposed = false;
@@ -23,7 +21,6 @@ class BaseProvider extends ChangeNotifier {
 
   @protected
   void setError(String message) {
-    _logger.e(message);
     _errorMessage = message;
     _setState(LoadingState.error);
   }
@@ -44,24 +41,6 @@ class BaseProvider extends ChangeNotifier {
     if (_state != newState) {
       _state = newState;
       notifyListeners();
-    }
-  }
-
-  @protected
-  Future<T?> handleAsync<T>(
-    Future<T> Function() operation, {
-    String loadingMessage = 'Loading...',
-    String? errorMessage,
-  }) async {
-    try {
-      setLoading();
-      final result = await operation();
-      setSuccess();
-      return result;
-    } catch (e) {
-      _logger.e('Error in ${runtimeType.toString()}');
-      setError(errorMessage ?? e.toString());
-      return null;
     }
   }
 
