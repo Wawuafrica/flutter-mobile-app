@@ -1,267 +1,360 @@
-import 'dart:convert';
-import 'dart:io'; // For File type
+// lib/providers/user_provider.dart
 
-import 'package:dio/dio.dart' as dio; // For FormData
+import 'package:flutter/material.dart';
+import 'package:dio/dio.dart' as dio; // Use alias to avoid conflict with dart:io.File
+import 'dart:io'; // For File
+import 'dart:convert'; // For jsonDecode if needed for Pusher event data
 
-import '../models/user.dart'; // Use the new User model
+import '../models/user.dart';
+import '../services/api_service.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart'; // Still needed for non-auth user actions if any, or for direct injection into AuthService
-import '../services/pusher_service.dart';
-import 'base_provider.dart';
+import '../services/pusher_service.dart'; // Assuming you have this service
 
-class UserProvider extends BaseProvider {
+class UserProvider extends ChangeNotifier {
+  final ApiService _apiService;
   final AuthService _authService;
-  final ApiService
-  _apiService; // For potential direct user-related API calls not part of auth
   final PusherService _pusherService;
 
+  // Internal state for the current user, synchronized with AuthService
   User? _currentUser;
-  User? _viewedUser; // For storing a fetched user profile
-  // _isAuthenticated can be derived from _authService.isAuthenticated or _currentUser != null
-  bool get isAuthenticated =>
-      _authService.isAuthenticated && _currentUser != null;
-  User? get currentUser => _currentUser;
-  User? get viewedUser => _viewedUser;
+  User? _viewedUser; // For viewing other user profiles
 
+  // State flags for UI feedback
+  bool _isLoading = false;
+  bool _hasError = false;
+  String? _errorMessage;
+  bool _isSuccess = false;
+  String? _userChannelName; // To keep track of the current Pusher channel
+
+  // Constructor
   UserProvider({
-    required AuthService authService,
     required ApiService apiService,
+    required AuthService authService,
     required PusherService pusherService,
-  }) : _authService = authService,
-       _apiService = apiService,
-       _pusherService = pusherService,
-       super() {
-    _loadInitialUser();
-  }
-
-  Future<void> _loadInitialUser() async {
-    if (_authService.isAuthenticated) {
-      setLoading();
-      try {
-        _currentUser = await _authService.getUser(); // Get user from storage
-        if (_currentUser == null) {
-          // If not in storage, try fetching from API
-          _currentUser = await _authService.getCurrentUserProfile();
-        }
-        if (_currentUser != null) {
-          await _subscribeToUserChannel();
-          setSuccess();
-        } else {
-          await _authService
-              .logout(); // Clear potentially inconsistent auth state
-          setError('Failed to load user session.');
-        }
-      } catch (e) {
-        setError(e.toString());
-        await _authService.logout(); // Clear auth state on error
-      }
+  }) : _apiService = apiService,
+       _authService = authService,
+       _pusherService = pusherService {
+    // Initialize current user from AuthService on provider creation
+    // This is safe because AuthService.init() will have already been called (e.g., in main)
+    _currentUser = _authService.currentUser;
+    if (_currentUser != null && _authService.isAuthenticated) {
+      // If user is already logged in (e.g., on app restart), subscribe to Pusher
+      _subscribeToUserChannel();
     }
   }
 
+  // Getters for UI to consume
+  User? get currentUser => _currentUser;
+  User? get viewedUser => _viewedUser;
+  bool get isLoading => _isLoading;
+  bool get hasError => _hasError;
+  String? get errorMessage => _errorMessage;
+  bool get isSuccess => _isSuccess;
+  bool get isAuthenticated => _authService.isAuthenticated; // Delegate to AuthService
+
+  // --- State Management Helpers ---
+  void setLoading() {
+    _isLoading = true;
+    _hasError = false;
+    _errorMessage = null;
+    _isSuccess = false;
+    notifyListeners();
+  }
+
+  void setError(String message) {
+    _isLoading = false;
+    _hasError = true;
+    _errorMessage = message;
+    _isSuccess = false;
+    notifyListeners();
+  }
+
+  void setSuccess() {
+    _isLoading = false;
+    _hasError = false;
+    _errorMessage = null;
+    _isSuccess = true;
+    notifyListeners();
+  }
+
+  void resetState() {
+    _isLoading = false;
+    _hasError = false;
+    _errorMessage = null;
+    _isSuccess = false;
+    notifyListeners();
+  }
+
+  // --- User Authentication/Session Management ---
+
+  // Assuming login/register from auth service will return a User object
   Future<void> login(String email, String password) async {
+    setLoading();
     try {
-      _currentUser = await _authService.login(email, password);
+      _currentUser = await _authService.signIn(email, password); // Use signIn
       if (_currentUser != null) {
         await _subscribeToUserChannel();
+        setSuccess();
+      } else {
+        setError('Login failed: User object is null.');
       }
+    } on AuthException catch (e) {
+      setError(e.message);
     } catch (e) {
-      setError('Login failed');
+      setError('An unexpected error occurred during login: ${e.toString()}');
     }
   }
 
   Future<void> register(Map<String, dynamic> userData) async {
+    setLoading();
     try {
-      // Registration in AuthService might or might not auto-login (save token).
-      // Assuming it does if successful and token is part of response.
       _currentUser = await _authService.register(userData);
       if (_authService.isAuthenticated && _currentUser != null) {
         await _subscribeToUserChannel();
+        setSuccess();
       } else {
-        // UI should likely redirect to login or show a message
+        setError('Registration successful but failed to log in automatically.');
       }
+    } on AuthException catch (e) {
+      setError(e.message);
     } catch (e) {
-      setError('Registration failed');
+      setError('An unexpected error occurred during registration: ${e.toString()}');
+    }
+  }
+
+  Future<void> logout() async {
+    setLoading();
+    try {
+      if (_userChannelName != null) {
+        await _pusherService.unsubscribeFromChannel(_userChannelName!);
+        _userChannelName = null;
+      }
+      await _authService.logout(); // Clears token and user locally
+      _currentUser = null;
+      _viewedUser = null; // Clear viewed user too
+      setSuccess();
+      print('User logged out successfully.');
+    } on AuthException catch (e) {
+      setError(e.message);
+    } catch (e) {
+      setError('Logout failed: ${e.toString()}');
+    } finally {
+      // Ensure state is reset even if error occurs
+      _currentUser = null;
+      _viewedUser = null;
+      resetState();
     }
   }
 
   Future<void> fetchCurrentUser() async {
     if (!_authService.isAuthenticated) {
-      _currentUser = null;
+      _currentUser = null; // Ensure current user is null if not authenticated
       resetState();
+      print('Attempted to fetch current user when not authenticated.');
       return;
     }
+    setLoading();
     try {
+      // AuthService fetches and saves the user internally
       _currentUser = await _authService.getCurrentUserProfile();
       if (_currentUser != null) {
-        await _subscribeToUserChannel();
-      }
-    } catch (e) {
-      setError('Failed to fetch user data');
-    }
-  }
-
-  Future<void> fetchUserById(String userId) async {
-    try {
-      final response = await _apiService.get('/api/user/$userId');
-      if (response != null && response['data'] != null) {
-        _viewedUser = User.fromJson(response['data'] as Map<String, dynamic>);
+        await _subscribeToUserChannel(); // Re-subscribe if user was re-fetched
+        setSuccess();
       } else {
-        throw Exception(
-          response?['message'] as String? ??
-              'Failed to fetch user profile by ID',
-        );
+        setError('Failed to fetch user profile: User is null after fetch.');
       }
+    } on AuthException catch (e) {
+      setError(e.message);
     } catch (e) {
-      setError('Failed to fetch user profile');
+      setError('An unexpected error occurred while fetching user profile: ${e.toString()}');
     }
   }
 
-  Future<void> _subscribeToUserChannel() async {
-    if (_currentUser == null || _currentUser!.uuid.isEmpty) {
+  // --- Account Type Onboarding ---
+  // This method specifically handles the /user/onboard/:user_id endpoint
+  Future<void> updateAccountType(int roleValue) async {
+    if (!_authService.isAuthenticated || _authService.currentUser == null || _authService.currentUser!.uuid.isEmpty) {
+      setError('User not authenticated or UUID missing for account type update.');
       return;
     }
-    // Unsubscribe from any previous channel first
-    // This needs a mechanism if the user ID could change or on logout.
-    // For now, assuming UserProvider is re-created or dispose handles old subscriptions.
 
-    final channelName = 'user-${_currentUser!.uuid}';
+    setLoading();
     try {
-      final channel = await _pusherService.subscribeToChannel(channelName);
-      if (channel != null) {
-        _pusherService.bindToEvent(channelName, 'profile-updated', (data) {
-          if (data is String) {
-            try {
-              final eventData = jsonDecode(data) as Map<String, dynamic>;
-              // Ensure the event data is for the current user if not already guaranteed by channel
-              if (eventData['uuid'] == _currentUser!.uuid) {
-                _currentUser = User.fromJson(
-                  eventData,
-                ); // Assuming event data is a full User object
-                notifyListeners();
-              }
-            } catch (e) {
-              print('Error processing profile-updated event: $e. Data: $data');
-            }
-          }
-        });
+      final response = await _apiService.post(
+        '/user/onboard/${_authService.currentUser!.uuid}', // Correct endpoint with UUID from AuthService
+        data: {'role': roleValue}, // Send the integer role value as per backend
+      );
+
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
+        // Assuming the 'data' field directly contains the updated user object
+        final updatedUser = User.fromJson(response['data'] as Map<String, dynamic>);
+        // Update _currentUser with the new data. Use copyWith to ensure immutability is handled well.
+        // It's crucial that the User.fromJson correctly maps the 'role' string (e.g., "PROFESSIONAL")
+        // to the 'role' field in your User model.
+        _currentUser = updatedUser;
+        await _authService.saveUser(_currentUser!); // Persist updated user data locally via AuthService
+
+        setSuccess();
+        print('Account Type updated successfully for: ${_currentUser!.email} to role: ${_currentUser!.role}');
       } else {
-        print('Failed to subscribe to Pusher channel: $channelName. Channel is null.');
+        final message = response['message'] as String? ?? 'Failed to update account type: Invalid response structure.';
+        setError(message);
       }
+    } on dio.DioError catch (e) {
+      setError(AuthService.extractErrorMessage(e));
     } catch (e) {
-      print('Error subscribing or binding to Pusher channel $channelName: $e');
+      setError('Failed to update account type: ${e.toString()}');
     }
   }
 
-  // Takes a map of data. For file uploads, the caller should prepare FormData if ApiService requires it.
+  // --- General User Profile Update ---
+  // This method is distinct and handles other general profile fields, potentially
+  // using a different API endpoint.
   Future<void> updateCurrentUserProfile(
     Map<String, dynamic> profileData, {
     File? profileImageFile,
     File? coverImageFile,
   }) async {
-    if (!_authService.isAuthenticated || _currentUser == null) {
-      setError('User not authenticated for profile update');
+    if (!_authService.isAuthenticated || _authService.currentUser == null || _authService.currentUser!.uuid.isEmpty) {
+      setError('User not authenticated for general profile update.');
       return;
     }
 
+    setLoading();
     try {
-      // Construct FormData
-      final formDataMap = {...profileData}; // Start with text fields
+      final formDataMap = {...profileData};
 
       if (profileImageFile != null) {
         formDataMap['profileImage'] = await dio.MultipartFile.fromFile(
           profileImageFile.path,
+          filename: profileImageFile.path.split('/').last,
         );
       }
       if (coverImageFile != null) {
         formDataMap['coverImage'] = await dio.MultipartFile.fromFile(
           coverImageFile.path,
+          filename: coverImageFile.path.split('/').last,
         );
       }
-      // TODO: Handle other potential file fields like 'meansOfIdentification[file]', 'professionalCertification[0][file]' etc.
-      // This would require a more complex data structure for `profileData` or more specific parameters.
 
       final dio.FormData formData = dio.FormData.fromMap(formDataMap);
 
+      // Assuming this is your general profile update endpoint, different from /user/onboard
       final response = await _apiService.post(
-        '/api/user/profile/update',
+        '/api/user/profile/update/${_authService.currentUser!.uuid}', // Example general update endpoint
         data: formData,
-        // ApiService.post needs to be able to handle FormData, potentially by setting content type.
-        // options: dio.Options(contentType: 'multipart/form-data'), // This might be needed in ApiService
       );
 
-      if (response != null && response['data'] != null) {
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
         _currentUser = User.fromJson(response['data'] as Map<String, dynamic>);
-        await _authService
-            .getUser(); // To re-save/update the user in SharedPreferences via AuthService
+        await _authService.saveUser(_currentUser!); // Persist updated user data locally
+
+        setSuccess();
+        print('Current User Profile updated successfully for: ${_currentUser!.email}');
       } else {
-        throw Exception(
-          response?['message'] as String? ?? 'Failed to update profile',
-        );
+        final message = response['message'] as String? ?? 'Failed to update profile: Invalid response structure.';
+        setError(message);
+      }
+    } on dio.DioError catch (e) {
+      setError(AuthService.extractErrorMessage(e));
+    } catch (e) {
+      setError('Failed to update profile: ${e.toString()}');
+    }
+  }
+
+  Future<void> fetchUserById(String userId) async {
+    setLoading();
+    try {
+      final response = await _apiService.get<Map<String, dynamic>>('/api/user/$userId');
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
+        _viewedUser = User.fromJson(response['data'] as Map<String, dynamic>);
+        setSuccess();
+      } else {
+        final message = response['message'] as String? ?? 'Failed to fetch user profile by ID: Invalid response structure.';
+        setError(message);
+        _viewedUser = null;
+      }
+    } on dio.DioError catch (e) {
+      setError(AuthService.extractErrorMessage(e));
+      _viewedUser = null;
+    } catch (e) {
+      setError('Failed to fetch user profile: ${e.toString()}');
+      _viewedUser = null;
+    }
+  }
+
+  // --- Pusher Integration ---
+  Future<void> _subscribeToUserChannel() async {
+    // Only subscribe if we have a current user and they are authenticated
+    if (!_authService.isAuthenticated || _authService.currentUser == null || _authService.currentUser!.uuid.isEmpty) {
+      print('Cannot subscribe to user channel: user not authenticated or UUID missing.');
+      return;
+    }
+
+    final channelName = 'user.profile.${_authService.currentUser!.uuid}';
+    if (_userChannelName == channelName) {
+      // Already subscribed to the current user's channel, no need to re-subscribe
+      return;
+    }
+
+    // Unsubscribe from previous channel if different
+    if (_userChannelName != null && _userChannelName!.isNotEmpty) {
+      await _pusherService.unsubscribeFromChannel(_userChannelName!);
+      print('Unsubscribed from old Pusher channel: $_userChannelName');
+      _userChannelName = null;
+    }
+
+    try {
+      final channel = await _pusherService.subscribeToChannel(channelName);
+      if (channel != null) {
+        _userChannelName = channelName;
+        print('Subscribed to Pusher channel: $channelName');
+
+        _pusherService.bindToEvent(channelName, 'user.profile.updated', (eventDataString) {
+          // Pusher event data often comes as a JSON string, so we need to decode it
+          try {
+            final Map<String, dynamic> eventData = jsonDecode(eventDataString) as Map<String, dynamic>;
+            // Update local currentUser object with data from Pusher event
+            // Use copyWith to ensure immutability where applicable
+            _currentUser = _currentUser?.copyWith(
+              firstName: eventData['firstName'] as String?,
+              lastName: eventData['lastName'] as String?,
+              email: eventData['email'] as String?,
+              phoneNumber: eventData['phoneNumber'] as String?,
+              role: eventData['role'] as String?, // Assuming 'role' can be updated via Pusher
+              profileImage: eventData['profileImage'] as String?,
+              coverImage: eventData['coverImage'] as String?,
+              profileCompletionRate: eventData['profileCompletionRate'] as int?,
+              // Update nested objects carefully, or re-parse the whole user if needed
+              additionalInfo: eventData['additionalInfo'] != null && eventData['additionalInfo'] is Map
+                  ? AdditionalInfo.fromJson(eventData['additionalInfo'])
+                  : _currentUser?.additionalInfo,
+              // ... and so on for other fields that might change via Pusher
+            ) ?? User.fromJson(eventData); // Fallback to full parse if _currentUser is null
+
+            // Important: Persist the updated user data back to local storage
+            _authService.saveUser(_currentUser!);
+            notifyListeners(); // Notify UI that user data has changed
+            print('User profile updated via Pusher: ${_currentUser!.email}');
+          } catch (e) {
+            print('Error processing user.profile.updated event: ${e.toString()}. Data: $eventDataString');
+          }
+        });
+      } else {
+        print('Failed to subscribe to Pusher channel: $channelName. Channel is null.');
+        _userChannelName = null;
       }
     } catch (e) {
-      setError('Failed to update profile');
+      print('Error subscribing or binding to Pusher channel $channelName: ${e.toString()}');
+      _userChannelName = null;
     }
-  }
-
-  Future<void> logout() async {
-    final String? userIdForPusher = _currentUser?.uuid;
-    try {
-      await _authService.logout();
-      _currentUser = null;
-      _viewedUser = null; // Clear viewed user on logout
-      if (userIdForPusher != null && userIdForPusher.isNotEmpty) {
-        await _pusherService.unsubscribeFromChannel('user-$userIdForPusher');
-      }
-    } catch (e) {
-      setError('Logout failed');
-    }
-  }
-
-  // OTP and Password Reset methods - can be called directly from UI or through UserProvider
-  Future<void> sendOtp(String email, {String? type}) async {
-    try {
-        await _authService.sendOtp(email, type: type);
-    } catch (e) {
-      setError('Failed to send OTP');
-    }
-    
-  }
-
-  Future<void> verifyOtp(String email, String otp, {String? type}) async {
-     try {
-       await _authService.verifyOtp(email, otp, type: type);
-     } catch (e) {
-        setError('Failed to verify OTP');
-     }
-  }
-
-  Future<void> forgotPassword(String email) async {
-    try {
-      await _authService.forgotPassword(email);
-    } catch (e) {
-      setError('Failed to send password reset instructions');
-    }
-  }
-
-  Future<void> resetPassword(
-    String email,
-    String otp,
-    String newPassword,
-    String confirmPassword,
-  ) async {
-    try {
-       await
-          _authService.resetPassword(email, otp, newPassword, confirmPassword);
-    } catch (e) {
-       setError('Failed to reset password');
-    }
-   
   }
 
   @override
   void dispose() {
-    if (_currentUser != null && _currentUser!.uuid.isNotEmpty) {
-      _pusherService.unsubscribeFromChannel('user-${_currentUser!.uuid}');
+    // Unsubscribe from Pusher when provider is disposed (e.g., app closes)
+    if (_userChannelName != null) {
+      _pusherService.unsubscribeFromChannel(_userChannelName!);
     }
     super.dispose();
   }
