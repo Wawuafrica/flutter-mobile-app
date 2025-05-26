@@ -11,7 +11,7 @@ import '../services/pusher_service.dart';
 /// - Fetching featured posts
 /// - Fetching post details
 /// - Creating and updating posts (for authorized users)
-/// - Real-time blog updates via Pusher
+/// - Real-time blog updates via Pusher based on new event structure
 class BlogProvider extends BaseProvider {
   final ApiService _apiService;
   final PusherService _pusherService;
@@ -21,7 +21,8 @@ class BlogProvider extends BaseProvider {
   BlogPost? _selectedPost;
   bool _hasMorePosts = true;
   int _currentPage = 1;
-  bool _isSubscribed = false;
+  bool _isGeneralChannelSubscribed = false;
+  String? _currentPostChannel;
 
   // Getters
   List<BlogPost> get posts => _posts;
@@ -41,16 +42,16 @@ class BlogProvider extends BaseProvider {
     String? authorId,
     bool refresh = false,
   }) async {
+    if (refresh) {
+      _currentPage = 1;
+      _hasMorePosts = true;
+    }
+
+    if (!_hasMorePosts && !refresh) {
+      return _posts;
+    }
+
     try {
-      if (refresh) {
-        _currentPage = 1;
-        _hasMorePosts = true;
-      }
-
-      if (!_hasMorePosts && !refresh) {
-        return _posts;
-      }
-
       final response = await _apiService.get(
         '/blog/posts',
         queryParameters: {
@@ -65,7 +66,8 @@ class BlogProvider extends BaseProvider {
       );
 
       if (response['posts'] == null) {
-        throw Exception('Failed to fetch blog posts: Invalid response');
+        print('Failed to fetch blog posts: Invalid response');
+        return [];
       }
 
       final List<dynamic> postsJson = response['posts'];
@@ -77,14 +79,15 @@ class BlogProvider extends BaseProvider {
       _posts = refresh ? fetchedPosts : [..._posts, ...fetchedPosts];
       _currentPage++;
 
-      if (!_isSubscribed) {
-        await _subscribeToBlogChannel();
+      if (!_isGeneralChannelSubscribed) {
+        await _subscribeToGeneralBlogChannel();
       }
 
       notifyListeners();
       return _posts;
     } catch (e) {
-      throw Exception('Failed to fetch blog posts: $e');
+      print('Failed to fetch blog posts: $e');
+      return [];
     }
   }
 
@@ -94,7 +97,8 @@ class BlogProvider extends BaseProvider {
       final response = await _apiService.get('/blog/featured');
 
       if (response['posts'] == null) {
-        throw Exception('Failed to fetch featured posts: Invalid response');
+        print('Failed to fetch featured posts: Invalid response');
+        return [];
       }
 
       final List<dynamic> postsJson = response['posts'];
@@ -105,27 +109,39 @@ class BlogProvider extends BaseProvider {
       notifyListeners();
       return _featuredPosts;
     } catch (e) {
-      throw Exception('Failed to fetch featured posts: $e');
+      print('Failed to fetch featured posts: $e');
+      return [];
     }
   }
 
-  /// Fetches details of a specific blog post
+  /// Fetches details of a specific blog post and subscribes to its channel
   Future<BlogPost?> fetchPostDetails(String postId) async {
     try {
+      // Unsubscribe from previous post channel if any
+      if (_currentPostChannel != null) {
+        await _pusherService.unsubscribeFromChannel(_currentPostChannel!);
+        _currentPostChannel = null;
+      }
+
       final response = await _apiService.get('/blog/posts/$postId');
 
       if (response.isEmpty) {
-        throw Exception('Failed to fetch post details: Empty response');
+        print('Failed to fetch post details: Empty response');
+        return null;
       }
 
       final post = BlogPost.fromJson(response);
       _updatePostInLists(postId, post);
       _selectedPost = post;
 
+      // Subscribe to the specific post channel
+      await _subscribeToPostChannel(postId);
+
       notifyListeners();
       return post;
     } catch (e) {
-      throw Exception('Failed to fetch post details: $e');
+      print('Failed to fetch post details: $e');
+      return null;
     }
   }
 
@@ -160,21 +176,17 @@ class BlogProvider extends BaseProvider {
       );
 
       if (response.isEmpty) {
-        throw Exception('Failed to create blog post: Empty response');
+        print('Failed to create blog post: Empty response');
+        return null;
       }
 
       final post = BlogPost.fromJson(response);
-      if (post.isPublished()) {
-        _posts.insert(0, post);
-        if (post.isFeatured) {
-          _featuredPosts.insert(0, post);
-        }
-      }
+      // The general channel will handle adding the new post via real-time update
 
-      notifyListeners();
       return post;
     } catch (e) {
-      throw Exception('Failed to create blog post: $e');
+      print('Failed to create blog post: $e');
+      return null;
     }
   }
 
@@ -204,44 +216,82 @@ class BlogProvider extends BaseProvider {
       );
 
       if (response.isEmpty) {
-        throw Exception('Failed to update blog post: Empty response');
+        print('Failed to update blog post: Empty response');
+        return null;
       }
 
       final updatedPost = BlogPost.fromJson(response);
-      _updatePostInLists(postId, updatedPost);
-      if (_selectedPost?.id == postId) {
-        _selectedPost = updatedPost;
-      }
+      // The specific post channel will handle updating the post via real-time update
 
-      notifyListeners();
       return updatedPost;
     } catch (e) {
-      throw Exception('Failed to update blog post: $e');
+      print('Failed to update blog post: $e');
+      return null;
     }
   }
 
   /// Updates a post in posts and featuredPosts lists
   void _updatePostInLists(String postId, BlogPost updatedPost) {
-    _posts = _posts.map((post) {
-      return post.id == postId && updatedPost.isPublished() ? updatedPost : post;
-    }).where((post) => post.isPublished()).toList();
+    bool foundInPosts = false;
+    for (int i = 0; i < _posts.length; i++) {
+      if (_posts[i].id == postId) {
+        if (updatedPost.isPublished()) {
+          _posts[i] = updatedPost;
+        } else {
+          _posts.removeAt(i);
+        }
+        foundInPosts = true;
+        break;
+      }
+    }
 
-    if (updatedPost.isPublished() && !_posts.any((post) => post.id == postId)) {
+    if (!foundInPosts && updatedPost.isPublished()) {
       _posts.insert(0, updatedPost);
     }
 
-    _featuredPosts = _featuredPosts.map((post) {
-      return post.id == postId && updatedPost.isFeatured ? updatedPost : post;
-    }).where((post) => post.isFeatured).toList();
+    bool foundInFeatured = false;
+    for (int i = 0; i < _featuredPosts.length; i++) {
+      if (_featuredPosts[i].id == postId) {
+        if (updatedPost.isFeatured) {
+          _featuredPosts[i] = updatedPost;
+        } else {
+          _featuredPosts.removeAt(i);
+        }
+        foundInFeatured = true;
+        break;
+      }
+    }
 
-    if (updatedPost.isFeatured && !_featuredPosts.any((post) => post.id == postId)) {
+    if (!foundInFeatured && updatedPost.isFeatured) {
       _featuredPosts.insert(0, updatedPost);
     }
+
+    // Sort lists after update/addition
+    _posts.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+    _featuredPosts.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
+
+    notifyListeners();
+  }
+
+  /// Removes a post from lists
+  void _removePostFromLists(String postId) {
+    _posts.removeWhere((post) => post.id == postId);
+    _featuredPosts.removeWhere((post) => post.id == postId);
+    if (_selectedPost?.id == postId) {
+      _selectedPost = null;
+    }
+    notifyListeners();
   }
 
   /// Sets the selected blog post
   void selectPost(String postId) {
-    try {
+     try {
+      // Unsubscribe from previous post channel if any
+      if (_currentPostChannel != null) {
+        _pusherService.unsubscribeFromChannel(_currentPostChannel!);
+        _currentPostChannel = null;
+      }
+
       _selectedPost = _posts.firstWhere(
         (post) => post.id == postId,
         orElse: () => _featuredPosts.firstWhere(
@@ -249,33 +299,44 @@ class BlogProvider extends BaseProvider {
           orElse: () => throw Exception('Blog post not found: $postId'),
         ),
       );
+
+      // Subscribe to the specific post channel
+      _subscribeToPostChannel(postId);
+
       notifyListeners();
     } catch (e) {
-      throw Exception('Failed to select post: $e');
+      print('Failed to select post: $e');
     }
   }
 
-  /// Clears the selected blog post
+  /// Clears the selected blog post and unsubscribes from its channel
   void clearSelectedPost() {
+    if (_currentPostChannel != null) {
+      _pusherService.unsubscribeFromChannel(_currentPostChannel!);
+      _currentPostChannel = null;
+    }
     _selectedPost = null;
     notifyListeners();
   }
 
-  /// Subscribes to blog channel for real-time updates
-  Future<void> _subscribeToBlogChannel() async {
-    const channelName = 'blog';
+  /// Subscribes to the general blog channel for creates/deletes
+  Future<void> _subscribeToGeneralBlogChannel() async {
+    const channelName = 'posts';
     try {
       final channel = await _pusherService.subscribeToChannel(channelName);
       if (channel == null) {
-        throw Exception('Failed to subscribe to blog channel');
+        print('Failed to subscribe to general blog channel');
+        return;
       }
 
-      _isSubscribed = true;
+      _isGeneralChannelSubscribed = true;
 
-      _pusherService.bindToEvent(channelName, 'post-created', (data) {
+      // Bind to post created event
+      _pusherService.bindToEvent(channelName, 'post.created', (data) {
         try {
           if (data is! String) {
-            throw Exception('Invalid post-created event data');
+            print('Invalid post.created event data');
+            return;
           }
           final postData = jsonDecode(data) as Map<String, dynamic>;
           final post = BlogPost.fromJson(postData);
@@ -285,31 +346,122 @@ class BlogProvider extends BaseProvider {
             if (post.isFeatured) {
               _featuredPosts.insert(0, post);
             }
+            // No need to sort here, assuming new posts come in order or will be sorted on fetch
             notifyListeners();
           }
         } catch (e) {
-          throw Exception('Failed to handle post-created event: $e');
+          print('Failed to handle post.created event: $e');
         }
       });
 
-      _pusherService.bindToEvent(channelName, 'post-updated', (data) {
+       // Bind to post deleted event
+      _pusherService.bindToEvent(channelName, 'post.deleted', (data) {
         try {
           if (data is! String) {
-            throw Exception('Invalid post-updated event data');
+             print('Invalid post.deleted event data');
+             return;
           }
-          final postData = jsonDecode(data) as Map<String, dynamic>;
-          final updatedPost = BlogPost.fromJson(postData);
-          _updatePostInLists(updatedPost.id, updatedPost);
-          if (_selectedPost?.id == updatedPost.id) {
-            _selectedPost = updatedPost;
+          final deletedPostData = jsonDecode(data) as Map<String, dynamic>;
+          final String? deletedPostId = deletedPostData['post_uuid'];
+
+          if (deletedPostId != null) {
+            _removePostFromLists(deletedPostId);
+          } else {
+             print('post.deleted event data missing post_uuid');
           }
-          notifyListeners();
         } catch (e) {
-          throw Exception('Failed to handle post-updated event: $e');
+          print('Failed to handle post.deleted event: $e');
         }
       });
+
     } catch (e) {
-      throw Exception('Failed to subscribe to blog channel: $e');
+      print('Failed to subscribe to general blog channel: $e');
+    }
+  }
+
+  /// Subscribes to a specific post channel for updates, comments, and likes
+  Future<void> _subscribeToPostChannel(String postId) async {
+    final channelName = 'post.updated.\$postId'; // Using post.updated channel for general post events
+     final commentChannelName = 'post.comment.\$postId';
+     final likeChannelName = 'post.liked.\$postId';
+
+    try {
+       // Subscribe to updated channel
+      final updatedChannel = await _pusherService.subscribeToChannel(channelName);
+       if (updatedChannel != null) {
+          _currentPostChannel = channelName; // Store only the main post channel
+
+           _pusherService.bindToEvent(channelName, 'post.updated', (data) {
+              try {
+                if (data is! String) {
+                  print('Invalid post.updated event data');
+                  return;
+                }
+                final postData = jsonDecode(data) as Map<String, dynamic>;
+                final updatedPost = BlogPost.fromJson(postData);
+                 _updatePostInLists(updatedPost.id, updatedPost);
+                if (_selectedPost?.id == updatedPost.id) {
+                   _selectedPost = updatedPost;
+                   notifyListeners();
+                 }
+              } catch (e) {
+                 print('Failed to handle post.updated event: $e');
+              }
+           });
+       }
+
+       // Subscribe to comment channel
+       final commentChannel = await _pusherService.subscribeToChannel(commentChannelName);
+       if (commentChannel != null) {
+          _pusherService.bindToEvent(commentChannelName, 'post.comment', (data) {
+            try {
+              if (data is! String) {
+                print('Invalid post.comment event data');
+                return;
+              }
+              final commentData = jsonDecode(data) as Map<String, dynamic>;
+              // Assuming comment data structure allows adding to _selectedPost.comments
+              // This requires BlogPost model to handle comments
+              // If _selectedPost is the post this comment belongs to, add the comment.
+               if (_selectedPost != null && _selectedPost!.id == postId) {
+                 // Assuming commentData can be converted to a Comment object
+                 // This requires a Comment model and a way to add it to BlogPost
+                 // Example: _selectedPost!.comments.add(Comment.fromJson(commentData));
+                 notifyListeners();
+               }
+            } catch (e) {
+              print('Failed to handle post.comment event: $e');
+            }
+          });
+       }
+
+       // Subscribe to like channel
+        final likeChannel = await _pusherService.subscribeToChannel(likeChannelName);
+        if (likeChannel != null) {
+           _pusherService.bindToEvent(likeChannelName, 'post.liked', (data) {
+             try {
+               if (data is! String) {
+                 print('Invalid post.liked event data');
+                 return;
+               }
+               final likeData = jsonDecode(data) as Map<String, dynamic>;
+               // Assuming like data structure allows updating like count or user list
+               // If _selectedPost is the post this like belongs to, update like status/count.
+               if (_selectedPost != null && _selectedPost!.id == postId) {
+                  // Example: _selectedPost!.likesCount = likeData['likes_count'];
+                  notifyListeners();
+               }
+             } catch (e) {
+               print('Failed to handle post.liked event: $e');
+             }
+           });
+        }
+
+        // Note: post.comment.like.{post_uuid} is not implemented here as it requires more specific Comment ID handling
+
+    } catch (e) {
+      print('Failed to subscribe to post channel \$postId: \$e');
+       _currentPostChannel = null; // Clear channel on failure
     }
   }
 
@@ -320,15 +472,22 @@ class BlogProvider extends BaseProvider {
     _selectedPost = null;
     _hasMorePosts = true;
     _currentPage = 1;
-    _isSubscribed = false;
+    _isGeneralChannelSubscribed = false;
+    if (_currentPostChannel != null) {
+      _pusherService.unsubscribeFromChannel(_currentPostChannel!);
+      _currentPostChannel = null;
+    }
     resetState();
   }
 
   @override
   void dispose() {
-    if (_isSubscribed) {
-      _pusherService.unsubscribeFromChannel('blog');
+    if (_isGeneralChannelSubscribed) {
+      _pusherService.unsubscribeFromChannel('posts');
     }
+     if (_currentPostChannel != null) {
+       _pusherService.unsubscribeFromChannel(_currentPostChannel!);
+     }
     super.dispose();
   }
 }

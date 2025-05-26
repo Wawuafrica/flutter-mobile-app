@@ -1,3 +1,5 @@
+// lib/screens/category_selection/category_selection.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:provider/provider.dart';
@@ -17,12 +19,12 @@ class CategorySelection extends StatefulWidget {
 }
 
 class _CategorySelectionState extends State<CategorySelection> {
-  final Set<String> selectedCategories = {};
+  // Changed to hold a single selected category ID, or null if none selected.
+  String? _selectedCategoryId;
 
   @override
   void initState() {
     super.initState();
-    // Fetch categories when the screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final categoryProvider = Provider.of<CategoryProvider>(
         context,
@@ -34,16 +36,27 @@ class _CategorySelectionState extends State<CategorySelection> {
     });
   }
 
+  // Helper method for single selection logic
+  void _toggleSelection(String categoryId) {
+    setState(() {
+      if (_selectedCategoryId == categoryId) {
+        // If the same category is clicked again, unselect it
+        _selectedCategoryId = null;
+      } else {
+        // Select the new category
+        _selectedCategoryId = categoryId;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<CategoryProvider, UserProvider>(
       builder: (context, categoryProvider, userProvider, child) {
-        // Show loading indicator while fetching categories
         if (categoryProvider.isLoading) {
-          return Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
-        // Show error message if fetching categories failed
         if (categoryProvider.hasError) {
           return Scaffold(
             body: Center(
@@ -52,13 +65,13 @@ class _CategorySelectionState extends State<CategorySelection> {
                 children: [
                   Text(
                     'Error loading categories: ${categoryProvider.errorMessage}',
-                    style: TextStyle(color: Colors.red),
+                    style: const TextStyle(color: Colors.red),
                     textAlign: TextAlign.center,
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () => categoryProvider.fetchCategories(),
-                    child: Text('Retry'),
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
@@ -67,379 +80,337 @@ class _CategorySelectionState extends State<CategorySelection> {
         }
 
         return Scaffold(
-          body: SingleChildScrollView(
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: 20),
-
-                  // Continue button
-                  CustomButton(
-                    function: () async {
-                      if (selectedCategories.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Please select at least one category',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-
-                      // Update user profile with selected categories
-                      await userProvider.updateCurrentUserProfile({
-                        'categories': selectedCategories.toList(),
-                      });
-
-                      if (userProvider.isSuccess) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProfileScreen(),
-                          ),
-                        );
-                      }
-                    },
-                    widget: Text(
-                      'Continue',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    color: wawuColors.buttonPrimary,
-                    textColor: Colors.white,
-                  ),
-
-                  SizedBox(height: 20),
-                  CustomIntroBar(
-                    text:
-                        'Hi ${userProvider.currentUser?.firstName ?? 'there'}',
-                    desc:
-                        'So, wanna tell us more about your superpower? What makes you tick, basically. This is your initial proposal outlining the value proposition of your expertise to prospective clients.',
-                  ),
-                  Text(
-                    'Select Your Role',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 20),
-
-                  // Continue button
-                  CustomButton(
-                    function: () async {
-                      if (selectedCategories.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Please select at least one category',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-
-                      // Update user profile with selected categories
-                      await userProvider.updateCurrentUserProfile({
-                        'categories': selectedCategories.toList(),
-                      });
-
-                      if (userProvider.isSuccess) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProfileScreen(),
-                          ),
-                        );
-                      }
-                    },
-                    widget: Text(
-                      'Continue',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    color: wawuColors.buttonPrimary,
-                    textColor: Colors.white,
-                  ),
-
-                  SizedBox(height: 20),
-                  // Show loading indicator when updating profile
-                  if (userProvider.isLoading)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-
-                  // Show error message if update failed
-                  if (userProvider.hasError)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10.0),
-                      child: Text(
-                        userProvider.errorMessage ?? 'An error occurred',
-                        style: TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
-                  StaggeredGrid.count(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 20,
-                    crossAxisSpacing: 20,
+          body: Stack(
+            children: [
+              SingleChildScrollView(
+                child: Container(
+                  width: double.infinity,
+                  // Added bottom padding to make space for the floating button
+                  padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 100.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      StaggeredGridTile.count(
-                        crossAxisCellCount: 4,
-                        mainAxisCellCount: 2,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              if (selectedCategories.contains('designer')) {
-                                selectedCategories.remove('designer');
-                              } else {
-                                selectedCategories.add('designer');
-                              }
-                            });
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(horizontal: 20.0),
-                            decoration: BoxDecoration(
-                              color: wawuColors.purpleDarkestContainer,
-                              borderRadius: BorderRadius.circular(20),
-                              border:
-                                  selectedCategories.contains('designer')
+                      const SizedBox(height: 20),
+
+                      CustomIntroBar(
+                        text: 'Hi ${userProvider.currentUser?.firstName ?? 'there'}',
+                        desc:
+                            'So, wanna tell us more about your superpower? What makes you tick, basically. This is your initial proposal outlining the value proposition of your expertise to prospective clients.',
+                      ),
+                      const Text(
+                        'Select Your Role',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 20),
+
+                      if (userProvider.isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+
+                      if (userProvider.hasError)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10.0),
+                          child: Text(
+                            userProvider.errorMessage ?? 'An error occurred',
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+
+                      StaggeredGrid.count(
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 20,
+                        crossAxisSpacing: 20,
+                        children: [
+                          // Designer Tile
+                          StaggeredGridTile.count(
+                            crossAxisCellCount: 4,
+                            mainAxisCellCount: 2,
+                            child: InkWell(
+                              onTap: () => _toggleSelection('designer'), // Call toggle function
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                                decoration: BoxDecoration(
+                                  color: wawuColors.secondary, // Background color remains fixed
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: _selectedCategoryId == 'designer' // Apply border if selected
                                       ? Border.all(
-                                        color: Colors.blue,
-                                        width: 2.0,
-                                      )
-                                      : null,
+                                          color: wawuColors.buttonPrimary, // Primary button color for border
+                                          width: 2.0,
+                                        )
+                                      : null, // No border if not selected
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: const [
+                                          SizedBox(height: 20.0),
+                                          Text(
+                                            'Designer',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Image.asset(
+                                      'assets/images/roles/designer.webp',
+                                      cacheWidth: 300,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(height: 20.0),
-                                      Text(
-                                        'Designer',
+                          ),
+                          // Data Analyst Tile
+                          StaggeredGridTile.count(
+                            crossAxisCellCount: 2,
+                            mainAxisCellCount: 2.5,
+                            child: InkWell(
+                              onTap: () => _toggleSelection('data_analyst'), // Call toggle function
+                              child: Container(
+                                width: double.infinity,
+                                clipBehavior: Clip.hardEdge,
+                                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                                decoration: BoxDecoration(
+                                  color: wawuColors.secondary, // Background color remains fixed
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: _selectedCategoryId == 'data_analyst' // Apply border if selected
+                                      ? Border.all(
+                                          color: wawuColors.buttonPrimary, // Primary button color for border
+                                          width: 2.0,
+                                        )
+                                      : null, // No border if not selected
+                                ),
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 20.0),
+                                    Expanded(
+                                      child: Text(
+                                        'Data Analyst',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    Image.asset(
+                                      'assets/images/roles/analyst.webp',
+                                      cacheWidth: 300,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Programmer Tile
+                          StaggeredGridTile.count(
+                            crossAxisCellCount: 2,
+                            mainAxisCellCount: 3,
+                            child: InkWell(
+                              onTap: () => _toggleSelection('programmer'), // Call toggle function
+                              child: Container(
+                                width: double.infinity,
+                                clipBehavior: Clip.hardEdge,
+                                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                                decoration: BoxDecoration(
+                                  color: wawuColors.purpleDarkContainer, // Background color remains fixed
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: _selectedCategoryId == 'programmer' // Apply border if selected
+                                      ? Border.all(
+                                          color: wawuColors.buttonPrimary, // Primary button color for border
+                                          width: 2.0,
+                                        )
+                                      : null, // No border if not selected
+                                ),
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 20.0),
+                                    Expanded(
+                                      child: Text(
+                                        'Programmer',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    Image.asset(
+                                      'assets/images/roles/programmer.webp',
+                                      cacheWidth: 300,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Marketer Tile
+                          StaggeredGridTile.count(
+                            crossAxisCellCount: 2,
+                            mainAxisCellCount: 3,
+                            child: InkWell(
+                              onTap: () => _toggleSelection('marketer'), // Call toggle function
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                                decoration: BoxDecoration(
+                                  color: wawuColors.purpleContainer, // Background color remains fixed
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: _selectedCategoryId == 'marketer' // Apply border if selected
+                                      ? Border.all(
+                                          color: wawuColors.buttonPrimary, // Primary button color for border
+                                          width: 2.0,
+                                        )
+                                      : null, // No border if not selected
+                                ),
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 20.0),
+                                    Expanded(
+                                      child: Text(
+                                        'Marketer',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                    Image.asset(
+                                      'assets/images/roles/marketer.webp',
+                                      cacheWidth: 300,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // More Tile (remains unaffected by selection logic)
+                          StaggeredGridTile.count(
+                            crossAxisCellCount: 2,
+                            mainAxisCellCount: 2.5,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                              decoration: BoxDecoration(
+                                color: wawuColors.secondary, // Background color remains fixed
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: InkWell(
+                                onTap: () {
+                                  // This is the "More" button, it navigates to another screen
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const MoreCategories(),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  children: [
+                                    const SizedBox(height: 20.0),
+                                    const Expanded(
+                                      child: Text(
+                                        'More',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontSize: 16,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                Image.asset(
-                                  'assets/images/roles/designer.webp',
-                                  cacheWidth: 300,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      StaggeredGridTile.count(
-                        crossAxisCellCount: 2,
-                        mainAxisCellCount: 2.5,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              if (selectedCategories.contains('data_analyst')) {
-                                selectedCategories.remove('data_analyst');
-                              } else {
-                                selectedCategories.add('data_analyst');
-                              }
-                            });
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            clipBehavior: Clip.hardEdge,
-                            padding: EdgeInsets.symmetric(horizontal: 10.0),
-                            decoration: BoxDecoration(
-                              color: wawuColors.secondary,
-                              borderRadius: BorderRadius.circular(20),
-                              border:
-                                  selectedCategories.contains('data_analyst')
-                                      ? Border.all(
-                                        color: Colors.blue,
-                                        width: 2.0,
-                                      )
-                                      : null,
-                            ),
-                            child: Column(
-                              children: [
-                                SizedBox(height: 20.0),
-                                Expanded(
-                                  child: Text(
-                                    'Data Analyst',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
                                     ),
-                                  ),
-                                ),
-                                Image.asset(
-                                  'assets/images/roles/analyst.webp',
-                                  cacheWidth: 300,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      StaggeredGridTile.count(
-                        crossAxisCellCount: 2,
-                        mainAxisCellCount: 3,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              if (selectedCategories.contains('programmer')) {
-                                selectedCategories.remove('programmer');
-                              } else {
-                                selectedCategories.add('programmer');
-                              }
-                            });
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            clipBehavior: Clip.hardEdge,
-                            padding: EdgeInsets.symmetric(horizontal: 10.0),
-                            decoration: BoxDecoration(
-                              color: wawuColors.purpleDarkContainer,
-                              borderRadius: BorderRadius.circular(20),
-                              border:
-                                  selectedCategories.contains('programmer')
-                                      ? Border.all(
-                                        color: Colors.blue,
-                                        width: 2.0,
-                                      )
-                                      : null,
-                            ),
-                            child: Column(
-                              children: [
-                                SizedBox(height: 20.0),
-                                Expanded(
-                                  child: Text(
-                                    'Programmer',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
+                                    Image.asset(
+                                      'assets/images/roles/more.webp',
+                                      cacheWidth: 300,
                                     ),
-                                  ),
+                                  ],
                                 ),
-                                Image.asset(
-                                  'assets/images/roles/programmer.webp',
-                                  cacheWidth: 300,
-                                ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                      StaggeredGridTile.count(
-                        crossAxisCellCount: 2,
-                        mainAxisCellCount: 3,
-                        child: InkWell(
-                          onTap: () {
-                            setState(() {
-                              if (selectedCategories.contains('marketer')) {
-                                selectedCategories.remove('marketer');
-                              } else {
-                                selectedCategories.add('marketer');
-                              }
-                            });
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: EdgeInsets.symmetric(horizontal: 10.0),
-                            decoration: BoxDecoration(
-                              color: wawuColors.purpleContainer,
-                              borderRadius: BorderRadius.circular(20),
-                              border:
-                                  selectedCategories.contains('marketer')
-                                      ? Border.all(
-                                        color: Colors.blue,
-                                        width: 2.0,
-                                      )
-                                      : null,
-                            ),
-                            child: Column(
-                              children: [
-                                SizedBox(height: 20.0),
-                                Expanded(
-                                  child: Text(
-                                    'Marketer',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                                Image.asset(
-                                  'assets/images/roles/marketer.webp',
-                                  cacheWidth: 300,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      StaggeredGridTile.count(
-                        crossAxisCellCount: 2,
-                        mainAxisCellCount: 2.5,
-                        child: Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.symmetric(horizontal: 10.0),
-                          decoration: BoxDecoration(
-                            color: wawuColors.secondary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: InkWell(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MoreCategories(),
-                                ),
-                              );
-                            },
-                            child: Column(
-                              children: [
-                                SizedBox(height: 20.0),
-                                Expanded(
-                                  child: Text(
-                                    'More',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                                Image.asset(
-                                  'assets/images/roles/more.webp',
-                                  cacheWidth: 300,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
-                  SizedBox(height: 20),
-                ],
+                ),
               ),
-            ),
+
+              // Floating "Continue" button
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Visibility(
+                  // Button is visible only if a category IS selected (_selectedCategoryId is not null)
+                  visible: _selectedCategoryId != null,
+                  child: Container(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+                    child: CustomButton(
+                      function: () async {
+                        // The button's visibility already ensures _selectedCategoryId is not null.
+                        // This check is a safeguard.
+                        if (_selectedCategoryId == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select at least one speciality.'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        await userProvider.updateCurrentUserProfile({
+                          // Pass the single selected ID in a list
+                          'categories': [_selectedCategoryId!],
+                        });
+
+                        if (userProvider.isSuccess) {
+                          // Clear selected category only on successful update
+                          setState(() {
+                            _selectedCategoryId = null;
+                          });
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProfileScreen(),
+                            ),
+                          );
+                        } else if (userProvider.hasError) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(userProvider.errorMessage ?? 'Failed to save your specialities.'),
+                            ),
+                          );
+                        }
+                        userProvider.resetState(); // Reset provider state after operation
+                      },
+                      widget: userProvider.isLoading
+                          ? const CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            )
+                          : const Text(
+                              'Continue',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                      color: wawuColors.buttonPrimary,
+                      textColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },

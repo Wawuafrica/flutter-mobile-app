@@ -11,7 +11,7 @@ import '../services/pusher_service.dart';
 /// - Fetching featured products
 /// - Fetching product details
 /// - Managing cart items (add, remove, update quantity)
-/// - Real-time product updates via Pusher
+/// - Real-time product updates via Pusher based on new event structure
 class ProductProvider extends BaseProvider {
   final ApiService _apiService;
   final PusherService _pusherService;
@@ -22,7 +22,8 @@ class ProductProvider extends BaseProvider {
   Map<String, int> _cartItems = {}; // Map of product ID to quantity
   bool _hasMoreProducts = true;
   int _currentPage = 1;
-  bool _isSubscribed = false;
+  bool _isGeneralChannelSubscribed = false;
+  String? _currentSpecificProductChannel;
 
   // Getters
   List<Product> get products => _products;
@@ -100,9 +101,9 @@ class ProductProvider extends BaseProvider {
       _hasMoreProducts = hasMorePages;
       _currentPage++;
 
-      // Subscribe to product channel if not already subscribed
-      if (!_isSubscribed) {
-        await _subscribeToProductChannel();
+      // Subscribe to general products channel if not already subscribed
+      if (!_isGeneralChannelSubscribed) {
+        await _subscribeToGeneralProductsChannel();
       }
 
       return _products;
@@ -135,34 +136,34 @@ class ProductProvider extends BaseProvider {
     }
   }
 
-  /// Fetches details of a specific product
+  /// Fetches details of a specific product and subscribes to its channel
   Future<Product?> fetchProductDetails(String productId) async {
     try {
+       // Unsubscribe from previous specific product channels if any
+      if (_currentSpecificProductChannel != null) {
+        await _pusherService.unsubscribeFromChannel(_currentSpecificProductChannel!);
+        _currentSpecificProductChannel = null;
+      }
+
       // TODO: Replace with actual endpoint
       final response = await _apiService.get<Map<String, dynamic>>(
         '/products/$productId',
       );
 
+      if (response.isEmpty) {
+         print('Failed to fetch product details: Empty response');
+         return null;
+      }
+
       final product = Product.fromJson(response);
 
-      // Update in products list if already loaded
-      for (int i = 0; i < _products.length; i++) {
-        if (_products[i].id == productId) {
-          _products[i] = product;
-          break;
-        }
-      }
-
-      // Update in featured products if present
-      for (int i = 0; i < _featuredProducts.length; i++) {
-        if (_featuredProducts[i].id == productId) {
-          _featuredProducts[i] = product;
-          break;
-        }
-      }
-
+      _updateProductInLists(productId, product);
       _selectedProduct = product;
 
+       // Subscribe to the specific product channels
+      await _subscribeToSpecificProductChannels(productId);
+
+      notifyListeners();
       return product;
     } catch (e) {
       print('Failed to fetch product details: $e');
@@ -170,22 +171,99 @@ class ProductProvider extends BaseProvider {
     }
   }
 
-  /// Sets the selected product
-  void selectProduct(String productId) {
-    _selectedProduct = _products.firstWhere(
-      (product) => product.id == productId,
-      orElse:
-          () => _featuredProducts.firstWhere(
-            (product) => product.id == productId,
-            orElse: () => throw Exception('Product not found: $productId'),
-          ),
-    );
+   /// Updates a product in products and featuredProducts lists
+  void _updateProductInLists(String productId, Product updatedProduct) {
+    bool foundInProducts = false;
+    for (int i = 0; i < _products.length; i++) {
+      if (_products[i].id == productId) {
+        _products[i] = updatedProduct;
+        foundInProducts = true;
+        break;
+      }
+    }
+
+    // If the updated product is not in the current list, but is available, add it.
+    // This might happen if a draft product is published.
+     if (!foundInProducts && updatedProduct.isAvailable) {
+       _products.insert(0, updatedProduct);
+     }
+
+    bool foundInFeatured = false;
+    for (int i = 0; i < _featuredProducts.length; i++) {
+      if (_featuredProducts[i].id == productId) {
+        if (updatedProduct.isFeatured) {
+          _featuredProducts[i] = updatedProduct;
+        } else {
+          _featuredProducts.removeAt(i);
+        }
+        foundInFeatured = true;
+        break;
+      }
+    }
+
+     // Add to featured if it's now featured but wasn't before
+    if (!foundInFeatured && updatedProduct.isFeatured) {
+      _featuredProducts.insert(0, updatedProduct); // Use insert(0) for newest first
+    }
+
+    // Sort lists after update/addition (optional, depending on desired order)
+    // _products.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // _featuredProducts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     notifyListeners();
   }
 
-  /// Clears the selected product
+  /// Removes a product from lists and cart
+  void _removeProduct(String productId) {
+     _products.removeWhere((product) => product.id == productId);
+     _featuredProducts.removeWhere((product) => product.id == productId);
+     _cartItems.remove(productId);
+     if (_selectedProduct?.id == productId) {
+       _selectedProduct = null;
+     }
+     notifyListeners();
+  }
+
+  /// Sets the selected product and subscribes to its channel
+  void selectProduct(String productId) {
+    try {
+      // Unsubscribe from previous specific product channels if any
+      if (_currentSpecificProductChannel != null) {
+        _pusherService.unsubscribeFromChannel(_currentSpecificProductChannel!);
+        _currentSpecificProductChannel = null;
+      }
+
+      _selectedProduct = _products.firstWhere(
+        (product) => product.id == productId,
+        orElse:
+            () => _featuredProducts.firstWhere(
+              (product) => product.id == productId,
+              // orElse: () => null, // Return null if not found locally
+            ),
+      );
+
+       if (_selectedProduct != null) {
+         // Subscribe to the specific product channels
+        _subscribeToSpecificProductChannels(productId);
+         notifyListeners();
+       } else {
+          print('Product not found locally: $productId. Consider fetching from API.');
+          // Optionally fetch from API if not found locally
+          // fetchProductDetails(productId); // This would trigger subscription upon fetching
+       }
+
+    } catch (e) {
+      print('Failed to select product or subscribe to channel: $e');
+       // If firstWhere throws, _selectedProduct remains null and channel is not subscribed
+    }
+  }
+
+  /// Clears the selected product and unsubscribes from its channel
   void clearSelectedProduct() {
+    if (_currentSpecificProductChannel != null) {
+      _pusherService.unsubscribeFromChannel(_currentSpecificProductChannel!);
+      _currentSpecificProductChannel = null;
+    }
     _selectedProduct = null;
     notifyListeners();
   }
@@ -205,7 +283,7 @@ class ProductProvider extends BaseProvider {
 
     // Check if product is available and in stock
     if (!product.isAvailable || !product.isInStock()) {
-      setError('Product is not available or out of stock');
+      print('Product is not available or out of stock');
       return;
     }
 
@@ -214,7 +292,7 @@ class ProductProvider extends BaseProvider {
     final newQuantity = currentQuantity + quantity;
 
     if (newQuantity > product.stockQuantity) {
-      setError('Cannot add more than available stock');
+      print('Cannot add more than available stock');
       return;
     }
 
@@ -241,7 +319,7 @@ class ProductProvider extends BaseProvider {
 
     // Check if this quantity would exceed stock
     if (quantity > product.stockQuantity) {
-      setError('Cannot add more than available stock');
+      print('Cannot add more than available stock');
       return;
     }
 
@@ -270,7 +348,7 @@ class ProductProvider extends BaseProvider {
     Map<String, dynamic>? additionalDetails,
   }) async {
     if (_cartItems.isEmpty) {
-      setError('Cannot submit an empty order');
+      print('Cannot submit an empty order');
       return null;
     }
 
@@ -323,146 +401,217 @@ class ProductProvider extends BaseProvider {
     }
   }
 
-  /// Subscribes to product channel for real-time updates
-  Future<void> _subscribeToProductChannel() async {
-    // Channel name: 'products'
+   /// Subscribes to the general products channel for creates
+  Future<void> _subscribeToGeneralProductsChannel() async {
     const channelName = 'products';
-
     try {
       final channel = await _pusherService.subscribeToChannel(channelName);
-      if (channel != null) {
-        _isSubscribed = true;
+      if (channel == null) {
+        print('Failed to subscribe to general products channel');
+        return;
+      }
 
-        // Bind to product updated event
-        _pusherService.bindToEvent(channelName, 'product-updated', (data) async {
-          if (data is String) {
-            final productData = jsonDecode(data) as Map<String, dynamic>;
-            final updatedProduct = Product.fromJson(productData);
+      _isGeneralChannelSubscribed = true;
 
-            // Update in products list
-            for (int i = 0; i < _products.length; i++) {
-              if (_products[i].id == updatedProduct.id) {
-                _products[i] = updatedProduct;
-                break;
-              }
-            }
+      // Bind to product created event
+      _pusherService.bindToEvent(channelName, 'product.created', _handleProductCreated);
 
-            // Update in featured products
-            for (int i = 0; i < _featuredProducts.length; i++) {
-              if (_featuredProducts[i].id == updatedProduct.id) {
-                _featuredProducts[i] = updatedProduct;
-                break;
-              }
-            }
-
-            // Update selected product if it's the one being updated
-            if (_selectedProduct != null &&
-                _selectedProduct!.id == updatedProduct.id) {
-              _selectedProduct = updatedProduct;
-            }
-
-            // Check if product in cart is no longer available or in stock
-            if (_cartItems.containsKey(updatedProduct.id)) {
-              if (!updatedProduct.isAvailable || !updatedProduct.isInStock()) {
-                _cartItems.remove(updatedProduct.id);
-                setError(
-                  'Product "${updatedProduct.name}" has been removed from your cart because it is no longer available.',
-                );
-              } else if (_cartItems[updatedProduct.id]! >
-                  updatedProduct.stockQuantity) {
-                // Adjust quantity if current quantity exceeds new stock
-                _cartItems[updatedProduct.id] = updatedProduct.stockQuantity;
-                setError(
-                  'The quantity of "${updatedProduct.name}" in your cart has been adjusted due to stock changes.',
-                );
-              }
-            }
-
-            notifyListeners();
-          }
-        });
-
-        // Bind to product stock updated event (for stock-only updates)
-        _pusherService.bindToEvent(channelName, 'product-stock-updated', (
-        data,
-      ) async {
-        if (data is String) {
-          final stockData = jsonDecode(data) as Map<String, dynamic>;
-          final String productId = stockData['product_id'] as String;
-          final int newStock = stockData['stock_quantity'] as int;
-
-          // Update product stock in products list
-          for (int i = 0; i < _products.length; i++) {
-            if (_products[i].id == productId) {
-              _products[i] = _products[i].copyWith(stockQuantity: newStock);
-              break;
-            }
-          }
-
-          // Update in featured products
-          for (int i = 0; i < _featuredProducts.length; i++) {
-            if (_featuredProducts[i].id == productId) {
-              _featuredProducts[i] = _featuredProducts[i].copyWith(
-                stockQuantity: newStock,
-              );
-              break;
-            }
-          }
-
-          // Update selected product if it's the one being updated
-          if (_selectedProduct != null && _selectedProduct!.id == productId) {
-            _selectedProduct = _selectedProduct!.copyWith(
-              stockQuantity: newStock,
-            );
-          }
-
-          // Check if product in cart needs adjustment due to stock changes
-          if (_cartItems.containsKey(productId)) {
-            if (newStock <= 0) {
-              _cartItems.remove(productId);
-              setError(
-                'Product has been removed from your cart because it is out of stock.',
-              );
-            } else if (_cartItems[productId]! > newStock) {
-              // Adjust quantity if current quantity exceeds new stock
-              _cartItems[productId] = newStock;
-              setError(
-                'The quantity in your cart has been adjusted due to stock changes.',
-              );
-            }
-          }
-
-          notifyListeners();
-        }
-      });
+    } catch (e) {
+      print('Failed to subscribe to general products channel: $e');
     }
-  } catch (e) {
-    print('Failed to subscribe to product channel: $e');
   }
-}
 
-  /// Clears all product data except cart
+   /// Subscribes to specific product channels for updates, deletes, and reviews
+   Future<void> _subscribeToSpecificProductChannels(String productId) async {
+    final updatedChannelName = 'product.updated.\$productId';
+    final deletedChannelName = 'product.deleted.\$productId';
+    final reviewChannelName = 'product.review.created.\$productId';
+
+    try {
+      // Store one of the channel names to manage unsubscription
+       _currentSpecificProductChannel = updatedChannelName;
+
+       // Subscribe to updated channel
+      final updatedChannel = await _pusherService.subscribeToChannel(updatedChannelName);
+       if (updatedChannel != null) {
+           _pusherService.bindToEvent(updatedChannelName, 'product.updated', _handleProductUpdated);
+       }
+
+       // Subscribe to deleted channel
+       final deletedChannel = await _pusherService.subscribeToChannel(deletedChannelName);
+       if (deletedChannel != null) {
+           _pusherService.bindToEvent(deletedChannelName, 'product.deleted', _handleProductDeleted);
+       }
+
+       // Subscribe to review channel
+        final reviewChannel = await _pusherService.subscribeToChannel(reviewChannelName);
+        if (reviewChannel != null) {
+           _pusherService.bindToEvent(reviewChannelName, 'product.review.created', _handleProductReviewCreated);
+        }
+
+    } catch (e) {
+      print('Failed to subscribe to specific product channels for \$productId: \$e');
+       _currentSpecificProductChannel = null; // Clear channel on failure
+    }
+   }
+
+   // Handlers for Pusher events
+
+  void _handleProductCreated(dynamic data) {
+    try {
+      if (data is! String) {
+        print('Invalid product.created event data');
+        return;
+      }
+      final productData = jsonDecode(data) as Map<String, dynamic>;
+      final newProduct = Product.fromJson(productData);
+
+      // Add to available products if it's available
+      if (newProduct.isAvailable) {
+        _products.insert(0, newProduct);
+        // Add to featured if it's also featured
+        if (newProduct.isFeatured) {
+           _featuredProducts.insert(0, newProduct);
+        }
+        // No need to sort here, assuming new products come in order or will be sorted on fetch
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Failed to handle product.created event: $e');
+    }
+  }
+
+  void _handleProductUpdated(dynamic data) {
+    try {
+       if (data is! String) {
+          print('Invalid product.updated event data');
+          return;
+       }
+      final productData = jsonDecode(data) as Map<String, dynamic>;
+      final updatedProduct = Product.fromJson(productData);
+      final String productId = updatedProduct.id;
+
+      _updateProductInLists(productId, updatedProduct);
+
+      // Update selected product if it's the one being updated
+      if (_selectedProduct != null && _selectedProduct!.id == productId) {
+         _selectedProduct = updatedProduct;
+      }
+
+      // Check if product in cart is affected
+      if (_cartItems.containsKey(productId)) {
+        if (!updatedProduct.isAvailable || !updatedProduct.isInStock()) {
+          _cartItems.remove(productId);
+          print(
+            'Product "${updatedProduct.name}" has been removed from your cart because it is no longer available.',
+          );
+        } else if (_cartItems[productId]! > updatedProduct.stockQuantity) {
+          // Adjust quantity if current quantity exceeds new stock
+          _cartItems[productId] = updatedProduct.stockQuantity;
+          print(
+            'The quantity of "${updatedProduct.name}" in your cart has been adjusted due to stock changes.',
+          );
+        }
+      }
+
+      notifyListeners();
+
+    } catch (e) {
+      print('Failed to handle product.updated event: $e');
+    }
+  }
+
+  void _handleProductDeleted(dynamic data) {
+    try {
+       if (data is! String) {
+          print('Invalid product.deleted event data');
+          return;
+       }
+      final deletedProductData = jsonDecode(data) as Map<String, dynamic>;
+      final String? deletedProductId = deletedProductData['product_uuid'];
+
+      if (deletedProductId != null) {
+        _removeProduct(deletedProductId);
+      } else {
+         print('product.deleted event data missing product_uuid');
+      }
+    } catch (e) {
+      print('Failed to handle product.deleted event: $e');
+    }
+  }
+
+   void _handleProductReviewCreated(dynamic data) {
+     try {
+       if (data is! String) {
+         print('Invalid product.review.created event data');
+         return;
+       }
+       final reviewData = jsonDecode(data) as Map<String, dynamic>;
+       final String? reviewedProductId = reviewData['product_uuid'];
+
+       if (reviewedProductId != null && _selectedProduct?.id == reviewedProductId) {
+          // Assuming the event payload contains updated review info or the full product
+          // If it contains the full updated product:
+           if (reviewData.containsKey('product') && reviewData['product'] is Map<String, dynamic>) {
+             final updatedProduct = Product.fromJson(reviewData['product']);
+             _updateProductInLists(reviewedProductId, updatedProduct);
+              if (_selectedProduct?.id == reviewedProductId) {
+                 _selectedProduct = updatedProduct;
+                 notifyListeners();
+              }
+           } else {
+             print('product.review.created event data missing product object. Cannot update selected product reviews.');
+              // If the event only contains review data, you would need to decide how to update the selected product's reviews/rating.
+              // This likely requires a method in the Product model to add a review or update the average rating.
+              // For now, we'll just print a message if the full product is not provided.
+           }
+       } else if (reviewedProductId == null) {
+          print('product.review.created event data missing product_uuid');
+       }
+     } catch (e) {
+       print('Failed to handle product.review.created event: $e');
+     }
+   }
+
+  /// Clears all product data except cart and unsubscribes from specific channel
   void clearProductData() {
     _products = [];
     _featuredProducts = [];
-    _selectedProduct = null;
+    clearSelectedProduct(); // Also unsubscribes from specific channels
     _hasMoreProducts = true;
     _currentPage = 1;
     resetState();
   }
 
-  /// Clears all data including cart
+  /// Clears all data including cart and unsubscribes from all channels
   void clearAll() {
-    clearProductData();
+    clearProductData(); // This will also clear selected product and unsubscribe from specific channels
     _cartItems.clear();
-    _isSubscribed = false;
+     if (_isGeneralChannelSubscribed) {
+       _pusherService.unsubscribeFromChannel('products');
+       _isGeneralChannelSubscribed = false;
+     }
+     // Specific channel is unsubscribed in clearSelectedProduct
   }
 
   @override
   void dispose() {
-    if (_isSubscribed) {
+    if (_isGeneralChannelSubscribed) {
       _pusherService.unsubscribeFromChannel('products');
     }
+     if (_currentSpecificProductChannel != null) {
+        // Extract productId from the channel name and unsubscribe from all associated channels
+        final productId = _currentSpecificProductChannel!.split('.')[1]; // Assuming format is product.updated.{productId}
+        final updatedChannelName = 'product.updated.\$productId';
+        final deletedChannelName = 'product.deleted.\$productId';
+        final reviewChannelName = 'product.review.created.\$productId';
+
+        _pusherService.unsubscribeFromChannel(updatedChannelName);
+        _pusherService.unsubscribeFromChannel(deletedChannelName);
+        _pusherService.unsubscribeFromChannel(reviewChannelName);
+
+       _currentSpecificProductChannel = null; // Clear after unsubscribing
+     }
     super.dispose();
   }
 }

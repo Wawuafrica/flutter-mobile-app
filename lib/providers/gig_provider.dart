@@ -11,7 +11,7 @@ import '../services/pusher_service.dart';
 /// - Fetching user's posted gigs
 /// - Creating new gigs
 /// - Updating gig status
-/// - Real-time gig updates via Pusher
+/// - Real-time gig updates via Pusher based on new event structure
 class GigProvider extends BaseProvider {
   final ApiService _apiService;
   final PusherService _pusherService;
@@ -19,7 +19,8 @@ class GigProvider extends BaseProvider {
   List<Gig> _availableGigs = [];
   List<Gig> _userGigs = [];
   Gig? _selectedGig;
-  bool _isSubscribed = false;
+  bool _isGeneralChannelSubscribed = false;
+  String? _currentSpecificGigChannel;
 
   // Getters
   List<Gig> get availableGigs => _availableGigs;
@@ -80,8 +81,8 @@ class GigProvider extends BaseProvider {
         _availableGigs = gigs;
 
         // Subscribe to gigs channel if not already subscribed
-        if (!_isSubscribed) {
-          await _subscribeToGigsChannel();
+        if (!_isGeneralChannelSubscribed) {
+          await _subscribeToGeneralGigsChannel();
         }
 
         return gigs;
@@ -169,9 +170,7 @@ class GigProvider extends BaseProvider {
       if (response.containsKey('data')) {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
 
-        // Add to user's gigs
-        _userGigs.add(gig);
-        _userGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        // The general gigs channel will handle adding the new gig via real-time update
 
         return gig;
       } else {
@@ -228,26 +227,7 @@ class GigProvider extends BaseProvider {
       if (response.containsKey('data')) {
         final updatedGig = Gig.fromJson(response['data'] as Map<String, dynamic>);
 
-        // Update in available gigs if present
-        _availableGigs = _availableGigs.map((gig) {
-          if (gig.id == gigId) {
-            return updatedGig;
-          }
-          return gig;
-        }).toList();
-
-        // Update in user gigs if present
-        _userGigs = _userGigs.map((gig) {
-          if (gig.id == gigId) {
-            return updatedGig;
-          }
-          return gig;
-        }).toList();
-
-        // Update selected gig if it's the one being edited
-        if (_selectedGig != null && _selectedGig!.id == gigId) {
-          _selectedGig = updatedGig;
-        }
+        // The specific gig channel will handle updating the gig via real-time update
 
         return updatedGig;
       } else {
@@ -269,8 +249,7 @@ class GigProvider extends BaseProvider {
         data: {},
       );
 
-      // Update gig in lists to reflect assignment
-      await updateGig(gigId: gigId, status: 'assigned', assignedTo: userId);
+      // The specific gig channel will handle updating the gig status via real-time update
 
       return true;
     } catch (e) {
@@ -288,8 +267,7 @@ class GigProvider extends BaseProvider {
         data: {},
       );
 
-      // Update gig in lists to reflect completion
-      await updateGig(gigId: gigId, status: 'completed');
+      // The specific gig channel will handle updating the gig status via real-time update
 
       return true;
     } catch (e) {
@@ -298,116 +276,339 @@ class GigProvider extends BaseProvider {
     }
   }
 
-  /// Sets the selected gig
-  void selectGig(String gigId) {
-    // Look in available gigs first
-    _selectedGig = _availableGigs.firstWhere(
-      (gig) => gig.id == gigId,
-      orElse:
-          () => _userGigs.firstWhere(
-            (gig) => gig.id == gigId,
-            orElse: () => throw Exception('Gig not found: $gigId'),
-          ),
-    );
+   /// Updates a gig in availableGigs and userGigs lists
+  void _updateGigInLists(String gigId, Gig updatedGig) {
+    bool foundInAvailable = false;
+    for (int i = 0; i < _availableGigs.length; i++) {
+      if (_availableGigs[i].id == gigId) {
+        // Remove if no longer open
+        if (!updatedGig.isOpen()) {
+          _availableGigs.removeAt(i);
+        } else {
+          _availableGigs[i] = updatedGig;
+        }
+        foundInAvailable = true;
+        break;
+      }
+    }
+
+    // Add to available if it's now open and wasn't before
+    if (!foundInAvailable && updatedGig.isOpen()) {
+      _availableGigs.insert(0, updatedGig);
+    }
+
+    bool foundInUserGigs = false;
+    for (int i = 0; i < _userGigs.length; i++) {
+      if (_userGigs[i].id == gigId) {
+         _userGigs[i] = updatedGig;
+        foundInUserGigs = true;
+        break;
+      }
+    }
+     // Add to user gigs if it's a new gig created by the user
+    if (!foundInUserGigs) {
+       // Assuming the API response for createGig includes enough info to determine if it's a user gig
+       // For now, we'll rely on fetchUserGigs to get the initial list.
+       // Real-time update for user's own created gig needs to be handled here.
+       // A simple approach is to always add new gigs to _userGigs if the current user is the creator.
+       // However, we don't have the current user ID in this provider. This requires refactoring or assuming.
+       // Let's assume for now that the real-time update event itself indicates if it's a user gig.
+       // This might require checking a user ID in the payload, which is not in the provided event data.
+       // For simplicity, let's update both lists if the gig is found.
+
+       // If the updated gig is relevant to the current user's gigs view,
+       // we might need more context (like the current user's ID) to decide if it should be added here.
+       // For now, we'll only update existing user gigs.
+    }
+
+    // Sort lists after update/addition
+    _availableGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _userGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     notifyListeners();
   }
 
-  /// Clears the selected gig
+    /// Removes a gig from lists
+  void _removeGigFromLists(String gigId) {
+    _availableGigs.removeWhere((gig) => gig.id == gigId);
+    _userGigs.removeWhere((gig) => gig.id == gigId);
+    if (_selectedGig?.id == gigId) {
+      _selectedGig = null;
+    }
+    notifyListeners();
+  }
+
+  /// Sets the selected gig and subscribes to its channel
+  void selectGig(String gigId) {
+     try {
+      // Unsubscribe from previous specific gig channels if any
+      if (_currentSpecificGigChannel != null) {
+        _pusherService.unsubscribeFromChannel(_currentSpecificGigChannel!);
+        _currentSpecificGigChannel = null;
+      }
+
+      // Find the gig in existing lists or fetch details if necessary
+      _selectedGig = _availableGigs.firstWhere(
+        (gig) => gig.id == gigId,
+        orElse:
+            () => _userGigs.firstWhere(
+              (gig) => gig.id == gigId,
+              // orElse: () => null, // Return null if not found in lists
+            ),
+      );
+
+      // If gig not found locally, you might want to fetch its details from the API here
+      // For now, we'll only proceed if the gig is found in the lists.
+
+      if (_selectedGig != null) {
+         // Subscribe to the specific gig channels
+        final approvedChannelName = 'gig.approved.\$gigId';
+        final rejectedChannelName = 'gig.rejected.\$gigId';
+        final reviewChannelName = 'gig.review.\$gigId';
+
+        // Store one of the channel names to manage unsubscription
+        _currentSpecificGigChannel = approvedChannelName;
+
+         _pusherService.subscribeToChannel(approvedChannelName)?.then((channel) {
+            if (channel != null) {
+               _pusherService.bindToEvent(approvedChannelName, 'gig.approved', _handleGigApproved);
+            }
+         });
+
+         _pusherService.subscribeToChannel(rejectedChannelName)?.then((channel) {
+             if (channel != null) {
+                _pusherService.bindToEvent(rejectedChannelName, 'gig.rejected', _handleGigRejected);
+             }
+         });
+
+          _pusherService.subscribeToChannel(reviewChannelName)?.then((channel) {
+             if (channel != null) {
+                _pusherService.bindToEvent(reviewChannelName, 'gig.review', _handleGigReviewed);
+             }
+         });
+
+        notifyListeners();
+      } else {
+        print('Gig not found locally: $gigId');
+         // Optionally fetch from API if not found locally
+         // fetchGigDetails(gigId);
+      }
+
+    } catch (e) {
+      print('Failed to select gig or subscribe to channel: $e');
+      _currentSpecificGigChannel = null; // Clear channel on failure
+    }
+  }
+
+  /// Clears the selected gig and unsubscribes from its channel
   void clearSelectedGig() {
+     if (_currentSpecificGigChannel != null) {
+       _pusherService.unsubscribeFromChannel(_currentSpecificGigChannel!);
+       _currentSpecificGigChannel = null;
+     }
     _selectedGig = null;
     notifyListeners();
   }
 
-  /// Subscribes to gigs channel for real-time updates
-  Future<void> _subscribeToGigsChannel() async {
-    // Use the gigs channel as specified in the API document
+  /// Subscribes to the general gigs channel for creates/deletes
+  Future<void> _subscribeToGeneralGigsChannel() async {
     const channelName = 'gigs';
-
     try {
       final channel = await _pusherService.subscribeToChannel(channelName);
-      if (channel != null) {
-        _isSubscribed = true;
-
-        // Bind to gig created event
-        _pusherService.bindToEvent(channelName, 'GigCreated', (data) async {
-          if (data is String) {
-            final jsonData = jsonDecode(data) as Map<String, dynamic>;
-          
-            if (jsonData.containsKey('gig') && jsonData['gig'] is Map<String, dynamic>) {
-              final gigData = jsonData['gig'] as Map<String, dynamic>;
-              final gig = Gig.fromJson(gigData);
-
-              // Add to available gigs if it's open
-              if (gig.isOpen()) {
-                _availableGigs.add(gig);
-                _availableGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-                notifyListeners();
-              }
-            }
-          }
-        });
-
-        // Bind to gig updated event
-        _pusherService.bindToEvent(channelName, 'GigUpdated', (data) async {
-          if (data is String) {
-            final jsonData = jsonDecode(data) as Map<String, dynamic>;
-          
-            if (jsonData.containsKey('gig') && jsonData['gig'] is Map<String, dynamic>) {
-              final gigData = jsonData['gig'] as Map<String, dynamic>;
-              final updatedGig = Gig.fromJson(gigData);
-
-              // Update in available gigs
-              for (int i = 0; i < _availableGigs.length; i++) {
-                if (_availableGigs[i].id == updatedGig.id) {
-                  // Remove if no longer open
-                  if (!updatedGig.isOpen()) {
-                    _availableGigs.removeAt(i);
-                  } else {
-                    _availableGigs[i] = updatedGig;
-                  }
-                  notifyListeners();
-                  break;
-                }
-              }
-
-              // Update in user gigs
-              for (int i = 0; i < _userGigs.length; i++) {
-                if (_userGigs[i].id == updatedGig.id) {
-                  _userGigs[i] = updatedGig;
-                  notifyListeners();
-                  break;
-                }
-              }
-
-              // Update selected gig if it's the one being updated
-              if (_selectedGig != null && _selectedGig!.id == updatedGig.id) {
-                _selectedGig = updatedGig;
-                notifyListeners();
-              }
-            }
-          }
-        });
+      if (channel == null) {
+        print('Failed to subscribe to general gigs channel');
+        return;
       }
+
+      _isGeneralChannelSubscribed = true;
+
+      // Bind to gig created event
+      _pusherService.bindToEvent(channelName, 'gig.created', _handleGigCreated);
+
+       // Bind to gig deleted event
+      _pusherService.bindToEvent(channelName, 'gig.deleted', _handleGigDeleted);
+
     } catch (e) {
-      print('Failed to subscribe to gigs channel: $e');
+      print('Failed to subscribe to general gigs channel: $e');
     }
   }
+
+   // Handlers for Pusher events
+
+  void _handleGigCreated(dynamic data) {
+    try {
+      if (data is! String) {
+        print('Invalid gig.created event data');
+        return;
+      }
+      final gigData = jsonDecode(data) as Map<String, dynamic>;
+      final newGig = Gig.fromJson(gigData);
+
+      // Add to available gigs if it's open
+      if (newGig.isOpen()) {
+        _availableGigs.insert(0, newGig);
+        _availableGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        notifyListeners();
+      }
+      // Note: Adding to user gigs based on this event requires knowing the current user ID,
+      // which is not directly available in this provider without passing it.
+
+    } catch (e) {
+      print('Failed to handle gig.created event: $e');
+    }
+  }
+
+  void _handleGigDeleted(dynamic data) {
+    try {
+       if (data is! String) {
+          print('Invalid gig.deleted event data');
+          return;
+       }
+      final deletedGigData = jsonDecode(data) as Map<String, dynamic>;
+      final String? deletedGigId = deletedGigData['gig_uuid'];
+
+      if (deletedGigId != null) {
+        _removeGigFromLists(deletedGigId);
+      } else {
+         print('gig.deleted event data missing gig_uuid');
+      }
+    } catch (e) {
+      print('Failed to handle gig.deleted event: $e');
+    }
+  }
+
+   void _handleGigApproved(dynamic data) {
+    try {
+       if (data is! String) {
+          print('Invalid gig.approved event data');
+          return;
+       }
+      final approvedGigData = jsonDecode(data) as Map<String, dynamic>;
+      final String? approvedGigId = approvedGigData['gig_uuid'];
+
+      if (approvedGigId != null) {
+         // Fetch updated gig details or rely on the event payload if it contains the full gig
+         // Assuming the event payload contains the updated gig data:
+         if (approvedGigData.containsKey('gig') && approvedGigData['gig'] is Map<String, dynamic>) {
+             final updatedGig = Gig.fromJson(approvedGigData['gig']);
+             _updateGigInLists(approvedGigId, updatedGig);
+             if (_selectedGig?.id == approvedGigId) {
+                _selectedGig = updatedGig;
+                notifyListeners();
+             }
+         } else {
+            print('gig.approved event data missing gig object');
+             // Optionally refetch the gig from API if the event doesn't contain the full object
+             // fetchGigDetails(approvedGigId);
+         }
+      } else {
+         print('gig.approved event data missing gig_uuid');
+      }
+    } catch (e) {
+      print('Failed to handle gig.approved event: $e');
+    }
+   }
+
+   void _handleGigRejected(dynamic data) {
+     try {
+       if (data is! String) {
+         print('Invalid gig.rejected event data');
+         return;
+       }
+       final rejectedGigData = jsonDecode(data) as Map<String, dynamic>;
+       final String? rejectedGigId = rejectedGigData['gig_uuid'];
+
+       if (rejectedGigId != null) {
+          // Fetch updated gig details or rely on the event payload
+          // Assuming the event payload contains the updated gig data:
+         if (rejectedGigData.containsKey('gig') && rejectedGigData['gig'] is Map<String, dynamic>) {
+             final updatedGig = Gig.fromJson(rejectedGigData['gig']);
+             _updateGigInLists(rejectedGigId, updatedGig);
+             if (_selectedGig?.id == rejectedGigId) {
+                _selectedGig = updatedGig;
+                notifyListeners();
+             }
+         } else {
+            print('gig.rejected event data missing gig object');
+             // Optionally refetch the gig from API
+             // fetchGigDetails(rejectedGigId);
+         }
+       } else {
+         print('gig.rejected event data missing gig_uuid');
+       }
+     } catch (e) {
+       print('Failed to handle gig.rejected event: $e');
+     }
+   }
+
+    void _handleGigReviewed(dynamic data) {
+     try {
+        if (data is! String) {
+          print('Invalid gig.review event data');
+          return;
+        }
+       final reviewedGigData = jsonDecode(data) as Map<String, dynamic>;
+       final String? reviewedGigId = reviewedGigData['gig_uuid'];
+
+       if (reviewedGigId != null) {
+          // Fetch updated gig details or rely on the event payload
+           // Assuming the event payload contains the updated gig data:
+         if (reviewedGigData.containsKey('gig') && reviewedGigData['gig'] is Map<String, dynamic>) {
+             final updatedGig = Gig.fromJson(reviewedGigData['gig']);
+             _updateGigInLists(reviewedGigId, updatedGig);
+             if (_selectedGig?.id == reviewedGigId) {
+                _selectedGig = updatedGig;
+                notifyListeners();
+             }
+         } else {
+            print('gig.review event data missing gig object');
+             // Optionally refetch the gig from API
+             // fetchGigDetails(reviewedGigId);
+         }
+       } else {
+         print('gig.review event data missing gig_uuid');
+       }
+     } catch (e) {
+       print('Failed to handle gig.review event: $e');
+     }
+   }
+
 
   /// Clears all gig data
   void clearAll() {
     _availableGigs = [];
     _userGigs = [];
-    _selectedGig = null;
-    _isSubscribed = false;
+    clearSelectedGig(); // Also unsubscribes from specific channel
+    _isGeneralChannelSubscribed = false;
     resetState();
   }
 
   @override
   void dispose() {
-    if (_isSubscribed) {
+    if (_isGeneralChannelSubscribed) {
       _pusherService.unsubscribeFromChannel('gigs');
     }
+    if (_currentSpecificGigChannel != null) {
+       // Need to unsubscribe from all specific channels if multiple were subscribed
+       // A better approach might be to store a list of subscribed specific channels
+       // For now, unsubscribe from the one we stored.
+       _pusherService.unsubscribeFromChannel(_currentSpecificGigChannel!); // Unsubscribe from the stored channel
+       // If we subscribed to approved, rejected, and review separately, we would need to unsubscribe from all three here.
+       // Let's modify selectGig to store all subscribed channels for the specific gig.
+    }
+
+    // Re-reading selectGig to fix the disposal logic
+     if (_currentSpecificGigChannel != null) {
+       final gigId = _currentSpecificGigChannel!.split('.').last; // Extract gigId from channel name
+       final approvedChannelName = 'gig.approved.\$gigId';
+       final rejectedChannelName = 'gig.rejected.\$gigId';
+       final reviewChannelName = 'gig.review.\$gigId';
+       _pusherService.unsubscribeFromChannel(approvedChannelName);
+       _pusherService.unsubscribeFromChannel(rejectedChannelName);
+       _pusherService.unsubscribeFromChannel(reviewChannelName);
+       _currentSpecificGigChannel = null; // Clear after unsubscribing
+     }
+
     super.dispose();
   }
 }

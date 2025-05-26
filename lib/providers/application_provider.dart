@@ -1,4 +1,3 @@
-import 'dart:convert';
 import '../models/application.dart';
 import '../providers/base_provider.dart';
 import '../services/api_service.dart';
@@ -11,15 +10,15 @@ import '../services/pusher_service.dart';
 /// - Fetching applications made by the current user
 /// - Creating new applications
 /// - Updating application status
-/// - Real-time updates via Pusher
+// Real-time updates via Pusher are currently handled by listening to relevant Gig events in GigProvider
 class ApplicationProvider extends BaseProvider {
   final ApiService _apiService;
-  final PusherService _pusherService;
+  // final PusherService _pusherService; // Pusher is not directly used in this provider anymore
 
   List<GigApplication> _applications = [];
   List<GigApplication> _userApplications = [];
   GigApplication? _selectedApplication;
-  bool _isSubscribed = false;
+  // bool _isSubscribed = false; // No longer needed as this provider doesn't subscribe directly
 
   // Getters
   List<GigApplication> get applications => _applications;
@@ -27,8 +26,8 @@ class ApplicationProvider extends BaseProvider {
   GigApplication? get selectedApplication => _selectedApplication;
 
   ApplicationProvider({ApiService? apiService, PusherService? pusherService})
-      : _apiService = apiService ?? ApiService(),
-        _pusherService = pusherService ?? PusherService();
+      : _apiService = apiService ?? ApiService();
+        // _pusherService = pusherService ?? PusherService(); // No longer needed
 
   /// Fetches applications for a specific gig
   Future<List<GigApplication>> fetchGigApplications(String gigId) async {
@@ -49,10 +48,7 @@ class ApplicationProvider extends BaseProvider {
 
         _applications = applications;
 
-        // Subscribe to applications channel if not already subscribed
-        if (!_isSubscribed) {
-          await _subscribeToApplicationsChannel();
-        }
+        // No longer subscribing to a specific applications channel here
 
         return applications;
       } else {
@@ -238,90 +234,20 @@ class ApplicationProvider extends BaseProvider {
     notifyListeners();
   }
 
-  /// Subscribes to applications channel for real-time updates
-  Future<void> _subscribeToApplicationsChannel() async {
-    // Channel for applications
-    const channelName = 'applications';
-
-    try {
-      final channel = await _pusherService.subscribeToChannel(channelName);
-      if (channel != null) {
-        _isSubscribed = true;
-
-        // Bind to application created event
-        _pusherService.bindToEvent(channelName, 'ApplicationCreated', (data) async {
-          if (data is String) {
-            final jsonData = jsonDecode(data) as Map<String, dynamic>;
-
-            if (jsonData.containsKey('application') && jsonData['application'] is Map<String, dynamic>) {
-              final appData = jsonData['application'] as Map<String, dynamic>;
-              final application = GigApplication.fromJson(appData);
-
-              // Add to applications if it's for a gig we're currently viewing
-              if (_applications.isNotEmpty && _applications.first.gigId == application.gigId) {
-                _applications.add(application);
-                _applications.sort((a, b) => b.appliedAt.compareTo(a.appliedAt));
-                notifyListeners();
-              }
-            }
-          }
-        });
-
-        // Bind to application updated event
-        _pusherService.bindToEvent(channelName, 'ApplicationUpdated', (data) async {
-          if (data is String) {
-            final jsonData = jsonDecode(data) as Map<String, dynamic>;
-
-            if (jsonData.containsKey('application') && jsonData['application'] is Map<String, dynamic>) {
-              final appData = jsonData['application'] as Map<String, dynamic>;
-              final updatedApplication = GigApplication.fromJson(appData);
-
-              // Update in applications list
-              for (int i = 0; i < _applications.length; i++) {
-                if (_applications[i].id == updatedApplication.id) {
-                  _applications[i] = updatedApplication;
-                  notifyListeners();
-                  break;
-                }
-              }
-
-              // Update in user applications
-              for (int i = 0; i < _userApplications.length; i++) {
-                if (_userApplications[i].id == updatedApplication.id) {
-                  _userApplications[i] = updatedApplication;
-                  notifyListeners();
-                  break;
-                }
-              }
-
-              // Update selected application if it's the one being updated
-              if (_selectedApplication != null && _selectedApplication!.id == updatedApplication.id) {
-                _selectedApplication = updatedApplication;
-                notifyListeners();
-              }
-            }
-          }
-        });
-      }
-    } catch (e) {
-      print('Failed to subscribe to applications channel: \$e');
-    }
-  }
+  // Removed _subscribeToApplicationsChannel as per new Pusher data
 
   /// Clears all application data
   void clearAll() {
     _applications = [];
     _userApplications = [];
     _selectedApplication = null;
-    _isSubscribed = false;
+    // _isSubscribed = false; // No longer needed
     resetState();
   }
 
   @override
   void dispose() {
-    if (_isSubscribed) {
-      _pusherService.unsubscribeFromChannel('applications');
-    }
+    // No longer unsubscribing from a specific applications channel here
     super.dispose();
   }
 }

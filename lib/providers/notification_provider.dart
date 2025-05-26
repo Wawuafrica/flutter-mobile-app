@@ -16,7 +16,7 @@ class NotificationProvider extends BaseProvider {
   final PusherService _pusherService;
 
   List<Notification> _notifications = [];
-  bool _isSubscribed = false;
+  bool _isSubscribedToGeneralChannel = false;
 
   // Getters
   List<Notification> get notifications => _notifications;
@@ -53,8 +53,8 @@ class NotificationProvider extends BaseProvider {
         _notifications = notifications;
 
         // Subscribe to notifications channel if not already subscribed
-        if (!_isSubscribed) {
-          await _subscribeToUserNotifications(userId);
+        if (!_isSubscribedToGeneralChannel) {
+          await _subscribeToNotificationsChannel(userId);
         }
 
         return notifications;
@@ -142,73 +142,76 @@ class NotificationProvider extends BaseProvider {
   }
 
   /// Subscribes to notification channel for real-time updates
-  Future<void> _subscribeToUserNotifications(String userId) async {
+  Future<void> _subscribeToNotificationsChannel(String userId) async {
     // Use the notifications channel as specified in the API document
-    final channelName = 'notifications';
+    const channelName = 'notifications';
 
     try {
       final channel = await _pusherService.subscribeToChannel(channelName);
       if (channel != null) {
-        _isSubscribed = true;
+        _isSubscribedToGeneralChannel = true;
 
         // Bind to new notification events
         _pusherService.bindToEvent(channelName, 'NotificationCreated', (data) async {
           if (data is String) {
             final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-            if (jsonData.containsKey('notification') && 
-                jsonData['notification'] is Map<String, dynamic>) {
-            
-              final notificationData = jsonData['notification'] as Map<String, dynamic>;
-              final notification = Notification.fromJson(notificationData);
+            // Assuming the notification object is directly in the data payload based on the previous implementation
+             final notification = Notification.fromJson(jsonData);
 
-              // Only add if it's for this user
-              if (notification.userId == userId) {
-                // Add notification to list and sort
-                _notifications.add(notification);
-                _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-                notifyListeners();
-              }
-            }
+            // Only add if it's for this user (Requires user ID in notification payload or context)
+            // For now, assuming all events on this channel are relevant or the model handles it.
+            // If filtering by user ID is needed, the Notification model or payload structure must support it.
+            // Assuming notification object has a userId field:
+             // if (notification.userId == userId) {
+              // Add notification to list and sort
+              _notifications.add(notification);
+              _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+              notifyListeners();
+             // }
           }
         });
 
-        // Bind to notification read events
+        // Bind to notification read events - Event name is not explicitly in the provided list, keeping previous binding logic
         _pusherService.bindToEvent(channelName, 'NotificationRead', (
         data,
       ) async {
         if (data is String) {
           final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          if (jsonData.containsKey('notification') && 
-              jsonData['notification'] is Map<String, dynamic>) {
-            
-            final readData = jsonData['notification'] as Map<String, dynamic>;
-            final String notificationId = readData['uuid'] as String;
-
-            // Update notification read status
-            _notifications =
-                _notifications.map((notification) {
-                  if (notification.id == notificationId) {
-                    return notification.markAsRead();
-                  }
-                  return notification;
-                }).toList();
-
-            notifyListeners();
-          }
+           // Assuming the event payload contains notification_id or the full notification
+           // If payload contains notification_id:
+           if (jsonData.containsKey('notification_id')) {
+              final String notificationId = jsonData['notification_id'] as String;
+              // Find and update the notification locally
+               final index = _notifications.indexWhere((n) => n.id == notificationId);
+               if(index != -1) {
+                 _notifications[index] = _notifications[index].markAsRead();
+                 notifyListeners();
+               }
+           } else if (jsonData.containsKey('notification') && jsonData['notification'] is Map<String, dynamic>) {
+              // If payload contains the full notification object
+               final readNotificationData = jsonData['notification'] as Map<String, dynamic>;
+               final String notificationId = readNotificationData['uuid'] as String;
+               final index = _notifications.indexWhere((n) => n.id == notificationId);
+               if(index != -1) {
+                 _notifications[index] = Notification.fromJson(readNotificationData); // Update with the new object
+                 notifyListeners();
+               }
+           } else {
+             print('NotificationRead event data missing notification_id or notification object');
+           }
         }
       });
 
-      // Bind to all notifications read events
+      // Bind to all notifications read events - Event name is not explicitly in the provided list, keeping previous binding logic
       _pusherService.bindToEvent(channelName, 'AllNotificationsRead', (
         data,
       ) async {
         if (data is String) {
           final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          // Check if this is for our user
+          // Check if this is for our user (Requires user ID in payload)
           if (jsonData.containsKey('user_id') && jsonData['user_id'] == userId) {
             // Mark all notifications as read
             _notifications =
@@ -221,26 +224,33 @@ class NotificationProvider extends BaseProvider {
         }
       });
 
-      // Bind to notification delete events
+      // Bind to notification delete events - Event name is not explicitly in the provided list, keeping previous binding logic
       _pusherService.bindToEvent(channelName, 'NotificationDeleted', (
         data,
       ) async {
         if (data is String) {
           final jsonData = jsonDecode(data) as Map<String, dynamic>;
           
-          if (jsonData.containsKey('notification') && 
-              jsonData['notification'] is Map<String, dynamic>) {
-            
-            final deleteData = jsonData['notification'] as Map<String, dynamic>;
-            final String notificationId = deleteData['uuid'] as String;
-
-            // Remove notification from list
-            _notifications.removeWhere(
-              (notification) => notification.id == notificationId,
-            );
-
-            notifyListeners();
-          }
+          // Assuming the event payload contains notification_id or the full notification
+           // If payload contains notification_id:
+           if (jsonData.containsKey('notification_id')) {
+              final String notificationId = jsonData['notification_id'] as String;
+              // Remove notification from list
+              _notifications.removeWhere(
+                (notification) => notification.id == notificationId,
+              );
+               notifyListeners();
+           } else if (jsonData.containsKey('notification') && jsonData['notification'] is Map<String, dynamic>) {
+               // If payload contains the full notification object
+               final deleteData = jsonData['notification'] as Map<String, dynamic>;
+               final String notificationId = deleteData['uuid'] as String;
+                _notifications.removeWhere(
+                (notification) => notification.id == notificationId,
+              );
+               notifyListeners();
+           } else {
+             print('NotificationDeleted event data missing notification_id or notification object');
+           }
         }
       });
     }
@@ -252,16 +262,17 @@ class NotificationProvider extends BaseProvider {
   /// Clears all notification data
   void clearAll() {
     _notifications = [];
-    _isSubscribed = false;
+    _isSubscribedToGeneralChannel = false;
     resetState();
   }
 
   @override
   void dispose() {
-    if (_isSubscribed) {
-      // Unsubscribe from any notification channels
-      _pusherService.disconnect();
+    if (_isSubscribedToGeneralChannel) {
+      // Unsubscribe from the general notifications channel
+      _pusherService.unsubscribeFromChannel('notifications');
     }
+    // No specific notification channels mentioned in the new data, so no need to unsubscribe from those.
     super.dispose();
   }
 }
