@@ -1,8 +1,8 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-import 'dart:io' if (dart.library.html) 'dart:html'; // Conditional import for File
 
 class UploadImage extends StatefulWidget {
   final ValueChanged<XFile?>? onImageChanged;
@@ -110,7 +110,8 @@ class _UploadImageState extends State<UploadImage> {
                             : const Center(child: CircularProgressIndicator()))
                         : (_image != null
                             ? Image.file(
-                                File(_image!.path), // Added null as the first positional argument
+                                File(_image!.path), // This is the File object
+                                key: ValueKey(_image!.path), // Added key for Image.file
                                 fit: BoxFit.cover,
                               )
                             : const Center(child: CircularProgressIndicator())),

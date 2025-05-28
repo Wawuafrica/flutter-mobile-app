@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/screens/account_payment/account_payment.dart';
 import 'package:wawu_mobile/widgets/plan_card/plan_card.dart';
 
@@ -7,92 +9,89 @@ class Plan extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> features = [
-      {'check': false, 'text': 'Verified Badge'},
-      {'check': true, 'text': 'Standard Account'},
-      {'check': true, 'text': 'Basic Account Support'},
-      {'check': false, 'text': 'Gig Of The Day'},
-      {'check': false, 'text': 'Enhanced Support'},
-      {'check': false, 'text': 'Gig Purchase SMS'},
-    ];
     return Scaffold(
       appBar: AppBar(title: const Text('Select A Plan'), centerTitle: true),
-      body: ListView(
-        children: [
-          Column(
+      body: Consumer<PlanProvider>(
+        builder: (context, planProvider, child) {
+          if (planProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return ListView(
             children: [
-              SizedBox(height: 10),
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  const SizedBox(height: 10),
                   Container(
                     width: 100,
                     height: 100,
                     clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(shape: BoxShape.circle),
+                    decoration: const BoxDecoration(shape: BoxShape.circle),
                     child: Image.asset(
                       'assets/images/other/avatar.webp',
                       fit: BoxFit.cover,
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Text(
+                  const SizedBox(height: 10),
+                  const Text(
                     'Mavis Nwaokorie',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 10),
-                  Text(
+                  const SizedBox(height: 10),
+                  const Text(
                     'Buyer',
                     style: TextStyle(
                       fontSize: 13,
-                      color: const Color.fromARGB(255, 125, 125, 125),
+                      color: Color.fromARGB(255, 125, 125, 125),
                       fontWeight: FontWeight.w200,
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Container(
+                  const SizedBox(height: 10),
+                  SizedBox(
                     width: double.infinity,
                     height: 490,
-                    child: ListView(
+                    child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      children: [
-                        SizedBox(width: 20),
-                        PlanCard(
-                          heading: 'Wawu Standard',
-                          desc: 'Our Foundational Package',
-                          features: features,
-                          function: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => AccountPayment(),
-                              ),
-                            );
-                          },
-                        ),
-                        SizedBox(width: 20),
-                        PlanCard(
-                          heading: 'Wawu Plus',
-                          desc: 'Our Foundational Package',
-                          // features: features,
-                        ),
-                        SizedBox(width: 20),
-                        PlanCard(
-                          heading: 'Wawu Premium',
-                          desc: 'Our Foundational Package',
-                          // features: features,
-                        ),
-                        SizedBox(width: 20),
-                      ],
+                      itemCount: planProvider.plans.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 20),
+                      itemBuilder: (context, index) {
+                        final plan = planProvider.plans[index];
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            left: index == 0 ? 20 : 0,
+                            right: index == planProvider.plans.length - 1 ? 20 : 0,
+                          ),
+                          child: PlanCard(
+                            heading: plan.name,
+                            desc: plan.description ?? 'No description available',
+                            features: plan.features
+                                    ?.map((feature) => {
+                                          'check': feature.value == 'yes',
+                                          'text': feature.description,
+                                        })
+                                    .toList() ??
+                                [],
+                            function: () {
+                              planProvider.selectPlan(plan);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AccountPayment(),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  SizedBox(height: 30),
+                  const SizedBox(height: 30),
                 ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }

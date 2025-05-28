@@ -13,9 +13,10 @@ class CustomTextfield extends StatelessWidget {
   final TextEditingController? controller;
   final bool maxLines;
   final int maxLinesNum;
-  // --- NEW: Add validator and keyboardType as optional parameters ---
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
+  final Function()? onTap; // <--- ADDED: Callback for tap events
+  final bool readOnly; // <--- ADDED: To make the text field read-only
 
   const CustomTextfield({
     super.key,
@@ -31,8 +32,10 @@ class CustomTextfield extends StatelessWidget {
     this.labelTextStyle2 = false,
     this.maxLines = false,
     this.maxLinesNum = 5,
-    this.validator, // Add to the constructor
-    this.keyboardType, // Add to the constructor
+    this.validator,
+    this.keyboardType,
+    this.onTap, // <--- ADDED to constructor
+    this.readOnly = false, // <--- ADDED to constructor with a default value
   });
 
   @override
@@ -50,21 +53,20 @@ class CustomTextfield extends StatelessWidget {
             ),
           ),
         SizedBox(height: 10),
-        // --- IMPORTANT CHANGE: Use TextFormField instead of TextField ---
-        // TextFormField supports the 'validator' property.
         TextFormField(
           controller: controller,
           obscureText: obscureText,
           onChanged: onChanged,
           maxLines:
-              obscureText
+              obscureText // Ensure maxLines is 1 for obscureText to prevent multi-line passwords
                   ? 1
                   : maxLines
                       ? maxLinesNum
                       : null,
-          keyboardType: keyboardType, // Pass the new keyboardType here
-          validator: validator, // Pass the new validator here
-
+          keyboardType: keyboardType,
+          validator: validator,
+          onTap: onTap, // <--- PASSED TO TextFormField
+          readOnly: readOnly, // <--- PASSED TO TextFormField
           decoration: InputDecoration(
             labelText: labelTextStyle2 ? null : labelText,
             hintText: hintText,
@@ -85,7 +87,6 @@ class CustomTextfield extends StatelessWidget {
                 width: 2,
               ),
             ),
-            // --- NEW: Add errorBorder and focusedErrorBorder for validation feedback ---
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(borderRadius),
               borderSide: BorderSide(color: Colors.red, width: 1.0),
