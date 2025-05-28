@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart' as dio;
 import 'package:image_picker/image_picker.dart';
-import 'dart:io' if (dart.library.html) 'dart:html';
 import 'dart:convert';
 
 import '../models/user.dart';
@@ -191,9 +190,12 @@ class UserProvider extends ChangeNotifier {
     required String about,
     required List<String> skills,
     String? educationCertification,
+    String? educationGraduationDate,
     String? educationInstitution,
+    String? educationCourseOfStudy,
     String? professionalCertificationName,
     String? professionalCertificationOrganization,
+    String? professionalCertificationEndDate,
     XFile? professionalCertificationImage,
     XFile? meansOfIdentification,
     String? country,
@@ -219,6 +221,8 @@ class UserProvider extends ChangeNotifier {
         if (educationCertification != null || educationInstitution != null) ...{
           'education[0][certification]': educationCertification ?? '',
           'education[0][institution]': educationInstitution ?? '',
+          'education[0][courseOfStudy]': educationCourseOfStudy ?? '',
+          'education[0][graduationDate]': educationGraduationDate ?? ''
         },
         if (meansOfIdentification != null) ...{
           'meansOfIdentification[file]': kIsWeb
@@ -235,6 +239,7 @@ class UserProvider extends ChangeNotifier {
         if (professionalCertificationName != null || professionalCertificationOrganization != null || professionalCertificationImage != null) ...{
           'professionalCertification[0][name]': professionalCertificationName ?? '',
           'professionalCertification[0][organization]': professionalCertificationOrganization?.trim() ?? '',
+          'professionalCertification[0][endDate]': professionalCertificationEndDate?.trim() ?? '',
           if (professionalCertificationImage != null) ...{
             'professionalCertification[0][file]': kIsWeb
                 ? dio.MultipartFile.fromBytes(
@@ -258,7 +263,7 @@ class UserProvider extends ChangeNotifier {
       });
 
       final profileResponse = await _apiService.post(
-        '/users/profile/update',
+        '/user/profile/update',
         data: profileFormData,
       );
 

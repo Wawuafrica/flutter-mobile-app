@@ -231,12 +231,18 @@ class AuthService {
 
   Future<User> getCurrentUserProfile() async {
     try {
-      if (!isAuthenticated) {
+      if (!isAuthenticated  || _currentUser == null || _currentUser!.uuid.isEmpty) {
         throw AuthException('Not authenticated. No token or user found.');
       }
-      final response = await _apiService.get<Map<String, dynamic>>('/auth/me'); // Or /user/profile
+
+
+      final userId = _currentUser!.uuid; // <-- EXTRACING THE USER'S UUID HERE
+      print('AuthService: Attempting to fetch user profile for UUID: $userId');
+      
+      final response = await _apiService.get<Map<String, dynamic>>('/user/$userId'); // Or /user/profile
       // Assuming 'data' key contains the user object, or the response itself is the user object
       final userMap = response['data'] ?? response;
+      print('THIS IS THE user data $userMap');
       if (response['statusCode'] == 200 && userMap != null && userMap is Map<String, dynamic>) {
         final user = User.fromJson(userMap);
         await saveUser(user); // Update local storage with fresh profile data
@@ -250,7 +256,7 @@ class AuthService {
     } catch (e) {
       final message = extractErrorMessage(e);
       _logger.e('Failed to get user profile: $message');
-      await logout(); // Invalidate local session if profile cannot be fetched (e.g., token expired)
+      // await logout(); // Invalidate local session if profile cannot be fetched (e.g., token expired)
       throw AuthException(message);
     }
   }
