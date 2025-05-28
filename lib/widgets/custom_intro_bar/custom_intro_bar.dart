@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 class CustomIntroBar extends StatefulWidget {
   final String text;
-  final String desc;
+  final String? desc; // Keep it nullable if you intend for it to be optionally null
   final bool topPadding;
+
   const CustomIntroBar({
     super.key,
     required this.text,
-    required this.desc,
+    this.desc, // Remove the default '' here if you want null to be a possibility
     this.topPadding = true,
   });
 
@@ -16,7 +17,9 @@ class CustomIntroBar extends StatefulWidget {
 }
 
 class _CustomIntroBarState extends State<CustomIntroBar> {
-  String? selectedValue;
+  // selectedValue seems unused in this specific widget, consider removing if not needed.
+  // String? selectedValue;
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -32,10 +35,12 @@ class _CustomIntroBarState extends State<CustomIntroBar> {
           ),
         ),
         SizedBox(height: 10),
-        Text(
-          widget.desc,
-          style: TextStyle(fontWeight: FontWeight.normal, fontSize: 15),
-        ),
+        // Safely check if desc is not null and not empty before displaying
+        if (widget.desc != null && widget.desc!.isNotEmpty)
+          Text(
+            widget.desc!, // It's safe to use ! here because of the null check above
+            style: TextStyle(fontWeight: FontWeight.normal, fontSize: 15),
+          ),
         SizedBox(height: 30),
       ],
     );

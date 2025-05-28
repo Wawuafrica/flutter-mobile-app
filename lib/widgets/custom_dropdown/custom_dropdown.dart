@@ -4,23 +4,25 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 class CustomDropdown extends StatefulWidget {
   final List<String> options;
   final String label;
-  // final String? selectedValue;
-  // final ValueChanged<String?> onChanged; // Callback when an option is selected
+  final String? selectedValue; // Uncommented
+  final ValueChanged<String?>? onChanged; // Uncommented, made nullable
   final Color overlayColor;
   final Color modalBackgroundColor;
   final double borderRadius;
   final EdgeInsetsGeometry padding;
+  final bool isDisabled; // Added for consistency with previous behavior
 
   const CustomDropdown({
     super.key,
     required this.options,
     required this.label,
-    // this.selectedValue,
-    // required this.onChanged,
+    this.selectedValue, // Uncommented
+    this.onChanged, // Uncommented
     this.overlayColor = Colors.black54,
     this.modalBackgroundColor = Colors.white,
     this.borderRadius = 20.0,
     this.padding = const EdgeInsets.all(16),
+    this.isDisabled = false, // Default to false
   });
 
   @override
@@ -28,13 +30,31 @@ class CustomDropdown extends StatefulWidget {
 }
 
 class _CustomDropdownState extends State<CustomDropdown> {
-  String? selectedValue;
+  String? _internalSelectedValue; // Renamed to avoid conflict with widget.selectedValue
+
+  @override
+  void initState() {
+    super.initState();
+    _internalSelectedValue = widget.selectedValue;
+  }
+
+  @override
+  void didUpdateWidget(covariant CustomDropdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update internal selected value if parent's selectedValue changes
+    if (widget.selectedValue != oldWidget.selectedValue) {
+      _internalSelectedValue = widget.selectedValue;
+    }
+  }
 
   void _showCustomDropdown() {
+    if (widget.isDisabled) {
+      return; // Do nothing if disabled
+    }
+
     showModalBottomSheet(
       context: context,
-      backgroundColor:
-          Colors.transparent, // Make the modal background transparent
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return Stack(
           children: [
@@ -43,7 +63,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 Navigator.pop(context); // Close the modal when tapping outside
               },
               child: Container(
-                color: Colors.transparent, // Use the provided overlay color
+                color: widget.overlayColor, // Use the provided overlay color
               ),
             ),
             Align(
@@ -83,10 +103,12 @@ class _CustomDropdownState extends State<CustomDropdown> {
   Widget _buildOption(String option) {
     return InkWell(
       onTap: () {
-        // widget.onChanged(option);
         setState(() {
-          selectedValue = option;
+          _internalSelectedValue = option;
         });
+        if (widget.onChanged != null) {
+          widget.onChanged!(option); // Call the parent's onChanged callback
+        }
         Navigator.pop(context); // Close the modal after selection
       },
       child: Container(
@@ -96,10 +118,9 @@ class _CustomDropdownState extends State<CustomDropdown> {
           option,
           style: TextStyle(
             fontSize: 16,
-            color:
-                selectedValue == option
-                    ? wawuColors.buttonPrimary
-                    : Colors.black,
+            color: _internalSelectedValue == option
+                ? wawuColors.buttonPrimary
+                : Colors.black,
           ),
         ),
       ),
@@ -109,24 +130,27 @@ class _CustomDropdownState extends State<CustomDropdown> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _showCustomDropdown,
+      onTap: widget.isDisabled ? null : _showCustomDropdown, // Disable tap if isDisabled
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey),
+          border: Border.all(color: widget.isDisabled ? Colors.grey[300]! : Colors.grey), // Visual cue for disabled
           borderRadius: BorderRadius.circular(8),
+          color: widget.isDisabled ? Colors.grey[100] : null, // Background color for disabled
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Expanded(
               child: Text(
-                selectedValue ?? widget.label,
-                style: const TextStyle(fontSize: 16),
+                _internalSelectedValue ?? widget.label,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: widget.isDisabled ? Colors.grey : Colors.black, // Text color for disabled
+                ),
               ),
             ),
-            // const SizedBox(width: 8),
             const Icon(Icons.keyboard_arrow_down_rounded),
           ],
         ),
