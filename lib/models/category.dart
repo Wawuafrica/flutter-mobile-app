@@ -2,25 +2,19 @@ class Category {
   String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
-  final String? slug;
-  final String? description;
-  final String? icon;
+  final String? type;
   
   const Category({
     required this.uuid,
     required this.name,
-    this.slug,
-    this.description,
-    this.icon,
+    this.type,
   });
   
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       uuid: json['uuid'],
       name: json['name'],
-      slug: json['slug'],
-      description: json['description'],
-      icon: json['icon'],
+      type: json['type'],
     );
   }
   
@@ -28,9 +22,7 @@ class Category {
     return {
       'uuid': uuid,
       'name': name,
-      'slug': slug,
-      'description': description,
-      'icon': icon,
+      'type': type,
     };
   }
 }
@@ -39,28 +31,21 @@ class SubCategory {
   String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
-  final String? slug;
-  final String? description;
-  final String? icon;
-  final String? categoryId; // Reference to parent category
+  final Category? serviceCategory; // Reference to parent category
   
   const SubCategory({
     required this.uuid,
     required this.name,
-    this.slug,
-    this.description,
-    this.icon,
-    this.categoryId,
+    this.serviceCategory,
   });
   
   factory SubCategory.fromJson(Map<String, dynamic> json) {
     return SubCategory(
       uuid: json['uuid'],
       name: json['name'],
-      slug: json['slug'],
-      description: json['description'],
-      icon: json['icon'],
-      categoryId: json['category_id'],
+      serviceCategory: json['serviceCategory'] != null
+          ? Category.fromJson(json['serviceCategory'] as Map<String, dynamic>)
+          : null,
     );
   }
   
@@ -68,10 +53,7 @@ class SubCategory {
     return {
       'uuid': uuid,
       'name': name,
-      'slug': slug,
-      'description': description,
-      'icon': icon,
-      'category_id': categoryId,
+      'serviceCategory': serviceCategory?.toJson(),
     };
   }
 }
@@ -80,13 +62,11 @@ class Service {
   String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
-  final String? description;
   final String? subCategoryId; // Reference to parent sub-category
   
   const Service({
     required this.uuid,
     required this.name,
-    this.description,
     this.subCategoryId,
   });
   
@@ -94,8 +74,7 @@ class Service {
     return Service(
       uuid: json['uuid'],
       name: json['name'],
-      description: json['description'],
-      subCategoryId: json['subcategory_id'],
+      subCategoryId: json['service_sub_category_id'] ?? json['subcategory_id'],
     );
   }
   
@@ -103,8 +82,7 @@ class Service {
     return {
       'uuid': uuid,
       'name': name,
-      'description': description,
-      'subcategory_id': subCategoryId,
+      'service_sub_category_id': subCategoryId,
     };
   }
 }

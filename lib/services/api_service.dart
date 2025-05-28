@@ -1,9 +1,5 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:logger/logger.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 
 // Local imports
@@ -15,7 +11,6 @@ class ApiService {
   ApiService._internal();
 
   final Dio _dio = Dio();
-  final Logger _logger = Logger();
   
   // Base URL from environment with default value
   static final String baseUrl = const String.fromEnvironment(
@@ -38,35 +33,43 @@ class ApiService {
       baseUrl: apiBaseUrl ?? baseUrl,
       connectTimeout: Duration(seconds: timeoutSeconds),
       receiveTimeout: Duration(seconds: timeoutSeconds),
-      headers: defaultHeaders,
+      headers: {
+        ...?defaultHeaders,
+        'channel': 'user',
+      },
     );
 
     // Add interceptors for logging, error handling, and token refresh
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          _logger.i('Request: ${options.method} ${options.uri}');
-          _logger.i('Headers: ${options.headers}');
+          print('Request: ${options.method} ${options.uri}');
+          print('Headers: ${options.headers}');
           if (options.data != null && !(options.data is FormData)) {
-            _logger.i('Data: ${options.data}');
+            print('Data: ${options.data}');
           }
           return handler.next(options);
         },
         onResponse: (response, handler) {
-          _logger.i('Response: ${response.statusCode}');
-          _logger.d('Data: ${response.data}');
+          print('Response: ${response.statusCode}');
+          print('Data: ${response.data}');
           return handler.next(response);
         },
         onError: (error, handler) async {
           if (error.response?.statusCode == 401) {
-            _logger.w('Token expired, attempting to refresh...');
+            print('Token expired, attempting to refresh...');
             try {
               final success = await refreshToken();
               if (success) {
                 // Retry the original request with new token
                 final opts = Options(
                   method: error.requestOptions.method,
-                  headers: error.requestOptions.headers,
+                  headers: {
+                    ...error.requestOptions.headers,
+                    'Api-token': _dio.options.headers['Api-token'],
+                    'Authorization': _dio.options.headers['Authorization'],
+                    'channel': 'user',
+                  },
                 );
                 final originalRequest = await _dio.request<dynamic>(
                   error.requestOptions.path,
@@ -77,10 +80,10 @@ class ApiService {
                 return handler.resolve(originalRequest);
               }
             } catch (e) {
-              _logger.e('Token refresh failed: $e');
+              print('Token refresh failed: $e');
             }
           }
-          _logger.e('API Error: ${error.message}');
+          print('API Error: ${error.message}');
           return handler.next(error);
         },
       ),
@@ -88,10 +91,13 @@ class ApiService {
   }
 
   void setAuthToken(String token) {
+    _dio.options.headers['Api-token'] = token;
+    // Keep Bearer for potential future use, as per instructions
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
   void clearAuthToken() {
+    _dio.options.headers.remove('Api-token');
     _dio.options.headers.remove('Authorization');
   }
   
@@ -103,6 +109,7 @@ class ApiService {
         '/auth/refresh-token',
         options: Options(headers: {
           'Accept': 'application/json',
+          'channel': 'user',
         }),
       );
       
@@ -117,15 +124,14 @@ class ApiService {
       }
       return false;
     } on DioException catch (e) {
-      _logger.e('Token refresh failed: ${e.message}');
-      // If refresh token is invalid, log the user out
+      print('Token refresh failed: ${e.message}');
       if (e.response?.statusCode == 401) {
-        _logger.w('Refresh token expired, logging out user');
+        print('Refresh token expired, logging out user');
         await _authService.logout();
       }
       return false;
     } catch (e) {
-      _logger.e('Unexpected error during token refresh: $e');
+      print('Unexpected error during token refresh: $e');
       return false;
     }
   }
@@ -140,7 +146,14 @@ class ApiService {
       final response = await _dio.get(
         endpoint,
         queryParameters: queryParameters,
-        options: options,
+        options: options != null
+            ? options.copyWith(
+                headers: {
+                  ...?options.headers,
+                  'channel': 'user',
+                },
+              )
+            : Options(headers: {'channel': 'user'}),
       );
 
       if (fromJson != null) {
@@ -165,7 +178,14 @@ class ApiService {
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: options != null
+            ? options.copyWith(
+                headers: {
+                  ...?options.headers,
+                  'channel': 'user',
+                },
+              )
+            : Options(headers: {'channel': 'user'}),
       );
 
       if (fromJson != null) {
@@ -190,7 +210,14 @@ class ApiService {
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: options != null
+            ? options.copyWith(
+                headers: {
+                  ...?options.headers,
+                  'channel': 'user',
+                },
+              )
+            : Options(headers: {'channel': 'user'}),
       );
 
       if (fromJson != null) {
@@ -215,7 +242,14 @@ class ApiService {
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: options != null
+            ? options.copyWith(
+                headers: {
+                  ...?options.headers,
+                  'channel': 'user',
+                },
+              )
+            : Options(headers: {'channel': 'user'}),
       );
 
       if (fromJson != null) {
@@ -270,7 +304,14 @@ class ApiService {
         endpoint,
         data: formDataObj,
         queryParameters: queryParameters,
-        options: options,
+        options: options != null
+            ? options.copyWith(
+                headers: {
+                  ...?options.headers,
+                  'channel': 'user',
+                },
+              )
+            : Options(headers: {'channel': 'user'}),
         onSendProgress: onSendProgress,
       );
       
@@ -326,7 +367,14 @@ class ApiService {
         endpoint,
         data: formDataObj,
         queryParameters: queryParameters,
-        options: options,
+        options: options != null
+            ? options.copyWith(
+                headers: {
+                  ...?options.headers,
+                  'channel': 'user',
+                },
+              )
+            : Options(headers: {'channel': 'user'}),
         onSendProgress: onSendProgress,
       );
       
@@ -350,9 +398,8 @@ class ApiService {
         break;
       case DioExceptionType.badResponse:
         message = _handleBadResponse(error.response);
-        // Handle specific status codes
         if (error.response?.statusCode == 403) {
-          message = 'You dont have permission to access this resource';
+          message = 'You don\'t have permission to access this resource';
         } else if (error.response?.statusCode == 404) {
           message = 'The requested resource was not found';
         } else if (error.response?.statusCode == 500) {
