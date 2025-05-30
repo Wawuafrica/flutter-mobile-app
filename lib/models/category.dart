@@ -1,17 +1,17 @@
-class Category {
+class CategoryModel {
   String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
   final String? type;
   
-  const Category({
+  const CategoryModel({
     required this.uuid,
     required this.name,
     this.type,
   });
   
-  factory Category.fromJson(Map<String, dynamic> json) {
-    return Category(
+  factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    return CategoryModel(
       uuid: json['uuid'],
       name: json['name'],
       type: json['type'],
@@ -31,7 +31,7 @@ class SubCategory {
   String get id => uuid; // For provider compatibility
   final String uuid;
   final String name;
-  final Category? serviceCategory; // Reference to parent category
+  final CategoryModel? serviceCategory; // Reference to parent category
   
   const SubCategory({
     required this.uuid,
@@ -44,7 +44,7 @@ class SubCategory {
       uuid: json['uuid'],
       name: json['name'],
       serviceCategory: json['serviceCategory'] != null
-          ? Category.fromJson(json['serviceCategory'] as Map<String, dynamic>)
+          ? CategoryModel.fromJson(json['serviceCategory'] as Map<String, dynamic>)
           : null,
     );
   }
