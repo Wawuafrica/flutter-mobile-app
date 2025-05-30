@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:wawu_mobile/models/category.dart' as app;
 import 'package:wawu_mobile/providers/category_provider.dart';
@@ -88,7 +89,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
       final priceText = _rows.firstWhere((row) => row['label'] == 'Price (NGN)')['controllers'][i].text.trim();
       final package = {
         'package': {
-          'name': _rows[0]['controllers'][i].text.trim().isEmpty ? packages[i] : _rows[0]['controllers'][i].text.trim(),
+          'name': _rows.firstWhere((row) => row['label'] == 'Package Titles')['controllers'][i].text.trim().isEmpty ? packages[i] : _rows.firstWhere((row) => row['label'] == 'Package Titles')['controllers'][i].text.trim(),
           'description': 'Description for ${packages[i]}',
           'amount': priceText.replaceAll('₦', '').replaceAll(',', ''),
         },
@@ -205,63 +206,146 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
       print('Processing ${_photos.length} photos...');
       for (int i = 0; i < _photos.length; i++) {
         final photo = _photos[i];
-        final file = File(photo.path);
-        final fileSize = await file.length();
-        
-        print('Original image size: ${fileSize / (1024 * 1024)} MB');
-        
-        // If image is larger than 5MB, show warning but continue
-        if (fileSize > 5 * 1024 * 1024) {
-          print('Warning: Image ${photo.name} is larger than 5MB');
+        print('Photo ${i + 1} path: ${photo.path}');
+
+        if (photo.path.startsWith('blob:')) {
+          // Handle blob URLs by reading bytes
+          print('Handling photo ${photo.name} as blob URL.');
+          final bytes = await photo.readAsBytes();
+          formData.files.add(MapEntry(
+            'asset[photos][${i + 1}][file]',
+            MultipartFile.fromBytes(
+              bytes,
+              filename: photo.name,
+              contentType: MediaType('image', photo.name.split('.').last),
+            ),
+          ));
+        } else {
+          // Handle local file paths
+          final file = File(photo.path);
+          if (!file.existsSync()) {
+            print('Error: Photo ${photo.name} not found at path: ${photo.path}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: Photo "${photo.name}" could not be found. Please re-select.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            Navigator.of(context).pop();
+            setState(() => _isSubmitting = false);
+            return;
+          }
+
+          final fileSize = await file.length();
+          print('Photo ${i + 1} size: ${fileSize / (1024 * 1024)} MB');
+
+          if (fileSize > 5 * 1024 * 1024) {
+            print('Warning: Image ${photo.name} is larger than 5MB');
+          }
+
+          formData.files.add(MapEntry(
+            'asset[photos][${i + 1}][file]',
+            await MultipartFile.fromFile(
+              photo.path,
+              filename: photo.name,
+              contentType: MediaType('image', photo.name.split('.').last),
+            ),
+          ));
         }
-        
-        formData.files.add(MapEntry(
-          'asset[photos][${i + 1}][file]',
-          await MultipartFile.fromFile(
-            photo.path,
-            filename: photo.name,
-            contentType: MediaType('image', photo.name.split('.').last),
-          ),
-        ));
       }
 
       // Add video file if exists
       if (_video != null) {
         print('Processing video...');
-        final videoFile = File(_video!.path);
-        final videoSize = await videoFile.length();
-        print('Video size: ${videoSize / (1024 * 1024)} MB');
+        print('Video path: ${_video!.path}');
 
-        // Check video size (warn if > 50MB)
-        if (videoSize > 50 * 1024 * 1024) {
-          print('Warning: Video is larger than 50MB, this may take a while');
+        if (_video!.path.startsWith('blob:')) {
+          print('Handling video as blob URL.');
+          final bytes = await _video!.readAsBytes();
+          formData.files.add(MapEntry(
+            'asset[video][file]',
+            MultipartFile.fromBytes(
+              bytes,
+              filename: _video!.name,
+              contentType: MediaType('video', _video!.name.split('.').last),
+            ),
+          ));
+        } else {
+          final videoFile = File(_video!.path);
+          if (!videoFile.existsSync()) {
+            print('Error: Video not found at path: ${_video!.path}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: Video could not be found. Please re-select.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            Navigator.of(context).pop();
+            setState(() => _isSubmitting = false);
+            return;
+          }
+
+          final videoSize = await videoFile.length();
+          print('Video size: ${videoSize / (1024 * 1024)} MB');
+
+          if (videoSize > 50 * 1024 * 1024) {
+            print('Warning: Video is larger than 50MB, this may take a while');
+          }
+          
+          formData.files.add(MapEntry(
+            'asset[video][file]',
+            await MultipartFile.fromFile(
+              _video!.path,
+              filename: _video!.name,
+              contentType: MediaType('video', _video!.name.split('.').last),
+            ),
+          ));
         }
-        
-        formData.files.add(MapEntry(
-          'asset[video][file]',
-          await MultipartFile.fromFile(
-            _video!.path,
-            filename: _video!.name,
-            contentType: MediaType('video', _video!.name.split('.').last),
-          ),
-        ));
       }
 
       // Add PDF file if exists
       if (_pdf != null) {
         print('Processing PDF...');
-        final pdfFile = File(_pdf!.path);
-        final pdfSize = await pdfFile.length();
-        print('PDF size: ${pdfSize / (1024 * 1024)} MB');
-        
-        formData.files.add(MapEntry(
-          'asset[pdf][file]',
-          await MultipartFile.fromFile(
-            _pdf!.path,
-            filename: _pdf!.name,
-            contentType: MediaType('application', 'pdf'),
-          ),
-        ));
+        print('PDF path: ${_pdf!.path}');
+
+        if (_pdf!.path.startsWith('blob:')) {
+          print('Handling PDF as blob URL.');
+          final bytes = await _pdf!.readAsBytes();
+          formData.files.add(MapEntry(
+            'asset[pdf][file]',
+            MultipartFile.fromBytes(
+              bytes,
+              filename: _pdf!.name,
+              contentType: MediaType('application', 'pdf'),
+            ),
+          ));
+        } else {
+          final pdfFile = File(_pdf!.path);
+          if (!pdfFile.existsSync()) {
+            print('Error: PDF not found at path: ${_pdf!.path}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: PDF could not be found. Please re-select.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            Navigator.of(context).pop();
+            setState(() => _isSubmitting = false);
+            return;
+          }
+          
+          final pdfSize = await pdfFile.length();
+          print('PDF size: ${pdfSize / (1024 * 1024)} MB');
+          
+          formData.files.add(MapEntry(
+            'asset[pdf][file]',
+            await MultipartFile.fromFile(
+              _pdf!.path,
+              filename: _pdf!.name,
+              contentType: MediaType('application', 'pdf'),
+            ),
+          ));
+        }
       }
 
       // Add pricing data
@@ -330,7 +414,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           errorMessage = 'Server response timeout. The server is taking too long to process your request.';
           break;
         case DioExceptionType.connectionError:
-          errorMessage = 'Network connection error. Please check your internet connection.';
+          errorMessage = 'Network connection error. Please check your network connection.';
           break;
         case DioExceptionType.badResponse:
           errorMessage = 'Server error (${e.response?.statusCode}). Please try again later.';
