@@ -14,19 +14,6 @@ class GigsScreen extends StatelessWidget {
     return DefaultTabController(
       length: 5,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Gigs'),
-          bottom: const TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(text: 'All'),
-              Tab(text: 'Pending'),
-              Tab(text: 'Verified'),
-              Tab(text: 'Archived'),
-              Tab(text: 'Rejected'),
-            ],
-          ),
-        ),
         body: Consumer<UserProvider>(
           builder: (context, userProvider, child) {
             if (userProvider.currentUser?.uuid == null) {
@@ -34,13 +21,27 @@ class GigsScreen extends StatelessWidget {
             }
 
             // final gigProvider = Provider.of<GigProvider>(context, listen: false);
-            return TabBarView(
+            return Column(
               children: [
-                GigTab(status: null, key: UniqueKey()),
-                GigTab(status: 'PENDING', key: UniqueKey()),
-                GigTab(status: 'VERIFIED', key: UniqueKey()),
-                GigTab(status: 'ARCHIVED', key: UniqueKey()),
-                GigTab(status: 'REJECTED', key: UniqueKey()),
+                const TabBar(
+                  isScrollable: true,
+                  tabs: [
+                    Tab(text: 'All'),
+                    Tab(text: 'Pending'),
+                    Tab(text: 'Verified'),
+                    Tab(text: 'Archived'),
+                    Tab(text: 'Rejected'),
+                  ],
+                ),
+                TabBarView(
+                  children: [
+                    GigTab(status: null, key: UniqueKey()),
+                    GigTab(status: 'PENDING', key: UniqueKey()),
+                    GigTab(status: 'VERIFIED', key: UniqueKey()),
+                    GigTab(status: 'ARCHIVED', key: UniqueKey()),
+                    GigTab(status: 'REJECTED', key: UniqueKey()),
+                  ],
+                ),
               ],
             );
           },
@@ -100,7 +101,10 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
         return RefreshIndicator(
           onRefresh: () => gigProvider.fetchGigs(status: widget.status),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 20.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 20.0,
+            ),
             child: ListView.builder(
               itemCount: gigs.length,
               itemBuilder: (context, index) {
