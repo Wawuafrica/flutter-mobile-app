@@ -46,10 +46,11 @@ class Disclaimer extends StatelessWidget {
               ),
               color: wawuColors.primary,
               function: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => MainScreen()),
-                );
+                Navigator.pushAndRemoveUntil(
+  context,
+  MaterialPageRoute(builder: (context) => MainScreen()),
+  (Route<dynamic> route) => false,
+);
               },
             ),
           ],

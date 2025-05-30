@@ -69,7 +69,7 @@ class GigsScreen extends StatelessWidget {
             FilterableWidgetList(
               isStyle2: false,
               widgets: backendData,
-              filterOptions: ['All', 'Achived', 'Verified', 'Trash'],
+              filterOptions: ['All', 'Pending', 'Verified',],
               itemBuilder: (widgetData) {
                 return GigCard();
               },

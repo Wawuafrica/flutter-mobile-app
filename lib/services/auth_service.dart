@@ -166,7 +166,7 @@ class AuthService {
       final data = response['data'];
       if (response['statusCode'] == 200 && data != null && data is Map<String, dynamic>) {
         final String token = data['token']; // Ensure token exists in response
-        final user = User.fromJson(data); // If user data is at root of 'data'
+        final user = User.fromJson(data['user']); // If user data is at root of 'data'
         // If user data is nested: final user = User.fromJson(data['user'] as Map<String, dynamic>);
 
         await saveToken(token);
