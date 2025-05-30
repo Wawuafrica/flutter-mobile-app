@@ -1,6 +1,6 @@
-// import 'dart:io';
+import 'dart:io';
 import 'package:dio/dio.dart';
-// import 'package:path/path.dart' as path;
+import 'package:path/path.dart' as path;
 
 // Local imports
 import '../services/auth_service.dart';
@@ -24,7 +24,7 @@ class ApiService {
   Future<void> initialize({
     String? apiBaseUrl,
     Map<String, String>? defaultHeaders,
-    int timeoutSeconds = 120, // Increased default timeout for all requests
+    int timeoutSeconds = 300, // Drastically increased default timeout for all requests (5 minutes)
     required AuthService authService,
   }) async {
     _authService = authService;
@@ -32,6 +32,7 @@ class ApiService {
     _dio.options = BaseOptions(
       baseUrl: apiBaseUrl ?? baseUrl,
       connectTimeout: Duration(seconds: timeoutSeconds),
+      sendTimeout: Duration(seconds: timeoutSeconds), // Explicitly set send timeout
       receiveTimeout: Duration(seconds: timeoutSeconds),
       headers: {
         ...?defaultHeaders,
@@ -45,7 +46,7 @@ class ApiService {
         onRequest: (options, handler) {
           print('Request: ${options.method} ${options.uri}');
           print('Headers: ${options.headers}');
-          if (options.data != null && !(options.data is! FormData)) {
+          if (options.data != null && !(options.data is FormData)) {
             print('Data: ${options.data}');
           }
           return handler.next(options);
@@ -300,7 +301,7 @@ class ApiService {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        message = 'Connection timeout. Please check your internet connection.';
+        message = 'Request timed out. This could be due to a slow network or server processing.';
         break;
       case DioExceptionType.badResponse:
         print('Bad response from server. Status code: ${error.response?.statusCode}');
@@ -318,7 +319,8 @@ class ApiService {
         message = 'Request cancelled';
         break;
       case DioExceptionType.connectionError:
-        message = 'No internet connection. Please check your network settings.';
+        // This is the specific error you're seeing. It's a low-level network issue.
+        message = 'Network connection error. Please check your internet connection, VPN, or firewall settings. The server might also be unreachable.';
         break;
       case DioExceptionType.unknown: // Handle unknown Dio errors
       default:
