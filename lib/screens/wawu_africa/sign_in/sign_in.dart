@@ -89,10 +89,11 @@ class _SignInState extends State<SignIn> {
                   
                   // Navigate on success
                   if (userProvider.isSuccess && userProvider.currentUser != null) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => MainScreen()),
-                    );
+                    Navigator.pushAndRemoveUntil(
+  context,
+  MaterialPageRoute(builder: (context) => MainScreen()),
+  (Route<dynamic> route) => false,
+);
                   }
                 },
                 widget: Text(

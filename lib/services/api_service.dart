@@ -67,7 +67,7 @@ class ApiService {
                   headers: {
                     ...error.requestOptions.headers,
                     'Api-token': _dio.options.headers['Api-token'],
-                    'Authorization': _dio.options.headers['Authorization'],
+                    // 'Authorization': _dio.options.headers['Authorization'],
                     'channel': 'user',
                   },
                 );
@@ -207,6 +207,38 @@ class ApiService {
   }) async {
     try {
       final response = await _dio.put(
+        endpoint,
+        data: data,
+        queryParameters: queryParameters,
+        options: options != null
+            ? options.copyWith(
+                headers: {
+                  ...?options.headers,
+                  'channel': 'user',
+                },
+              )
+            : Options(headers: {'channel': 'user'}),
+      );
+
+      if (fromJson != null) {
+        return fromJson(response.data);
+      }
+      return response.data as T;
+    } on DioException catch (e) {
+      _handleError(e);
+      rethrow;
+    }
+  }
+
+  Future<T> patch<T>(
+    String endpoint, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    T Function(dynamic)? fromJson,
+  }) async {
+    try {
+      final response = await _dio.patch(
         endpoint,
         data: data,
         queryParameters: queryParameters,
