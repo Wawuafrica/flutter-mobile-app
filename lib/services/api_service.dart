@@ -1,6 +1,6 @@
-import 'dart:io';
+// import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:path/path.dart' as path;
+// import 'package:path/path.dart' as path;
 
 // Local imports
 import '../services/auth_service.dart';
@@ -24,7 +24,7 @@ class ApiService {
   Future<void> initialize({
     String? apiBaseUrl,
     Map<String, String>? defaultHeaders,
-    int timeoutSeconds = 30,
+    int timeoutSeconds = 120, // Increased default timeout for all requests
     required AuthService authService,
   }) async {
     _authService = authService;
@@ -45,7 +45,7 @@ class ApiService {
         onRequest: (options, handler) {
           print('Request: ${options.method} ${options.uri}');
           print('Headers: ${options.headers}');
-          if (options.data != null && !(options.data is FormData)) {
+          if (options.data != null && !(options.data is! FormData)) {
             print('Data: ${options.data}');
           }
           return handler.next(options);
@@ -67,7 +67,7 @@ class ApiService {
                   headers: {
                     ...error.requestOptions.headers,
                     'Api-token': _dio.options.headers['Api-token'],
-                    // 'Authorization': _dio.options.headers['Authorization'],
+                    'Authorization': _dio.options.headers['Authorization'],
                     'channel': 'user',
                   },
                 );
@@ -84,6 +84,7 @@ class ApiService {
             }
           }
           print('API Error: ${error.message}');
+          _handleError(error); // Call handleError for all errors
           return handler.next(error);
         },
       ),
@@ -92,7 +93,6 @@ class ApiService {
 
   void setAuthToken(String token) {
     _dio.options.headers['Api-token'] = token;
-    // Keep Bearer for potential future use, as per instructions
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
@@ -293,132 +293,6 @@ class ApiService {
       rethrow;
     }
   }
-  
-  /// Uploads a file along with form data to the specified endpoint
-  /// 
-  /// [endpoint] - API endpoint to upload to
-  /// [file] - File to upload
-  /// [field] - Form field name for the file
-  /// [formData] - Additional form data to include
-  /// [onSendProgress] - Optional callback for upload progress
-  Future<T> uploadFile<T>(
-    String endpoint, {
-    required File file,
-    required String field,
-    Map<String, dynamic>? formData,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    T Function(dynamic)? fromJson,
-    ProgressCallback? onSendProgress,
-  }) async {
-    try {
-      // Create form data
-      final fileName = path.basename(file.path);
-      final formDataObj = FormData();
-      
-      // Add file
-      formDataObj.files.add(MapEntry(
-        field,
-        await MultipartFile.fromFile(
-          file.path,
-          filename: fileName,
-        ),
-      ));
-      
-      // Add other fields
-      if (formData != null) {
-        formData.forEach((key, value) {
-          formDataObj.fields.add(MapEntry(key, value.toString()));
-        });
-      }
-      
-      final response = await _dio.post(
-        endpoint,
-        data: formDataObj,
-        queryParameters: queryParameters,
-        options: options != null
-            ? options.copyWith(
-                headers: {
-                  ...?options.headers,
-                  'channel': 'user',
-                },
-              )
-            : Options(headers: {'channel': 'user'}),
-        onSendProgress: onSendProgress,
-      );
-      
-      if (fromJson != null) {
-        return fromJson(response.data);
-      }
-      return response.data as T;
-    } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
-    }
-  }
-  
-  /// Uploads multiple files along with form data to the specified endpoint
-  /// 
-  /// [endpoint] - API endpoint to upload to
-  /// [files] - Map of field names to files
-  /// [formData] - Additional form data to include
-  /// [onSendProgress] - Optional callback for upload progress
-  Future<T> uploadMultipleFiles<T>(
-    String endpoint, {
-    required Map<String, File> files,
-    Map<String, dynamic>? formData,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    T Function(dynamic)? fromJson,
-    ProgressCallback? onSendProgress,
-  }) async {
-    try {
-      // Create form data
-      final formDataObj = FormData();
-      
-      // Add files
-      for (final entry in files.entries) {
-        final fileName = path.basename(entry.value.path);
-        formDataObj.files.add(MapEntry(
-          entry.key,
-          await MultipartFile.fromFile(
-            entry.value.path,
-            filename: fileName,
-          ),
-        ));
-      }
-      
-      // Add other fields
-      if (formData != null) {
-        formData.forEach((key, value) {
-          formDataObj.fields.add(MapEntry(key, value.toString()));
-        });
-      }
-      
-      final response = await _dio.post(
-        endpoint,
-        data: formDataObj,
-        queryParameters: queryParameters,
-        options: options != null
-            ? options.copyWith(
-                headers: {
-                  ...?options.headers,
-                  'channel': 'user',
-                },
-              )
-            : Options(headers: {'channel': 'user'}),
-        onSendProgress: onSendProgress,
-      );
-      
-      if (fromJson != null) {
-        return fromJson(response.data);
-      }
-      return response.data as T;
-    } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
-    }
-  }
 
   void _handleError(DioException error) {
     String message;
@@ -429,7 +303,9 @@ class ApiService {
         message = 'Connection timeout. Please check your internet connection.';
         break;
       case DioExceptionType.badResponse:
+        print('Bad response from server. Status code: ${error.response?.statusCode}');
         message = _handleBadResponse(error.response);
+        // Specific status code handling (moved from original code)
         if (error.response?.statusCode == 403) {
           message = 'You don\'t have permission to access this resource';
         } else if (error.response?.statusCode == 404) {
@@ -444,14 +320,16 @@ class ApiService {
       case DioExceptionType.connectionError:
         message = 'No internet connection. Please check your network settings.';
         break;
+      case DioExceptionType.unknown: // Handle unknown Dio errors
       default:
-        message = 'An unexpected error occurred';
+        message = 'An unexpected error occurred: ${error.message ?? 'Unknown error'}';
+        break;
     }
-    print(message);
+    print('Error caught: $message');
   }
 
   String _handleBadResponse(Response? response) {
-    if (response == null) return 'No response received';
+    if (response == null || response.data == null) return 'No response received or empty response data';
 
     try {
       final data = response.data;
@@ -468,15 +346,20 @@ class ApiService {
         } else if (data.containsKey('errors')) {
           final errors = data['errors'];
           if (errors is Map && errors.isNotEmpty) {
+            // Take the first error message from the map
             return errors.values.first.toString();
           } else if (errors is List && errors.isNotEmpty) {
+            // Take the first error message from the list
             return errors.first.toString();
           }
         }
+      } else if (data is String) {
+        // If the response data is a plain string, return it
+        return data;
       }
       return 'Server error: ${response.statusCode}';
     } catch (e) {
-      return 'Server error: ${response.statusCode}';
+      return 'Failed to parse error response. Status: ${response.statusCode}. Error: $e';
     }
   }
 }

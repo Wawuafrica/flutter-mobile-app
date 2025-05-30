@@ -203,15 +203,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 40),
                 CustomIntroText(text: 'Recently Viewed'),
                 SizedBox(height: 20),
-                GigCard(),
+                // GigCard(),
+            Text('GigCards'),
+
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+            Text('GigCards'),
+
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+            Text('GigCards'),
+
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+            Text('GigCards'),
+
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+            Text('GigCards'),
+
                 SizedBox(height: 20),
               ],
             ),

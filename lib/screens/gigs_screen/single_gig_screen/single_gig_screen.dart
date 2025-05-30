@@ -272,9 +272,13 @@ class SingleGigScreen extends StatelessWidget {
                 SizedBox(height: 20),
                 CustomIntroText(text: 'My Portfolio'),
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+                Text('GigCards'),
+
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+                Text('GigCards'),
+
                 SizedBox(height: 20),
                 CustomIntroText(text: 'FAQ'),
                 SizedBox(height: 10),

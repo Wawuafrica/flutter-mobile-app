@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/category.dart';
 import '../services/api_service.dart';
 import 'base_provider.dart';
@@ -5,19 +6,19 @@ import 'base_provider.dart';
 class CategoryProvider extends BaseProvider {
   final ApiService _apiService;
 
-  List<Category> _categories = [];
+  List<CategoryModel> _categories = [];
   List<SubCategory> _subCategories = [];
   List<Service> _services = [];
   
-  Category? _selectedCategory;
+  CategoryModel? _selectedCategory;
   SubCategory? _selectedSubCategory;
   Service? _selectedService;
 
-  List<Category> get categories => _categories;
+  List<CategoryModel> get categories => _categories;
   List<SubCategory> get subCategories => _subCategories;
   List<Service> get services => _services;
   
-  Category? get selectedCategory => _selectedCategory;
+  CategoryModel? get selectedCategory => _selectedCategory;
   SubCategory? get selectedSubCategory => _selectedSubCategory;
   Service? get selectedService => _selectedService;
 
@@ -25,54 +26,57 @@ class CategoryProvider extends BaseProvider {
       : _apiService = apiService,
         super();
 
-  Future<List<Category>> fetchCategories() async {
+  Future<List<CategoryModel>> fetchCategories() async {
+    setLoading();
     try {
       final response = await _apiService.get<Map<String, dynamic>>('/categories');
       
       if (response.containsKey('data') && response['data'] is List) {
         final categoriesJson = response['data'] as List;
         _categories = categoriesJson
-            .map((json) => Category.fromJson(json as Map<String, dynamic>))
+            .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
             .toList();
-        notifyListeners();
+        setSuccess();
         return _categories;
       } else {
         _categories = [];
-        print('Failed to fetch categories: Invalid response structure');
+        setError('Invalid response structure');
         return [];
       }
     } catch (e) {
       _categories = [];
-      print('Failed to fetch categories: $e');
+      setError('Failed to fetch categories: $e');
       return [];
     }
   }
 
-  Future<Category?> fetchCategoryById(String categoryId) async {
+  Future<CategoryModel?> fetchCategoryById(String categoryId) async {
+    setLoading();
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/categories/$categoryId',
       );
 
       if (response.containsKey('data')) {
-        _selectedCategory = Category.fromJson(
+        _selectedCategory = CategoryModel.fromJson(
           response['data'] as Map<String, dynamic>,
         );
-        notifyListeners();
+        setSuccess();
         return _selectedCategory;
       } else {
         _selectedCategory = null;
-        print('Failed to fetch category: Invalid response structure');
+        setError('Invalid response structure');
         return null;
       }
     } catch (e) {
       _selectedCategory = null;
-      print('Failed to fetch category details: $e');
+      setError('Failed to fetch category: $e');
       return null;
     }
   }
 
   Future<List<SubCategory>> fetchSubCategories(String categoryId) async {
+    setLoading();
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/categories/$categoryId/subcategories',
@@ -83,21 +87,22 @@ class CategoryProvider extends BaseProvider {
         _subCategories = subCategoriesJson
             .map((json) => SubCategory.fromJson(json as Map<String, dynamic>))
             .toList();
-        notifyListeners();
+        setSuccess();
         return _subCategories;
       } else {
         _subCategories = [];
-        print('Failed to fetch sub-categories: Invalid response data');
+        setError('Invalid response data');
         return [];
       }
     } catch (e) {
       _subCategories = [];
-      print('Failed to fetch sub-categories: $e');
+      setError('Failed to fetch sub-categories: $e');
       return [];
     }
   }
 
   Future<List<Service>> fetchServices(String subCategoryId) async {
+    setLoading();
     try {
       List<Service> allServices = [];
       int currentPage = 1;
@@ -127,48 +132,48 @@ class CategoryProvider extends BaseProvider {
             hasMorePages = false;
           }
         } else {
-          print('Failed to fetch services: Invalid response structure');
+          setError('Invalid response structure');
           return [];
         }
       }
 
       _services = allServices;
-      notifyListeners();
+      setSuccess();
       return _services;
     } catch (e) {
       _services = [];
-      print('Failed to fetch services: $e');
+      setError('Failed to fetch services: $e');
       return [];
     }
   }
 
   void clearSelectedCategory() {
     _selectedCategory = null;
-    notifyListeners();
+    setSuccess();
   }
   
   void clearSelectedSubCategory() {
     _selectedSubCategory = null;
-    notifyListeners();
+    setSuccess();
   }
   
   void clearSelectedService() {
     _selectedService = null;
-    notifyListeners();
+    setSuccess();
   }
   
-  void selectCategory(Category category) {
+  void selectCategory(CategoryModel category) {
     _selectedCategory = category;
-    notifyListeners();
+    setSuccess();
   }
   
   void selectSubCategory(SubCategory subCategory) {
     _selectedSubCategory = subCategory;
-    notifyListeners();
+    setSuccess();
   }
   
   void selectService(Service service) {
     _selectedService = service;
-    notifyListeners();
+    setSuccess();
   }
 }
