@@ -20,7 +20,6 @@ class GigsScreen extends StatelessWidget {
               return const Center(child: Text('Please log in to view gigs'));
             }
 
-            // final gigProvider = Provider.of<GigProvider>(context, listen: false);
             return Column(
               children: [
                 const TabBar(
@@ -33,14 +32,17 @@ class GigsScreen extends StatelessWidget {
                     Tab(text: 'Rejected'),
                   ],
                 ),
-                TabBarView(
-                  children: [
-                    GigTab(status: null, key: UniqueKey()),
-                    GigTab(status: 'PENDING', key: UniqueKey()),
-                    GigTab(status: 'VERIFIED', key: UniqueKey()),
-                    GigTab(status: 'ARCHIVED', key: UniqueKey()),
-                    GigTab(status: 'REJECTED', key: UniqueKey()),
-                  ],
+                // Wrap TabBarView with Expanded to give it bounded height
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      GigTab(status: null, key: UniqueKey()),
+                      GigTab(status: 'PENDING', key: UniqueKey()),
+                      GigTab(status: 'VERIFIED', key: UniqueKey()),
+                      GigTab(status: 'ARCHIVED', key: UniqueKey()),
+                      GigTab(status: 'REJECTED', key: UniqueKey()),
+                    ],
+                  ),
                 ),
               ],
             );
@@ -90,7 +92,7 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
       builder: (context, provider, child) {
         final gigs = provider.gigsForStatus(widget.status);
 
-        if (gigs.isEmpty && !_hasFetched) {
+        if (provider.isLoading && gigs.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
