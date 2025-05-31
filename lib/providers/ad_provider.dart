@@ -8,10 +8,7 @@ class AdProvider extends BaseProvider {
 
   AdProvider({required ApiService apiService})
     : _apiService = apiService,
-      super() {
-    // TODO: implement AdProvider
-    throw UnimplementedError();
-  }
+      super();
 
   List<Ad> get ads => _ads;
 

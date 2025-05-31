@@ -1,6 +1,7 @@
-import 'dart:io';
+// import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:path/path.dart' as path;
+// import 'package:path/path.dart' as path;
+import 'package:flutter/foundation.dart'; // For kIsWeb
 
 // Local imports
 import '../services/auth_service.dart';
@@ -24,26 +25,42 @@ class ApiService {
   Future<void> initialize({
     String? apiBaseUrl,
     Map<String, String>? defaultHeaders,
-    int timeoutSeconds = 300, // Drastically increased default timeout for all requests (5 minutes)
+    int timeoutSeconds = 30, // Reduced to reasonable timeout
     required AuthService authService,
   }) async {
     _authService = authService;
     
+    // Configure timeouts based on platform
+    final Duration connectTimeout = Duration(seconds: timeoutSeconds);
+    final Duration receiveTimeout = Duration(seconds: timeoutSeconds);
+    
     _dio.options = BaseOptions(
       baseUrl: apiBaseUrl ?? baseUrl,
-      connectTimeout: Duration(seconds: timeoutSeconds),
-      sendTimeout: Duration(seconds: timeoutSeconds), // Explicitly set send timeout
-      receiveTimeout: Duration(seconds: timeoutSeconds),
+      connectTimeout: connectTimeout,
+      receiveTimeout: receiveTimeout,
+      // Only set sendTimeout for non-web platforms and when there's data to send
+      sendTimeout: kIsWeb ? null : Duration(seconds: timeoutSeconds),
       headers: {
-        ...?defaultHeaders,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'channel': 'user',
+        ...?defaultHeaders,
       },
+      // Add these for better web compatibility
+      validateStatus: (status) => status! < 500,
+      followRedirects: true,
+      maxRedirects: 3,
     );
 
     // Add interceptors for logging, error handling, and token refresh
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
+          // Don't set sendTimeout for GET requests or on web
+          if (kIsWeb || options.method.toUpperCase() == 'GET') {
+            options.sendTimeout = null;
+          }
+          
           print('Request: ${options.method} ${options.uri}');
           print('Headers: ${options.headers}');
           if (options.data != null && !(options.data is FormData)) {
@@ -57,35 +74,40 @@ class ApiService {
           return handler.next(response);
         },
         onError: (error, handler) async {
+          print('API Error Details:');
+          print('- Type: ${error.type}');
+          print('- Message: ${error.message}');
+          print('- Response Status: ${error.response?.statusCode}');
+          print('- Request Options: ${error.requestOptions.uri}');
+          
           if (error.response?.statusCode == 401) {
             print('Token expired, attempting to refresh...');
             try {
               final success = await refreshToken();
               if (success) {
                 // Retry the original request with new token
-                final opts = Options(
-                  method: error.requestOptions.method,
+                final retryOptions = error.requestOptions.copyWith(
                   headers: {
                     ...error.requestOptions.headers,
                     'Api-token': _dio.options.headers['Api-token'],
-                    'Authorization': _dio.options.headers['Authorization'],
                     'channel': 'user',
                   },
                 );
-                final originalRequest = await _dio.request<dynamic>(
-                  error.requestOptions.path,
-                  data: error.requestOptions.data,
-                  queryParameters: error.requestOptions.queryParameters,
-                  options: opts,
-                );
+                
+                // Clear sendTimeout for retry if on web or GET request
+                if (kIsWeb || retryOptions.method.toUpperCase() == 'GET') {
+                  retryOptions.sendTimeout = null;
+                }
+                
+                final originalRequest = await _dio.fetch(retryOptions);
                 return handler.resolve(originalRequest);
               }
             } catch (e) {
               print('Token refresh failed: $e');
             }
           }
-          print('API Error: ${error.message}');
-          _handleError(error); // Call handleError for all errors
+          
+          _handleError(error);
           return handler.next(error);
         },
       ),
@@ -93,8 +115,9 @@ class ApiService {
   }
 
   void setAuthToken(String token) {
+    // Use Api-token header as requested
     _dio.options.headers['Api-token'] = token;
-    _dio.options.headers['Authorization'] = 'Bearer $token';
+    _dio.options.headers['Authorization'] = token;
   }
 
   void clearAuthToken() {
@@ -108,10 +131,13 @@ class ApiService {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/auth/refresh-token',
-        options: Options(headers: {
-          'Accept': 'application/json',
-          'channel': 'user',
-        }),
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'channel': 'user',
+          },
+          sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+        ),
       );
       
       if (response.statusCode == 200 && response.data != null) {
@@ -144,17 +170,18 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: null, // Never set sendTimeout for GET requests
+      );
+
       final response = await _dio.get(
         endpoint,
         queryParameters: queryParameters,
-        options: options != null
-            ? options.copyWith(
-                headers: {
-                  ...?options.headers,
-                  'channel': 'user',
-                },
-              )
-            : Options(headers: {'channel': 'user'}),
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -175,18 +202,19 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
       final response = await _dio.post(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options != null
-            ? options.copyWith(
-                headers: {
-                  ...?options.headers,
-                  'channel': 'user',
-                },
-              )
-            : Options(headers: {'channel': 'user'}),
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -207,18 +235,19 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
       final response = await _dio.put(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options != null
-            ? options.copyWith(
-                headers: {
-                  ...?options.headers,
-                  'channel': 'user',
-                },
-              )
-            : Options(headers: {'channel': 'user'}),
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -239,18 +268,19 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
       final response = await _dio.patch(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options != null
-            ? options.copyWith(
-                headers: {
-                  ...?options.headers,
-                  'channel': 'user',
-                },
-              )
-            : Options(headers: {'channel': 'user'}),
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -271,18 +301,19 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
       final response = await _dio.delete(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options != null
-            ? options.copyWith(
-                headers: {
-                  ...?options.headers,
-                  'channel': 'user',
-                },
-              )
-            : Options(headers: {'channel': 'user'}),
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -299,30 +330,26 @@ class ApiService {
     String message;
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
+        message = 'Connection timed out. Please check your internet connection.';
+        break;
       case DioExceptionType.sendTimeout:
+        message = 'Request send timed out. The server may be overloaded.';
+        break;
       case DioExceptionType.receiveTimeout:
-        message = 'Request timed out. This could be due to a slow network or server processing.';
+        message = 'Response receive timed out. The server may be slow.';
         break;
       case DioExceptionType.badResponse:
         print('Bad response from server. Status code: ${error.response?.statusCode}');
         message = _handleBadResponse(error.response);
-        // Specific status code handling (moved from original code)
-        if (error.response?.statusCode == 403) {
-          message = 'You don\'t have permission to access this resource';
-        } else if (error.response?.statusCode == 404) {
-          message = 'The requested resource was not found';
-        } else if (error.response?.statusCode == 500) {
-          message = 'Server error. Please try again later';
-        }
         break;
       case DioExceptionType.cancel:
-        message = 'Request cancelled';
+        message = 'Request was cancelled';
         break;
       case DioExceptionType.connectionError:
-        // This is the specific error you're seeing. It's a low-level network issue.
-        message = 'Network connection error. Please check your internet connection, VPN, or firewall settings. The server might also be unreachable.';
+        // Enhanced error handling for connection issues
+        message = _handleConnectionError(error);
         break;
-      case DioExceptionType.unknown: // Handle unknown Dio errors
+      case DioExceptionType.unknown:
       default:
         message = 'An unexpected error occurred: ${error.message ?? 'Unknown error'}';
         break;
@@ -330,8 +357,33 @@ class ApiService {
     print('Error caught: $message');
   }
 
+  String _handleConnectionError(DioException error) {
+    final errorMessage = error.message?.toLowerCase() ?? '';
+    
+    if (errorMessage.contains('xmlhttprequest') || errorMessage.contains('network layer')) {
+      if (kIsWeb) {
+        return 'Network connection failed. This could be due to:\n'
+               '• CORS policy blocking the request\n'
+               '• Browser security settings\n'
+               '• Network firewall or proxy\n'
+               '• Server is unreachable\n'
+               'Please check the browser console for more details.';
+      } else {
+        return 'Network connection error. Please check:\n'
+               '• Your internet connection\n'
+               '• VPN or proxy settings\n'
+               '• Firewall configuration\n'
+               '• Server availability';
+      }
+    }
+    
+    return 'Network connection error: ${error.message}';
+  }
+
   String _handleBadResponse(Response? response) {
-    if (response == null || response.data == null) return 'No response received or empty response data';
+    if (response == null || response.data == null) {
+      return 'No response received from server';
+    }
 
     try {
       final data = response.data;
@@ -348,20 +400,17 @@ class ApiService {
         } else if (data.containsKey('errors')) {
           final errors = data['errors'];
           if (errors is Map && errors.isNotEmpty) {
-            // Take the first error message from the map
             return errors.values.first.toString();
           } else if (errors is List && errors.isNotEmpty) {
-            // Take the first error message from the list
             return errors.first.toString();
           }
         }
       } else if (data is String) {
-        // If the response data is a plain string, return it
         return data;
       }
       return 'Server error: ${response.statusCode}';
     } catch (e) {
-      return 'Failed to parse error response. Status: ${response.statusCode}. Error: $e';
+      return 'Failed to parse error response. Status: ${response.statusCode}';
     }
   }
 }

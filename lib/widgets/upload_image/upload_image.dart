@@ -85,7 +85,7 @@ class _UploadImageState extends State<UploadImage> {
         clipBehavior: Clip.hardEdge,
         height: 250,
         decoration: BoxDecoration(
-          color: wawuColors.primary.withOpacity(0.2),
+          color: wawuColors.primary.withAlpha(50),
           borderRadius: BorderRadius.circular(10),
         ),
         child: _image == null && _webImageBytes == null
@@ -124,6 +124,29 @@ class _UploadImageState extends State<UploadImage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
+                        GestureDetector(
+                          onTap: _pickImage,
+                          child: ClipOval(
+                            child: Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 1,
+                                ),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.add,
+                                  size: 20,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         GestureDetector(
                           onTap: _clearImage,
                           child: ClipOval(
