@@ -10,7 +10,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
-import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
+// import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
 
 class HomeScreen extends StatefulWidget {
