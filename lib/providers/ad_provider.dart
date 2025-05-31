@@ -1,26 +1,28 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/providers/base_provider.dart';
 import '../models/ad.dart';
 import '../services/api_service.dart';
 
-class AdProvider extends ChangeNotifier {
+class AdProvider extends BaseProvider {
   final ApiService _apiService;
   List<Ad> _ads = [];
   bool _isLoading = false;
   String? _errorMessage;
 
-  AdProvider({required ApiService apiService}) : _apiService = apiService;
+  AdProvider({required ApiService apiService})
+    : _apiService = apiService,
+      super() {
+    // TODO: implement AdProvider
+    throw UnimplementedError();
+  }
 
   List<Ad> get ads => _ads;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
   Future<void> fetchAds() async {
-    if (_isLoading) return; // Prevent multiple concurrent fetches
-
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading();
 
     try {
       print('AdProvider: Fetching from .../ads?paginate=1&pageNumber=1');
@@ -32,21 +34,12 @@ class AdProvider extends ChangeNotifier {
         },
       );
       print('AdProvider: Ads fetched successfully: ${response.length} ads');
+      setSuccess();
       _ads = response;
       _errorMessage = null;
     } catch (e) {
       print('AdProvider: Error fetching ads: $e');
-      if (e is DioException) {
-        _errorMessage = 'Failed to load ads: ${e.message}';
-        if (e.response != null) {
-          _errorMessage ?? ' (Status: ${e.response!.statusCode})';
-        }
-        if (e.type == DioExceptionType.connectionError) {
-          _errorMessage ?? ' - Check CORS or network connectivity';
-        }
-      } else {
-        _errorMessage = 'Failed to load ads: ${e.toString()}';
-      }
+      setError('error message: ${e.toString()}');
     } finally {
       _isLoading = false;
       notifyListeners();

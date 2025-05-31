@@ -27,9 +27,9 @@ class UserProvider extends ChangeNotifier {
     required ApiService apiService,
     required AuthService authService,
     required PusherService pusherService,
-  })  : _apiService = apiService,
-        _authService = authService,
-        _pusherService = pusherService {
+  }) : _apiService = apiService,
+       _authService = authService,
+       _pusherService = pusherService {
     _currentUser = _authService.currentUser;
     if (_currentUser != null && _authService.isAuthenticated) {
       _subscribeToUserChannel();
@@ -157,8 +157,12 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> updateAccountType(int roleValue) async {
-    if (!_authService.isAuthenticated || _authService.currentUser == null || _authService.currentUser!.uuid.isEmpty) {
-      setError('User not authenticated or UUID missing for account type update.');
+    if (!_authService.isAuthenticated ||
+        _authService.currentUser == null ||
+        _authService.currentUser!.uuid.isEmpty) {
+      setError(
+        'User not authenticated or UUID missing for account type update.',
+      );
       return;
     }
 
@@ -170,13 +174,19 @@ class UserProvider extends ChangeNotifier {
       );
 
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        final updatedUser = User.fromJson(response['data'] as Map<String, dynamic>);
+        final updatedUser = User.fromJson(
+          response['data'] as Map<String, dynamic>,
+        );
         _currentUser = updatedUser;
         await _authService.saveUser(_currentUser!);
         setSuccess();
-        print('Account Type updated successfully for: ${_currentUser!.email} to role: ${_currentUser!.role}');
+        print(
+          'Account Type updated successfully for: ${_currentUser!.email} to role: ${_currentUser!.role}',
+        );
       } else {
-        final message = response['message'] as String? ?? 'Failed to update account type: Invalid response structure.';
+        final message =
+            response['message'] as String? ??
+            'Failed to update account type: Invalid response structure.';
         setError(message);
       }
     } on dio.DioError catch (e) {
@@ -205,7 +215,9 @@ class UserProvider extends ChangeNotifier {
     XFile? profileImage,
     XFile? coverImage,
   }) async {
-    if (!_authService.isAuthenticated || _authService.currentUser == null || _authService.currentUser!.uuid.isEmpty) {
+    if (!_authService.isAuthenticated ||
+        _authService.currentUser == null ||
+        _authService.currentUser!.uuid.isEmpty) {
       setError('User not authenticated for profile update.');
       return;
     }
@@ -222,35 +234,49 @@ class UserProvider extends ChangeNotifier {
           'education[0][certification]': educationCertification ?? '',
           'education[0][institution]': educationInstitution ?? '',
           'education[0][courseOfStudy]': educationCourseOfStudy ?? '',
-          'education[0][graduationDate]': educationGraduationDate ?? ''
+          'education[0][graduationDate]': educationGraduationDate ?? '',
         },
         if (meansOfIdentification != null) ...{
-          'meansOfIdentification[file]': kIsWeb
-              ? dio.MultipartFile.fromBytes(
-                  await meansOfIdentification.readAsBytes(),
-                  filename: 'id_doc.png',
-                )
-              : await dio.MultipartFile.fromFile(
-                  meansOfIdentification.path,
-                  filename: meansOfIdentification.path.split('/').last,
-                ),
-          'meansOfIdentification[fileName]': kIsWeb ? 'id_doc.png' : meansOfIdentification.path.split('/').last,
-        },
-        if (professionalCertificationName != null || professionalCertificationOrganization != null || professionalCertificationImage != null) ...{
-          'professionalCertification[0][name]': professionalCertificationName ?? '',
-          'professionalCertification[0][organization]': professionalCertificationOrganization?.trim() ?? '',
-          'professionalCertification[0][endDate]': professionalCertificationEndDate?.trim() ?? '',
-          if (professionalCertificationImage != null) ...{
-            'professionalCertification[0][file]': kIsWeb
-                ? dio.MultipartFile.fromBytes(
-                    await professionalCertificationImage.readAsBytes(),
-                    filename: 'cert_doc.png',
+          'meansOfIdentification[file]':
+              kIsWeb
+                  ? dio.MultipartFile.fromBytes(
+                    await meansOfIdentification.readAsBytes(),
+                    filename: 'id_doc.png',
                   )
-                : await dio.MultipartFile.fromFile(
-                    professionalCertificationImage.path,
-                    filename: professionalCertificationImage.path.split('/').last,
+                  : await dio.MultipartFile.fromFile(
+                    meansOfIdentification.path,
+                    filename: meansOfIdentification.path.split('/').last,
                   ),
-            'professionalCertification[0][fileName]': kIsWeb ? 'cert_doc.png' : professionalCertificationImage.path.split('/').last,
+          'meansOfIdentification[fileName]':
+              kIsWeb
+                  ? 'id_doc.png'
+                  : meansOfIdentification.path.split('/').last,
+        },
+        if (professionalCertificationName != null ||
+            professionalCertificationOrganization != null ||
+            professionalCertificationImage != null) ...{
+          'professionalCertification[0][name]':
+              professionalCertificationName ?? '',
+          'professionalCertification[0][organization]':
+              professionalCertificationOrganization?.trim() ?? '',
+          'professionalCertification[0][endDate]':
+              professionalCertificationEndDate?.trim() ?? '',
+          if (professionalCertificationImage != null) ...{
+            'professionalCertification[0][file]':
+                kIsWeb
+                    ? dio.MultipartFile.fromBytes(
+                      await professionalCertificationImage.readAsBytes(),
+                      filename: 'cert_doc.png',
+                    )
+                    : await dio.MultipartFile.fromFile(
+                      professionalCertificationImage.path,
+                      filename:
+                          professionalCertificationImage.path.split('/').last,
+                    ),
+            'professionalCertification[0][fileName]':
+                kIsWeb
+                    ? 'cert_doc.png'
+                    : professionalCertificationImage.path.split('/').last,
           },
         },
         'country': country?.trim() ?? '',
@@ -267,8 +293,11 @@ class UserProvider extends ChangeNotifier {
         data: profileFormData,
       );
 
-      if (profileResponse['statusCode'] != 200 || !profileResponse.containsKey('data')) {
-        final message = profileResponse['message'] as String? ?? 'Failed to update profile data: Invalid response structure.';
+      if (profileResponse['statusCode'] != 200 ||
+          !profileResponse.containsKey('data')) {
+        final message =
+            profileResponse['message'] as String? ??
+            'Failed to update profile data: Invalid response structure.';
         setError(message);
         return;
       }
@@ -277,27 +306,29 @@ class UserProvider extends ChangeNotifier {
       if (profileImage != null || coverImage != null) {
         final imageFormData = dio.FormData.fromMap({
           if (profileImage != null) ...{
-            'profileImage[file]': kIsWeb
-                ? dio.MultipartFile.fromBytes(
-                    await profileImage.readAsBytes(),
-                    filename: 'jondoe_dp.png',
-                  )
-                : await dio.MultipartFile.fromFile(
-                    profileImage.path,
-                    filename: 'jondoe_dp.png',
-                  ),
+            'profileImage[file]':
+                kIsWeb
+                    ? dio.MultipartFile.fromBytes(
+                      await profileImage.readAsBytes(),
+                      filename: 'jondoe_dp.png',
+                    )
+                    : await dio.MultipartFile.fromFile(
+                      profileImage.path,
+                      filename: 'jondoe_dp.png',
+                    ),
             'profileImage[fileName]': 'jondoe_dp.png',
           },
           if (coverImage != null) ...{
-            'coverImage[file]': kIsWeb
-                ? dio.MultipartFile.fromBytes(
-                    await coverImage.readAsBytes(),
-                    filename: 'cover_image.png',
-                  )
-                : await dio.MultipartFile.fromFile(
-                    coverImage.path,
-                    filename: 'cover_image.png',
-                  ),
+            'coverImage[file]':
+                kIsWeb
+                    ? dio.MultipartFile.fromBytes(
+                      await coverImage.readAsBytes(),
+                      filename: 'cover_image.png',
+                    )
+                    : await dio.MultipartFile.fromFile(
+                      coverImage.path,
+                      filename: 'cover_image.png',
+                    ),
             'coverImage[fileName]': 'cover_image.png',
           },
         });
@@ -307,8 +338,11 @@ class UserProvider extends ChangeNotifier {
           data: imageFormData,
         );
 
-        if (imageResponse['statusCode'] != 200 || !imageResponse.containsKey('data')) {
-          final message = imageResponse['message'] as String? ?? 'Failed to update images: Invalid response structure.';
+        if (imageResponse['statusCode'] != 200 ||
+            !imageResponse.containsKey('data')) {
+          final message =
+              imageResponse['message'] as String? ??
+              'Failed to update images: Invalid response structure.';
           setError(message);
           return;
         }
@@ -333,12 +367,16 @@ class UserProvider extends ChangeNotifier {
   Future<void> fetchUserById(String userId) async {
     setLoading();
     try {
-      final response = await _apiService.get<Map<String, dynamic>>('/user/$userId');
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/user/$userId',
+      );
       if (response['statusCode'] == 200 && response.containsKey('data')) {
         _viewedUser = User.fromJson(response['data'] as Map<String, dynamic>);
         setSuccess();
       } else {
-        final message = response['message'] as String? ?? 'Failed to fetch user profile by ID: Invalid response structure.';
+        final message =
+            response['message'] as String? ??
+            'Failed to fetch user profile by ID: Invalid response structure.';
         setError(message);
         _viewedUser = null;
       }
@@ -352,8 +390,12 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> _subscribeToUserChannel() async {
-    if (!_authService.isAuthenticated || _authService.currentUser == null || _authService.currentUser!.uuid.isEmpty) {
-      print('Cannot subscribe to user channel: user not authenticated or UUID missing.');
+    if (!_authService.isAuthenticated ||
+        _authService.currentUser == null ||
+        _authService.currentUser!.uuid.isEmpty) {
+      print(
+        'Cannot subscribe to user channel: user not authenticated or UUID missing.',
+      );
       return;
     }
 
@@ -374,32 +416,44 @@ class UserProvider extends ChangeNotifier {
         _userChannelName = channelName;
         print('Subscribed to Pusher channel: $channelName');
 
-        _pusherService.bindToEvent(channelName, 'user.profile.updated', (eventDataString) {
+        _pusherService.bindToEvent(channelName, 'user.profile.updated', (
+          eventDataString,
+        ) {
           try {
-            final Map<String, dynamic> eventData = jsonDecode(eventDataString) as Map<String, dynamic>;
-            _currentUser = _currentUser?.copyWith(
-              firstName: eventData['firstName'] as String?,
-              lastName: eventData['lastName'] as String?,
-              email: eventData['email'] as String?,
-              phoneNumber: eventData['phoneNumber'] as String?,
-              role: eventData['role'] as String?,
-              profileImage: eventData['profileImage'] as String?,
-              coverImage: eventData['coverImage'] as String?,
-              profileCompletionRate: eventData['profileCompletionRate'] as int?,
-              additionalInfo: eventData['additionalInfo'] != null && eventData['additionalInfo'] is Map
-                  ? AdditionalInfo.fromJson(eventData['additionalInfo'])
-                  : _currentUser?.additionalInfo,
-            ) ?? User.fromJson(eventData);
+            final Map<String, dynamic> eventData =
+                jsonDecode(eventDataString) as Map<String, dynamic>;
+            _currentUser =
+                _currentUser?.copyWith(
+                  firstName: eventData['firstName'] as String?,
+                  lastName: eventData['lastName'] as String?,
+                  email: eventData['email'] as String?,
+                  phoneNumber: eventData['phoneNumber'] as String?,
+                  role: eventData['role'] as String?,
+                  profileImage: eventData['profileImage'] as String?,
+                  coverImage: eventData['coverImage'] as String?,
+                  profileCompletionRate:
+                      eventData['profileCompletionRate'] as int?,
+                  additionalInfo:
+                      eventData['additionalInfo'] != null &&
+                              eventData['additionalInfo'] is Map
+                          ? AdditionalInfo.fromJson(eventData['additionalInfo'])
+                          : _currentUser?.additionalInfo,
+                ) ??
+                User.fromJson(eventData);
 
             _authService.saveUser(_currentUser!);
             notifyListeners();
             print('User profile updated via Pusher: ${_currentUser!.email}');
           } catch (e) {
-            print('Error processing user.profile.updated event: $e. Data: $eventDataString');
+            print(
+              'Error processing user.profile.updated event: $e. Data: $eventDataString',
+            );
           }
         });
       } else {
-        print('Failed to subscribe to Pusher channel: $channelName. Channel is null.');
+        print(
+          'Failed to subscribe to Pusher channel: $channelName. Channel is null.',
+        );
         _userChannelName = null;
       }
     } catch (e) {
