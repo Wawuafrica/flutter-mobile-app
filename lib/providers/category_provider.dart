@@ -23,8 +23,7 @@ class CategoryProvider extends BaseProvider {
   Service? get selectedService => _selectedService;
 
   CategoryProvider({required ApiService apiService})
-      : _apiService = apiService,
-        super();
+      : _apiService = apiService,super();
 
   Future<List<CategoryModel>> fetchCategories() async {
     setLoading();
