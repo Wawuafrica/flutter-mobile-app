@@ -1,25 +1,47 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/screens/messages_screen/single_message_screen/single_message_screen.dart';
+import 'package:timeago/timeago.dart' as timeago;
+import 'package:wawu_mobile/models/conversation.dart';
+import 'package:wawu_mobile/models/chat_user.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class MessageCard extends StatelessWidget {
-  const MessageCard({super.key});
+  final Conversation conversation;
+  final String currentUserId;
+  final void Function()? onTap;
+
+  const MessageCard({
+    super.key,
+    required this.conversation,
+    required this.currentUserId, this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    // Get the other participant's name and avatar
+    final otherParticipant = conversation.participants.firstWhere(
+      (user) => user.id != currentUserId, 
+      orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
+    );
+
+    // Get last message details
+    final lastMessage = conversation.lastMessage;
+    final lastMessageContent = lastMessage?.content ?? 'No messages yet';
+    final lastMessageTime = lastMessage?.timestamp != null
+        ? timeago.format(lastMessage!.timestamp)
+        : '';
+
+    // Count unread messages (simplified, as isRead is always false)
+    final unreadCount = conversation.messages
+        .where((msg) => msg.senderId != currentUserId)
+        .length;
+
     return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => SingleMessageScreen()),
-        );
-      },
+      onTap: onTap,
       child: Container(
         width: double.infinity,
         height: 90,
-        padding: EdgeInsets.all(10.0),
+        padding: const EdgeInsets.all(10.0),
         child: Row(
-          spacing: 10.0,
           children: [
             Stack(
               clipBehavior: Clip.none,
@@ -28,11 +50,20 @@ class MessageCard extends StatelessWidget {
                   width: 50,
                   height: 50,
                   clipBehavior: Clip.hardEdge,
-                  decoration: BoxDecoration(shape: BoxShape.circle),
-                  child: Image.asset(
-                    'assets/images/other/avatar.webp',
-                    fit: BoxFit.cover,
-                  ),
+                  decoration: const BoxDecoration(shape: BoxShape.circle),
+                  child: otherParticipant.avatar != null
+                      ? Image.network(
+                          otherParticipant.avatar!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Image.asset(
+                            'assets/images/other/avatar.webp',
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : Image.asset(
+                          'assets/images/other/avatar.webp',
+                          fit: BoxFit.cover,
+                        ),
                 ),
                 Positioned(
                   right: 5,
@@ -48,50 +79,58 @@ class MessageCard extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(width: 10.0),
             Expanded(
               child: Column(
-                spacing: 10.0,
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Mary Jane',
-                        style: TextStyle(
+                        otherParticipant.name,
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Text('2 mins ago', style: TextStyle(fontSize: 11)),
+                      Text(
+                        lastMessageTime,
+                        style: const TextStyle(fontSize: 11),
+                      ),
                     ],
                   ),
-
+                  const SizedBox(height: 10.0),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Star italic ellipse fill vector distribute',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      Container(
-                        width: 15,
-                        height: 15,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: wawuColors.primary,
+                      Expanded(
+                        child: Text(
+                          lastMessageContent,
+                          style: const TextStyle(fontSize: 13),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        child: Center(
-                          child: Text(
-                            '1',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                      ),
+                      if (unreadCount > 0)
+                        Container(
+                          width: 15,
+                          height: 15,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: wawuColors.primary,
+                          ),
+                          child: Center(
+                            child: Text(
+                              unreadCount.toString(),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ],
