@@ -116,8 +116,7 @@ class ApiService {
 
   void setAuthToken(String token) {
     // Use Api-token header as requested
-    _dio.options.headers['Api-token'] = token;
-    _dio.options.headers['Authorization'] = token;
+    _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
   void clearAuthToken() {
