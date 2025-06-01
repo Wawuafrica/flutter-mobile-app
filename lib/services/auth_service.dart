@@ -217,7 +217,7 @@ class AuthService {
     try {
       if (_token != null) {
         // Assuming your backend has a logout endpoint to invalidate token
-        await _apiService.post('/auth/logout');
+        await _apiService.post('/user/logout');
         _logger.d('Server logout successful');
       }
     } catch (e) {
