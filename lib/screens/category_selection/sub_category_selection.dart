@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/profile/profile_screen.dart'; // This will be replaced by ProfileUpdate
 import 'package:wawu_mobile/screens/update_profile/update_profile.dart'; // Import the ProfileUpdate screen
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
