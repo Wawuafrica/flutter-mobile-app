@@ -89,7 +89,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     const SizedBox(height: 16),
                     ...widget.options
                         .map((option) => _buildOption(option))
-                        .toList(),
+                        ,
                   ],
                 ),
               ),

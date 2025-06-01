@@ -1,6 +1,6 @@
 // lib/models/user.dart
 
-import 'dart:convert'; // Keep this if you use jsonEncode/jsonDecode elsewhere, otherwise can remove
+// Keep this if you use jsonEncode/jsonDecode elsewhere, otherwise can remove
 
 class User {
   final String uuid;

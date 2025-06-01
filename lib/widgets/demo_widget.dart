@@ -5,7 +5,7 @@ import '../providers/product_provider.dart';
 
 /// Demo widget showing how to use providers with loading/error states
 class DemoWidget extends StatefulWidget {
-  const DemoWidget({Key? key}) : super(key: key);
+  const DemoWidget({super.key});
 
   @override
   State<DemoWidget> createState() => _DemoWidgetState();
@@ -55,7 +55,7 @@ class _DemoWidgetState extends State<DemoWidget> {
 }
 
 class _BlogTab extends StatelessWidget {
-  const _BlogTab({Key? key}) : super(key: key);
+  const _BlogTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -183,7 +183,7 @@ class _BlogTab extends StatelessWidget {
 }
 
 class _ProductsTab extends StatelessWidget {
-  const _ProductsTab({Key? key}) : super(key: key);
+  const _ProductsTab({super.key});
 
   @override
   Widget build(BuildContext context) {

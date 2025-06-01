@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -12,8 +11,8 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
-  bool _isSearchOpen = false;
-  final TextEditingController _searchController = TextEditingController();
+  // final bool _isSearchOpen = false;
+  // final TextEditingController _searchController = TextEditingController();
   String? _selectedCategoryId;
 
   @override
@@ -128,7 +127,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         categoryProvider.selectCategory(selectedCategory);
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => ServiceDetailed()),
+          MaterialPageRoute(builder: (context) => SubCategoriesAndServices()),
         );
       },
       child: Container(

@@ -19,7 +19,7 @@ class GigProvider extends BaseProvider {
   };
   Gig? _selectedGig;
   bool _isGeneralChannelSubscribed = false;
-  List<String> _specificGigChannels = [];
+  final List<String> _specificGigChannels = [];
 
   List<Gig> get gigs => _gigsByStatus['all']!;
   List<Gig> gigsForStatus(String? status) => _gigsByStatus[status ?? 'all']!;

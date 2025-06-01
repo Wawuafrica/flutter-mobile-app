@@ -266,7 +266,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
                   decoration: BoxDecoration(border: Border.all()),
                   child: Center(
                     child: Customcheckmark(
-                      isChecked: values![1],
+                      isChecked: values[1],
                       onChanged: (val) => setState(() {
                         _rows[rowIndex]['values'][1] = val;
                         widget.onPackagesChanged?.call(getPackageData());
@@ -282,7 +282,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
                   decoration: BoxDecoration(border: Border.all()),
                   child: Center(
                     child: Customcheckmark(
-                      isChecked: values![2],
+                      isChecked: values[2],
                       onChanged: (val) => setState(() {
                         _rows[rowIndex]['values'][2] = val;
                         widget.onPackagesChanged?.call(getPackageData());
@@ -325,7 +325,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
                   child: Center(
                     child: CustomTextfieldGrid(
                       hintText: hintText,
-                      controller: controllers![1],
+                      controller: controllers[1],
                       keyboardType: title == 'Price (NGN)' ? TextInputType.number : null,
                       onChanged: (_) => widget.onPackagesChanged?.call(getPackageData()),
                     ),
@@ -340,7 +340,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
                   child: Center(
                     child: CustomTextfieldGrid(
                       hintText: hintText,
-                      controller: controllers![2],
+                      controller: controllers[2],
                       keyboardType: title == 'Price (NGN)' ? TextInputType.number : null,
                       onChanged: (_) => widget.onPackagesChanged?.call(getPackageData()),
                     ),

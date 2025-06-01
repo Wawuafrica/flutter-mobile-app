@@ -14,7 +14,7 @@ import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
 import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
 
 class SingleMessageScreen extends StatefulWidget {
-  SingleMessageScreen({Key? key}) : super(key: key);
+  const SingleMessageScreen({super.key});
 
   @override
   State<SingleMessageScreen> createState() => _SingleMessageScreenState();

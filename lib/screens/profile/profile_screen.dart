@@ -8,7 +8,6 @@
   import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
   import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
   import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
-  import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
 
   class ProfileScreen extends StatefulWidget {
     const ProfileScreen({super.key});
