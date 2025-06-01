@@ -19,7 +19,7 @@ class ProductProvider extends BaseProvider {
   List<Product> _products = [];
   List<Product> _featuredProducts = [];
   Product? _selectedProduct;
-  Map<String, int> _cartItems = {}; // Map of product ID to quantity
+  final Map<String, int> _cartItems = {}; // Map of product ID to quantity
   bool _hasMoreProducts = true;
   int _currentPage = 1;
   bool _isGeneralChannelSubscribed = false;

@@ -63,7 +63,7 @@ class ApiService {
           
           print('Request: ${options.method} ${options.uri}');
           print('Headers: ${options.headers}');
-          if (options.data != null && !(options.data is FormData)) {
+          if (options.data != null && options.data is! FormData) {
             print('Data: ${options.data}');
           }
           return handler.next(options);

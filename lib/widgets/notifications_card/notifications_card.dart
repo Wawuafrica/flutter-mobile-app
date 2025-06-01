@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/notification.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class NotificationsCard extends StatelessWidget {
   final NotificationModel notification;
@@ -58,7 +59,7 @@ class NotificationsCard extends StatelessWidget {
                 width: double.infinity,
                 height: 110,
                 decoration: BoxDecoration(
-                  color: notification.isRead ? Colors.grey[100] : Colors.white,
+                  color: notification.isRead ? wawuColors.primary.withAlpha(15) : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: const Color.fromARGB(255, 224, 224, 224),

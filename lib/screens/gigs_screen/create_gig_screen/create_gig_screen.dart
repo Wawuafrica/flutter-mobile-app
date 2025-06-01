@@ -38,7 +38,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
   String? _selectedSubCategoryId;
   String? _selectedServiceId;
   bool _isSubmitting = false;
-  List<Map<String, dynamic>> _faqs = [];
+  final List<Map<String, dynamic>> _faqs = [];
   List<Map<String, dynamic>> _packages = [];
   FetchType _fetchType = FetchType.none;
 
@@ -642,7 +642,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                     values: row['values'] as List<bool>?,
                     rowIndex: entry.key,
                   );
-                }).toList(),
+                }),
               ],
             ),
           ),
@@ -843,7 +843,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                 ],
               ),
             );
-          }).toList(),
+          }),
           const SizedBox(height: 20),
         ],
         CustomTextfield(

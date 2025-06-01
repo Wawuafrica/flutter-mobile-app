@@ -5,23 +5,56 @@ import 'package:wawu_mobile/models/category.dart';
 import 'package:wawu_mobile/screens/categories/filtered_gigs/filtered_gigs.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
-class ServiceDetailed extends StatefulWidget {
-  const ServiceDetailed({super.key});
+class SubCategoriesAndServices extends StatefulWidget {
+  const SubCategoriesAndServices({super.key});
 
   @override
-  State<ServiceDetailed> createState() => _ServiceDetailedState();
+  State<SubCategoriesAndServices> createState() => _SubCategoriesAndServicesState();
 }
 
-class _ServiceDetailedState extends State<ServiceDetailed> {
-  Map<String, List<Service>> _subCategoryServices = {};
-  Map<String, bool> _loadingServices = {};
+class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
+  final Map<String, List<Service>> _subCategoryServices = {};
+  final Map<String, bool> _loadingServices = {};
+  bool _isInitialLoading = true;
   
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSubCategories();
+      _initializeScreen();
     });
+  }
+
+  Future<void> _initializeScreen() async {
+    final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+    final selectedCategory = categoryProvider.selectedCategory;
+    
+    if (selectedCategory != null) {
+      // Always start with loading state
+      setState(() {
+        _isInitialLoading = true;
+      });
+      
+      // Clear previous data immediately
+      _subCategoryServices.clear();
+      _loadingServices.clear();
+      
+      // Clear subcategories in provider to prevent showing old data
+      categoryProvider.clearSelectedSubCategory();
+      
+      // Add a small delay to ensure UI shows loading state
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Load new subcategories
+      await _loadSubCategories();
+      
+      // Hide loading state
+      if (mounted) {
+        setState(() {
+          _isInitialLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadSubCategories() async {
@@ -99,60 +132,83 @@ class _ServiceDetailedState extends State<ServiceDetailed> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Show loading indicator only for initial subcategories load
-                if (categoryProvider.isLoading && categoryProvider.subCategories.isEmpty)
+                // Show initial loading state
+                if (_isInitialLoading)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.all(40.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                // Show error state for subcategories
-                if (categoryProvider.hasError && categoryProvider.subCategories.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
                       child: Column(
                         children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
                           Text(
-                            'Error: ${categoryProvider.errorMessage}',
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: _loadSubCategories,
-                            child: const Text('Retry'),
+                            'Loading subcategories...',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                // Show subcategories (even if some are still loading)
-                ...categoryProvider.subCategories.map(
-                  (subCategory) => Column(
-                    children: [
-                      _buildSubCategoryExpansionTile(subCategory),
-                      const SizedBox(height: 10),
-                    ],
-                  ),
-                ),
-                // Show empty state only if not loading and no subcategories
-                if (!categoryProvider.isLoading && 
-                    categoryProvider.subCategories.isEmpty && 
-                    !categoryProvider.hasError)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(20.0),
-                      child: Text(
-                        'No subcategories available',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
+                  )
+                // Show content only when not in initial loading state
+                else ...[
+                  // Show loading indicator only for provider subcategories load
+                  if (categoryProvider.isLoading && categoryProvider.subCategories.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(40.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  // Show error state for subcategories
+                  if (categoryProvider.hasError && categoryProvider.subCategories.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Error: ${categoryProvider.errorMessage}',
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: _loadSubCategories,
+                              child: const Text('Retry'),
+                            ),
+                          ],
                         ),
                       ),
                     ),
+                  // Show subcategories (even if some are still loading)
+                  ...categoryProvider.subCategories.map(
+                    (subCategory) => Column(
+                      children: [
+                        _buildSubCategoryExpansionTile(subCategory),
+                        const SizedBox(height: 10),
+                      ],
+                    ),
                   ),
+                  // Show empty state only if not loading and no subcategories
+                  if (!categoryProvider.isLoading && 
+                      categoryProvider.subCategories.isEmpty && 
+                      !categoryProvider.hasError)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: Text(
+                          'No subcategories available',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),

@@ -189,7 +189,7 @@ class UserProvider extends ChangeNotifier {
             'Failed to update account type: Invalid response structure.';
         setError(message);
       }
-    } on dio.DioError catch (e) {
+    } on dio.DioException catch (e) {
       setError(AuthService.extractErrorMessage(e));
     } catch (e) {
       setError('Failed to update account type: $e');
@@ -357,7 +357,7 @@ class UserProvider extends ChangeNotifier {
       } else {
         setError('Failed to fetch updated user profile after update.');
       }
-    } on dio.DioError catch (e) {
+    } on dio.DioException catch (e) {
       setError(AuthService.extractErrorMessage(e));
     } catch (e) {
       setError('Failed to update profile: $e');
@@ -380,7 +380,7 @@ class UserProvider extends ChangeNotifier {
         setError(message);
         _viewedUser = null;
       }
-    } on dio.DioError catch (e) {
+    } on dio.DioException catch (e) {
       setError(AuthService.extractErrorMessage(e));
       _viewedUser = null;
     } catch (e) {

@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/categories/filtered_gigs/filtered_gigs.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
+import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
 import 'package:wawu_mobile/screens/wawu_ecommerce_screen/wawu_ecommerce_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
@@ -165,10 +165,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     final category = entry.value;
                                     return ImageTextCard(
                                       function: () {
+                                        categoryProvider.selectCategory(category);
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (context) => FilteredGigs(),
+                                            builder: (context) => SubCategoriesAndServices(),
                                           ),
                                         );
                                       },
