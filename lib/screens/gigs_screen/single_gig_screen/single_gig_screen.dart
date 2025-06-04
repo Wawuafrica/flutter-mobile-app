@@ -5,7 +5,6 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
-import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/widgets/package_grid_component/package_grid_component.dart';
 import 'package:wawu_mobile/widgets/review_component/review_component.dart';
 
@@ -272,9 +271,13 @@ class SingleGigScreen extends StatelessWidget {
                 SizedBox(height: 20),
                 CustomIntroText(text: 'My Portfolio'),
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+                Text('GigCards'),
+
                 SizedBox(height: 10),
-                GigCard(),
+                // GigCard(),
+                Text('GigCards'),
+
                 SizedBox(height: 20),
                 CustomIntroText(text: 'FAQ'),
                 SizedBox(height: 10),

@@ -1,11 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
-import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
-import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
 import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:wawu_mobile/models/chat_user.dart';
+import 'package:wawu_mobile/models/conversation.dart';
+import 'package:wawu_mobile/providers/message_provider.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
+import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
 
 class SingleMessageScreen extends StatefulWidget {
   const SingleMessageScreen({super.key});
@@ -16,27 +22,28 @@ class SingleMessageScreen extends StatefulWidget {
 
 class _SingleMessageScreenState extends State<SingleMessageScreen> {
   final AudioRecorder _audioRecorder = AudioRecorder();
+  final TextEditingController _messageController = TextEditingController();
   Timer? _recordingTimer;
   Duration _recordingDuration = Duration.zero;
   bool _isRecording = false;
   String? _currentAudioPath;
-  final TextEditingController _messageController = TextEditingController();
   bool _isTextFieldEmpty = true;
   Timer? _debounceTimer;
+  final Map<String, Duration> _voiceMessageDurations = {};
 
   @override
   void initState() {
     super.initState();
-    // Listen to text changes
     _messageController.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
-    _messageController.removeListener(_onTextChanged); // Remove listener
+    _messageController.removeListener(_onTextChanged);
     _messageController.dispose();
     _audioRecorder.dispose();
     _recordingTimer?.cancel();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -49,34 +56,42 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
     });
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     if (!_isTextFieldEmpty) {
-      final message = _messageController.text.trim();
-      // Add the message to your messages list or send it to the server
-      setState(() {
-        _messages.add({
-          'type': 'text',
-          'content': message,
-          'time': _getCurrentTime(),
-          'isLeft': false,
-        });
-      });
+      final currentUserId = Provider.of<UserProvider>(context, listen: false).currentUser?.uuid ?? '';
+      final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+      final recipientId = messageProvider.currentRecipientId;
 
-      // Clear the text field
+      if (currentUserId.isEmpty || recipientId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User not authenticated or recipient not selected')),
+        );
+        return;
+      }
+
+      final message = _messageController.text.trim();
+      await messageProvider.sendMessage(
+        senderId: currentUserId,
+        receiverId: recipientId,
+        content: message,
+      );
       _messageController.clear();
     }
   }
 
   Future<void> _startRecording() async {
     final status = await Permission.microphone.request();
-    if (!status.isGranted) return;
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Microphone permission denied')),
+      );
+      return;
+    }
 
     try {
       final tempDir = await getTemporaryDirectory();
-      final path =
-          '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-      await _audioRecorder.start(RecordConfig(), path: path);
+      final path = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
 
       setState(() {
         _isRecording = true;
@@ -84,159 +99,193 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
         _recordingDuration = Duration.zero;
       });
 
-      _recordingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-        setState(() => _recordingDuration += Duration(seconds: 1));
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        setState(() => _recordingDuration += const Duration(seconds: 1));
       });
     } catch (e) {
       print('Recording error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to start recording: $e')),
+      );
     }
   }
 
   Future<void> _stopRecording() async {
-    _recordingTimer?.cancel();
-    await _audioRecorder.stop();
+    try {
+      _recordingTimer?.cancel();
+      await _audioRecorder.stop();
 
-    if (_currentAudioPath != null) {
-      _addVoiceMessage(_currentAudioPath!);
-    }
+      if (_currentAudioPath != null) {
+        final currentUserId = Provider.of<UserProvider>(context, listen: false).currentUser?.uuid ?? '';
+        final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+        final recipientId = messageProvider.currentRecipientId;
 
-    setState(() {
-      _isRecording = false;
-      _recordingDuration = Duration.zero;
-    });
-  }
+        if (currentUserId.isEmpty || recipientId.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('User not authenticated or recipient not selected')),
+          );
+          return;
+        }
 
-  void _addVoiceMessage(String path) {
-    final newMessage = {
-      'type': 'voice',
-      'duration': _formatDuration(_recordingDuration),
-      'time': _getCurrentTime(),
-      'isLeft': false,
-      'source': path,
-    };
-
-    setState(() => _messages.add(newMessage));
-
-    // Simulate server upload
-    _uploadToServer(path).then((serverUrl) {
-      // Update message with server URL
-      final index = _messages.indexWhere((m) => m['localPath'] == path);
-      if (index != -1) {
-        setState(() => _messages[index]['source'] = serverUrl);
+        final message = await messageProvider.sendMessage(
+          senderId: currentUserId,
+          receiverId: recipientId,
+          content: 'Voice message',
+          mediaFilePath: _currentAudioPath!,
+          mediaType: 'audio',
+        );
+        if (message != null) {
+          _voiceMessageDurations[message.id] = _recordingDuration;
+        }
       }
-    });
+    } catch (e) {
+      print('Stop recording error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to stop recording: $e')),
+      );
+    } finally {
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = Duration.zero;
+        _currentAudioPath = null;
+      });
+    }
   }
 
-  Future<String> _uploadToServer(String path) async {
-    // Implement actual server upload logic here
-    await Future.delayed(Duration(seconds: 2));
-    return 'https://your-server.com/${path.split('/').last}';
-  }
-
-  String _getCurrentTime() {
-    final now = DateTime.now();
-    return '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+  String _getCurrentTime(DateTime timestamp) {
+    return '${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}';
   }
 
   String _formatDuration(Duration d) =>
       '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 
-  // @override
-  // void dispose() {
-
-  //   super.dispose();
-  // }
-
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'type': 'text',
-      'content': 'Hey there! How are you doing today? 😊',
-      'time': '10:31 AM',
-      'isLeft': true,
-    },
-    {
-      'type': 'text',
-      'content': "I'm doing great! Working on Flutter projects 📱",
-      'time': '10:35 AM',
-      'isLeft': false,
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final currentUserId = Provider.of<UserProvider>(context).currentUser?.uuid ?? '';
+    final messageProvider = Provider.of<MessageProvider>(context);
+
+    if (currentUserId.isEmpty || messageProvider.currentRecipientId.isEmpty) {
+      return Scaffold(
+        body: Center(child: Text('Please log in and select a recipient')),
+      );
+    }
+
+    // Handle route arguments for new conversations
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args.containsKey('recipientId') && messageProvider.currentConversationId.isEmpty) {
+        final recipientId = args['recipientId'] as String;
+        final initialMessage = args['initialMessage'] as String?;
+        await messageProvider.startConversation(currentUserId, recipientId, initialMessage);
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         elevation: 1.0,
         actions: [
           Container(
-            margin: EdgeInsets.only(right: 10.0),
+            margin: const EdgeInsets.only(right: 10.0),
             width: 40,
             height: 40,
-            child: Center(child: Icon(Icons.video_call)),
+            child: const Center(child: Icon(Icons.video_call)),
           ),
           Container(
-            margin: EdgeInsets.only(right: 10.0),
+            margin: const EdgeInsets.only(right: 10.0),
             width: 40,
             height: 40,
-            child: Center(child: Icon(Icons.call)),
+            child: const Center(child: Icon(Icons.call)),
           ),
         ],
-        title: Row(
-          spacing: 10.0,
-          children: [
-            Stack(
+        title: Consumer<MessageProvider>(
+          builder: (context, messageProvider, child) {
+            final conversation = messageProvider.allConversations.firstWhere(
+              (conv) => conv.id == messageProvider.currentConversationId,
+              orElse: () => Conversation(id: '', participants: [], messages: []),
+            );
+            final otherParticipant = conversation.participants.firstWhere(
+              (user) => user.id != currentUserId,
+              orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
+            );
+
+            return Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  clipBehavior: Clip.hardEdge,
-                  decoration: BoxDecoration(shape: BoxShape.circle),
-                  child: Image.asset(
-                    'assets/images/other/avatar.webp',
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: wawuColors.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white),
+                Stack(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      clipBehavior: Clip.hardEdge,
+                      decoration: const BoxDecoration(shape: BoxShape.circle),
+                      child: otherParticipant.avatar != null
+                          ? Image.network(
+                              otherParticipant.avatar!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Image.asset(
+                                'assets/images/other/avatar.webp',
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Image.asset(
+                              'assets/images/other/avatar.webp',
+                              fit: BoxFit.cover,
+                            ),
                     ),
-                  ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: wawuColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(width: 10),
+                Text(otherParticipant.name, style: const TextStyle(fontSize: 14)),
               ],
-            ),
-            Text('Jane Doe', style: TextStyle(fontSize: 14)),
-          ],
+            );
+          },
         ),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: ListView(
-          children: [
-            SizedBox(height: 20),
-            ..._messages.map(
-              (message) =>
-                  message['type'] == 'text'
-                      ? MessageBubbles(
-                        isLeft: message['isLeft'],
-                        message: message['content'],
-                        time: message['time'],
+        child: Consumer<MessageProvider>(
+          builder: (context, messageProvider, child) {
+            final messages = messageProvider.currentMessages;
+
+            return ListView.builder(
+              itemCount: messages.length + 1,
+              itemBuilder: (context, index) {
+                if (index == messages.length) {
+                  return const SizedBox(height: 20);
+                }
+                final message = messages[index];
+                final isLeft = message.senderId != currentUserId;
+                final time = _getCurrentTime(message.timestamp);
+
+                return message.attachmentType == 'audio'
+                    ? VoiceMessageBubble(
+                        isLeft: isLeft,
+                        source: message.attachmentUrl ?? _currentAudioPath ?? '',
+                        time: time,
+                        duration: _voiceMessageDurations[message.id] != null
+                            ? _formatDuration(_voiceMessageDurations[message.id]!)
+                            : '0:00',
                       )
-                      : VoiceMessageBubble(
-                        source: message['source'],
-                        isLeft: message['isLeft'],
-                        time: message['time'],
-                        duration: message['duration'],
-                      ),
-            ),
-            SizedBox(height: 20),
-          ],
+                    : MessageBubbles(
+                        isLeft: isLeft,
+                        message: message.content,
+                        time: time,
+                      );
+              },
+            );
+          },
         ),
       ),
       bottomSheet: _buildBottomSheet(),
@@ -247,7 +296,7 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: EdgeInsets.only(
+      padding: const EdgeInsets.only(
         top: 10.0,
         bottom: 15.0,
         left: 10.0,
@@ -267,57 +316,53 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                 borderRadius: BorderRadius.circular(60),
                 border: Border.all(color: Colors.transparent, width: 1),
               ),
-              padding: EdgeInsets.fromLTRB(15.0, 0.0, 15.0, 0.0),
-              child:
-                  _isRecording
-                      ? Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Text(
-                          _formatDuration(_recordingDuration),
-                          style: TextStyle(
-                            color: Color.fromARGB(255, 201, 201, 201),
-                          ),
-                        ),
-                      )
-                      : TextField(
-                        controller: _messageController,
-                        maxLines: 1,
-                        decoration: InputDecoration(
-                          hintText: 'Type a message',
-                          hintStyle: TextStyle(
-                            color: Color.fromARGB(255, 201, 201, 201),
-                          ),
-                          border: InputBorder.none,
+              padding: const EdgeInsets.fromLTRB(15.0, 0.0, 15.0, 0.0),
+              child: _isRecording
+                  ? Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        _formatDuration(_recordingDuration),
+                        style: const TextStyle(
+                          color: Color.fromARGB(255, 201, 201, 201),
                         ),
                       ),
+                    )
+                  : TextField(
+                      controller: _messageController,
+                      maxLines: 1,
+                      decoration: const InputDecoration(
+                        hintText: 'Type a message',
+                        hintStyle: TextStyle(
+                          color: Color.fromARGB(255, 201, 201, 201),
+                        ),
+                        border: InputBorder.none,
+                      ),
+                    ),
             ),
           ),
           !_isTextFieldEmpty
               ? IconButton(
-                onPressed:
-                    !_isTextFieldEmpty
-                        ? _sendMessage
-                        : null, // Disable if empty
-                icon: Icon(Icons.send, color: wawuColors.purpleDarkContainer),
-              )
+                  onPressed: _sendMessage,
+                  icon: Icon(Icons.send, color: wawuColors.purpleDarkContainer),
+                )
               : _isRecording
-              ? Container(
-                margin: EdgeInsets.only(left: 10.0),
-                width: 45,
-                decoration: BoxDecoration(
-                  color: wawuColors.purpleDarkContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  highlightColor: wawuColors.purpleDarkContainer,
-                  onPressed: () => _stopRecording(),
-                  icon: Icon(Icons.stop, color: wawuColors.white),
-                ),
-              )
-              : IconButton(
-                icon: Icon(Icons.mic, color: wawuColors.purpleDarkContainer),
-                onPressed: () => _startRecording(),
-              ),
+                  ? Container(
+                      margin: const EdgeInsets.only(left: 10.0),
+                      width: 45,
+                      decoration: BoxDecoration(
+                        color: wawuColors.purpleDarkContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        highlightColor: wawuColors.purpleDarkContainer,
+                        onPressed: _stopRecording,
+                        icon: Icon(Icons.stop, color: wawuColors.white),
+                      ),
+                    )
+                  : IconButton(
+                      icon: Icon(Icons.mic, color: wawuColors.purpleDarkContainer),
+                      onPressed: _startRecording,
+                    ),
         ],
       ),
     );

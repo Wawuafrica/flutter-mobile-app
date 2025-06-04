@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/screens/category_selection/category_selection.dart';
 // import 'package:wawu_mobile/screens/category_selection/category_selection.dart'; // Removed
 // import 'package:wawu_mobile/screens/location_verification/location_verification.dart'; // Removed
-import 'package:wawu_mobile/screens/update_profile/update_profile.dart'; // Added
 import 'package:wawu_mobile/utils/constants/colors.dart'; // Assuming this exists for your colors
 import 'package:wawu_mobile/widgets/account_type_card/account_type_card.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
@@ -84,7 +84,7 @@ class _AccountTypeState extends State<AccountType> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => UpdateProfile(), // Changed navigation
+          builder: (context) => CategorySelection(), // Changed navigation
         ),
       );
       // Reset provider state to clear success/error messages for next interaction

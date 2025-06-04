@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -92,6 +93,11 @@ void main() async {
               authService: authService,
               apiService: apiService,
               pusherService: pusherService,
+            ),
+          ),
+          ChangeNotifierProvider(
+            create: (context) => AdProvider(
+              apiService: apiService,
             ),
           ),
           ChangeNotifierProvider(

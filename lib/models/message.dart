@@ -6,7 +6,7 @@ class Message {
   final DateTime timestamp;
   final bool isRead;
   final String? attachmentUrl;
-  final String? attachmentType; // e.g., 'image', 'audio', 'document'
+  final String? attachmentType;
 
   Message({
     required this.id,
@@ -21,27 +21,37 @@ class Message {
 
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
-      id: json['id'] as String,
-      senderId: json['sender_id'] as String,
-      receiverId: json['receiver_id'] as String,
-      content: json['content'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      isRead: json['is_read'] as bool? ?? false,
-      attachmentUrl: json['attachment_url'] as String?,
-      attachmentType: json['attachment_type'] as String?,
+      id: json['uuid'] as String,
+      senderId: json['user']['uuid'] as String,
+      receiverId: json['chat']['uuid'] as String, // Maps to chat UUID
+      content: json['message'] as String,
+      timestamp: DateTime.parse(json['created_at'] as String),
+      isRead: false, // No read endpoint/event provided
+      attachmentUrl: json['media'] != null && (json['media'] as List).isNotEmpty
+          ? json['media'][0]['link'] as String
+          : null,
+      attachmentType: json['media'] != null && (json['media'] as List).isNotEmpty
+          ? (json['media'][0]['name'] as String).contains('image') ? 'image' : 'audio'
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'sender_id': senderId,
-      'receiver_id': receiverId,
-      'content': content,
-      'timestamp': timestamp.toIso8601String(),
-      'is_read': isRead,
-      'attachment_url': attachmentUrl,
-      'attachment_type': attachmentType,
+      'uuid': id,
+      'user': {'uuid': senderId},
+      'chat': {'uuid': receiverId},
+      'message': content,
+      'created_at': timestamp.toIso8601String(),
+      'sent_by_me': isRead,
+      'media': attachmentUrl != null
+          ? [
+              {
+                'name': attachmentType == 'image' ? 'chat image' : 'voice note',
+                'link': attachmentUrl,
+              }
+            ]
+          : [],
     };
   }
 

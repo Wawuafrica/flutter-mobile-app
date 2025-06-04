@@ -1,74 +1,58 @@
-class Notification {
+class NotificationModel {
   final String id;
-  final String userId;
-  final String title;
-  final String message;
-  final DateTime timestamp;
-  final bool isRead;
-  final String type; // e.g., 'message', 'system', 'gig'
-  final Map<String, dynamic>
-  data; // Additional data specific to notification type
+  final String type;
+  final String notifiableType;
+  final int notifiableId;
+  final Map<String, dynamic> data;
+  final String? readAt;
+  final String createdAt;
+  final String updatedAt;
 
-  Notification({
+  NotificationModel({
     required this.id,
-    required this.userId,
-    required this.title,
-    required this.message,
-    required this.timestamp,
-    this.isRead = false,
     required this.type,
-    Map<String, dynamic>? data,
-  }) : data = data ?? {};
+    required this.notifiableType,
+    required this.notifiableId,
+    required this.data,
+    this.readAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
 
-  factory Notification.fromJson(Map<String, dynamic> json) {
-    return Notification(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
-      title: json['title'] as String,
-      message: json['message'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      isRead: json['is_read'] as bool? ?? false,
-      type: json['type'] as String,
-      data: json['data'] as Map<String, dynamic>? ?? {},
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: json['id'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      notifiableType: json['notifiable_type'] as String? ?? '',
+      notifiableId: json['notifiable_id'] as int? ?? 0,
+      data: (json['data'] as Map<String, dynamic>?)?.cast<String, dynamic>() ?? {},
+      readAt: json['read_at'] as String?,
+      createdAt: json['created_at'] as String? ?? '',
+      updatedAt: json['updated_at'] as String? ?? '',
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'user_id': userId,
-      'title': title,
-      'message': message,
-      'timestamp': timestamp.toIso8601String(),
-      'is_read': isRead,
-      'type': type,
-      'data': data,
-    };
+  bool get isRead => readAt != null;
+
+  DateTime get timestamp {
+    try {
+      return DateTime.parse(createdAt);
+    } catch (e) {
+      // debugPrint('Invalid timestamp format for createdAt: $createdAt');
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
   }
 
-  Notification copyWith({
-    String? id,
-    String? userId,
-    String? title,
-    String? message,
-    DateTime? timestamp,
-    bool? isRead,
-    String? type,
-    Map<String, dynamic>? data,
-  }) {
-    return Notification(
-      id: id ?? this.id,
-      userId: userId ?? this.userId,
-      title: title ?? this.title,
-      message: message ?? this.message,
-      timestamp: timestamp ?? this.timestamp,
-      isRead: isRead ?? this.isRead,
-      type: type ?? this.type,
-      data: data ?? this.data,
+  NotificationModel markAsRead() {
+    return NotificationModel(
+      id: id,
+      type: type,
+      notifiableType: notifiableType,
+      notifiableId: notifiableId,
+      data: data,
+      readAt: DateTime.now().toIso8601String(),
+      createdAt: createdAt,
+      updatedAt: DateTime.now().toIso8601String(),
     );
-  }
-
-  Notification markAsRead() {
-    return copyWith(isRead: true);
   }
 }

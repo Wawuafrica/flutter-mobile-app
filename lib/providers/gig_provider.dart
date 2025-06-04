@@ -1,586 +1,256 @@
 import 'dart:convert';
-import '../models/gig.dart';
-import '../providers/base_provider.dart';
-import '../services/api_service.dart';
-import '../services/pusher_service.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:wawu_mobile/models/gig.dart';
+import 'package:wawu_mobile/providers/base_provider.dart';
+import 'package:wawu_mobile/services/api_service.dart';
+import 'package:wawu_mobile/services/pusher_service.dart';
 
-/// GigProvider manages the state of gigs/jobs.
-///
-/// This provider handles:
-/// - Fetching available gigs
-/// - Fetching user's posted gigs
-/// - Creating new gigs
-/// - Updating gig status
-/// - Real-time gig updates via Pusher based on new event structure
 class GigProvider extends BaseProvider {
   final ApiService _apiService;
   final PusherService _pusherService;
 
-  List<Gig> _availableGigs = [];
-  List<Gig> _userGigs = [];
+  final Map<String, List<Gig>> _gigsByStatus = {
+    'all': [],
+    'PENDING': [],
+    'VERIFIED': [],
+    'ARCHIVED': [],
+    'REJECTED': [],
+  };
   Gig? _selectedGig;
   bool _isGeneralChannelSubscribed = false;
-  String? _currentSpecificGigChannel;
+  final List<String> _specificGigChannels = [];
 
-  // Getters
-  List<Gig> get availableGigs => _availableGigs;
-  List<Gig> get userGigs => _userGigs;
+  List<Gig> get gigs => _gigsByStatus['all']!;
+  List<Gig> gigsForStatus(String? status) => _gigsByStatus[status ?? 'all']!;
   Gig? get selectedGig => _selectedGig;
 
   GigProvider({ApiService? apiService, PusherService? pusherService})
-    : _apiService = apiService ?? ApiService(),
-      _pusherService = pusherService ?? PusherService();
+      : _apiService = apiService ?? ApiService(),
+        _pusherService = pusherService ?? PusherService();
 
-  /// Fetches available gigs with optional filtering
-  Future<List<Gig>> fetchAvailableGigs({
-    List<String>? categories,
-    String? location,
-    double? minBudget,
-    double? maxBudget,
-    List<String>? skills,
-    String? serviceId,
-  }) async {
+  Future<List<Gig>> fetchGigs({String? status}) async {
     try {
-      // Build query parameters
-      final Map<String, dynamic> queryParams = {
-        // Default to first page, 20 items per page
-        'page': 1,
-        'per_page': 20,
-        
-        // Optional filters
-        if (categories != null && categories.isNotEmpty)
-          'category': categories.first, // API uses single category filter
-        if (location != null && location.isNotEmpty) 
-          'location': location,
-        if (minBudget != null) 
-          'min_budget': minBudget.toString(),
-        if (maxBudget != null) 
-          'max_budget': maxBudget.toString(),
-        if (skills != null && skills.isNotEmpty) 
-          'skills': skills.join(','),
-        if (serviceId != null && serviceId.isNotEmpty)
-          'service_id': serviceId,
-      };
-      
-      // Call the API
+      final Map<String, dynamic> queryParams = status != null && status.isNotEmpty ? {'status': status} : {};
       final response = await _apiService.get<Map<String, dynamic>>(
-        '/gigs',
+        '/seller/gig',
         queryParameters: queryParams,
       );
 
-      if (response.containsKey('data') && response['data'] is List) {
+      if (response['statusCode'] == 200 && response['data'] is List) {
         final List<dynamic> gigsJson = response['data'] as List<dynamic>;
-        final List<Gig> gigs =
-            gigsJson
-                .map((json) => Gig.fromJson(json as Map<String, dynamic>))
-                .toList();
+        final List<Gig> gigs = gigsJson
+            .map((json) => Gig.fromJson({
+                  ...json as Map<String, dynamic>,
+                  'status': status ?? 'PENDING', // Set status from query param
+                }))
+            .toList();
 
-        // Sort gigs by creation date, newest first
         gigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-        _availableGigs = gigs;
+        final statusKey = status ?? 'all';
+        _gigsByStatus[statusKey] = gigs;
 
-        // Subscribe to gigs channel if not already subscribed
+        // Update 'all' list to include unique gigs
+        if (status != null) {
+          final allGigs = {..._gigsByStatus['all']!, ...gigs}.toList();
+          allGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          _gigsByStatus['all'] = allGigs;
+        }
+
         if (!_isGeneralChannelSubscribed) {
           await _subscribeToGeneralGigsChannel();
         }
 
+        notifyListeners();
         return gigs;
       } else {
-        // Handle empty or invalid response
-        _availableGigs = [];
+        debugPrint('Invalid response format from /seller/gig');
+        _gigsByStatus[status ?? 'all'] = [];
+        notifyListeners();
         return [];
       }
     } catch (e) {
-      print('Failed to fetch available gigs: $e');
+      debugPrint('Failed to fetch gigs: $e');
+      _gigsByStatus[status ?? 'all'] = [];
+      notifyListeners();
       return [];
     }
   }
 
-  /// Fetches gigs created by a specific user
-  Future<List<Gig>> fetchUserGigs(String userId) async {
+  Future<Gig?> createGig(FormData payload) async {
     try {
-      // Get my gigs
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '/gigs/my-gigs',
-      );
-
-      if (response.containsKey('data') && response['data'] is List) {
-        final List<dynamic> gigsJson = response['data'] as List<dynamic>;
-        final List<Gig> gigs =
-            gigsJson
-                .map((json) => Gig.fromJson(json as Map<String, dynamic>))
-                .toList();
-
-        // Sort gigs by creation date, newest first
-        gigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-        _userGigs = gigs;
-
-        return gigs;
-      } else {
-        // Handle empty or invalid response
-        _userGigs = [];
-        return [];
-      }
-    } catch (e) {
-      print('Failed to fetch user gigs: $e');
-      return [];
-    }
-  }
-
-  /// Creates a new gig
-  Future<Gig?> createGig({
-    required String title,
-    required String description,
-    required String serviceId, // The selected service ID (level 3 category)
-    required double budget,
-    required String currency,
-    required DateTime deadline,
-    required String location,
-    String? categoryId, // Top level category (optional if serviceId is provided)
-    String? subCategoryId, // Middle level category (optional if serviceId is provided)
-    List<String>? skills,
-    Map<String, dynamic>? additionalDetails,
-  }) async {
-    try {
-      // Create the API request payload
-      final Map<String, dynamic> payload = {
-        'title': title,
-        'description': description,
-        'service_id': serviceId, // This is the required identifier for the specific service
-        'budget': budget,
-        'currency': currency,
-        'deadline': deadline.toIso8601String(),
-        'location': location,
-      };
-      
-      // Add optional fields
-      if (categoryId != null) payload['category_id'] = categoryId;
-      if (subCategoryId != null) payload['subcategory_id'] = subCategoryId;
-      if (skills != null && skills.isNotEmpty) payload['skills'] = skills;
-      if (additionalDetails != null) payload.addAll(additionalDetails);
-      
-      // Call the API
       final response = await _apiService.post<Map<String, dynamic>>(
-        '/gigs',
+        '/seller/gig',
         data: payload,
       );
-
-      if (response.containsKey('data')) {
+      if (response['statusCode'] == 200 && response['data'] != null) {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
-
-        // The general gigs channel will handle adding the new gig via real-time update
-
-        return gig;
-      } else {
-        print('Invalid response format when creating gig');
-        return null;
-      }
-    } catch (e) {
-      print('Failed to create gig: $e');
-      return null;
-    }
-  }
-
-  /// Updates an existing gig
-  Future<Gig?> updateGig({
-    required String gigId,
-    String? title,
-    String? description,
-    double? budget,
-    String? currency,
-    DateTime? deadline,
-    String? serviceId,
-    String? categoryId,
-    String? subCategoryId,
-    List<String>? skills,
-    String? location,
-    String? status,
-    String? assignedTo,
-    Map<String, dynamic>? additionalDetails,
-  }) async {
-    try {
-      // Build the update payload with only fields that need to be updated
-      final Map<String, dynamic> updateData = {};
-      
-      if (title != null) updateData['title'] = title;
-      if (description != null) updateData['description'] = description;
-      if (budget != null) updateData['budget'] = budget;
-      if (currency != null) updateData['currency'] = currency;
-      if (deadline != null) updateData['deadline'] = deadline.toIso8601String();
-      if (serviceId != null) updateData['service_id'] = serviceId;
-      if (categoryId != null) updateData['category_id'] = categoryId;
-      if (subCategoryId != null) updateData['subcategory_id'] = subCategoryId;
-      if (skills != null) updateData['skills'] = skills;
-      if (location != null) updateData['location'] = location;
-      if (status != null) updateData['status'] = status;
-      if (assignedTo != null) updateData['assigned_to'] = assignedTo;
-      if (additionalDetails != null) updateData.addAll(additionalDetails);
-      
-      // Call the API to update the gig
-      final response = await _apiService.put<Map<String, dynamic>>(
-        '/gigs/$gigId',
-        data: updateData,
-      );
-
-      if (response.containsKey('data')) {
-        final updatedGig = Gig.fromJson(response['data'] as Map<String, dynamic>);
-
-        // The specific gig channel will handle updating the gig via real-time update
-
-        return updatedGig;
-      } else {
-        print('Invalid response format when updating gig');
-        return null;
-      }
-    } catch (e) {
-      print('Failed to update gig: $e');
-      return null;
-    }
-  }
-
-  /// Assigns a gig to a user
-  Future<bool> assignGig(String gigId, String userId) async {
-    try {
-      // Call the API endpoint for assigning a gig application
-      await _apiService.post<Map<String, dynamic>>(
-        '/gigs/$gigId/applications/$userId/accept',
-        data: {},
-      );
-
-      // The specific gig channel will handle updating the gig status via real-time update
-
-      return true;
-    } catch (e) {
-      print('Failed to assign gig: $e');
-      return false;
-    }
-  }
-
-  /// Marks a gig as completed
-  Future<bool> completeGig(String gigId) async {
-    try {
-      // Call the API endpoint for completing a gig
-      await _apiService.post<Map<String, dynamic>>(
-        '/gigs/$gigId/complete',
-        data: {},
-      );
-
-      // The specific gig channel will handle updating the gig status via real-time update
-
-      return true;
-    } catch (e) {
-      print('Failed to complete gig: $e');
-      return false;
-    }
-  }
-
-   /// Updates a gig in availableGigs and userGigs lists
-  void _updateGigInLists(String gigId, Gig updatedGig) {
-    bool foundInAvailable = false;
-    for (int i = 0; i < _availableGigs.length; i++) {
-      if (_availableGigs[i].id == gigId) {
-        // Remove if no longer open
-        if (!updatedGig.isOpen()) {
-          _availableGigs.removeAt(i);
-        } else {
-          _availableGigs[i] = updatedGig;
-        }
-        foundInAvailable = true;
-        break;
-      }
-    }
-
-    // Add to available if it's now open and wasn't before
-    if (!foundInAvailable && updatedGig.isOpen()) {
-      _availableGigs.insert(0, updatedGig);
-    }
-
-    bool foundInUserGigs = false;
-    for (int i = 0; i < _userGigs.length; i++) {
-      if (_userGigs[i].id == gigId) {
-         _userGigs[i] = updatedGig;
-        foundInUserGigs = true;
-        break;
-      }
-    }
-     // Add to user gigs if it's a new gig created by the user
-    if (!foundInUserGigs) {
-       // Assuming the API response for createGig includes enough info to determine if it's a user gig
-       // For now, we'll rely on fetchUserGigs to get the initial list.
-       // Real-time update for user's own created gig needs to be handled here.
-       // A simple approach is to always add new gigs to _userGigs if the current user is the creator.
-       // However, we don't have the current user ID in this provider. This requires refactoring or assuming.
-       // Let's assume for now that the real-time update event itself indicates if it's a user gig.
-       // This might require checking a user ID in the payload, which is not in the provided event data.
-       // For simplicity, let's update both lists if the gig is found.
-
-       // If the updated gig is relevant to the current user's gigs view,
-       // we might need more context (like the current user's ID) to decide if it should be added here.
-       // For now, we'll only update existing user gigs.
-    }
-
-    // Sort lists after update/addition
-    _availableGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    _userGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    notifyListeners();
-  }
-
-    /// Removes a gig from lists
-  void _removeGigFromLists(String gigId) {
-    _availableGigs.removeWhere((gig) => gig.id == gigId);
-    _userGigs.removeWhere((gig) => gig.id == gigId);
-    if (_selectedGig?.id == gigId) {
-      _selectedGig = null;
-    }
-    notifyListeners();
-  }
-
-  /// Sets the selected gig and subscribes to its channel
-  void selectGig(String gigId) {
-     try {
-      // Unsubscribe from previous specific gig channels if any
-      if (_currentSpecificGigChannel != null) {
-        _pusherService.unsubscribeFromChannel(_currentSpecificGigChannel!);
-        _currentSpecificGigChannel = null;
-      }
-
-      // Find the gig in existing lists or fetch details if necessary
-      _selectedGig = _availableGigs.firstWhere(
-        (gig) => gig.id == gigId,
-        orElse:
-            () => _userGigs.firstWhere(
-              (gig) => gig.id == gigId,
-              // orElse: () => null, // Return null if not found in lists
-            ),
-      );
-
-      // If gig not found locally, you might want to fetch its details from the API here
-      // For now, we'll only proceed if the gig is found in the lists.
-
-      if (_selectedGig != null) {
-         // Subscribe to the specific gig channels
-        final approvedChannelName = 'gig.approved.\$gigId';
-        final rejectedChannelName = 'gig.rejected.\$gigId';
-        final reviewChannelName = 'gig.review.\$gigId';
-
-        // Store one of the channel names to manage unsubscription
-        _currentSpecificGigChannel = approvedChannelName;
-
-         _pusherService.subscribeToChannel(approvedChannelName)?.then((channel) {
-            if (channel != null) {
-               _pusherService.bindToEvent(approvedChannelName, 'gig.approved', _handleGigApproved);
-            }
-         });
-
-         _pusherService.subscribeToChannel(rejectedChannelName)?.then((channel) {
-             if (channel != null) {
-                _pusherService.bindToEvent(rejectedChannelName, 'gig.rejected', _handleGigRejected);
-             }
-         });
-
-          _pusherService.subscribeToChannel(reviewChannelName)?.then((channel) {
-             if (channel != null) {
-                _pusherService.bindToEvent(reviewChannelName, 'gig.review', _handleGigReviewed);
-             }
-         });
-
+        _gigsByStatus['all']!.insert(0, gig);
+        _gigsByStatus['PENDING']!.insert(0, gig);
         notifyListeners();
-      } else {
-        print('Gig not found locally: $gigId');
-         // Optionally fetch from API if not found locally
-         // fetchGigDetails(gigId);
+        return gig;
       }
-
+      return null;
     } catch (e) {
-      print('Failed to select gig or subscribe to channel: $e');
-      _currentSpecificGigChannel = null; // Clear channel on failure
+      debugPrint('Failed to create gig: $e');
+      return null;
     }
   }
 
-  /// Clears the selected gig and unsubscribes from its channel
+  Future<bool> postReview(String gigId, Map<String, dynamic> reviewData) async {
+    try {
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/seller/gig/$gigId/reviews',
+        data: reviewData,
+      );
+      return response['statusCode'] == 200;
+    } catch (e) {
+      debugPrint('Failed to post review: $e');
+      return false;
+    }
+  }
+
+  Future<List<Gig>> fetchGigsBySubCategory(String subCategoryId) async {
+    try {
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/seller/gig',
+        queryParameters: {'subcategory_id': subCategoryId},
+      );
+      if (response['statusCode'] == 200 && response['data'] is List) {
+        final List<dynamic> gigsJson = response['data'] as List<dynamic>;
+        final gigs = gigsJson
+            .map((json) => Gig.fromJson(json as Map<String, dynamic>))
+            .toList();
+        return gigs;
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Failed to fetch gigs by subcategory: $e');
+      return [];
+    }
+  }
+
+  void selectGig(String gigUuid) {
+    try {
+      _selectedGig = _gigsByStatus.values
+          .expand((gigs) => gigs)
+          .firstWhere((gig) => gig.uuid == gigUuid, orElse: () => throw Exception('Gig not found'));
+
+      for (final channel in _specificGigChannels) {
+        _pusherService.unsubscribeFromChannel(channel);
+      }
+      _specificGigChannels.clear();
+
+      final channels = [
+        'gig.approved.$gigUuid',
+        'gig.rejected.$gigUuid',
+        'gig.review.$gigUuid',
+      ];
+
+      for (final channel in channels) {
+        _pusherService.subscribeToChannel(channel).then((chan) {
+          if (chan != null) {
+            _specificGigChannels.add(channel);
+            _pusherService.bindToEvent(channel, channel.split('.')[1], (data) {
+              _handleGigEvent(channel, data);
+            });
+          }
+        });
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to select gig: $e');
+    }
+  }
+
   void clearSelectedGig() {
-     if (_currentSpecificGigChannel != null) {
-       _pusherService.unsubscribeFromChannel(_currentSpecificGigChannel!);
-       _currentSpecificGigChannel = null;
-     }
+    for (final channel in _specificGigChannels) {
+      _pusherService.unsubscribeFromChannel(channel);
+    }
+    _specificGigChannels.clear();
     _selectedGig = null;
     notifyListeners();
   }
 
-  /// Subscribes to the general gigs channel for creates/deletes
   Future<void> _subscribeToGeneralGigsChannel() async {
     const channelName = 'gigs';
     try {
       final channel = await _pusherService.subscribeToChannel(channelName);
       if (channel == null) {
-        print('Failed to subscribe to general gigs channel');
+        debugPrint('Failed to subscribe to general gigs channel');
         return;
       }
 
       _isGeneralChannelSubscribed = true;
 
-      // Bind to gig created event
-      _pusherService.bindToEvent(channelName, 'gig.created', _handleGigCreated);
-
-       // Bind to gig deleted event
-      _pusherService.bindToEvent(channelName, 'gig.deleted', _handleGigDeleted);
-
-    } catch (e) {
-      print('Failed to subscribe to general gigs channel: $e');
-    }
-  }
-
-   // Handlers for Pusher events
-
-  void _handleGigCreated(dynamic data) {
-    try {
-      if (data is! String) {
-        print('Invalid gig.created event data');
-        return;
-      }
-      final gigData = jsonDecode(data) as Map<String, dynamic>;
-      final newGig = Gig.fromJson(gigData);
-
-      // Add to available gigs if it's open
-      if (newGig.isOpen()) {
-        _availableGigs.insert(0, newGig);
-        _availableGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        notifyListeners();
-      }
-      // Note: Adding to user gigs based on this event requires knowing the current user ID,
-      // which is not directly available in this provider without passing it.
-
-    } catch (e) {
-      print('Failed to handle gig.created event: $e');
-    }
-  }
-
-  void _handleGigDeleted(dynamic data) {
-    try {
-       if (data is! String) {
-          print('Invalid gig.deleted event data');
-          return;
-       }
-      final deletedGigData = jsonDecode(data) as Map<String, dynamic>;
-      final String? deletedGigId = deletedGigData['gig_uuid'];
-
-      if (deletedGigId != null) {
-        _removeGigFromLists(deletedGigId);
-      } else {
-         print('gig.deleted event data missing gig_uuid');
-      }
-    } catch (e) {
-      print('Failed to handle gig.deleted event: $e');
-    }
-  }
-
-   void _handleGigApproved(dynamic data) {
-    try {
-       if (data is! String) {
-          print('Invalid gig.approved event data');
-          return;
-       }
-      final approvedGigData = jsonDecode(data) as Map<String, dynamic>;
-      final String? approvedGigId = approvedGigData['gig_uuid'];
-
-      if (approvedGigId != null) {
-         // Fetch updated gig details or rely on the event payload if it contains the full gig
-         // Assuming the event payload contains the updated gig data:
-         if (approvedGigData.containsKey('gig') && approvedGigData['gig'] is Map<String, dynamic>) {
-             final updatedGig = Gig.fromJson(approvedGigData['gig']);
-             _updateGigInLists(approvedGigId, updatedGig);
-             if (_selectedGig?.id == approvedGigId) {
-                _selectedGig = updatedGig;
-                notifyListeners();
-             }
-         } else {
-            print('gig.approved event data missing gig object');
-             // Optionally refetch the gig from API if the event doesn't contain the full object
-             // fetchGigDetails(approvedGigId);
-         }
-      } else {
-         print('gig.approved event data missing gig_uuid');
-      }
-    } catch (e) {
-      print('Failed to handle gig.approved event: $e');
-    }
-   }
-
-   void _handleGigRejected(dynamic data) {
-     try {
-       if (data is! String) {
-         print('Invalid gig.rejected event data');
-         return;
-       }
-       final rejectedGigData = jsonDecode(data) as Map<String, dynamic>;
-       final String? rejectedGigId = rejectedGigData['gig_uuid'];
-
-       if (rejectedGigId != null) {
-          // Fetch updated gig details or rely on the event payload
-          // Assuming the event payload contains the updated gig data:
-         if (rejectedGigData.containsKey('gig') && rejectedGigData['gig'] is Map<String, dynamic>) {
-             final updatedGig = Gig.fromJson(rejectedGigData['gig']);
-             _updateGigInLists(rejectedGigId, updatedGig);
-             if (_selectedGig?.id == rejectedGigId) {
-                _selectedGig = updatedGig;
-                notifyListeners();
-             }
-         } else {
-            print('gig.rejected event data missing gig object');
-             // Optionally refetch the gig from API
-             // fetchGigDetails(rejectedGigId);
-         }
-       } else {
-         print('gig.rejected event data missing gig_uuid');
-       }
-     } catch (e) {
-       print('Failed to handle gig.rejected event: $e');
-     }
-   }
-
-    void _handleGigReviewed(dynamic data) {
-     try {
-        if (data is! String) {
-          print('Invalid gig.review event data');
-          return;
+      _pusherService.bindToEvent(channelName, 'gig.created', (data) {
+        if (data is String) {
+          final gigData = jsonDecode(data) as Map<String, dynamic>;
+          final newGig = Gig.fromJson({...gigData, 'status': 'PENDING'});
+          _gigsByStatus['all']!.insert(0, newGig);
+          _gigsByStatus['PENDING']!.insert(0, newGig);
+          _gigsByStatus['all']!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          _gigsByStatus['PENDING']!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          notifyListeners();
         }
-       final reviewedGigData = jsonDecode(data) as Map<String, dynamic>;
-       final String? reviewedGigId = reviewedGigData['gig_uuid'];
+      });
 
-       if (reviewedGigId != null) {
-          // Fetch updated gig details or rely on the event payload
-           // Assuming the event payload contains the updated gig data:
-         if (reviewedGigData.containsKey('gig') && reviewedGigData['gig'] is Map<String, dynamic>) {
-             final updatedGig = Gig.fromJson(reviewedGigData['gig']);
-             _updateGigInLists(reviewedGigId, updatedGig);
-             if (_selectedGig?.id == reviewedGigId) {
-                _selectedGig = updatedGig;
-                notifyListeners();
-             }
-         } else {
-            print('gig.review event data missing gig object');
-             // Optionally refetch the gig from API
-             // fetchGigDetails(reviewedGigId);
-         }
-       } else {
-         print('gig.review event data missing gig_uuid');
-       }
-     } catch (e) {
-       print('Failed to handle gig.review event: $e');
-     }
-   }
+      _pusherService.bindToEvent(channelName, 'gig.deleted', (data) {
+        if (data is String) {
+          final deletedGigData = jsonDecode(data) as Map<String, dynamic>;
+          final gigUuid = deletedGigData['gig_uuid'] as String?;
+          if (gigUuid != null) {
+            for (final status in _gigsByStatus.keys) {
+              _gigsByStatus[status]!.removeWhere((gig) => gig.uuid == gigUuid);
+            }
+            if (_selectedGig?.uuid == gigUuid) {
+              _selectedGig = null;
+            }
+            notifyListeners();
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint('Failed to subscribe to general gigs channel: $e');
+    }
+  }
 
+  void _handleGigEvent(String channel, dynamic data) {
+    try {
+      if (data is String) {
+        final eventData = jsonDecode(data) as Map<String, dynamic>;
+        final gigUuid = eventData['gig_uuid'] as String?;
+        if (gigUuid != null && eventData['gig'] is Map<String, dynamic>) {
+          final updatedGig = Gig.fromJson(eventData['gig'] as Map<String, dynamic>);
+          for (final status in _gigsByStatus.keys) {
+            final index = _gigsByStatus[status]!.indexWhere((gig) => gig.uuid == gigUuid);
+            if (index != -1) {
+              _gigsByStatus[status]![index] = updatedGig;
+            } else if (status == updatedGig.status || (status == 'all' && updatedGig.status.isNotEmpty)) {
+              _gigsByStatus[status]!.insert(0, updatedGig);
+            }
+            _gigsByStatus[status]!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          }
+          if (_selectedGig?.uuid == gigUuid) {
+            _selectedGig = updatedGig;
+          }
+          notifyListeners();
+        } else {
+          debugPrint('Gig event missing gig data on $channel');
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to handle gig event on $channel: $e');
+    }
+  }
 
-  /// Clears all gig data
   void clearAll() {
-    _availableGigs = [];
-    _userGigs = [];
-    clearSelectedGig(); // Also unsubscribes from specific channel
+    _gigsByStatus.forEach((key, _) => _gigsByStatus[key] = []);
+    clearSelectedGig();
     _isGeneralChannelSubscribed = false;
-    resetState();
+    notifyListeners();
   }
 
   @override
@@ -588,27 +258,10 @@ class GigProvider extends BaseProvider {
     if (_isGeneralChannelSubscribed) {
       _pusherService.unsubscribeFromChannel('gigs');
     }
-    if (_currentSpecificGigChannel != null) {
-       // Need to unsubscribe from all specific channels if multiple were subscribed
-       // A better approach might be to store a list of subscribed specific channels
-       // For now, unsubscribe from the one we stored.
-       _pusherService.unsubscribeFromChannel(_currentSpecificGigChannel!); // Unsubscribe from the stored channel
-       // If we subscribed to approved, rejected, and review separately, we would need to unsubscribe from all three here.
-       // Let's modify selectGig to store all subscribed channels for the specific gig.
+    for (final channel in _specificGigChannels) {
+      _pusherService.unsubscribeFromChannel(channel);
     }
-
-    // Re-reading selectGig to fix the disposal logic
-     if (_currentSpecificGigChannel != null) {
-       final gigId = _currentSpecificGigChannel!.split('.').last; // Extract gigId from channel name
-       final approvedChannelName = 'gig.approved.\$gigId';
-       final rejectedChannelName = 'gig.rejected.\$gigId';
-       final reviewChannelName = 'gig.review.\$gigId';
-       _pusherService.unsubscribeFromChannel(approvedChannelName);
-       _pusherService.unsubscribeFromChannel(rejectedChannelName);
-       _pusherService.unsubscribeFromChannel(reviewChannelName);
-       _currentSpecificGigChannel = null; // Clear after unsubscribing
-     }
-
+    _specificGigChannels.clear();
     super.dispose();
   }
 }

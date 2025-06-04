@@ -15,7 +15,7 @@ class InvitePeopleScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
+            SizedBox(
               width: double.infinity,
               height: 300,
               child: Image.asset('assets/images/onboarding_images/oi3.webp'),
