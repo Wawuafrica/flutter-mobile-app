@@ -73,51 +73,116 @@ class GigTab extends StatefulWidget {
 }
 
 class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
-  bool _hasFetched = false;
+  bool _isInitialLoad = true;
+  bool _isRefreshing = false;
 
   @override
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    super.initState();
+    _loadGigs();
+  }
+
+  Future<void> _loadGigs() async {
+    if (_isInitialLoad) setState(() => _isInitialLoad = true);
+    
+    final gigProvider = Provider.of<GigProvider>(context, listen: false);
+    await gigProvider.fetchGigs(status: widget.status);
+    
+    if (mounted) {
+      setState(() {
+        _isInitialLoad = false;
+        _isRefreshing = false;
+      });
+    }
+  }
+
+  Future<void> _onRefresh() async {
+    if (_isRefreshing) return;
+    
+    setState(() => _isRefreshing = true);
+    await _loadGigs();
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context);
-    final gigProvider = Provider.of<GigProvider>(context, listen: false);
-
-    if (!_hasFetched) {
-      gigProvider.fetchGigs(status: widget.status);
-      _hasFetched = true;
-    }
 
     return Consumer<GigProvider>(
       builder: (context, provider, child) {
         final gigs = provider.gigsForStatus(widget.status);
-
-        if (provider.isLoading && gigs.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+        final bool isLoading = provider.isLoading && _isInitialLoad;
+        
+        // Show loading indicator on initial load
+        if (isLoading && gigs.isEmpty) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
+            ),
+          );
         }
 
+        // Show empty state
         if (gigs.isEmpty) {
-          return const Center(child: Text('No gigs found'));
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'No gigs found',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: _onRefresh,
+                  icon: const Icon(Icons.refresh, size: 20),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
+          );
         }
 
-        return RefreshIndicator(
-          onRefresh: () => gigProvider.fetchGigs(status: widget.status),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20.0,
-              vertical: 20.0,
+        // Show content with pull-to-refresh
+        return Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _onRefresh,
+              color: wawuColors.primary,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 20.0,
+                ),
+                itemCount: gigs.length,
+                itemBuilder: (context, index) {
+                  final gig = gigs[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: GigCard(gig: gig),
+                  );
+                },
+              ),
             ),
-            child: ListView.builder(
-              itemCount: gigs.length,
-              itemBuilder: (context, index) {
-                final gig = gigs[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10.0),
-                  child: GigCard(gig: gig),
-                );
-              },
-            ),
-          ),
+            if (_isRefreshing)
+              const Positioned(
+                top: 20.0,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );

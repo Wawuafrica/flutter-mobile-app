@@ -26,12 +26,15 @@ class GigProvider extends BaseProvider {
   Gig? get selectedGig => _selectedGig;
 
   GigProvider({ApiService? apiService, PusherService? pusherService})
-      : _apiService = apiService ?? ApiService(),
-        _pusherService = pusherService ?? PusherService();
+    : _apiService = apiService ?? ApiService(),
+      _pusherService = pusherService ?? PusherService();
 
   Future<List<Gig>> fetchGigs({String? status}) async {
+    setLoading();
+
     try {
-      final Map<String, dynamic> queryParams = status != null && status.isNotEmpty ? {'status': status} : {};
+      final Map<String, dynamic> queryParams =
+          status != null && status.isNotEmpty ? {'status': status} : {};
       final response = await _apiService.get<Map<String, dynamic>>(
         '/seller/gig',
         queryParameters: queryParams,
@@ -39,22 +42,35 @@ class GigProvider extends BaseProvider {
 
       if (response['statusCode'] == 200 && response['data'] is List) {
         final List<dynamic> gigsJson = response['data'] as List<dynamic>;
-        final List<Gig> gigs = gigsJson
-            .map((json) => Gig.fromJson({
-                  ...json as Map<String, dynamic>,
-                  'status': status ?? 'PENDING', // Set status from query param
-                }))
-            .toList();
 
-        gigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        // Process and sort the gigs
+        final List<Gig> gigs =
+            gigsJson
+                .map((json) => Gig.fromJson(json as Map<String, dynamic>))
+                .toList()
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         final statusKey = status ?? 'all';
         _gigsByStatus[statusKey] = gigs;
 
-        // Update 'all' list to include unique gigs
+        // Only update 'all' tab if we're not already fetching all gigs
         if (status != null) {
-          final allGigs = {..._gigsByStatus['all']!, ...gigs}.toList();
-          allGigs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          // Create a map of existing gigs in 'all' by their UUID
+          final existingGigs = <String, Gig>{};
+          for (final gig in _gigsByStatus['all'] ?? <Gig>[]) {
+            existingGigs[gig.uuid] = gig;
+          }
+
+          // Add or update gigs in 'all' list
+          for (final gig in gigs) {
+            existingGigs[gig.uuid] = gig;
+          }
+
+          // Convert back to list and sort
+          final allGigs =
+              existingGigs.values.toList()
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
           _gigsByStatus['all'] = allGigs;
         }
 
@@ -62,18 +78,18 @@ class GigProvider extends BaseProvider {
           await _subscribeToGeneralGigsChannel();
         }
 
-        notifyListeners();
+        setSuccess();
         return gigs;
       } else {
         debugPrint('Invalid response format from /seller/gig');
         _gigsByStatus[status ?? 'all'] = [];
-        notifyListeners();
+        setError('Invalid response format from /seller/gig');
         return [];
       }
     } catch (e) {
       debugPrint('Failed to fetch gigs: $e');
       _gigsByStatus[status ?? 'all'] = [];
-      notifyListeners();
+      setError('Failed to fetch gigs: $e');
       return [];
     }
   }
@@ -119,9 +135,10 @@ class GigProvider extends BaseProvider {
       );
       if (response['statusCode'] == 200 && response['data'] is List) {
         final List<dynamic> gigsJson = response['data'] as List<dynamic>;
-        final gigs = gigsJson
-            .map((json) => Gig.fromJson(json as Map<String, dynamic>))
-            .toList();
+        final gigs =
+            gigsJson
+                .map((json) => Gig.fromJson(json as Map<String, dynamic>))
+                .toList();
         return gigs;
       }
       return [];
@@ -135,7 +152,10 @@ class GigProvider extends BaseProvider {
     try {
       _selectedGig = _gigsByStatus.values
           .expand((gigs) => gigs)
-          .firstWhere((gig) => gig.uuid == gigUuid, orElse: () => throw Exception('Gig not found'));
+          .firstWhere(
+            (gig) => gig.uuid == gigUuid,
+            orElse: () => throw Exception('Gig not found'),
+          );
 
       for (final channel in _specificGigChannels) {
         _pusherService.unsubscribeFromChannel(channel);
@@ -191,8 +211,12 @@ class GigProvider extends BaseProvider {
           final newGig = Gig.fromJson({...gigData, 'status': 'PENDING'});
           _gigsByStatus['all']!.insert(0, newGig);
           _gigsByStatus['PENDING']!.insert(0, newGig);
-          _gigsByStatus['all']!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          _gigsByStatus['PENDING']!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          _gigsByStatus['all']!.sort(
+            (a, b) => b.createdAt.compareTo(a.createdAt),
+          );
+          _gigsByStatus['PENDING']!.sort(
+            (a, b) => b.createdAt.compareTo(a.createdAt),
+          );
           notifyListeners();
         }
       });
@@ -223,15 +247,22 @@ class GigProvider extends BaseProvider {
         final eventData = jsonDecode(data) as Map<String, dynamic>;
         final gigUuid = eventData['gig_uuid'] as String?;
         if (gigUuid != null && eventData['gig'] is Map<String, dynamic>) {
-          final updatedGig = Gig.fromJson(eventData['gig'] as Map<String, dynamic>);
+          final updatedGig = Gig.fromJson(
+            eventData['gig'] as Map<String, dynamic>,
+          );
           for (final status in _gigsByStatus.keys) {
-            final index = _gigsByStatus[status]!.indexWhere((gig) => gig.uuid == gigUuid);
+            final index = _gigsByStatus[status]!.indexWhere(
+              (gig) => gig.uuid == gigUuid,
+            );
             if (index != -1) {
               _gigsByStatus[status]![index] = updatedGig;
-            } else if (status == updatedGig.status || (status == 'all' && updatedGig.status.isNotEmpty)) {
+            } else if (status == updatedGig.status ||
+                (status == 'all' && updatedGig.status.isNotEmpty)) {
               _gigsByStatus[status]!.insert(0, updatedGig);
             }
-            _gigsByStatus[status]!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            _gigsByStatus[status]!.sort(
+              (a, b) => b.createdAt.compareTo(a.createdAt),
+            );
           }
           if (_selectedGig?.uuid == gigUuid) {
             _selectedGig = updatedGig;
