@@ -96,16 +96,16 @@ class GigCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Unknown Seller', // Placeholder
-                              style: TextStyle(
+                            Text(
+                              gig.seller.fullName,
+                              style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             Text(
                               gig.pricings.isNotEmpty
-                                  ? 'From \$${gig.pricings[0].package.amount}'
+                                  ? 'From ₦${gig.pricings[0].package.amount}'
                                   : 'Price unavailable',
                               style: const TextStyle(
                                 fontSize: 11,

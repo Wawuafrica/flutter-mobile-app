@@ -1,9 +1,61 @@
+import 'package:flutter/foundation.dart';
+
+class Seller {
+  final String uuid;
+  final String firstName;
+  final String lastName;
+  final String? email;
+  final String? profileImage; // This will store the image URL/link
+
+  Seller({
+    required this.uuid,
+    required this.firstName,
+    required this.lastName,
+    this.email,
+    this.profileImage,
+  });
+
+  factory Seller.fromJson(Map<String, dynamic> json) {
+    // Handle profileImage - it can be either a string or an object
+    String? profileImageUrl;
+    if (json['profileImage'] != null) {
+      if (json['profileImage'] is String) {
+        profileImageUrl = json['profileImage'] as String;
+      } else if (json['profileImage'] is Map<String, dynamic>) {
+        final imageData = json['profileImage'] as Map<String, dynamic>;
+        profileImageUrl = imageData['link'] as String?;
+      }
+    }
+
+    return Seller(
+      uuid: json['uuid'] as String? ?? '',
+      firstName: json['firstName'] as String? ?? '',
+      lastName: json['lastName'] as String? ?? '',
+      email: json['email'] as String?,
+      profileImage: profileImageUrl,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uuid': uuid,
+      'firstName': firstName,
+      'lastName': lastName,
+      if (email != null) 'email': email,
+      if (profileImage != null) 'profileImage': profileImage,
+    };
+  }
+
+  String get fullName => '$firstName $lastName';
+}
+
 class Gig {
   final String uuid;
   final String title;
   final String description;
   final String keywords;
   final String about;
+  final Seller seller;
   final List<Service> services;
   final List<Pricing> pricings;
   final List<Faq> faqs;
@@ -16,6 +68,7 @@ class Gig {
     required this.description,
     required this.keywords,
     required this.about,
+    required this.seller,
     required this.services,
     required this.pricings,
     required this.faqs,
@@ -24,21 +77,45 @@ class Gig {
   });
 
   factory Gig.fromJson(Map<String, dynamic> json) {
+    // Handle seller data
+    Seller seller;
+    try {
+      seller =
+          json['seller'] != null && json['seller'] is Map<String, dynamic>
+              ? Seller.fromJson(Map<String, dynamic>.from(json['seller']))
+              : Seller(
+                uuid: 'unknown',
+                firstName: 'Unknown',
+                lastName: 'Seller',
+              );
+    } catch (e) {
+      debugPrint('Error parsing seller data: $e');
+      seller = Seller(
+        uuid: 'error',
+        firstName: 'Error',
+        lastName: 'Loading Seller',
+      );
+    }
+
     return Gig(
-      uuid: json['uuid'] as String? ?? '',
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      keywords: json['keywords'] as String? ?? '',
-      about: json['about'] as String? ?? '',
-      services: (json['services'] as List<dynamic>?)
-              ?.map((e) => Service.fromJson(e as Map<String, dynamic>))
+      uuid: json['uuid']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'No Title',
+      description: json['description']?.toString() ?? '',
+      keywords: json['keywords']?.toString() ?? '',
+      about: json['about']?.toString() ?? '',
+      seller: seller,
+      services:
+          (json['services'] as List<dynamic>?)
+              ?.map((e) => Service.fromJson(Map<String, dynamic>.from(e)))
               .toList() ??
           [],
-      pricings: (json['pricings'] as List<dynamic>?)
+      pricings:
+          (json['pricings'] as List<dynamic>?)
               ?.map((e) => Pricing.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      faqs: (json['faqs'] as List<dynamic>?)
+      faqs:
+          (json['faqs'] as List<dynamic>?)
               ?.map((e) => Faq.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -54,6 +131,7 @@ class Gig {
       'description': description,
       'keywords': keywords,
       'about': about,
+      'seller': seller.toJson(),
       'services': services.map((s) => s.toJson()).toList(),
       'pricings': pricings.map((p) => p.toJson()).toList(),
       'faqs': faqs.map((f) => f.toJson()).toList(),
@@ -134,7 +212,8 @@ class Pricing {
       uuid: json['uuid'] as String? ?? '',
       userId: json['userId'] as int? ?? 0,
       gigId: json['gigId'] as int? ?? 0,
-      features: (json['features'] as List<dynamic>?)
+      features:
+          (json['features'] as List<dynamic>?)
               ?.map((e) => Feature.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -180,7 +259,11 @@ class Package {
   final String amount;
   final String description;
 
-  Package({required this.name, required this.amount, required this.description});
+  Package({
+    required this.name,
+    required this.amount,
+    required this.description,
+  });
 
   factory Package.fromJson(Map<String, dynamic> json) {
     return Package(
@@ -191,11 +274,7 @@ class Package {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'amount': amount,
-      'description': description,
-    };
+    return {'name': name, 'amount': amount, 'description': description};
   }
 }
 
@@ -221,7 +300,8 @@ class Faq {
       uuid: json['uuid'] as String? ?? '',
       userId: json['userId'] as int? ?? 0,
       gigId: json['gigId'] as int? ?? 0,
-      attributes: (json['attributes'] as List<dynamic>?)
+      attributes:
+          (json['attributes'] as List<dynamic>?)
               ?.map((e) => Attribute.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -269,12 +349,19 @@ class Assets {
 
   factory Assets.fromJson(Map<String, dynamic> json) {
     return Assets(
-      photos: (json['photos'] as List<dynamic>?)
+      photos:
+          (json['photos'] as List<dynamic>?)
               ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      video: json['video'] != null ? Video.fromJson(json['video'] as Map<String, dynamic>) : null,
-      pdf: json['pdf'] != null ? Pdf.fromJson(json['pdf'] as Map<String, dynamic>) : null,
+      video:
+          json['video'] != null
+              ? Video.fromJson(json['video'] as Map<String, dynamic>)
+              : null,
+      pdf:
+          json['pdf'] != null
+              ? Pdf.fromJson(json['pdf'] as Map<String, dynamic>)
+              : null,
     );
   }
 
