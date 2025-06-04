@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 
 class FilteredGigs extends StatelessWidget {
   const FilteredGigs({super.key});
@@ -12,25 +11,26 @@ class FilteredGigs extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
         child: ListView(
           children: [
-            GigCard(),
+            // GigCard(),
+            Text('GigCards'),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
-            GigCard(),
+            // GigCard(),
             SizedBox(height: 10),
           ],
         ),

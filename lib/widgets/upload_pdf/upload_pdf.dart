@@ -1,28 +1,27 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
-class UploadImage extends StatefulWidget {
-  final ValueChanged<XFile?>? onImageChanged;
+class UploadPdf extends StatefulWidget {
   final String labelText;
-  final String? initialImagePath;
+  final ValueChanged<XFile?> onPdfChanged;
+  final String? initialPdfPath;
 
-  const UploadImage({
+  const UploadPdf({
     super.key,
-    this.onImageChanged,
     required this.labelText,
-    this.initialImagePath,
+    required this.onPdfChanged,
+    this.initialPdfPath,
   });
 
   @override
-  State<UploadImage> createState() => _UploadImageState();
+  State<UploadPdf> createState() => _UploadPdfState();
 }
 
-class _UploadImageState extends State<UploadImage> {
-  XFile? _image;
-  Uint8List? _webImageBytes;
+class _UploadPdfState extends State<UploadPdf> {
+  XFile? _pdf;
+  String? _fileName;
 
   // IMPORTANT DEBUGGING FLAG:
   // Set this to `true` to force Web behavior, `false` to force Mobile behavior.
@@ -32,45 +31,52 @@ class _UploadImageState extends State<UploadImage> {
   @override
   void initState() {
     super.initState();
-    // Use the forced boolean for initial image path handling
-    if (widget.initialImagePath != null && !_forceIsWeb) {
-      _image = XFile(widget.initialImagePath!);
+    // Use the forced boolean for initial PDF path handling
+    if (widget.initialPdfPath != null && !_forceIsWeb) {
+      _pdf = XFile(widget.initialPdfPath!);
+      _fileName = widget.initialPdfPath!.split('/').last;
     }
-    // Note: For web, if you have an initial image path (e.g., a URL),
-    // you'd need to fetch its bytes here to display it.
-    // This example focuses on local file paths for initial mobile images.
   }
 
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      setState(() {
-        _image = pickedFile;
-        // Use the forced boolean
-        if (_forceIsWeb) {
-          pickedFile.readAsBytes().then((bytes) {
-            setState(() {
-              _webImageBytes = bytes;
-            });
-          });
-        }
-      });
-      if (widget.onImageChanged != null) {
-        widget.onImageChanged!(_image);
+  Future<void> _pickPdf() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.single;
+        final xFile = XFile(file.path!);
+        
+        setState(() {
+          _pdf = xFile;
+          _fileName = file.name;
+        });
+        
+        widget.onPdfChanged(xFile);
+      } else {
+        widget.onPdfChanged(null);
       }
+    } catch (e) {
+      debugPrint('Error picking PDF: $e');
+      widget.onPdfChanged(null);
     }
   }
 
-  void _clearImage() {
+  void _clearPdf() {
     setState(() {
-      _image = null;
-      _webImageBytes = null;
+      _pdf = null;
+      _fileName = null;
     });
-    if (widget.onImageChanged != null) {
-      widget.onImageChanged!(null);
-    }
+    widget.onPdfChanged(null);
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes <= 0) return "0 B";
+    const suffixes = ["B", "KB", "MB", "GB"];
+    int i = (bytes.bitLength - 1) ~/ 10;
+    return '${(bytes / (1 << (i * 10))).toStringAsFixed(1)} ${suffixes[i]}';
   }
 
   @override
@@ -79,42 +85,68 @@ class _UploadImageState extends State<UploadImage> {
     final bool currentIsWeb = _forceIsWeb;
 
     return InkWell(
-      onTap: _pickImage,
+      onTap: _pickPdf,
       child: Container(
         width: double.infinity,
         clipBehavior: Clip.hardEdge,
         height: 250,
         decoration: BoxDecoration(
-          color: wawuColors.primary.withAlpha(50),
+          color: wawuColors.primary.withOpacity(0.2),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: _image == null && _webImageBytes == null
+        child: _pdf == null
             ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.image_rounded, size: 50),
+                    const Icon(Icons.picture_as_pdf_rounded, size: 50),
                     const SizedBox(height: 10),
                     Text(widget.labelText),
-                    const Text('500kb'),
+                    const Text('Max 10MB'),
                   ],
                 ),
               )
             : Stack(
                 children: [
-                  SizedBox( // Changed Container to SizedBox for better clarity when only setting width
+                  Container(
                     width: double.infinity,
-                    child: currentIsWeb
-                        ? (_webImageBytes != null
-                            ? Image.memory(_webImageBytes!, fit: BoxFit.cover)
-                            : const Center(child: CircularProgressIndicator()))
-                        : (_image != null
-                            ? Image.file(
-                                File(_image!.path), // This is the File object
-                                key: ValueKey(_image!.path), // Added key for Image.file
-                                fit: BoxFit.cover,
-                              )
-                            : const Center(child: CircularProgressIndicator())),
+                    height: 250,
+                    decoration: BoxDecoration(
+                      color: wawuColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          size: 80,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            _fileName ?? 'PDF Document',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'PDF Selected',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Container(
                     width: double.infinity,
@@ -125,7 +157,7 @@ class _UploadImageState extends State<UploadImage> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         GestureDetector(
-                          onTap: _pickImage,
+                          onTap: _pickPdf,
                           child: ClipOval(
                             child: Container(
                               width: 60,
@@ -147,8 +179,9 @@ class _UploadImageState extends State<UploadImage> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: 10),
                         GestureDetector(
-                          onTap: _clearImage,
+                          onTap: _clearPdf,
                           child: ClipOval(
                             child: Container(
                               width: 60,

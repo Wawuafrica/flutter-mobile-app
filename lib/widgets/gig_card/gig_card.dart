@@ -1,17 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:wawu_mobile/models/gig.dart';
+import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/gigs_screen/single_gig_screen/single_gig_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class GigCard extends StatelessWidget {
-  const GigCard({super.key});
+  final Gig gig;
+
+  const GigCard({super.key, required this.gig});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
+        Provider.of<GigProvider>(context, listen: false).selectGig(gig.uuid);
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => SingleGigScreen()),
+          MaterialPageRoute(
+            builder: (context) => SingleGigScreen(),
+            // builder: (context) => SingleGigScreen(gigUuid: gig.uuid),
+          ),
         );
       },
       child: Container(
@@ -28,7 +37,6 @@ class GigCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(10.0),
           child: Row(
-            spacing: 10.0,
             children: [
               Container(
                 width: 100,
@@ -37,78 +45,95 @@ class GigCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Image.asset(
-                  'assets/images/section/graphics.png',
-                  width: 100,
-                  height: 110,
-                  fit: BoxFit.cover,
-                ),
+                child:
+                    gig.assets.photos.isNotEmpty
+                        ? Image.network(
+                          gig.assets.photos[0].link,
+                          width: 100,
+                          height: 110,
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (context, error, stackTrace) => Image.asset(
+                                'assets/images/section/graphics.png',
+                                fit: BoxFit.cover,
+                              ),
+                        )
+                        : Image.asset(
+                          'assets/images/section/graphics.png',
+                          width: 100,
+                          height: 110,
+                          fit: BoxFit.cover,
+                        ),
               ),
+              const SizedBox(width: 10),
               Expanded(
-                child: SizedBox(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Text(
-                        'I will write 1500 words seo article and blog post for you.',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                      Row(
-                        spacing: 5.0,
-                        children: [
-                          Container(
-                            width: 35,
-                            height: 35,
-                            clipBehavior: Clip.hardEdge,
-                            decoration: BoxDecoration(shape: BoxShape.circle),
-                            child: Image.asset(
-                              'assets/images/other/avatar.webp',
-                              fit: BoxFit.cover,
-                            ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      gig.title,
+                      style: const TextStyle(fontSize: 13),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 35,
+                          height: 35,
+                          clipBehavior: Clip.hardEdge,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
                           ),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Micheal John',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                          child: Image.asset(
+                            'assets/images/other/avatar.webp',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Unknown Seller', // Placeholder
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
                               ),
-                              Text(
-                                'From \$10',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                Icon(
-                                  Icons.star,
-                                  size: 15,
-                                  color: wawuColors.primary.withAlpha(50),
-                                ),
-                                Text(
-                                  '4.9',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                            Text(
+                              gig.pricings.isNotEmpty
+                                  ? 'From \$${gig.pricings[0].package.amount}'
+                                  : 'Price unavailable',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.star,
+                              size: 15,
+                              color: wawuColors.primary.withAlpha(50),
+                            ),
+                            const Text(
+                              '4.9', // Placeholder
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],

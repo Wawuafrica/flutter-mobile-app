@@ -1,136 +1,234 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/screens/services/filtered_gigs/filtered_gigs.dart';
-import 'package:wawu_mobile/screens/services/services.dart';
+import 'package:provider/provider.dart';
+import 'package:wawu_mobile/providers/category_provider.dart';
+import 'package:wawu_mobile/providers/ad_provider.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/screens/categories/categories_screen.dart';
+import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
 import 'package:wawu_mobile/screens/wawu_ecommerce_screen/wawu_ecommerce_screen.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
-import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
+// import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Example list of dynamically styled widgets
-    final List<Widget> carouselItems = [
-      Container(
-        decoration: BoxDecoration(color: Colors.red.withAlpha(100)),
-        child: Center(
-          child: Text('Gig Of The Day', style: TextStyle(fontSize: 20)),
-        ),
-      ),
-      Container(
-        decoration: BoxDecoration(color: Colors.green.withAlpha(100)),
-        child: Center(
-          child: Text('Adevertisement', style: TextStyle(fontSize: 20)),
-        ),
-      ),
-      Container(
-        decoration: BoxDecoration(color: Colors.blue.withAlpha(100)),
-        child: Center(child: Text('Blog Post', style: TextStyle(fontSize: 20))),
-      ),
-    ];
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: ListView(
-          children: [
-            SizedBox(height: 20),
-            CustomIntroText(text: 'Updates'),
-            SizedBox(height: 20),
-            FadingCarousel(height: 250, children: carouselItems),
-            SizedBox(height: 20),
-            CustomIntroText(
-              text: 'Popular Services',
-              isRightText: true,
-              navFunction: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => Services()),
-                );
-              },
-            ),
-            SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 160,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  ImageTextCard(
-                    function: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => FilteredGigs()),
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final categoryProvider = Provider.of<CategoryProvider>(
+        context,
+        listen: false,
+      );
+      if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
+        categoryProvider.fetchCategories();
+      }
+      Provider.of<AdProvider>(context, listen: false).fetchAds();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<CategoryProvider, UserProvider>(
+      builder: (context, categoryProvider, userProvider, child) {
+        // Asset paths to map to the first three categories (in order)
+        final List<String> assetPaths = [
+          'assets/images/section/photography.png',
+          'assets/images/section/programming.png',
+          'assets/images/section/video.png',
+        ];
+
+        return Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: ListView(
+              children: [
+                SizedBox(height: 20),
+                CustomIntroText(text: 'Updates'),
+                Consumer<AdProvider>(
+                  builder: (context, adProvider, child) {
+                    if (adProvider.isLoading) {
+                      return Container(
+                        width: double.infinity,
+                        height: 250,
+                        decoration: BoxDecoration(
+                          color: wawuColors.borderPrimary.withAlpha(50),
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(10),
+                            bottomRight: Radius.circular(10),
+                          ),
+                        ),
+                        child: Center(child: CircularProgressIndicator()),
                       );
-                    },
-                    text: 'Graphics & Design',
-                    asset: 'assets/images/section/photography.png',
-                  ),
-                  ImageTextCard(
-                    function: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => FilteredGigs()),
+                    }
+
+                    if (adProvider.errorMessage != null) {
+                      return Container(
+                        width: double.infinity,
+                        height: 250,
+                        decoration: BoxDecoration(
+                          color: wawuColors.borderPrimary.withAlpha(50),
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(10),
+                            bottomRight: Radius.circular(10),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Error loading ads: ${adProvider.errorMessage}',
+                              textAlign: TextAlign.center,
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                adProvider.fetchAds(); // Retry fetching ads
+                              },
+                              child: Text('Retry'),
+                            ),
+                          ],
+                        ),
                       );
-                    },
-                    text: 'Programming',
-                    asset: 'assets/images/section/programming.png',
-                  ),
-                  ImageTextCard(
-                    function: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => FilteredGigs()),
+                    }
+
+                    if (adProvider.ads.isEmpty) {
+                      return Container(
+                        width: double.infinity,
+                        height: 250,
+                        decoration: BoxDecoration(
+                          color: wawuColors.borderPrimary.withAlpha(50),
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(10),
+                            bottomRight: Radius.circular(10),
+                          ),
+                        ),
+                        child: Center(
+                          child: Text('No Ads available'),
+                        ),
                       );
-                    },
-                    text: 'Video & Animation',
-                    asset: 'assets/images/section/video.png',
+                    }
+
+                    final List<Widget> carouselItems = adProvider.ads.map((ad) {
+                      return Image.network(
+                        ad.media.link,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: wawuColors.borderPrimary.withAlpha(50),
+                            child: Center(
+                              child: Text('Failed to load image'),
+                            ),
+                          );
+                        },
+                      );
+                    }).toList();
+                    return FadingCarousel(height: 250, children: carouselItems);
+                  },
+                ),
+                SizedBox(height: 20),
+                CustomIntroText(
+                  text: 'Popular Services',
+                  isRightText: true,
+                  navFunction: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => CategoriesScreen()),
+                    );
+                  },
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 160,
+                  child: categoryProvider.isLoading
+                      ? Center(child: CircularProgressIndicator())
+                      : categoryProvider.categories.isEmpty
+                          ? Center(child: Text('No categories available'))
+                          : ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: categoryProvider.categories
+                                  .take(3)
+                                  .toList()
+                                  .asMap()
+                                  .entries
+                                  .map((entry) {
+                                    final index = entry.key;
+                                    final category = entry.value;
+                                    return ImageTextCard(
+                                      function: () {
+                                        categoryProvider.selectCategory(category);
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => SubCategoriesAndServices(),
+                                          ),
+                                        );
+                                      },
+                                      text: category.name, // Use category name
+                                      asset: assetPaths[index], // Map asset by index
+                                    );
+                                  }).toList(),
+                            ),
+                ),
+                SizedBox(height: 30),
+                CustomIntroText(
+                  text: 'Wawu E-commerce',
+                  isRightText: true,
+                  navFunction: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WawuEcommerceScreen(),
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 220,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [ECard(), ECard(), ECard()],
                   ),
-                ],
-              ),
+                ),
+                SizedBox(height: 40),
+                CustomIntroText(text: 'Recently Viewed'),
+                SizedBox(height: 20),
+                // GigCard(),
+            Text('GigCards'),
+
+                SizedBox(height: 10),
+                // GigCard(),
+            Text('GigCards'),
+
+                SizedBox(height: 10),
+                // GigCard(),
+            Text('GigCards'),
+
+                SizedBox(height: 10),
+                // GigCard(),
+            Text('GigCards'),
+
+                SizedBox(height: 10),
+                // GigCard(),
+            Text('GigCards'),
+
+                SizedBox(height: 20),
+              ],
             ),
-            SizedBox(height: 30),
-            CustomIntroText(
-              text: 'Wawu E-commerce',
-              isRightText: true,
-              navFunction: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => WawuEcommerceScreen(),
-                  ),
-                );
-              },
-            ),
-            SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 220,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [ECard(), ECard(), ECard()],
-              ),
-            ),
-            SizedBox(height: 40),
-            CustomIntroText(text: 'Recently Viewed'),
-            SizedBox(height: 20),
-            GigCard(),
-            SizedBox(height: 10),
-            GigCard(),
-            SizedBox(height: 10),
-            GigCard(),
-            SizedBox(height: 10),
-            GigCard(),
-            SizedBox(height: 10),
-            GigCard(),
-            SizedBox(height: 20),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

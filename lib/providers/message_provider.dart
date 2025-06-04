@@ -1,277 +1,287 @@
 import 'dart:convert';
-import '../models/message.dart';
-import '../providers/base_provider.dart';
-import '../services/api_service.dart';
-import '../services/pusher_service.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:wawu_mobile/models/chat_user.dart';
+import 'package:wawu_mobile/models/conversation.dart';
+import 'package:wawu_mobile/models/message.dart';
+import 'package:wawu_mobile/services/api_service.dart';
+import 'package:wawu_mobile/services/pusher_service.dart';
 
-/// MessageProvider manages the state of messages between users.
-///
-/// This provider handles:
-/// - Fetching message history between two users
-/// - Sending new messages
-/// - Receiving real-time message updates via Pusher
-/// - Marking messages as read
-class MessageProvider extends BaseProvider {
+class MessageProvider extends ChangeNotifier {
   final ApiService _apiService;
   final PusherService _pusherService;
 
-  // Maps conversation IDs to messages
-  final Map<String, List<Message>> _conversations = {};
-  String? _currentConversationId;
+  List<Conversation> _allConversations = [];
+  List<Message> _currentMessages = [];
+  String _currentConversationId = '';
+  String _currentRecipientId = '';
+  bool _isLoading = false;
+  bool _hasError = false;
+  String? _errorMessage;
 
-  // Getters
-  List<Message> get currentMessages =>
-      _currentConversationId != null
-          ? _conversations[_currentConversationId!] ?? []
-          : [];
+  MessageProvider({
+    required ApiService apiService,
+    required PusherService pusherService,
+  }) : _apiService = apiService,
+       _pusherService = pusherService;
 
-  String? get currentConversationId => _currentConversationId;
+  List<Conversation> get allConversations => _allConversations;
+  List<Message> get currentMessages => _currentMessages;
+  String get currentConversationId => _currentConversationId;
+  String get currentRecipientId => _currentRecipientId;
+  bool get isLoading => _isLoading;
+  bool get hasError => _hasError;
+  String? get errorMessage => _errorMessage;
 
-  MessageProvider({ApiService? apiService, PusherService? pusherService})
-    : _apiService = apiService ?? ApiService(),
-      _pusherService = pusherService ?? PusherService();
+  void setLoading() {
+    _isLoading = true;
+    _hasError = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
 
-  /// Sets the current conversation ID and loads messages if not already loaded
-  Future<void> setCurrentConversation(String userId, String otherUserId) async {
-    // Create a consistent conversation ID regardless of order of user IDs
-    final conversationId = [userId, otherUserId]..sort();
-    final newConversationId = conversationId.join('_');
+  void setError(String message) {
+    _isLoading = false;
+    _hasError = true;
+    _errorMessage = message;
+    notifyListeners();
+  }
 
-    if (_currentConversationId != newConversationId) {
-      _currentConversationId = newConversationId;
+  void setSuccess() {
+    _isLoading = false;
+    _hasError = false;
+    _errorMessage = null;
+    notifyListeners();
+  }
 
-      // Load messages if not already loaded
-      if (!_conversations.containsKey(_currentConversationId)) {
-        await loadMessages(userId, otherUserId);
+  Future<void> fetchConversations() async {
+    setLoading();
+    try {
+      final response = await _apiService.get('/chats', options: Options(headers: {'Api-Token': '{{api_token}}'}));
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
+        _allConversations = (response['data'] as List<dynamic>)
+            .map((json) => Conversation.fromJson(json as Map<String, dynamic>))
+            .toList();
+        setSuccess();
       } else {
-        // Just notify listeners if we already have the messages
-        notifyListeners();
+        setError(response['message'] ?? 'Failed to fetch conversations');
       }
-
-      // Subscribe to Pusher channel for this conversation
-      await _subscribeToConversation(_currentConversationId!);
+    } catch (e) {
+      setError('Error fetching conversations: $e');
     }
   }
 
-  /// Loads message history between two users
-  Future<void> loadMessages(String userId, String otherUserId) async {
-    if (_currentConversationId == null) {
-      final conversationId = [userId, otherUserId]..sort();
-      _currentConversationId = conversationId.join('_');
-    }
-
+  Future<void> startConversation(String currentUserId, String recipientId, [String? initialMessage]) async {
+    setLoading();
     try {
-      // Get conversation or create it if it doesn't exist
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '/messages/conversations',
-        queryParameters: {'receiver_id': otherUserId},
+      // Check for existing conversation
+      final existingConversation = _allConversations.firstWhere(
+        (conv) => conv.participants.any((user) => user.id == currentUserId) &&
+                  conv.participants.any((user) => user.id == recipientId),
+        orElse: () => Conversation(id: '', participants: [], messages: []),
       );
 
-      if (response.containsKey('data') && response['data'] is Map<String, dynamic>) {
-        final conversationData = response['data'] as Map<String, dynamic>;
-        final String conversationId = conversationData['uuid'] as String;
-        
-        // Now fetch messages for this conversation
-        final messagesResponse = await _apiService.get<Map<String, dynamic>>(
-          '/messages/conversations/$conversationId',
-        );
-        
-        if (messagesResponse.containsKey('data') && messagesResponse['data'] is List) {
-          final List<dynamic> messagesJson = messagesResponse['data'] as List<dynamic>;
-          final List<Message> messages =
-              messagesJson
-                  .map((json) => Message.fromJson(json as Map<String, dynamic>))
-                  .toList();
-
-          // Sort messages by timestamp
-          messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-
-          _conversations[_currentConversationId!] = messages;
-          
-          // Mark messages as read automatically when loaded
-          await markMessagesAsRead(conversationId, userId);
-          
-          return;
+      if (existingConversation.id.isNotEmpty) {
+        _currentConversationId = existingConversation.id;
+        _currentRecipientId = recipientId;
+        await _fetchMessages(existingConversation.id);
+        if (initialMessage != null && initialMessage.isNotEmpty) {
+          await sendMessage(
+            senderId: currentUserId,
+            receiverId: recipientId,
+            content: initialMessage,
+          );
         }
+        setSuccess();
+        return;
       }
-      
-      // If no messages found, initialize with empty list
-      _conversations[_currentConversationId!] = [];
-      return;
+
+      // Create new conversation
+      final response = await _apiService.post(
+        '/chats',
+        data: {
+          'participant_ids': [currentUserId, recipientId],
+        },
+        options: Options(headers: {'Api-Token': '{{api_token}}'}),
+      );
+
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
+        final newConversation = Conversation.fromJson(response['data'] as Map<String, dynamic>);
+        _allConversations.add(newConversation);
+        _currentConversationId = newConversation.id;
+        _currentRecipientId = recipientId;
+        _currentMessages = [];
+        
+        if (initialMessage != null && initialMessage.isNotEmpty) {
+          await sendMessage(
+            senderId: currentUserId,
+            receiverId: recipientId,
+            content: initialMessage,
+          );
+        } else {
+          await _fetchMessages(newConversation.id);
+        }
+        
+        setSuccess();
+        notifyListeners();
+      } else {
+        setError(response['message'] ?? 'Failed to create conversation');
+      }
     } catch (e) {
-      print('Failed to load messages: $e');
-      return;
+      setError('Error starting conversation: $e');
     }
   }
 
-  /// Sends a new message to another user
+  Future<void> setCurrentConversation(String currentUserId, String recipientId) async {
+    final conversation = _allConversations.firstWhere(
+      (conv) => conv.participants.any((user) => user.id == currentUserId) &&
+                conv.participants.any((user) => user.id == recipientId),
+      orElse: () => Conversation(id: '', participants: [], messages: []),
+    );
+
+    if (conversation.id.isNotEmpty) {
+      _currentConversationId = conversation.id;
+      _currentRecipientId = recipientId;
+      await _fetchMessages(conversation.id);
+      _subscribeToMessages(conversation.id);
+      notifyListeners();
+    }
+  }
+
+  Future<void> _fetchMessages(String conversationId) async {
+    setLoading();
+    try {
+      final response = await _apiService.get(
+        '/chats/$conversationId/messages',
+        options: Options(headers: {'Api-Token': '{{api_token}}'}),
+      );
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
+        _currentMessages = (response['data'] as List<dynamic>)
+            .map((json) => Message.fromJson(json as Map<String, dynamic>))
+            .toList();
+        setSuccess();
+      } else {
+        setError(response['message'] ?? 'Failed to fetch messages');
+      }
+    } catch (e) {
+      setError('Error fetching messages: $e');
+    }
+  }
+
   Future<Message?> sendMessage({
     required String senderId,
     required String receiverId,
     required String content,
-    String? attachmentUrl,
-    String? attachmentType,
+    String? mediaFilePath,
+    String? mediaType,
   }) async {
+    setLoading();
     try {
-      // Create the message payload
-      final Map<String, dynamic> messageData = {
-        'receiver_id': receiverId,
-        'message': content,
-      };
-      
-      // Add attachment if provided
-      if (attachmentUrl != null) {
-        messageData['attachment'] = attachmentUrl;
-        if (attachmentType != null) {
-          messageData['attachment_type'] = attachmentType;
+      final conversation = _allConversations.firstWhere(
+        (conv) => conv.participants.any((user) => user.id == senderId) &&
+                  conv.participants.any((user) => user.id == receiverId),
+        orElse: () => Conversation(id: '', participants: [], messages: []),
+      );
+
+      String targetConversationId = conversation.id.isNotEmpty ? conversation.id : _currentConversationId;
+      if (targetConversationId.isEmpty) {
+        // Create new conversation
+        final response = await _apiService.post(
+          '/chats',
+          data: {
+            'participant_ids': [senderId, receiverId],
+          },
+          options: Options(headers: {'Api-Token': '{{api_token}}'}),
+        );
+
+        if (response['statusCode'] == 200 && response.containsKey('data')) {
+          final newConversation = Conversation.fromJson(response['data'] as Map<String, dynamic>);
+          _allConversations.add(newConversation);
+          targetConversationId = newConversation.id;
+          _currentConversationId = newConversation.id;
+          _currentRecipientId = receiverId;
+          notifyListeners();
+        } else {
+          setError(response['message'] ?? 'Failed to create conversation');
+          return null;
         }
       }
 
-      // Send the message
-      final response = await _apiService.post<Map<String, dynamic>>(
-        '/messages',
-        data: messageData,
+      final formData = FormData.fromMap({
+        'message': content,
+        if (mediaFilePath != null) 'media': await MultipartFile.fromFile(mediaFilePath),
+      });
+
+      final response = await _apiService.post(
+        '/chats/$targetConversationId/messages',
+        data: formData,
+        options: Options(headers: {'Api-Token': '{{api_token}}'}),
       );
 
-      if (response.containsKey('data')) {
-        final message = Message.fromJson(response['data'] as Map<String, dynamic>);
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
+        final newMessage = Message.fromJson(response['data'] as Map<String, dynamic>);
+        _currentMessages.add(newMessage);
 
-        // Add message to current conversation
-        if (_currentConversationId != null) {
-          final conversationId = [senderId, receiverId]..sort();
-          final sentConversationId = conversationId.join('_');
-
-          if (_currentConversationId == sentConversationId) {
-            if (!_conversations.containsKey(_currentConversationId!)) {
-              _conversations[_currentConversationId!] = [];
-            }
-            _conversations[_currentConversationId!]!.add(message);
-            notifyListeners();
-          }
+        // Update conversation in allConversations
+        final convIndex = _allConversations.indexWhere((conv) => conv.id == targetConversationId);
+        if (convIndex != -1) {
+          final updatedMessages = [newMessage, ..._allConversations[convIndex].messages];
+          _allConversations[convIndex] = Conversation(
+            id: _allConversations[convIndex].id,
+            participants: _allConversations[convIndex].participants,
+            messages: updatedMessages,
+          );
+        } else {
+          _allConversations.add(Conversation(
+            id: targetConversationId,
+            participants: [
+              ChatUser(id: senderId, name: '', avatar: null),
+              ChatUser(id: receiverId, name: '', avatar: null),
+            ],
+            messages: [newMessage],
+          ));
         }
 
-        return message;
+        setSuccess();
+        notifyListeners();
+        return newMessage;
       } else {
-        print('Failed to send message: Invalid response');
+        setError(response['message'] ?? 'Failed to send message');
         return null;
       }
     } catch (e) {
-      print('Failed to send message: $e');
+      setError('Error sending message: $e');
       return null;
     }
   }
 
-  /// Marks messages as read
-  Future<void> markMessagesAsRead(String conversationId, String userId) async {
-    try {
-      // Mark all messages in the conversation as read
-      await _apiService.post<Map<String, dynamic>>(
-        '/messages/conversations/$conversationId/read',
-        data: {},
-      );
-
-      // Update local messages to show as read
-      if (_conversations.containsKey(_currentConversationId!)) {
-        final updatedMessages =
-            _conversations[_currentConversationId!]!.map((message) {
-              if (message.receiverId == userId && !message.isRead) {
-                return message.copyWith(isRead: true);
-              }
-              return message;
-            }).toList();
-
-        _conversations[_currentConversationId!] = updatedMessages;
-        notifyListeners();
-      }
-
-      return;
-    } catch (e) {
-      print('Failed to mark messages as read: $e');
-      return;
-    }
-  }
-
-  /// Subscribes to Pusher channel for real-time message updates
-  Future<void> _subscribeToConversation(String conversationId) async {
-    // Subscribe to the messages channel
-    final channelName = 'messages';
-
-    try {
-      final channel = await _pusherService.subscribeToChannel(channelName);
+  void _subscribeToMessages(String conversationId) {
+    final channelName = 'chat.$conversationId';
+    _pusherService.subscribeToChannel(channelName).then((channel) {
       if (channel != null) {
-        // Bind to new message events
-        _pusherService.bindToEvent(channelName, 'MessageSent', (data) async {
-          if (data is String) {
-            final messageData = jsonDecode(data) as Map<String, dynamic>;
-          
-            // Check if this message belongs to our current conversation
-            if (messageData.containsKey('message') && 
-                messageData['message'] is Map<String, dynamic>) {
-            
-              final Map<String, dynamic> msgData = messageData['message'] as Map<String, dynamic>;
-              final Message message = Message.fromJson(msgData);
-            
-              // Create the conversation ID to match our format
-              final msgConvMembers = [message.senderId, message.receiverId]..sort();
-              final msgConversationId = msgConvMembers.join('_');
-            
-              // Only add if it belongs to our current conversation
-              if (msgConversationId == _currentConversationId) {
-                if (!_conversations.containsKey(_currentConversationId)) {
-                  _conversations[_currentConversationId!] = [];
-                }
-              
-                // Add to conversation if not already there (by ID)
-                if (!_conversations[_currentConversationId!]!.any((m) => m.id == message.id)) {
-                  _conversations[_currentConversationId!]!.add(message);
-                  notifyListeners();
-                }
-              }
+        _pusherService.bindToEvent(channelName, 'message.sent', (eventDataString) {
+          try {
+            final Map<String, dynamic> eventData = jsonDecode(eventDataString) as Map<String, dynamic>;
+            final newMessage = Message.fromJson(eventData);
+            if (_currentConversationId == conversationId) {
+              _currentMessages.add(newMessage);
             }
-          }
-        });
 
-        // Bind to message read events
-        _pusherService.bindToEvent(channelName, 'message-read', (data) async {
-          if (data is String) {
-            final readData = jsonDecode(data) as Map<String, dynamic>;
-            final String messageId = readData['message_id'] as String;
-
-            // Update message read status
-            if (_conversations.containsKey(conversationId)) {
-              final updatedMessages =
-                  _conversations[conversationId]!.map((message) {
-                    if (message.id == messageId) {
-                      return message.copyWith(isRead: true);
-                    }
-                    return message;
-                  }).toList();
-
-              _conversations[conversationId] = updatedMessages;
-              notifyListeners();
+            final convIndex = _allConversations.indexWhere((conv) => conv.id == conversationId);
+            if (convIndex != -1) {
+              final updatedMessages = [newMessage, ..._allConversations[convIndex].messages];
+              _allConversations[convIndex] = Conversation(
+                id: _allConversations[convIndex].id,
+                participants: _allConversations[convIndex].participants,
+                messages: updatedMessages,
+              );
             }
+            notifyListeners();
+          } catch (e) {
+            print('Error processing message.sent event: $e');
           }
         });
       }
-    } catch (e) {
-      print('Failed to subscribe to conversation: $e');
-    }
-  }
-
-  /// Clears all message data
-  void clearAll() {
-    _conversations.clear();
-    _currentConversationId = null;
-    resetState();
-  }
-
-  @override
-  void dispose() {
-    if (_currentConversationId != null) {
-      _pusherService.unsubscribeFromChannel(
-        'conversation-$_currentConversationId',
-      );
-    }
-    super.dispose();
+    });
   }
 }

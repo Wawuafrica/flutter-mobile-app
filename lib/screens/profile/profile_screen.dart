@@ -1,6 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:wawu_mobile/models/user.dart';
+import 'package:wawu_mobile/providers/category_provider.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/profile/change_password_screen/change_password_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
@@ -18,30 +22,74 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _aboutController = TextEditingController();
   final TextEditingController _skillController = TextEditingController();
-  final List<String> _skills = [];
+  List<String> _skills = [];
   final int _maxAboutLength = 200;
-  String? selectedCertificateValue;
-  File? _profileImage;
-  File? _coverImage;
 
-  Future<void> _pickImage(String imageType) async {
+  String? _selectedEducationCertification;
+  String? _selectedEducationInstitution;
+  final TextEditingController _educationCourseOfStudyController = TextEditingController();
+  final TextEditingController _educationGraduationDateController = TextEditingController();
+
+  String? _selectedProfessionalCertificationName;
+  final TextEditingController _professionalCertificationOrganizationController = TextEditingController();
+  final TextEditingController _professionalCertificationEndDateController = TextEditingController();
+
+  XFile? _profileImage;
+  XFile? _coverImage;
+  XFile? _professionalCertificationImage;
+
+  final TextEditingController _facebookController = TextEditingController();
+  final TextEditingController _linkedInController = TextEditingController();
+  final TextEditingController _instagramController = TextEditingController();
+  final TextEditingController _twitterController = TextEditingController();
+
+  String? _selectedCountry;
+  final TextEditingController _stateController = TextEditingController();
+
+  bool _isSavingProfile = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final user = userProvider.currentUser;
+    if (user != null) {
+      _aboutController.text = user.additionalInfo?.about ?? '';
+      _skills = user.additionalInfo?.skills ?? [];
+      _selectedCountry = user.country;
+      _stateController.text = user.state ?? '';
+      _facebookController.text = user.additionalInfo?.socialHandles?['facebook'] ?? '';
+      _linkedInController.text = user.additionalInfo?.socialHandles?['linkedIn'] ?? '';
+      _instagramController.text = user.additionalInfo?.socialHandles?['instagram'] ?? '';
+      _twitterController.text = user.additionalInfo?.socialHandles?['twitter'] ?? '';
+    }
+  }
+
+  Future<void> _pickImageForProfileAndCover(String imageType) async {
     final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
       setState(() {
-        switch (imageType) {
-          case 'profile':
-            _profileImage = File(pickedFile.path);
-            break;
-          case 'cover':
-            _coverImage = File(pickedFile.path);
-            break;
+        if (imageType == 'profile') {
+          _profileImage = pickedFile;
+        } else if (imageType == 'cover') {
+          _coverImage = pickedFile;
         }
+      });
+    }
+  }
+
+  Future<void> _pickDocumentImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      setState(() {
+        _professionalCertificationImage = pickedFile;
       });
     }
   }
@@ -55,15 +103,162 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _selectGraduationDate(TextEditingController controller) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2040),
+    );
+    if (picked != null) {
+      setState(() {
+        controller.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSavingProfile = true;
+    });
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+
+    try {
+      await userProvider.updateCurrentUserProfile(
+        about: _aboutController.text,
+        skills: _skills,
+        educationCertification: _selectedEducationCertification,
+        educationInstitution: _selectedEducationInstitution,
+        educationCourseOfStudy: _educationCourseOfStudyController.text,
+        educationGraduationDate: _educationGraduationDateController.text,
+        professionalCertificationName: _selectedProfessionalCertificationName,
+        professionalCertificationOrganization: _professionalCertificationOrganizationController.text,
+        professionalCertificationEndDate: _professionalCertificationEndDateController.text,
+        professionalCertificationImage: _professionalCertificationImage,
+        meansOfIdentification: null, // Prevent updating meansOfIdentification
+        country: _selectedCountry,
+        state: _stateController.text,
+        socialHandles: {
+          'facebook': _facebookController.text,
+          'linkedIn': _linkedInController.text,
+          'instagram': _instagramController.text,
+          'twitter': _twitterController.text,
+        },
+        subCategoryUuid: categoryProvider.selectedSubCategory?.uuid,
+        profileImage: _profileImage,
+        coverImage: _coverImage,
+      );
+
+      if (userProvider.isSuccess) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated successfully!')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(userProvider.errorMessage ?? 'Failed to update profile'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating profile: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingProfile = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _aboutController.dispose();
+    _skillController.dispose();
+    _educationCourseOfStudyController.dispose();
+    _educationGraduationDateController.dispose();
+    _professionalCertificationOrganizationController.dispose();
+    _professionalCertificationEndDateController.dispose();
+    _facebookController.dispose();
+    _linkedInController.dispose();
+    _instagramController.dispose();
+    _twitterController.dispose();
+    _stateController.dispose();
+    super.dispose();
+  }
+
+  Widget _buildEducationCard(Education education) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              education.certification ?? 'Certification',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 5),
+            Text('Institution: ${education.institution ?? 'N/A'}'),
+            Text('Course: ${education.courseOfStudy ?? 'N/A'}'),
+            Text('Graduation: ${education.graduationDate ?? 'N/A'}'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfessionalCertificationCard(ProfessionalCertification cert) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              cert.name ?? 'Certification',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 5),
+            Text('Organization: ${cert.organization ?? 'N/A'}'),
+            Text('End Date: ${cert.endDate ?? 'N/A'}'),
+            if (cert.file?.link != null) Text('Document: ${cert.file!.link}'),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Profile')),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: ListView(
-          children: [
-            Column(
+    return Consumer2<CategoryProvider, UserProvider>(
+      builder: (context, categoryProvider, userProvider, child) {
+        final user = userProvider.currentUser;
+        final fullName = '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+        final selectedSubCategory = categoryProvider.selectedSubCategory;
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Profile'), centerTitle: true),
+          body: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(20.0),
               children: [
                 SizedBox(
                   width: double.infinity,
@@ -75,15 +270,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: double.infinity,
                         height: 100,
                         color: wawuColors.primary.withAlpha(50),
-                        child:
-                            _coverImage == null
-                                ? Text(
-                                  'Add Cover Photo',
-                                  textAlign: TextAlign.center,
-                                )
-                                : Image.file(_coverImage!, fit: BoxFit.cover),
+                        child: _coverImage != null
+                            ? Image.file(
+                                File(_coverImage!.path),
+                                key: ValueKey(_coverImage!.path),
+                                fit: BoxFit.cover,
+                              )
+                            : (user?.coverImage != null
+                                ? Image.network(
+                                    user!.coverImage!,
+                                    fit: BoxFit.cover,
+                                  )
+                                : const Center(
+                                    child: Text(
+                                      'Add Cover Photo',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  )),
                       ),
-
                       Positioned(
                         top: 50,
                         left: 0,
@@ -97,18 +302,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: Container(
                                   width: 100,
                                   height: 100,
-                                  decoration: BoxDecoration(
+                                  decoration: const BoxDecoration(
                                     color: Colors.white,
                                   ),
-                                  child:
-                                      _profileImage == null
-                                          ? Image.asset(
-                                            'assets/images/other/avatar.webp',
-                                          )
-                                          : Image.file(
-                                            _profileImage!,
-                                            fit: BoxFit.cover,
-                                          ),
+                                  child: _profileImage != null
+                                      ? Image.file(
+                                          File(_profileImage!.path),
+                                          key: ValueKey(_profileImage!.path),
+                                          fit: BoxFit.cover,
+                                        )
+                                      : (user?.profileImage != null
+                                          ? Image.network(
+                                              user!.profileImage!,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.asset(
+                                              'assets/images/other/avatar.webp',
+                                            )),
                                 ),
                               ),
                             ),
@@ -119,9 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         right: 120,
                         bottom: 0,
                         child: GestureDetector(
-                          onTap: () {
-                            _pickImage('profile');
-                          },
+                          onTap: () => _pickImageForProfileAndCover('profile'),
                           child: ClipOval(
                             child: Container(
                               width: 30,
@@ -140,9 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         right: 20,
                         bottom: 45,
                         child: GestureDetector(
-                          onTap: () {
-                            _pickImage('cover');
-                          },
+                          onTap: () => _pickImageForProfileAndCover('cover'),
                           child: ClipOval(
                             child: Container(
                               width: 30,
@@ -160,157 +366,98 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
-                SizedBox(height: 10),
-                Text(
-                  'Mavis Nwaokorie',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Seller',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: const Color.fromARGB(255, 125, 125, 125),
-                    fontWeight: FontWeight.w200,
+                const SizedBox(height: 10),
+                Center(
+                  child: Text(
+                    fullName,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
-                SizedBox(height: 10),
-                Text(
-                  'Software Developer',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: wawuColors.primary,
+                const SizedBox(height: 10),
+                Center(
+                  child: Text(
+                    user?.role ?? 'Role',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color.fromARGB(255, 125, 125, 125),
+                      fontWeight: FontWeight.w200,
+                    ),
                   ),
                 ),
-                SizedBox(height: 10),
-                Row(
-                  spacing: 5,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 15,
+                const SizedBox(height: 10),
+                Center(
+                  child: Text(
+                    user?.jobType ?? 'No Specialty Selected',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                       color: wawuColors.primary,
                     ),
-                    Text(
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 5,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle, size: 15, color: wawuColors.primary),
+                    const Text(
                       'Not Verified',
                       style: TextStyle(
                         fontSize: 13,
-                        color: wawuColors.primary,
+                        color: Color.fromARGB(255, 125, 125, 125),
                         fontWeight: FontWeight.w200,
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 10),
-                Row(
+                const SizedBox(height: 10),
+                Wrap(
                   spacing: 5,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: const Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: const Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: const Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: const Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: const Color.fromARGB(255, 162, 162, 162),
-                    ),
+                  alignment: WrapAlignment.center,
+                  children: const [
+                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
+                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
+                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
+                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
+                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
                   ],
                 ),
-                SizedBox(height: 20),
-                CustomIntroText(text: 'Name'),
-                SizedBox(height: 10),
+                const SizedBox(height: 20),
+                const CustomIntroText(text: 'Credentials'),
+                const SizedBox(height: 10),
                 CustomTextfield(
-                  hintText: 'Jane',
-                  labelTextStyle2: true,
-                  labelText: 'First Name',
-                ),
-                SizedBox(height: 10),
-                CustomTextfield(
-                  hintText: 'Doe',
-                  labelTextStyle2: true,
-                  labelText: 'Last Name',
-                ),
-                SizedBox(height: 20),
-                CustomIntroText(text: 'Credentials'),
-                SizedBox(height: 10),
-                CustomTextfield(
-                  hintText: '+234123456789',
-                  labelTextStyle2: true,
+                  hintText: user?.phoneNumber ?? 'Phone Number',
                   labelText: 'Phone Number',
-                ),
-                SizedBox(height: 10),
-                CustomTextfield(
-                  hintText: 'admin@gmail.com',
                   labelTextStyle2: true,
+                  // enabled: false,
+                ),
+                const SizedBox(height: 10),
+                CustomTextfield(
+                  hintText: user?.email ?? 'Email',
                   labelText: 'Email',
-                ),
-                CustomTextfield(
-                  hintText: '***********',
                   labelTextStyle2: true,
-                  labelText: 'Password',
+                  // enabled: false,
                 ),
-                SizedBox(height: 20),
-                Row(
-                  spacing: 10.0,
-                  children: [
-                    Expanded(
-                      child: CustomButton(
-                        function: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChangePasswordScreen(),
-                            ),
-                          );
-                        },
-                        widget: Text(
-                          'Change Email',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        color: wawuColors.primary,
+                const SizedBox(height: 10),
+                CustomButton(
+                  function: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChangePasswordScreen(),
                       ),
-                    ),
-                    Expanded(
-                      child: CustomButton(
-                        function: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ChangePasswordScreen(),
-                            ),
-                          );
-                        },
-                        widget: Text(
-                          'Change Password',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        color: wawuColors.primary,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
+                  widget: const Text(
+                    'Change Password',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  color: wawuColors.primary,
                 ),
-                SizedBox(height: 20),
-                CustomIntroText(text: 'About'),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
+                const CustomIntroText(text: 'About'),
+                const SizedBox(height: 20),
                 TextField(
                   controller: _aboutController,
                   maxLength: _maxAboutLength,
@@ -323,7 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                CustomIntroText(text: 'Skills'),
+                const CustomIntroText(text: 'Skills'),
                 const SizedBox(height: 10),
                 CustomTextfield(
                   controller: _skillController,
@@ -333,199 +480,296 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 InkWell(
                   onTap: _addSkill,
                   child: CustomButton(
-                    widget: Text('Add', style: TextStyle(color: Colors.white)),
+                    widget: const Text('Add', style: TextStyle(color: Colors.white)),
                     color: wawuColors.buttonPrimary,
                     textColor: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Display Skills
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children:
-                      _skills.map((skill) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                  children: _skills.map((skill) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: wawuColors.primary.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(skill),
+                          const SizedBox(width: 5),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _skills.remove(skill);
+                              });
+                            },
+                            child: const Icon(Icons.close, size: 16),
                           ),
-                          decoration: BoxDecoration(
-                            color: wawuColors.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(skill),
-                              const SizedBox(width: 5),
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _skills.remove(skill);
-                                  });
-                                },
-                                child: const Icon(Icons.close, size: 16),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 30),
-                CustomIntroText(text: 'Education'),
+                const CustomIntroText(text: 'Education'),
+                if (user?.additionalInfo?.education != null)
+                  ...user!.additionalInfo!.education!.map((edu) => _buildEducationCard(edu)),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 25),
-                    Text(
+                    const Text(
                       'Certification',
                       style: TextStyle(fontWeight: FontWeight.w400),
                     ),
                     const SizedBox(height: 5),
                     CustomDropdown(
-                      options: ['BSc', 'High School', 'MSc', 'PhD'],
+                      options: const ['BSc', 'High School', 'MSc', 'PhD'],
                       label: 'Select Certificate',
+                      selectedValue: _selectedEducationCertification,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedEducationCertification = value;
+                        });
+                      },
                     ),
                     const SizedBox(height: 10),
-                    Text(
+                    const Text(
                       'Institution',
                       style: TextStyle(fontWeight: FontWeight.w400),
                     ),
                     const SizedBox(height: 5),
                     CustomDropdown(
-                      options: [
+                      options: const [
                         'University Of Lagos',
                         'University Of Ibadan',
                         'University Of Port Harcourt',
                       ],
                       label: 'Select Institution',
+                      selectedValue: _selectedEducationInstitution,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedEducationInstitution = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    CustomTextfield(
+                      controller: _educationCourseOfStudyController,
+                      hintText: 'Enter course of study',
+                      labelText: 'Course of Study',
+                      labelTextStyle2: true,
+                    ),
+                    const SizedBox(height: 10),
+                    CustomTextfield(
+                      controller: _educationGraduationDateController,
+                      hintText: 'YYYY-MM-DD',
+                      labelText: 'Graduation Date',
+                      labelTextStyle2: true,
+                      suffixIcon: Icons.calendar_today,
+                      readOnly: true,
+                      onTap: () => _selectGraduationDate(_educationGraduationDateController),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Graduation Date is required';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
                 const SizedBox(height: 30),
-                CustomIntroText(text: 'Professional Certification'),
-                const SizedBox(height: 25),
+                const CustomIntroText(text: 'Professional Certification'),
+                if (user?.additionalInfo?.professionalCertification != null)
+                  ...user!.additionalInfo!.professionalCertification!
+                      .map((cert) => _buildProfessionalCertificationCard(cert)),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const SizedBox(height: 25),
+                    const Text(
                       'Name',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w400,
-                        fontSize: 16,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w400, fontSize: 16),
                     ),
                     const SizedBox(height: 5),
                     CustomDropdown(
-                      options: ['CAC', 'Skill Certificate', 'MIT'],
+                      options: const ['CAC', 'Skill Certificate', 'MIT'],
                       label: 'Select Certificate',
+                      selectedValue: _selectedProfessionalCertificationName,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedProfessionalCertificationName = value;
+                        });
+                      },
                     ),
                     const SizedBox(height: 20),
                     CustomTextfield(
+                      controller: _professionalCertificationOrganizationController,
                       hintText: 'Enter Organization Name',
-                      labelTextStyle2: true,
                       labelText: 'Organization',
+                      labelTextStyle2: true,
+                    ),
+                    const SizedBox(height: 20),
+                    CustomTextfield(
+                      controller: _professionalCertificationEndDateController,
+                      hintText: 'YYYY-MM-DD',
+                      labelText: 'End Date',
+                      labelTextStyle2: true,
+                      suffixIcon: Icons.calendar_today,
+                      readOnly: true,
+                      onTap: () => _selectGraduationDate(_professionalCertificationEndDateController),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'End Date is required';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Upload Certification Document',
+                      style: TextStyle(
+                        color: Color.fromARGB(255, 125, 125, 125),
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    UploadImage(
+                      labelText: 'Upload Certification Document',
+                      onImageChanged: (xfile) {
+                        setState(() {
+                          _professionalCertificationImage = xfile;
+                        });
+                      },
                     ),
                   ],
                 ),
-                SizedBox(height: 20),
-                Text(
-                  'Add a valid means of identification as this will help us...',
-                  style: TextStyle(
-                    color: const Color.fromARGB(255, 125, 125, 125),
-                    fontSize: 13,
+                const SizedBox(height: 40),
+                const CustomIntroText(text: 'Means Of Identification'),
+                const SizedBox(height: 20),
+                if (user?.additionalInfo?.meansOfIdentification?.file?.link != null)
+                  Card(
+                    margin: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Means of Identification',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 5),
+                          Text('Document: ${user!.additionalInfo!.meansOfIdentification!.file!.link}'),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  UploadImage(
+                    labelText: 'Upload Means of ID',
+                    onImageChanged: null, // Disable upload if already set
+                    // enabled: false,
                   ),
-                ),
-                SizedBox(height: 20),
-                UploadImage(),
-                SizedBox(height: 40),
-                CustomIntroText(text: 'Means Of Identification'),
-                SizedBox(height: 20),
-                UploadImage(),
-                SizedBox(height: 20),
-                Text(
-                  'Acceptable means of identification',
+                const SizedBox(height: 20),
+                const Text(
+                  'Acceptable proof of address documents',
                   style: TextStyle(
-                    color: const Color.fromARGB(255, 125, 125, 125),
+                    color: Color.fromARGB(255, 125, 125, 125),
                     fontSize: 13,
                   ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(height: 25),
-                    Text(
+                    const SizedBox(height: 25),
+                    const Text(
                       'Country',
                       style: TextStyle(fontWeight: FontWeight.w400),
                     ),
                     const SizedBox(height: 5),
                     CustomDropdown(
-                      options: ['Nigeria', 'Ghana', 'South Africa'],
+                      options: const [
+                        'Nigeria',
+                        'Ghana',
+                        'South Africa',
+                        'Mali',
+                        'Kenya',
+                        'United States',
+                        'Canada',
+                        'United Kingdom',
+                      ],
                       label: 'Select Country',
+                      selectedValue: _selectedCountry,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCountry = value;
+                        });
+                      },
                     ),
-                    SizedBox(height: 20),
-                    Text(
-                      'State',
-                      style: TextStyle(fontWeight: FontWeight.w400),
-                    ),
-                    const SizedBox(height: 5),
-                    CustomDropdown(
-                      options: ['Lagos', 'Abuja', 'Rivers'],
-                      label: 'Select State',
+                    const SizedBox(height: 20),
+                    CustomTextfield(
+                      controller: _stateController,
+                      hintText: 'Enter State',
+                      labelText: 'State',
+                      labelTextStyle2: true,
                     ),
                   ],
                 ),
-                SizedBox(height: 30),
-                CustomIntroText(text: 'Social Handles'),
-                SizedBox(height: 20),
+                const SizedBox(height: 30),
+                const CustomIntroText(text: 'Social Handles'),
+                const SizedBox(height: 20),
                 CustomTextfield(
+                  controller: _facebookController,
                   hintText: 'Enter your social media handle',
                   labelText: 'Facebook',
                   labelTextStyle2: true,
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 CustomTextfield(
+                  controller: _linkedInController,
                   hintText: 'Enter your social media handle',
                   labelText: 'LinkedIn',
                   labelTextStyle2: true,
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 CustomTextfield(
+                  controller: _instagramController,
                   hintText: 'Enter your social media handle',
                   labelText: 'Instagram',
                   labelTextStyle2: true,
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 CustomTextfield(
+                  controller: _twitterController,
                   hintText: 'Enter your social media handle',
                   labelText: 'X fka Twitter',
                   labelTextStyle2: true,
                 ),
-                SizedBox(height: 40),
+                const SizedBox(height: 40),
                 CustomButton(
-                  function: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => Plan()),
-                    );
-                  },
-                  widget: Text(
-                    'Save Changes',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  function: _isSavingProfile ? null : _saveProfile,
+                  widget: _isSavingProfile
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Save Changes',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                   color: wawuColors.primary,
                   textColor: Colors.white,
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

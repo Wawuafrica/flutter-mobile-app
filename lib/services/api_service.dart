@@ -1,10 +1,7 @@
-import 'dart:convert';
-import 'dart:io';
+// import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-import 'package:logger/logger.dart';
-import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path;
+// import 'package:path/path.dart' as path;
+import 'package:flutter/foundation.dart'; // For kIsWeb
 
 // Local imports
 import '../services/auth_service.dart';
@@ -15,7 +12,6 @@ class ApiService {
   ApiService._internal();
 
   final Dio _dio = Dio();
-  final Logger _logger = Logger();
   
   // Base URL from environment with default value
   static final String baseUrl = const String.fromEnvironment(
@@ -29,58 +25,89 @@ class ApiService {
   Future<void> initialize({
     String? apiBaseUrl,
     Map<String, String>? defaultHeaders,
-    int timeoutSeconds = 30,
+    int timeoutSeconds = 30, // Reduced to reasonable timeout
     required AuthService authService,
   }) async {
     _authService = authService;
     
+    // Configure timeouts based on platform
+    final Duration connectTimeout = Duration(seconds: timeoutSeconds);
+    final Duration receiveTimeout = Duration(seconds: timeoutSeconds);
+    
     _dio.options = BaseOptions(
       baseUrl: apiBaseUrl ?? baseUrl,
-      connectTimeout: Duration(seconds: timeoutSeconds),
-      receiveTimeout: Duration(seconds: timeoutSeconds),
-      headers: defaultHeaders,
+      connectTimeout: connectTimeout,
+      receiveTimeout: receiveTimeout,
+      // Only set sendTimeout for non-web platforms and when there's data to send
+      sendTimeout: kIsWeb ? null : Duration(seconds: timeoutSeconds),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'channel': 'user',
+        ...?defaultHeaders,
+      },
+      // Add these for better web compatibility
+      validateStatus: (status) => status! < 500,
+      followRedirects: true,
+      maxRedirects: 3,
     );
 
     // Add interceptors for logging, error handling, and token refresh
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          _logger.i('Request: ${options.method} ${options.uri}');
-          _logger.i('Headers: ${options.headers}');
-          if (options.data != null && !(options.data is FormData)) {
-            _logger.i('Data: ${options.data}');
+          // Don't set sendTimeout for GET requests or on web
+          if (kIsWeb || options.method.toUpperCase() == 'GET') {
+            options.sendTimeout = null;
+          }
+          
+          print('Request: ${options.method} ${options.uri}');
+          print('Headers: ${options.headers}');
+          if (options.data != null && options.data is! FormData) {
+            print('Data: ${options.data}');
           }
           return handler.next(options);
         },
         onResponse: (response, handler) {
-          _logger.i('Response: ${response.statusCode}');
-          _logger.d('Data: ${response.data}');
+          print('Response: ${response.statusCode}');
+          print('Data: ${response.data}');
           return handler.next(response);
         },
         onError: (error, handler) async {
+          print('API Error Details:');
+          print('- Type: ${error.type}');
+          print('- Message: ${error.message}');
+          print('- Response Status: ${error.response?.statusCode}');
+          print('- Request Options: ${error.requestOptions.uri}');
+          
           if (error.response?.statusCode == 401) {
-            _logger.w('Token expired, attempting to refresh...');
+            print('Token expired, attempting to refresh...');
             try {
               final success = await refreshToken();
               if (success) {
                 // Retry the original request with new token
-                final opts = Options(
-                  method: error.requestOptions.method,
-                  headers: error.requestOptions.headers,
+                final retryOptions = error.requestOptions.copyWith(
+                  headers: {
+                    ...error.requestOptions.headers,
+                    'Api-token': _dio.options.headers['Api-token'],
+                    'channel': 'user',
+                  },
                 );
-                final originalRequest = await _dio.request<dynamic>(
-                  error.requestOptions.path,
-                  data: error.requestOptions.data,
-                  queryParameters: error.requestOptions.queryParameters,
-                  options: opts,
-                );
+                
+                // Clear sendTimeout for retry if on web or GET request
+                if (kIsWeb || retryOptions.method.toUpperCase() == 'GET') {
+                  retryOptions.sendTimeout = null;
+                }
+                
+                final originalRequest = await _dio.fetch(retryOptions);
                 return handler.resolve(originalRequest);
               }
             } catch (e) {
-              _logger.e('Token refresh failed: $e');
+              print('Token refresh failed: $e');
             }
           }
-          _logger.e('API Error: ${error.message}');
+          
+          _handleError(error);
           return handler.next(error);
         },
       ),
@@ -88,10 +115,12 @@ class ApiService {
   }
 
   void setAuthToken(String token) {
+    // Use Api-token header as requested
     _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
   void clearAuthToken() {
+    _dio.options.headers.remove('Api-token');
     _dio.options.headers.remove('Authorization');
   }
   
@@ -101,9 +130,13 @@ class ApiService {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/auth/refresh-token',
-        options: Options(headers: {
-          'Accept': 'application/json',
-        }),
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'channel': 'user',
+          },
+          sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+        ),
       );
       
       if (response.statusCode == 200 && response.data != null) {
@@ -117,15 +150,14 @@ class ApiService {
       }
       return false;
     } on DioException catch (e) {
-      _logger.e('Token refresh failed: ${e.message}');
-      // If refresh token is invalid, log the user out
+      print('Token refresh failed: ${e.message}');
       if (e.response?.statusCode == 401) {
-        _logger.w('Refresh token expired, logging out user');
+        print('Refresh token expired, logging out user');
         await _authService.logout();
       }
       return false;
     } catch (e) {
-      _logger.e('Unexpected error during token refresh: $e');
+      print('Unexpected error during token refresh: $e');
       return false;
     }
   }
@@ -137,10 +169,18 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: null, // Never set sendTimeout for GET requests
+      );
+
       final response = await _dio.get(
         endpoint,
         queryParameters: queryParameters,
-        options: options,
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -161,11 +201,19 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
       final response = await _dio.post(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -186,11 +234,52 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
       final response = await _dio.put(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: requestOptions,
+      );
+
+      if (fromJson != null) {
+        return fromJson(response.data);
+      }
+      return response.data as T;
+    } on DioException catch (e) {
+      _handleError(e);
+      rethrow;
+    }
+  }
+
+  Future<T> patch<T>(
+    String endpoint, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    T Function(dynamic)? fromJson,
+  }) async {
+    try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
+      final response = await _dio.patch(
+        endpoint,
+        data: data,
+        queryParameters: queryParameters,
+        options: requestOptions,
       );
 
       if (fromJson != null) {
@@ -211,125 +300,21 @@ class ApiService {
     T Function(dynamic)? fromJson,
   }) async {
     try {
+      final requestOptions = Options(
+        headers: {
+          'channel': 'user',
+          ...?options?.headers,
+        },
+        sendTimeout: kIsWeb ? null : Duration(seconds: 30),
+      );
+
       final response = await _dio.delete(
         endpoint,
         data: data,
         queryParameters: queryParameters,
-        options: options,
+        options: requestOptions,
       );
 
-      if (fromJson != null) {
-        return fromJson(response.data);
-      }
-      return response.data as T;
-    } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
-    }
-  }
-  
-  /// Uploads a file along with form data to the specified endpoint
-  /// 
-  /// [endpoint] - API endpoint to upload to
-  /// [file] - File to upload
-  /// [field] - Form field name for the file
-  /// [formData] - Additional form data to include
-  /// [onSendProgress] - Optional callback for upload progress
-  Future<T> uploadFile<T>(
-    String endpoint, {
-    required File file,
-    required String field,
-    Map<String, dynamic>? formData,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    T Function(dynamic)? fromJson,
-    ProgressCallback? onSendProgress,
-  }) async {
-    try {
-      // Create form data
-      final fileName = path.basename(file.path);
-      final formDataObj = FormData();
-      
-      // Add file
-      formDataObj.files.add(MapEntry(
-        field,
-        await MultipartFile.fromFile(
-          file.path,
-          filename: fileName,
-        ),
-      ));
-      
-      // Add other fields
-      if (formData != null) {
-        formData.forEach((key, value) {
-          formDataObj.fields.add(MapEntry(key, value.toString()));
-        });
-      }
-      
-      final response = await _dio.post(
-        endpoint,
-        data: formDataObj,
-        queryParameters: queryParameters,
-        options: options,
-        onSendProgress: onSendProgress,
-      );
-      
-      if (fromJson != null) {
-        return fromJson(response.data);
-      }
-      return response.data as T;
-    } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
-    }
-  }
-  
-  /// Uploads multiple files along with form data to the specified endpoint
-  /// 
-  /// [endpoint] - API endpoint to upload to
-  /// [files] - Map of field names to files
-  /// [formData] - Additional form data to include
-  /// [onSendProgress] - Optional callback for upload progress
-  Future<T> uploadMultipleFiles<T>(
-    String endpoint, {
-    required Map<String, File> files,
-    Map<String, dynamic>? formData,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    T Function(dynamic)? fromJson,
-    ProgressCallback? onSendProgress,
-  }) async {
-    try {
-      // Create form data
-      final formDataObj = FormData();
-      
-      // Add files
-      for (final entry in files.entries) {
-        final fileName = path.basename(entry.value.path);
-        formDataObj.files.add(MapEntry(
-          entry.key,
-          await MultipartFile.fromFile(
-            entry.value.path,
-            filename: fileName,
-          ),
-        ));
-      }
-      
-      // Add other fields
-      if (formData != null) {
-        formData.forEach((key, value) {
-          formDataObj.fields.add(MapEntry(key, value.toString()));
-        });
-      }
-      
-      final response = await _dio.post(
-        endpoint,
-        data: formDataObj,
-        queryParameters: queryParameters,
-        options: options,
-        onSendProgress: onSendProgress,
-      );
-      
       if (fromJson != null) {
         return fromJson(response.data);
       }
@@ -344,35 +329,60 @@ class ApiService {
     String message;
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
+        message = 'Connection timed out. Please check your internet connection.';
+        break;
       case DioExceptionType.sendTimeout:
+        message = 'Request send timed out. The server may be overloaded.';
+        break;
       case DioExceptionType.receiveTimeout:
-        message = 'Connection timeout. Please check your internet connection.';
+        message = 'Response receive timed out. The server may be slow.';
         break;
       case DioExceptionType.badResponse:
+        print('Bad response from server. Status code: ${error.response?.statusCode}');
         message = _handleBadResponse(error.response);
-        // Handle specific status codes
-        if (error.response?.statusCode == 403) {
-          message = 'You dont have permission to access this resource';
-        } else if (error.response?.statusCode == 404) {
-          message = 'The requested resource was not found';
-        } else if (error.response?.statusCode == 500) {
-          message = 'Server error. Please try again later';
-        }
         break;
       case DioExceptionType.cancel:
-        message = 'Request cancelled';
+        message = 'Request was cancelled';
         break;
       case DioExceptionType.connectionError:
-        message = 'No internet connection. Please check your network settings.';
+        // Enhanced error handling for connection issues
+        message = _handleConnectionError(error);
         break;
+      case DioExceptionType.unknown:
       default:
-        message = 'An unexpected error occurred';
+        message = 'An unexpected error occurred: ${error.message ?? 'Unknown error'}';
+        break;
     }
-    print(message);
+    print('Error caught: $message');
+  }
+
+  String _handleConnectionError(DioException error) {
+    final errorMessage = error.message?.toLowerCase() ?? '';
+    
+    if (errorMessage.contains('xmlhttprequest') || errorMessage.contains('network layer')) {
+      if (kIsWeb) {
+        return 'Network connection failed. This could be due to:\n'
+               '• CORS policy blocking the request\n'
+               '• Browser security settings\n'
+               '• Network firewall or proxy\n'
+               '• Server is unreachable\n'
+               'Please check the browser console for more details.';
+      } else {
+        return 'Network connection error. Please check:\n'
+               '• Your internet connection\n'
+               '• VPN or proxy settings\n'
+               '• Firewall configuration\n'
+               '• Server availability';
+      }
+    }
+    
+    return 'Network connection error: ${error.message}';
   }
 
   String _handleBadResponse(Response? response) {
-    if (response == null) return 'No response received';
+    if (response == null || response.data == null) {
+      return 'No response received from server';
+    }
 
     try {
       final data = response.data;
@@ -394,10 +404,12 @@ class ApiService {
             return errors.first.toString();
           }
         }
+      } else if (data is String) {
+        return data;
       }
       return 'Server error: ${response.statusCode}';
     } catch (e) {
-      return 'Server error: ${response.statusCode}';
+      return 'Failed to parse error response. Status: ${response.statusCode}';
     }
   }
 }
