@@ -57,11 +57,17 @@ class MessageProvider extends ChangeNotifier {
   Future<void> fetchConversations() async {
     setLoading();
     try {
-      final response = await _apiService.get('/chats', options: Options(headers: {'Api-Token': '{{api_token}}'}));
+      final response = await _apiService.get(
+        '/chats',
+        options: Options(headers: {'Api-Token': '{{api_token}}'}),
+      );
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        _allConversations = (response['data'] as List<dynamic>)
-            .map((json) => Conversation.fromJson(json as Map<String, dynamic>))
-            .toList();
+        _allConversations =
+            (response['data'] as List<dynamic>)
+                .map(
+                  (json) => Conversation.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
         setSuccess();
       } else {
         setError(response['message'] ?? 'Failed to fetch conversations');
@@ -71,13 +77,18 @@ class MessageProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> startConversation(String currentUserId, String recipientId, [String? initialMessage]) async {
+  Future<void> startConversation(
+    String currentUserId,
+    String recipientId, [
+    String? initialMessage,
+  ]) async {
     setLoading();
     try {
       // Check for existing conversation
       final existingConversation = _allConversations.firstWhere(
-        (conv) => conv.participants.any((user) => user.id == currentUserId) &&
-                  conv.participants.any((user) => user.id == recipientId),
+        (conv) =>
+            conv.participants.any((user) => user.id == currentUserId) &&
+            conv.participants.any((user) => user.id == recipientId),
         orElse: () => Conversation(id: '', participants: [], messages: []),
       );
 
@@ -99,19 +110,19 @@ class MessageProvider extends ChangeNotifier {
       // Create new conversation
       final response = await _apiService.post(
         '/chats',
-        data: {
-          'participant_ids': [currentUserId, recipientId],
-        },
+        data: {'user_id': recipientId},
         options: Options(headers: {'Api-Token': '{{api_token}}'}),
       );
 
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        final newConversation = Conversation.fromJson(response['data'] as Map<String, dynamic>);
+        final newConversation = Conversation.fromJson(
+          response['data'] as Map<String, dynamic>,
+        );
         _allConversations.add(newConversation);
         _currentConversationId = newConversation.id;
         _currentRecipientId = recipientId;
         _currentMessages = [];
-        
+
         if (initialMessage != null && initialMessage.isNotEmpty) {
           await sendMessage(
             senderId: currentUserId,
@@ -121,7 +132,7 @@ class MessageProvider extends ChangeNotifier {
         } else {
           await _fetchMessages(newConversation.id);
         }
-        
+
         setSuccess();
         notifyListeners();
       } else {
@@ -132,10 +143,14 @@ class MessageProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> setCurrentConversation(String currentUserId, String recipientId) async {
+  Future<void> setCurrentConversation(
+    String currentUserId,
+    String recipientId,
+  ) async {
     final conversation = _allConversations.firstWhere(
-      (conv) => conv.participants.any((user) => user.id == currentUserId) &&
-                conv.participants.any((user) => user.id == recipientId),
+      (conv) =>
+          conv.participants.any((user) => user.id == currentUserId) &&
+          conv.participants.any((user) => user.id == recipientId),
       orElse: () => Conversation(id: '', participants: [], messages: []),
     );
 
@@ -156,9 +171,10 @@ class MessageProvider extends ChangeNotifier {
         options: Options(headers: {'Api-Token': '{{api_token}}'}),
       );
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        _currentMessages = (response['data'] as List<dynamic>)
-            .map((json) => Message.fromJson(json as Map<String, dynamic>))
-            .toList();
+        _currentMessages =
+            (response['data'] as List<dynamic>)
+                .map((json) => Message.fromJson(json as Map<String, dynamic>))
+                .toList();
         setSuccess();
       } else {
         setError(response['message'] ?? 'Failed to fetch messages');
@@ -178,12 +194,14 @@ class MessageProvider extends ChangeNotifier {
     setLoading();
     try {
       final conversation = _allConversations.firstWhere(
-        (conv) => conv.participants.any((user) => user.id == senderId) &&
-                  conv.participants.any((user) => user.id == receiverId),
+        (conv) =>
+            conv.participants.any((user) => user.id == senderId) &&
+            conv.participants.any((user) => user.id == receiverId),
         orElse: () => Conversation(id: '', participants: [], messages: []),
       );
 
-      String targetConversationId = conversation.id.isNotEmpty ? conversation.id : _currentConversationId;
+      String targetConversationId =
+          conversation.id.isNotEmpty ? conversation.id : _currentConversationId;
       if (targetConversationId.isEmpty) {
         // Create new conversation
         final response = await _apiService.post(
@@ -195,7 +213,9 @@ class MessageProvider extends ChangeNotifier {
         );
 
         if (response['statusCode'] == 200 && response.containsKey('data')) {
-          final newConversation = Conversation.fromJson(response['data'] as Map<String, dynamic>);
+          final newConversation = Conversation.fromJson(
+            response['data'] as Map<String, dynamic>,
+          );
           _allConversations.add(newConversation);
           targetConversationId = newConversation.id;
           _currentConversationId = newConversation.id;
@@ -209,7 +229,8 @@ class MessageProvider extends ChangeNotifier {
 
       final formData = FormData.fromMap({
         'message': content,
-        if (mediaFilePath != null) 'media': await MultipartFile.fromFile(mediaFilePath),
+        if (mediaFilePath != null)
+          'media': await MultipartFile.fromFile(mediaFilePath),
       });
 
       final response = await _apiService.post(
@@ -219,27 +240,36 @@ class MessageProvider extends ChangeNotifier {
       );
 
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        final newMessage = Message.fromJson(response['data'] as Map<String, dynamic>);
+        final newMessage = Message.fromJson(
+          response['data'] as Map<String, dynamic>,
+        );
         _currentMessages.add(newMessage);
 
         // Update conversation in allConversations
-        final convIndex = _allConversations.indexWhere((conv) => conv.id == targetConversationId);
+        final convIndex = _allConversations.indexWhere(
+          (conv) => conv.id == targetConversationId,
+        );
         if (convIndex != -1) {
-          final updatedMessages = [newMessage, ..._allConversations[convIndex].messages];
+          final updatedMessages = [
+            newMessage,
+            ..._allConversations[convIndex].messages,
+          ];
           _allConversations[convIndex] = Conversation(
             id: _allConversations[convIndex].id,
             participants: _allConversations[convIndex].participants,
             messages: updatedMessages,
           );
         } else {
-          _allConversations.add(Conversation(
-            id: targetConversationId,
-            participants: [
-              ChatUser(id: senderId, name: '', avatar: null),
-              ChatUser(id: receiverId, name: '', avatar: null),
-            ],
-            messages: [newMessage],
-          ));
+          _allConversations.add(
+            Conversation(
+              id: targetConversationId,
+              participants: [
+                ChatUser(id: senderId, name: '', avatar: null),
+                ChatUser(id: receiverId, name: '', avatar: null),
+              ],
+              messages: [newMessage],
+            ),
+          );
         }
 
         setSuccess();
@@ -259,17 +289,25 @@ class MessageProvider extends ChangeNotifier {
     final channelName = 'chat.$conversationId';
     _pusherService.subscribeToChannel(channelName).then((channel) {
       if (channel != null) {
-        _pusherService.bindToEvent(channelName, 'message.sent', (eventDataString) {
+        _pusherService.bindToEvent(channelName, 'message.sent', (
+          eventDataString,
+        ) {
           try {
-            final Map<String, dynamic> eventData = jsonDecode(eventDataString) as Map<String, dynamic>;
+            final Map<String, dynamic> eventData =
+                jsonDecode(eventDataString) as Map<String, dynamic>;
             final newMessage = Message.fromJson(eventData);
             if (_currentConversationId == conversationId) {
               _currentMessages.add(newMessage);
             }
 
-            final convIndex = _allConversations.indexWhere((conv) => conv.id == conversationId);
+            final convIndex = _allConversations.indexWhere(
+              (conv) => conv.id == conversationId,
+            );
             if (convIndex != -1) {
-              final updatedMessages = [newMessage, ..._allConversations[convIndex].messages];
+              final updatedMessages = [
+                newMessage,
+                ..._allConversations[convIndex].messages,
+              ];
               _allConversations[convIndex] = Conversation(
                 id: _allConversations[convIndex].id,
                 participants: _allConversations[convIndex].participants,
