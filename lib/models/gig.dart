@@ -61,6 +61,7 @@ class Gig {
   final List<Faq> faqs;
   final Assets assets;
   final String status;
+  final List<Review> reviews; // Added reviews field
 
   Gig({
     required this.uuid,
@@ -74,6 +75,7 @@ class Gig {
     required this.faqs,
     required this.assets,
     required this.status,
+    required this.reviews, // Added reviews parameter
   });
 
   factory Gig.fromJson(Map<String, dynamic> json) {
@@ -121,6 +123,11 @@ class Gig {
           [],
       assets: Assets.fromJson(json['assets'] as Map<String, dynamic>? ?? {}),
       status: json['status'] as String? ?? 'PENDING',
+      reviews: // Added reviews parsing
+          (json['reviews'] as List<dynamic>?)
+              ?.map((e) => Review.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -137,6 +144,10 @@ class Gig {
       'faqs': faqs.map((f) => f.toJson()).toList(),
       'assets': assets.toJson(),
       'status': status,
+      'reviews':
+          reviews
+              .map((r) => r.toJson())
+              .toList(), // Added reviews serialization
     };
   }
 
@@ -154,6 +165,104 @@ class Gig {
   bool isVerified() => status == 'VERIFIED';
   bool isArchived() => status == 'ARCHIVED';
   bool isRejected() => status == 'REJECTED';
+
+  // Helper methods for reviews
+  double get averageRating {
+    if (reviews.isEmpty) return 0.0;
+    final total = reviews.fold<int>(0, (sum, review) => sum + review.rating);
+    return total / reviews.length;
+  }
+
+  int get totalReviews => reviews.length;
+}
+
+class Review {
+  final String uuid;
+  final int rating;
+  final String review;
+  final ReviewUser user;
+  final String createdAt;
+
+  Review({
+    required this.uuid,
+    required this.rating,
+    required this.review,
+    required this.user,
+    required this.createdAt,
+  });
+
+  factory Review.fromJson(Map<String, dynamic> json) {
+    return Review(
+      uuid: json['uuid'] as String? ?? '',
+      rating: json['rating'] as int? ?? 0,
+      review: json['review'] as String? ?? '',
+      user: ReviewUser.fromJson(json['user'] as Map<String, dynamic>? ?? {}),
+      createdAt: json['createdAt'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uuid': uuid,
+      'rating': rating,
+      'review': review,
+      'user': user.toJson(),
+      'createdAt': createdAt,
+    };
+  }
+
+  DateTime get createdAtDateTime {
+    return DateTime.tryParse(createdAt) ?? DateTime.now();
+  }
+}
+
+class ReviewUser {
+  final String uuid;
+  final String firstName;
+  final String lastName;
+  final String email;
+  final String? profilePicture;
+
+  ReviewUser({
+    required this.uuid,
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    this.profilePicture,
+  });
+
+  factory ReviewUser.fromJson(Map<String, dynamic> json) {
+    // Handle profilePicture - it can be either a string or an object
+    String? profilePictureUrl;
+    if (json['profilePicture'] != null) {
+      if (json['profilePicture'] is String) {
+        profilePictureUrl = json['profilePicture'] as String;
+      } else if (json['profilePicture'] is Map<String, dynamic>) {
+        final imageData = json['profilePicture'] as Map<String, dynamic>;
+        profilePictureUrl = imageData['link'] as String?;
+      }
+    }
+
+    return ReviewUser(
+      uuid: json['uuid'] as String? ?? '',
+      firstName: json['firstName'] as String? ?? '',
+      lastName: json['lastName'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      profilePicture: profilePictureUrl,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'uuid': uuid,
+      'firstName': firstName,
+      'lastName': lastName,
+      'email': email,
+      if (profilePicture != null) 'profilePicture': profilePicture,
+    };
+  }
+
+  String get fullName => '$firstName $lastName';
 }
 
 class Service {

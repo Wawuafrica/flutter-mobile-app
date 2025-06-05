@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/models/gig.dart'; // Assuming Review is defined in gig.dart
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class ReviewComponent extends StatelessWidget {
-  const ReviewComponent({super.key});
+  final Review review;
+
+  const ReviewComponent({super.key, required this.review});
 
   @override
   Widget build(BuildContext context) {
@@ -17,59 +20,84 @@ class ReviewComponent extends StatelessWidget {
       ),
       width: double.infinity,
       height: 180,
-      padding: EdgeInsets.all(20.0),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
-        spacing: 10.0,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
-            spacing: 10.0,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 50,
                 height: 50,
                 clipBehavior: Clip.hardEdge,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.grey,
                 ),
-                child: Image.asset(
-                  'assets/images/other/avatar.webp',
-                  fit: BoxFit.cover,
-                ),
+                child:
+                    review.user.profilePicture != null
+                        ? Image.network(
+                          review.user.profilePicture!,
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (context, error, stackTrace) => Image.asset(
+                                'assets/images/other/avatar.webp',
+                                fit: BoxFit.cover,
+                              ),
+                        )
+                        : Image.asset(
+                          'assets/images/other/avatar.webp',
+                          fit: BoxFit.cover,
+                        ),
               ),
+              const SizedBox(width: 10.0),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 5.0,
                   children: [
-                    Text('Micheal John'),
+                    Text(review.user.fullName),
+                    const SizedBox(height: 5.0),
                     Row(
-                      spacing: 2.0,
-                      children: [
-                        Icon(Icons.star, size: 17, color: wawuColors.primary),
-                        Icon(Icons.star, size: 17, color: wawuColors.primary),
-                        Icon(Icons.star, size: 17, color: wawuColors.primary),
-                        Icon(Icons.star, size: 17, color: wawuColors.primary),
-                        Icon(Icons.star, size: 17, color: wawuColors.primary),
-                      ],
+                      children: List.generate(5, (index) {
+                        return Icon(
+                          Icons.star,
+                          size: 17,
+                          color:
+                              index < review.rating
+                                  ? wawuColors.primary
+                                  : Colors.grey,
+                        );
+                      }),
                     ),
                   ],
                 ),
               ),
               Text(
-                '20/12/2025',
-                style: TextStyle(color: Colors.grey, fontSize: 11),
+                _formatDate(review.createdAt),
+                style: const TextStyle(color: Colors.grey, fontSize: 11),
               ),
             ],
           ),
           Text(
-            'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut tellus ipsum, sodales non rhoncus sit amet, viverra eu mi. Curabitur congue condimentum turpis sit amet maximus. Donec elementum ligula tellus, et blandit tortor maximus nec. Nullam rutrum rhoncus metus, quis aliquam augue hendrerit cursus. Proin mollis eget massa sed scelerisque. Nullam laoreet dictum viverra. Nullam ornare, urna in mattis pulvinar, felis elit convallis orci, at molestie purus eros id nisl. Nullam maximus sed neque ac pellentesque. Ut pretium felis risus, a gravida tellus feugiat at. Nullam bibendum mi vel arcu condimentum, sed suscipit dui sollicitudin. Nam',
-            style: TextStyle(fontSize: 12, overflow: TextOverflow.ellipsis),
+            review.review,
+            style: const TextStyle(
+              fontSize: 12,
+              overflow: TextOverflow.ellipsis,
+            ),
             maxLines: 5,
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return 'Invalid date';
+    }
   }
 }
