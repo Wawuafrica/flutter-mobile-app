@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:wawu_mobile/models/category.dart' as app;
 import 'package:wawu_mobile/providers/category_provider.dart';
@@ -274,6 +273,11 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         final photo = _photos[i];
         print('Photo ${i + 1} path: ${photo.path}');
 
+        // Add fileName field for each photo
+        formData.fields.add(
+          MapEntry('asset[photos][${i + 1}][fileName]', photo.name),
+        );
+
         if (photo.path.startsWith('blob:')) {
           // Handle blob URLs by reading bytes
           print('Handling photo ${photo.name} as blob URL.');
@@ -330,11 +334,9 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
 
       // Add video file if exists
       if (_video != null) {
-        print('Processing video...');
-        print('Video path: ${_video!.path}');
+        formData.fields.add(MapEntry('asset[video][fileName]', _video!.name));
 
         if (_video!.path.startsWith('blob:')) {
-          print('Handling video as blob URL.');
           final bytes = await _video!.readAsBytes();
           formData.files.add(
             MapEntry(
@@ -349,7 +351,6 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         } else {
           final videoFile = File(_video!.path);
           if (!videoFile.existsSync()) {
-            print('Error: Video not found at path: ${_video!.path}');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -385,11 +386,9 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
 
       // Add PDF file if exists
       if (_pdf != null) {
-        print('Processing PDF...');
-        print('PDF path: ${_pdf!.path}');
+        formData.fields.add(MapEntry('asset[pdf][fileName]', _pdf!.name));
 
         if (_pdf!.path.startsWith('blob:')) {
-          print('Handling PDF as blob URL.');
           final bytes = await _pdf!.readAsBytes();
           formData.files.add(
             MapEntry(
@@ -404,7 +403,6 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         } else {
           final pdfFile = File(_pdf!.path);
           if (!pdfFile.existsSync()) {
-            print('Error: PDF not found at path: ${_pdf!.path}');
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
@@ -417,9 +415,6 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
             setState(() => _isSubmitting = false);
             return;
           }
-
-          final pdfSize = await pdfFile.length();
-          print('PDF size: ${pdfSize / (1024 * 1024)} MB');
 
           formData.files.add(
             MapEntry(
@@ -478,10 +473,6 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           MapEntry('faq[${i + 1}][answer]', _faqs[i]['Answer']),
         );
       }
-
-      print(
-        'Sending request with ${formData.fields.length} fields and ${formData.files.length} files...',
-      );
 
       // Call the API
       final gig = await gigProvider.createGig(formData);
