@@ -296,7 +296,7 @@ class SettingsScreen extends StatelessWidget {
                       .logout(); // UserProvider has a specific logout which also clears state
                   adProvider.reset();
                   applicationProvider.clearAll();
-                  blogProvider.clearAll();
+                  blogProvider.refresh();
                   // CategoryProvider does not have a clearAll or reset, clear selected states individually
                   categoryProvider.clearSelectedCategory();
                   categoryProvider.clearSelectedSubCategory();

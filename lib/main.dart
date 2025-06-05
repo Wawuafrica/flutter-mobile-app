@@ -148,7 +148,7 @@ void main() async {
             create:
                 (context) => BlogProvider(
                   apiService: apiService,
-                  pusherService: pusherService,
+                  // pusherService: pusherService,
                 ),
           ),
           ChangeNotifierProvider(

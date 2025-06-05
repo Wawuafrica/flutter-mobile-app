@@ -1,493 +1,286 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import '../models/blog_post.dart';
-import '../providers/base_provider.dart';
 import '../services/api_service.dart';
-import '../services/pusher_service.dart';
 
 /// BlogProvider manages the state of blog posts.
 ///
 /// This provider handles:
-/// - Fetching blog posts with filtering and pagination
-/// - Fetching featured posts
-/// - Fetching post details
-/// - Creating and updating posts (for authorized users)
-/// - Real-time blog updates via Pusher based on new event structure
-class BlogProvider extends BaseProvider {
+/// - Fetching blog posts with pagination
+/// - Fetching single post details
+/// - Liking/unliking posts
+/// - Adding comments and sub-comments
+/// - Liking comments
+class BlogProvider extends ChangeNotifier {
   final ApiService _apiService;
-  final PusherService _pusherService;
-
   List<BlogPost> _posts = [];
-  List<BlogPost> _featuredPosts = [];
   BlogPost? _selectedPost;
-  bool _hasMorePosts = true;
+  bool _isLoading = false;
+  String? _errorMessage;
   int _currentPage = 1;
-  bool _isGeneralChannelSubscribed = false;
-  String? _currentPostChannel;
+  bool _hasMore = true;
 
   // Getters
   List<BlogPost> get posts => _posts;
-  List<BlogPost> get featuredPosts => _featuredPosts;
   BlogPost? get selectedPost => _selectedPost;
-  bool get hasMorePosts => _hasMorePosts;
-  int get currentPage => _currentPage;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  bool get hasMore => _hasMore;
 
-  BlogProvider({ApiService? apiService, PusherService? pusherService})
-      : _apiService = apiService ?? ApiService(),
-        _pusherService = pusherService ?? PusherService();
+  BlogProvider({required ApiService apiService}) : _apiService = apiService;
 
-  /// Fetches blog posts with optional filtering and pagination
-  Future<List<BlogPost>> fetchPosts({
-    List<String>? categories,
-    List<String>? tags,
-    String? authorId,
-    bool refresh = false,
-  }) async {
+  /// Fetches blog posts with pagination
+  Future<void> fetchPosts({bool refresh = false}) async {
+    if (_isLoading) return;
+
     if (refresh) {
       _currentPage = 1;
-      _hasMorePosts = true;
+      _hasMore = true;
+      _posts = [];
+    } else if (!_hasMore) {
+      return;
     }
 
-    if (!_hasMorePosts && !refresh) {
-      return _posts;
-    }
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
 
     try {
       final response = await _apiService.get(
-        '/blog/posts',
-        queryParameters: {
-          'page': _currentPage.toString(),
-          'limit': '10',
-          'status': 'published',
-          if (categories != null && categories.isNotEmpty)
-            'categories': categories.join(','),
-          if (tags != null && tags.isNotEmpty) 'tags': tags.join(','),
-          if (authorId != null) 'author_id': authorId,
-        },
+        '/posts',
+        queryParameters: {'page': _currentPage},
       );
 
-      if (response['posts'] == null) {
-        print('Failed to fetch blog posts: Invalid response');
-        return [];
+      if (response['statusCode'] == 200) {
+        final List<dynamic> postsData = response['data'] ?? [];
+        final newPosts =
+            postsData
+                .map(
+                  (postJson) =>
+                      BlogPost.fromJson(postJson as Map<String, dynamic>),
+                )
+                .toList();
+
+        _hasMore = newPosts.isNotEmpty;
+        _currentPage++;
+        _posts = refresh ? newPosts : [..._posts, ...newPosts];
+      } else {
+        _errorMessage = response['message'] ?? 'Failed to load posts';
       }
-
-      final List<dynamic> postsJson = response['posts'];
-      final fetchedPosts = postsJson
-          .map((json) => BlogPost.fromJson(json as Map<String, dynamic>))
-          .toList();
-
-      _hasMorePosts = response['has_more'] ?? false;
-      _posts = refresh ? fetchedPosts : [..._posts, ...fetchedPosts];
-      _currentPage++;
-
-      if (!_isGeneralChannelSubscribed) {
-        await _subscribeToGeneralBlogChannel();
-      }
-
-      notifyListeners();
-      return _posts;
     } catch (e) {
-      print('Failed to fetch blog posts: $e');
-      return [];
+      _errorMessage = 'Failed to fetch posts: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  /// Fetches featured blog posts
-  Future<List<BlogPost>> fetchFeaturedPosts() async {
+  /// Fetches a single blog post by ID
+  Future<BlogPost?> fetchPostById(String postId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     try {
-      final response = await _apiService.get('/blog/featured');
+      final response = await _apiService.get('/post/$postId');
 
-      if (response['posts'] == null) {
-        print('Failed to fetch featured posts: Invalid response');
-        return [];
-      }
-
-      final List<dynamic> postsJson = response['posts'];
-      _featuredPosts = postsJson
-          .map((json) => BlogPost.fromJson(json as Map<String, dynamic>))
-          .toList();
-
-      notifyListeners();
-      return _featuredPosts;
-    } catch (e) {
-      print('Failed to fetch featured posts: $e');
-      return [];
-    }
-  }
-
-  /// Fetches details of a specific blog post and subscribes to its channel
-  Future<BlogPost?> fetchPostDetails(String postId) async {
-    try {
-      // Unsubscribe from previous post channel if any
-      if (_currentPostChannel != null) {
-        await _pusherService.unsubscribeFromChannel(_currentPostChannel!);
-        _currentPostChannel = null;
-      }
-
-      final response = await _apiService.get('/blog/posts/$postId');
-
-      if (response.isEmpty) {
-        print('Failed to fetch post details: Empty response');
+      if (response['statusCode'] == 200) {
+        _selectedPost = BlogPost.fromJson(response['data']);
+        return _selectedPost;
+      } else {
+        _errorMessage = response['message'] ?? 'Failed to load post';
         return null;
       }
-
-      final post = BlogPost.fromJson(response);
-      _updatePostInLists(postId, post);
-      _selectedPost = post;
-
-      // Subscribe to the specific post channel
-      await _subscribeToPostChannel(postId);
-
-      notifyListeners();
-      return post;
     } catch (e) {
-      print('Failed to fetch post details: $e');
+      _errorMessage = 'Failed to fetch post: $e';
       return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  /// Creates a new blog post (for authorized users)
-  Future<BlogPost?> createPost({
-    required String title,
-    required String content,
-    required String authorId,
-    required String authorName,
-    String? authorAvatarUrl,
-    required List<String> categories,
-    required List<String> tags,
-    String? featuredImageUrl,
-    bool isFeatured = false,
-    String status = 'draft',
-  }) async {
+  /// Toggle like on a post
+  Future<bool> toggleLikePost(String postId) async {
+    try {
+      final response = await _apiService.post('/post/like/$postId');
+
+      if (response['statusCode'] == 200) {
+        // Update the post in the list if it exists
+        final postIndex = _posts.indexWhere((post) => post.uuid == postId);
+        if (postIndex != -1) {
+          final post = _posts[postIndex];
+          final isLiked = !post.isLikedByCurrentUser;
+          _posts[postIndex] = post.copyWith(
+            likes: isLiked ? post.likes + 1 : post.likes - 1,
+          );
+        }
+
+        // Update selected post if it's the one being liked
+        if (_selectedPost?.uuid == postId) {
+          final isLiked = !_selectedPost!.isLikedByCurrentUser;
+          _selectedPost = _selectedPost!.copyWith(
+            likes:
+                isLiked ? _selectedPost!.likes + 1 : _selectedPost!.likes - 1,
+          );
+        }
+
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = 'Failed to like post: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Add a comment to a post
+  Future<BlogComment?> addComment(String postId, String comment) async {
     try {
       final response = await _apiService.post(
-        '/blog/posts',
-        data: {
-          'title': title,
-          'content': content,
-          'author_id': authorId,
-          'author_name': authorName,
-          'author_avatar_url': authorAvatarUrl,
-          'categories': categories,
-          'tags': tags,
-          'featured_image_url': featuredImageUrl,
-          'is_featured': isFeatured,
-          'status': status,
-        },
+        '/post/comment/$postId',
+        data: {'type': 'comment', 'comment': comment},
       );
 
-      if (response.isEmpty) {
-        print('Failed to create blog post: Empty response');
-        return null;
-      }
+      if (response['statusCode'] == 200) {
+        final newComment = BlogComment.fromJson(response['data']);
 
-      final post = BlogPost.fromJson(response);
-      // The general channel will handle adding the new post via real-time update
-
-      return post;
-    } catch (e) {
-      print('Failed to create blog post: $e');
-      return null;
-    }
-  }
-
-  /// Updates an existing blog post (for authorized users)
-  Future<BlogPost?> updatePost({
-    required String postId,
-    String? title,
-    String? content,
-    List<String>? categories,
-    List<String>? tags,
-    String? featuredImageUrl,
-    bool? isFeatured,
-    String? status,
-  }) async {
-    try {
-      final response = await _apiService.put(
-        '/blog/posts/$postId',
-        data: {
-          if (title != null) 'title': title,
-          if (content != null) 'content': content,
-          if (categories != null) 'categories': categories,
-          if (tags != null) 'tags': tags,
-          if (featuredImageUrl != null) 'featured_image_url': featuredImageUrl,
-          if (isFeatured != null) 'is_featured': isFeatured,
-          if (status != null) 'status': status,
-        },
-      );
-
-      if (response.isEmpty) {
-        print('Failed to update blog post: Empty response');
-        return null;
-      }
-
-      final updatedPost = BlogPost.fromJson(response);
-      // The specific post channel will handle updating the post via real-time update
-
-      return updatedPost;
-    } catch (e) {
-      print('Failed to update blog post: $e');
-      return null;
-    }
-  }
-
-  /// Updates a post in posts and featuredPosts lists
-  void _updatePostInLists(String postId, BlogPost updatedPost) {
-    bool foundInPosts = false;
-    for (int i = 0; i < _posts.length; i++) {
-      if (_posts[i].id == postId) {
-        if (updatedPost.isPublished()) {
-          _posts[i] = updatedPost;
-        } else {
-          _posts.removeAt(i);
+        // Update selected post if it's the current one
+        if (_selectedPost?.uuid == postId) {
+          _selectedPost = _selectedPost!.copyWith(
+            comments: [..._selectedPost!.comments, newComment],
+          );
+          notifyListeners();
         }
-        foundInPosts = true;
-        break;
+
+        return newComment;
       }
-    }
-
-    if (!foundInPosts && updatedPost.isPublished()) {
-      _posts.insert(0, updatedPost);
-    }
-
-    bool foundInFeatured = false;
-    for (int i = 0; i < _featuredPosts.length; i++) {
-      if (_featuredPosts[i].id == postId) {
-        if (updatedPost.isFeatured) {
-          _featuredPosts[i] = updatedPost;
-        } else {
-          _featuredPosts.removeAt(i);
-        }
-        foundInFeatured = true;
-        break;
-      }
-    }
-
-    if (!foundInFeatured && updatedPost.isFeatured) {
-      _featuredPosts.insert(0, updatedPost);
-    }
-
-    // Sort lists after update/addition
-    _posts.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-    _featuredPosts.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
-
-    notifyListeners();
-  }
-
-  /// Removes a post from lists
-  void _removePostFromLists(String postId) {
-    _posts.removeWhere((post) => post.id == postId);
-    _featuredPosts.removeWhere((post) => post.id == postId);
-    if (_selectedPost?.id == postId) {
-      _selectedPost = null;
-    }
-    notifyListeners();
-  }
-
-  /// Sets the selected blog post
-  void selectPost(String postId) {
-     try {
-      // Unsubscribe from previous post channel if any
-      if (_currentPostChannel != null) {
-        _pusherService.unsubscribeFromChannel(_currentPostChannel!);
-        _currentPostChannel = null;
-      }
-
-      _selectedPost = _posts.firstWhere(
-        (post) => post.id == postId,
-        orElse: () => _featuredPosts.firstWhere(
-          (post) => post.id == postId,
-          orElse: () => throw Exception('Blog post not found: $postId'),
-        ),
-      );
-
-      // Subscribe to the specific post channel
-      _subscribeToPostChannel(postId);
-
+      return null;
+    } catch (e) {
+      _errorMessage = 'Failed to add comment: $e';
       notifyListeners();
-    } catch (e) {
-      print('Failed to select post: $e');
+      return null;
     }
   }
 
-  /// Clears the selected blog post and unsubscribes from its channel
-  void clearSelectedPost() {
-    if (_currentPostChannel != null) {
-      _pusherService.unsubscribeFromChannel(_currentPostChannel!);
-      _currentPostChannel = null;
+  /// Add a reply to a comment
+  Future<BlogComment?> addReply(
+    String postId,
+    int commentId,
+    String reply,
+  ) async {
+    try {
+      final response = await _apiService.post(
+        '/post/comment/$postId',
+        data: {'type': 'sub_comment', 'commentId': commentId, 'comment': reply},
+      );
+
+      if (response['statusCode'] == 200) {
+        final newReply = BlogComment.fromJson(response['data']);
+
+        // Update selected post if it's the current one
+        if (_selectedPost?.uuid == postId) {
+          final commentIndex = _selectedPost!.comments.indexWhere(
+            (c) => c.id == commentId,
+          );
+
+          if (commentIndex != -1) {
+            final updatedComment = _selectedPost!.comments[commentIndex]
+                .copyWith(
+                  subComments: [
+                    ..._selectedPost!.comments[commentIndex].subComments,
+                    newReply,
+                  ],
+                );
+
+            final updatedComments = List<BlogComment>.from(
+              _selectedPost!.comments,
+            );
+            updatedComments[commentIndex] = updatedComment;
+
+            _selectedPost = _selectedPost!.copyWith(comments: updatedComments);
+            notifyListeners();
+            return newReply;
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      _errorMessage = 'Failed to add reply: $e';
+      notifyListeners();
+      return null;
     }
-    _selectedPost = null;
+  }
+
+  /// Toggle like on a comment
+  Future<bool> toggleLikeComment(String postId, int commentId) async {
+    try {
+      final response = await _apiService.post('/post/comment/like/$commentId');
+
+      if (response['statusCode'] == 200) {
+        // Update the comment in the selected post
+        if (_selectedPost?.uuid == postId) {
+          final commentIndex = _selectedPost!.comments.indexWhere(
+            (c) => c.id == commentId,
+          );
+
+          if (commentIndex != -1) {
+            final comment = _selectedPost!.comments[commentIndex];
+            final isLiked = !comment.isLiked;
+
+            final updatedComment = comment.copyWith(
+              isLiked: isLiked,
+              likers:
+                  isLiked
+                      ? [...?comment.likers, _createCurrentUserLiker()]
+                      : comment.likers
+                          ?.where((l) => l.uuid != 'current_user_id')
+                          .toList(),
+            );
+
+            final updatedComments = List<BlogComment>.from(
+              _selectedPost!.comments,
+            );
+            updatedComments[commentIndex] = updatedComment;
+
+            _selectedPost = _selectedPost!.copyWith(comments: updatedComments);
+            notifyListeners();
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch (e) {
+      _errorMessage = 'Failed to like comment: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Helper method to create a liker object for the current user
+  BlogLiker _createCurrentUserLiker() {
+    // Replace with actual user data
+    return BlogLiker(
+      name: 'Current User',
+      uuid: 'current_user_id',
+      email: 'user@example.com',
+    );
+  }
+
+  // Clear error message
+  void clearError() {
+    _errorMessage = null;
     notifyListeners();
   }
 
-  /// Subscribes to the general blog channel for creates/deletes
-  Future<void> _subscribeToGeneralBlogChannel() async {
-    const channelName = 'posts';
-    try {
-      final channel = await _pusherService.subscribeToChannel(channelName);
-      if (channel == null) {
-        print('Failed to subscribe to general blog channel');
-        return;
-      }
-
-      _isGeneralChannelSubscribed = true;
-
-      // Bind to post created event
-      _pusherService.bindToEvent(channelName, 'post.created', (data) {
-        try {
-          if (data is! String) {
-            print('Invalid post.created event data');
-            return;
-          }
-          final postData = jsonDecode(data) as Map<String, dynamic>;
-          final post = BlogPost.fromJson(postData);
-
-          if (post.isPublished()) {
-            _posts.insert(0, post);
-            if (post.isFeatured) {
-              _featuredPosts.insert(0, post);
-            }
-            // No need to sort here, assuming new posts come in order or will be sorted on fetch
-            notifyListeners();
-          }
-        } catch (e) {
-          print('Failed to handle post.created event: $e');
-        }
-      });
-
-       // Bind to post deleted event
-      _pusherService.bindToEvent(channelName, 'post.deleted', (data) {
-        try {
-          if (data is! String) {
-             print('Invalid post.deleted event data');
-             return;
-          }
-          final deletedPostData = jsonDecode(data) as Map<String, dynamic>;
-          final String? deletedPostId = deletedPostData['post_uuid'];
-
-          if (deletedPostId != null) {
-            _removePostFromLists(deletedPostId);
-          } else {
-             print('post.deleted event data missing post_uuid');
-          }
-        } catch (e) {
-          print('Failed to handle post.deleted event: $e');
-        }
-      });
-
-    } catch (e) {
-      print('Failed to subscribe to general blog channel: $e');
-    }
-  }
-
-  /// Subscribes to a specific post channel for updates, comments, and likes
-  Future<void> _subscribeToPostChannel(String postId) async {
-    final channelName = 'post.updated.\$postId'; // Using post.updated channel for general post events
-     final commentChannelName = 'post.comment.\$postId';
-     final likeChannelName = 'post.liked.\$postId';
-
-    try {
-       // Subscribe to updated channel
-      final updatedChannel = await _pusherService.subscribeToChannel(channelName);
-       if (updatedChannel != null) {
-          _currentPostChannel = channelName; // Store only the main post channel
-
-           _pusherService.bindToEvent(channelName, 'post.updated', (data) {
-              try {
-                if (data is! String) {
-                  print('Invalid post.updated event data');
-                  return;
-                }
-                final postData = jsonDecode(data) as Map<String, dynamic>;
-                final updatedPost = BlogPost.fromJson(postData);
-                 _updatePostInLists(updatedPost.id, updatedPost);
-                if (_selectedPost?.id == updatedPost.id) {
-                   _selectedPost = updatedPost;
-                   notifyListeners();
-                 }
-              } catch (e) {
-                 print('Failed to handle post.updated event: $e');
-              }
-           });
-       }
-
-       // Subscribe to comment channel
-       final commentChannel = await _pusherService.subscribeToChannel(commentChannelName);
-       if (commentChannel != null) {
-          _pusherService.bindToEvent(commentChannelName, 'post.comment', (data) {
-            try {
-              if (data is! String) {
-                print('Invalid post.comment event data');
-                return;
-              }
-              final commentData = jsonDecode(data) as Map<String, dynamic>;
-              // Assuming comment data structure allows adding to _selectedPost.comments
-              // This requires BlogPost model to handle comments
-              // If _selectedPost is the post this comment belongs to, add the comment.
-               if (_selectedPost != null && _selectedPost!.id == postId) {
-                 // Assuming commentData can be converted to a Comment object
-                 // This requires a Comment model and a way to add it to BlogPost
-                 // Example: _selectedPost!.comments.add(Comment.fromJson(commentData));
-                 notifyListeners();
-               }
-            } catch (e) {
-              print('Failed to handle post.comment event: $e');
-            }
-          });
-       }
-
-       // Subscribe to like channel
-        final likeChannel = await _pusherService.subscribeToChannel(likeChannelName);
-        if (likeChannel != null) {
-           _pusherService.bindToEvent(likeChannelName, 'post.liked', (data) {
-             try {
-               if (data is! String) {
-                 print('Invalid post.liked event data');
-                 return;
-               }
-               final likeData = jsonDecode(data) as Map<String, dynamic>;
-               // Assuming like data structure allows updating like count or user list
-               // If _selectedPost is the post this like belongs to, update like status/count.
-               if (_selectedPost != null && _selectedPost!.id == postId) {
-                  // Example: _selectedPost!.likesCount = likeData['likes_count'];
-                  notifyListeners();
-               }
-             } catch (e) {
-               print('Failed to handle post.liked event: $e');
-             }
-           });
-        }
-
-        // Note: post.comment.like.{post_uuid} is not implemented here as it requires more specific Comment ID handling
-
-    } catch (e) {
-      print('Failed to subscribe to post channel \$postId: \$e');
-       _currentPostChannel = null; // Clear channel on failure
-    }
-  }
-
-  /// Clears all blog data
-  void clearAll() {
+  // Refresh the provider state
+  void refresh() {
     _posts = [];
-    _featuredPosts = [];
     _selectedPost = null;
-    _hasMorePosts = true;
     _currentPage = 1;
-    _isGeneralChannelSubscribed = false;
-    if (_currentPostChannel != null) {
-      _pusherService.unsubscribeFromChannel(_currentPostChannel!);
-      _currentPostChannel = null;
-    }
-    resetState();
-  }
-
-  @override
-  void dispose() {
-    if (_isGeneralChannelSubscribed) {
-      _pusherService.unsubscribeFromChannel('posts');
-    }
-     if (_currentPostChannel != null) {
-       _pusherService.unsubscribeFromChannel(_currentPostChannel!);
-     }
-    super.dispose();
+    _hasMore = true;
+    _errorMessage = null;
+    notifyListeners();
   }
 }
