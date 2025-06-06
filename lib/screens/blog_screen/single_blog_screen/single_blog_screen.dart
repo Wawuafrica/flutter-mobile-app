@@ -269,6 +269,7 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                     return BlogCommentWidget(
                       comment: comment,
                       postId: selectedPost.uuid,
+                      isTopLevel: true,
                       onLike: (commentId) async {
                         final success = await blogProvider.toggleLikeComment(
                           selectedPost.uuid,
@@ -368,6 +369,7 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
 class BlogCommentWidget extends StatefulWidget {
   final BlogComment comment;
   final String postId;
+  final bool isTopLevel;
   final Future<bool> Function(int commentId) onLike;
   final Future<bool> Function(int commentId, String reply) onReply;
 
@@ -375,6 +377,7 @@ class BlogCommentWidget extends StatefulWidget {
     Key? key,
     required this.comment,
     required this.postId,
+    required this.isTopLevel,
     required this.onLike,
     required this.onReply,
   }) : super(key: key);
@@ -455,211 +458,237 @@ class _BlogCommentWidgetState extends State<BlogCommentWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = context.watch<UserProvider>();
-    final currentUserId = userProvider.currentUser?.uuid ?? '';
-    final isCommentLiked = widget.comment.likers.any(
-      (liker) => liker.uuid == currentUserId,
-    );
+    return Consumer<BlogProvider>(
+      builder: (context, blogProvider, child) {
+        // Get the latest comment from the provider to ensure updated like count
+        final selectedPost = blogProvider.selectedPost;
+        BlogComment currentComment = widget.comment;
+        if (selectedPost != null) {
+          final updatedComment = selectedPost.comments.firstWhere(
+            (c) => c.id == widget.comment.id,
+            orElse: () => widget.comment,
+          );
+          currentComment = updatedComment;
+        }
 
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 15.0),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        final userProvider = context.watch<UserProvider>();
+        final currentUserId = userProvider.currentUser?.uuid ?? '';
+        final isCommentLiked = currentComment.likers.any(
+          (liker) => liker.uuid == currentUserId,
+        );
+
+        return Container(
+          padding: EdgeInsets.symmetric(vertical: 15.0),
+          child: Column(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: wawuColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                child:
-                    widget.comment.commentedBy.profilePicture != null
-                        ? ClipOval(
-                          child: Image.network(
-                            widget.comment.commentedBy.profilePicture!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 20,
-                              );
-                            },
-                          ),
-                        )
-                        : Icon(Icons.person, color: Colors.white, size: 20),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${widget.comment.commentedBy.firstName ?? ''} ${widget.comment.commentedBy.lastName ?? ''}'
-                              .trim(),
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          _formatTime(widget.comment.createdAt),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: wawuColors.primary,
+                      shape: BoxShape.circle,
                     ),
-                    SizedBox(height: 5),
-                    Text(
-                      widget.comment.content,
-                      style: TextStyle(fontSize: 11),
-                    ),
-                    SizedBox(height: 10),
-                    Row(
-                      children: [
-                        GestureDetector(
-                          onTap: _handleLike,
-                          child: Row(
-                            children: [
-                              _isLiking
-                                  ? SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 1,
-                                      color: wawuColors.primary,
-                                    ),
-                                  )
-                                  : Icon(
-                                    isCommentLiked
-                                        ? Icons.thumb_up_alt
-                                        : Icons.thumb_up_alt_outlined,
-                                    size: 12,
-                                    color:
-                                        isCommentLiked
-                                            ? wawuColors.primary
-                                            : Colors.grey[600],
-                                  ),
-                              SizedBox(width: 5),
-                              Text(
-                                _formatCount(widget.comment.likers.length),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color:
-                                      isCommentLiked
-                                          ? wawuColors.primary
-                                          : Colors.grey[600],
-                                ),
+                    child:
+                        currentComment.commentedBy.profilePicture != null
+                            ? ClipOval(
+                              child: Image.network(
+                                currentComment.commentedBy.profilePicture!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 20,
+                                  );
+                                },
                               ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 15),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _showReplyField = !_showReplyField;
-                            });
-                          },
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.reply,
-                                size: 12,
+                            )
+                            : Icon(Icons.person, color: Colors.white, size: 20),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${currentComment.commentedBy.firstName ?? ''} ${currentComment.commentedBy.lastName ?? ''}'
+                                  .trim(),
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              _formatTime(currentComment.createdAt),
+                              style: TextStyle(
+                                fontSize: 11,
                                 color: Colors.grey[600],
                               ),
-                              SizedBox(width: 5),
-                              Text(
-                                'Reply',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_showReplyField)
-                      Container(
-                        margin: EdgeInsets.only(top: 10),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[100],
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                padding: EdgeInsets.symmetric(horizontal: 12),
-                                child: TextField(
-                                  controller: _replyController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Write a reply...',
-                                    border: InputBorder.none,
-                                    hintStyle: TextStyle(fontSize: 12),
-                                  ),
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
                             ),
-                            SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: _isSubmittingReply ? null : _handleReply,
-                              child: Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: wawuColors.primary,
-                                  shape: BoxShape.circle,
-                                ),
-                                child:
-                                    _isSubmittingReply
+                          ],
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          currentComment.content,
+                          style: TextStyle(fontSize: 11),
+                        ),
+                        if (widget.isTopLevel) ...[
+                          SizedBox(height: 10),
+                          Row(
+                            children: [
+                              GestureDetector(
+                                onTap: _handleLike,
+                                child: Row(
+                                  children: [
+                                    _isLiking
                                         ? SizedBox(
                                           width: 12,
                                           height: 12,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 1,
-                                            color: Colors.white,
+                                            color: wawuColors.primary,
                                           ),
                                         )
                                         : Icon(
-                                          Icons.send,
+                                          isCommentLiked
+                                              ? Icons.thumb_up_alt
+                                              : Icons.thumb_up_alt_outlined,
                                           size: 12,
-                                          color: Colors.white,
+                                          color:
+                                              isCommentLiked
+                                                  ? wawuColors.primary
+                                                  : Colors.grey[600],
                                         ),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      _formatCount(
+                                        currentComment.likers.length,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color:
+                                            isCommentLiked
+                                                ? wawuColors.primary
+                                                : Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 15),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _showReplyField = !_showReplyField;
+                                  });
+                                },
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.reply,
+                                      size: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'Reply',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_showReplyField)
+                            Container(
+                              margin: EdgeInsets.only(top: 10),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                      child: TextField(
+                                        controller: _replyController,
+                                        decoration: InputDecoration(
+                                          hintText: 'Write a reply...',
+                                          border: InputBorder.none,
+                                          hintStyle: TextStyle(fontSize: 12),
+                                        ),
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap:
+                                        _isSubmittingReply
+                                            ? null
+                                            : _handleReply,
+                                    child: Container(
+                                      padding: EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: wawuColors.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child:
+                                          _isSubmittingReply
+                                              ? SizedBox(
+                                                width: 12,
+                                                height: 12,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 1,
+                                                      color: Colors.white,
+                                                    ),
+                                              )
+                                              : Icon(
+                                                Icons.send,
+                                                size: 12,
+                                                color: Colors.white,
+                                              ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
+              if (currentComment.subComments.isNotEmpty)
+                Container(
+                  margin: EdgeInsets.only(left: 50, top: 10),
+                  child: Column(
+                    children:
+                        currentComment.subComments.map((subComment) {
+                          return BlogCommentWidget(
+                            comment: subComment,
+                            postId: widget.postId,
+                            isTopLevel: false,
+                            onLike: widget.onLike,
+                            onReply: widget.onReply,
+                          );
+                        }).toList(),
+                  ),
+                ),
             ],
           ),
-          if (widget.comment.subComments.isNotEmpty)
-            Container(
-              margin: EdgeInsets.only(left: 50, top: 10),
-              child: Column(
-                children:
-                    widget.comment.subComments.map((subComment) {
-                      return BlogCommentWidget(
-                        comment: subComment,
-                        postId: widget.postId,
-                        onLike: widget.onLike,
-                        onReply: widget.onReply,
-                      );
-                    }).toList(),
-              ),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
