@@ -6,6 +6,8 @@ class PlanCard extends StatelessWidget {
   final String heading;
   final String desc;
   final double width;
+  final double? price;
+  final String? currency;
   final List<Map<String, dynamic>> features;
   final GestureTapCallback? function;
 
@@ -15,6 +17,8 @@ class PlanCard extends StatelessWidget {
     required this.desc,
     this.features = const [],
     this.width = 300,
+    this.price,
+    this.currency,
     this.function,
   });
 
@@ -52,6 +56,18 @@ class PlanCard extends StatelessWidget {
                 textAlign:
                     features.isEmpty ? TextAlign.center : TextAlign.start,
               ),
+              const SizedBox(height: 8),
+              if (price != null)
+                Text(
+                  '${currency ?? 'NGN'} ${price!.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: wawuColors.primary,
+                  ),
+                  textAlign:
+                      features.isEmpty ? TextAlign.center : TextAlign.start,
+                ),
               const SizedBox(height: 10),
               Text(
                 desc,
