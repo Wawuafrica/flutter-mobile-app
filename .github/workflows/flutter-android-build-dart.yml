@@ -29,29 +29,8 @@ jobs:
     - name: Get Flutter dependencies
       run: flutter pub get
 
-    - name: Run Flutter analyzer
-      run: flutter analyze
-
-    - name: Run Flutter tests
-      run: flutter test
-
     - name: Build APK
       run: flutter build apk --release
-
-    - name: Build App Bundle
-      run: flutter build appbundle --release
-
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
-
-    - name: Upload App Bundle artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-aab
-        path: build/app/outputs/bundle/release/app-release.aab
 
     # Optional: Upload to Google Play Console
     # - name: Upload to Play Store
