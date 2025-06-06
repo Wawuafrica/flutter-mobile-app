@@ -1,6 +1,6 @@
-import 'package:flutter/foundation.dart';
 import '../models/blog_post.dart';
 import '../services/api_service.dart';
+import 'base_provider.dart';
 
 /// BlogProvider manages the state of blog posts.
 ///
@@ -10,7 +10,7 @@ import '../services/api_service.dart';
 /// - Liking/unliking posts
 /// - Adding comments and sub-comments
 /// - Liking comments
-class BlogProvider extends ChangeNotifier {
+class BlogProvider extends BaseProvider {
   final ApiService _apiService;
   List<BlogPost> _posts = [];
   BlogPost? _selectedPost;
@@ -105,23 +105,17 @@ class BlogProvider extends ChangeNotifier {
       final response = await _apiService.post('/post/like/$postId');
 
       if (response['statusCode'] == 200) {
+        final updatedPost = BlogPost.fromJson(response['data']);
+
         // Update the post in the list if it exists
         final postIndex = _posts.indexWhere((post) => post.uuid == postId);
         if (postIndex != -1) {
-          final post = _posts[postIndex];
-          final isLiked = !post.isLikedByCurrentUser;
-          _posts[postIndex] = post.copyWith(
-            likes: isLiked ? post.likes + 1 : post.likes - 1,
-          );
+          _posts[postIndex] = updatedPost;
         }
 
         // Update selected post if it's the one being liked
         if (_selectedPost?.uuid == postId) {
-          final isLiked = !_selectedPost!.isLikedByCurrentUser;
-          _selectedPost = _selectedPost!.copyWith(
-            likes:
-                isLiked ? _selectedPost!.likes + 1 : _selectedPost!.likes - 1,
-          );
+          _selectedPost = updatedPost;
         }
 
         notifyListeners();
@@ -144,16 +138,27 @@ class BlogProvider extends ChangeNotifier {
       );
 
       if (response['statusCode'] == 200) {
-        final newComment = BlogComment.fromJson(response['data']);
+        final updatedPost = BlogPost.fromJson(response['data']);
 
         // Update selected post if it's the current one
         if (_selectedPost?.uuid == postId) {
-          _selectedPost = _selectedPost!.copyWith(
-            comments: [..._selectedPost!.comments, newComment],
-          );
-          notifyListeners();
+          _selectedPost = updatedPost;
         }
 
+        // Update the post in the list if it exists
+        final postIndex = _posts.indexWhere((post) => post.uuid == postId);
+        if (postIndex != -1) {
+          _posts[postIndex] = updatedPost;
+        }
+
+        // Find the new comment by comparing with existing comments
+        final newComment = updatedPost.comments.lastWhere(
+          (c) =>
+              !_selectedPost!.comments.any((existing) => existing.id == c.id),
+          orElse: () => updatedPost.comments.last,
+        );
+
+        notifyListeners();
         return newComment;
       }
       return null;
@@ -177,32 +182,36 @@ class BlogProvider extends ChangeNotifier {
       );
 
       if (response['statusCode'] == 200) {
-        final newReply = BlogComment.fromJson(response['data']);
+        final updatedPost = BlogPost.fromJson(response['data']);
 
         // Update selected post if it's the current one
         if (_selectedPost?.uuid == postId) {
-          final commentIndex = _selectedPost!.comments.indexWhere(
-            (c) => c.id == commentId,
-          );
+          _selectedPost = updatedPost;
+        }
 
-          if (commentIndex != -1) {
-            final updatedComment = _selectedPost!.comments[commentIndex]
-                .copyWith(
-                  subComments: [
-                    ..._selectedPost!.comments[commentIndex].subComments,
-                    newReply,
-                  ],
-                );
+        // Update the post in the list if it exists
+        final postIndex = _posts.indexWhere((post) => post.uuid == postId);
+        if (postIndex != -1) {
+          _posts[postIndex] = updatedPost;
+        }
 
-            final updatedComments = List<BlogComment>.from(
-              _selectedPost!.comments,
-            );
-            updatedComments[commentIndex] = updatedComment;
+        // Find the new reply by comparing with existing subComments
+        final commentIndex = updatedPost.comments.indexWhere(
+          (c) => c.id == commentId,
+        );
+        if (commentIndex != -1) {
+          final newReply = updatedPost.comments[commentIndex].subComments
+              .lastWhere(
+                (sc) =>
+                    !_selectedPost!.comments[commentIndex].subComments.any(
+                      (existing) => existing.id == sc.id,
+                    ),
+                orElse:
+                    () => updatedPost.comments[commentIndex].subComments.last,
+              );
 
-            _selectedPost = _selectedPost!.copyWith(comments: updatedComments);
-            notifyListeners();
-            return newReply;
-          }
+          notifyListeners();
+          return newReply;
         }
       }
       return null;
@@ -216,39 +225,27 @@ class BlogProvider extends ChangeNotifier {
   /// Toggle like on a comment
   Future<bool> toggleLikeComment(String postId, int commentId) async {
     try {
-      final response = await _apiService.post('/post/comment/like/$commentId');
+      final response = await _apiService.post(
+        '/post/comment/like/',
+        data: {'postId': postId, 'commentId': commentId},
+      );
 
       if (response['statusCode'] == 200) {
-        // Update the comment in the selected post
+        final updatedPost = BlogPost.fromJson(response['data']);
+
+        // Update selected post if it's the current one
         if (_selectedPost?.uuid == postId) {
-          final commentIndex = _selectedPost!.comments.indexWhere(
-            (c) => c.id == commentId,
-          );
-
-          if (commentIndex != -1) {
-            final comment = _selectedPost!.comments[commentIndex];
-            final isLiked = !comment.isLiked;
-
-            final updatedComment = comment.copyWith(
-              isLiked: isLiked,
-              likers:
-                  isLiked
-                      ? [...?comment.likers, _createCurrentUserLiker()]
-                      : comment.likers
-                          ?.where((l) => l.uuid != 'current_user_id')
-                          .toList(),
-            );
-
-            final updatedComments = List<BlogComment>.from(
-              _selectedPost!.comments,
-            );
-            updatedComments[commentIndex] = updatedComment;
-
-            _selectedPost = _selectedPost!.copyWith(comments: updatedComments);
-            notifyListeners();
-            return true;
-          }
+          _selectedPost = updatedPost;
         }
+
+        // Update the post in the list if it exists
+        final postIndex = _posts.indexWhere((post) => post.uuid == postId);
+        if (postIndex != -1) {
+          _posts[postIndex] = updatedPost;
+        }
+
+        notifyListeners();
+        return true;
       }
       return false;
     } catch (e) {
@@ -258,20 +255,15 @@ class BlogProvider extends ChangeNotifier {
     }
   }
 
-  // Helper method to create a liker object for the current user
-  BlogLiker _createCurrentUserLiker() {
-    // Replace with actual user data
-    return BlogLiker(
-      name: 'Current User',
-      uuid: 'current_user_id',
-      email: 'user@example.com',
-    );
-  }
-
   // Clear error message
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  void selectPost(BlogPost post) {
+    _selectedPost = post;
+    setSuccess();
   }
 
   // Refresh the provider state
