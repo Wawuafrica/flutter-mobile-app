@@ -38,27 +38,6 @@ class _BlogScreenState extends State<BlogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> carouselItems = [
-      Container(
-        decoration: BoxDecoration(color: Colors.red.withAlpha(100)),
-        child: Center(
-          child: Text('Blog Update', style: TextStyle(fontSize: 20)),
-        ),
-      ),
-      Container(
-        decoration: BoxDecoration(color: Colors.green.withAlpha(100)),
-        child: Center(
-          child: Text('Blog Update', style: TextStyle(fontSize: 20)),
-        ),
-      ),
-      Container(
-        decoration: BoxDecoration(color: Colors.blue.withAlpha(100)),
-        child: Center(
-          child: Text('Blog Update', style: TextStyle(fontSize: 20)),
-        ),
-      ),
-    ];
-
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -288,7 +267,7 @@ class _BlogListItemState extends State<BlogListItem> {
     });
 
     // Call the onLike callback and get the result
-    final success = await widget.onLike();
+    await widget.onLike();
 
     // The parent widget will handle showing snackbar on failure
     // since it has access to the ScaffoldMessenger
