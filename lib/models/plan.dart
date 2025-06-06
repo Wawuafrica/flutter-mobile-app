@@ -2,7 +2,7 @@ class Feature {
   final int id;
   final String uuid;
   final String name;
-  final String description;
+  final String? description; // Made nullable
   final String value;
   final int paymentPlanId;
   final DateTime createdAt;
@@ -12,7 +12,7 @@ class Feature {
     required this.id,
     required this.uuid,
     required this.name,
-    required this.description,
+    this.description, // Made optional
     required this.value,
     required this.paymentPlanId,
     required this.createdAt,
@@ -24,7 +24,7 @@ class Feature {
       id: json['id'] as int,
       uuid: json['uuid'] as String,
       name: json['name'] as String,
-      description: json['description'] as String,
+      description: json['description'] as String?, // Handle null values
       value: json['value'] as String,
       paymentPlanId: json['payment_plan_id'] as int,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -77,11 +77,15 @@ class Plan {
       amount: double.parse(json['amount'] as String),
       currency: json['currency'] as String,
       interval: json['interval'] as String,
-      features: json['features'] != null
-          ? (json['features'] as List)
-              .map((feature) => Feature.fromJson(feature as Map<String, dynamic>))
-              .toList()
-          : null,
+      features:
+          json['features'] != null
+              ? (json['features'] as List)
+                  .map(
+                    (feature) =>
+                        Feature.fromJson(feature as Map<String, dynamic>),
+                  )
+                  .toList()
+              : null,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
