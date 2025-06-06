@@ -114,6 +114,8 @@ class _PlanState extends State<Plan> {
                                   desc:
                                       plan.description ??
                                       'No description available',
+                                  price: plan.amount,
+                                  currency: plan.currency,
                                   features:
                                       plan.features
                                           ?.map(
