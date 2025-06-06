@@ -1,10 +1,9 @@
 name: Flutter Android CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main, develop ]
-    tags:
-      - 'v*'
   pull_request:
     branches: [ main ]
 
@@ -37,25 +36,22 @@ jobs:
     - name: Build release APK
       run: flutter build apk --release
 
-    - name: Rename APKs
-      run: |
-        cp build/app/outputs/flutter-apk/app-debug.apk build/app/outputs/flutter-apk/wawu-debug.apk
-        cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/wawu-release.apk
-
-    - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+    - name: Upload debug APK to release
+      uses: svenstaro/upload-release-action@v2
       with:
-        files: |
-          build/app/outputs/flutter-apk/wawu-debug.apk
-          build/app/outputs/flutter-apk/wawu-release.apk
-        name: Release ${{ github.ref_name }}
-        body: |
-          ## What's Changed
-          - Debug APK for testing and debugging
-          - Release APK for production use
-          
-          ## Installation
-          Download the debug APK for testing or release APK for production use.
-        draft: false
-        prerelease: false
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: build/app/outputs/flutter-apk/app-debug.apk
+        asset_name: wawu-debug.apk
+        tag: v1.0
+        overwrite: true
+        body: "Android Debug and Release APKs"
+
+    - name: Upload release APK to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: build/app/outputs/flutter-apk/app-release.apk
+        asset_name: wawu-release.apk
+        tag: v1.0
+        overwrite: true
+        body: "Android Debug and Release APKs"
