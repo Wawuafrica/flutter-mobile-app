@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
 import 'package:wawu_mobile/screens/wawu_ecommerce_screen/wawu_ecommerce_screen.dart';
@@ -32,14 +33,31 @@ class _HomeScreenState extends State<HomeScreen> {
       if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
         categoryProvider.fetchCategories();
       }
+
       Provider.of<AdProvider>(context, listen: false).fetchAds();
+
+      // Fetch featured products for e-commerce section
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      if (productProvider.featuredProducts.isEmpty &&
+          !productProvider.isLoading) {
+        productProvider.fetchFeaturedProducts();
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<CategoryProvider, UserProvider>(
-      builder: (context, categoryProvider, userProvider, child) {
+    return Consumer3<CategoryProvider, UserProvider, ProductProvider>(
+      builder: (
+        context,
+        categoryProvider,
+        userProvider,
+        productProvider,
+        child,
+      ) {
         // Asset paths to map to the first three categories (in order)
         final List<String> assetPaths = [
           'assets/images/section/photography.png',
@@ -111,26 +129,25 @@ class _HomeScreenState extends State<HomeScreen> {
                             bottomRight: Radius.circular(10),
                           ),
                         ),
-                        child: Center(
-                          child: Text('No Ads available'),
-                        ),
+                        child: Center(child: Text('No Ads available')),
                       );
                     }
 
-                    final List<Widget> carouselItems = adProvider.ads.map((ad) {
-                      return Image.network(
-                        ad.media.link,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: wawuColors.borderPrimary.withAlpha(50),
-                            child: Center(
-                              child: Text('Failed to load image'),
-                            ),
+                    final List<Widget> carouselItems =
+                        adProvider.ads.map((ad) {
+                          return Image.network(
+                            ad.media.link,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: wawuColors.borderPrimary.withAlpha(50),
+                                child: Center(
+                                  child: Text('Failed to load image'),
+                                ),
+                              );
+                            },
                           );
-                        },
-                      );
-                    }).toList();
+                        }).toList();
                     return FadingCarousel(height: 250, children: carouselItems);
                   },
                 ),
@@ -141,7 +158,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   navFunction: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => CategoriesScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => CategoriesScreen(),
+                      ),
                     );
                   },
                 ),
@@ -149,35 +168,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 160,
-                  child: categoryProvider.isLoading
-                      ? Center(child: CircularProgressIndicator())
-                      : categoryProvider.categories.isEmpty
+                  child:
+                      categoryProvider.isLoading
+                          ? Center(child: CircularProgressIndicator())
+                          : categoryProvider.categories.isEmpty
                           ? Center(child: Text('No categories available'))
                           : ListView(
-                              scrollDirection: Axis.horizontal,
-                              children: categoryProvider.categories
-                                  .take(3)
-                                  .toList()
-                                  .asMap()
-                                  .entries
-                                  .map((entry) {
-                                    final index = entry.key;
-                                    final category = entry.value;
-                                    return ImageTextCard(
-                                      function: () {
-                                        categoryProvider.selectCategory(category);
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => SubCategoriesAndServices(),
-                                          ),
-                                        );
-                                      },
-                                      text: category.name, // Use category name
-                                      asset: assetPaths[index], // Map asset by index
-                                    );
-                                  }).toList(),
-                            ),
+                            scrollDirection: Axis.horizontal,
+                            children:
+                                categoryProvider.categories
+                                    .take(3)
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .map((entry) {
+                                      final index = entry.key;
+                                      final category = entry.value;
+                                      return ImageTextCard(
+                                        function: () {
+                                          categoryProvider.selectCategory(
+                                            category,
+                                          );
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (context) =>
+                                                      SubCategoriesAndServices(),
+                                            ),
+                                          );
+                                        },
+                                        text:
+                                            category.name, // Use category name
+                                        asset:
+                                            assetPaths[index], // Map asset by index
+                                      );
+                                    })
+                                    .toList(),
+                          ),
                 ),
                 SizedBox(height: 30),
                 CustomIntroText(
@@ -196,33 +224,61 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 220,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [ECard(), ECard(), ECard()],
-                  ),
+                  child:
+                      productProvider.isLoading
+                          ? Center(child: CircularProgressIndicator())
+                          : productProvider.errorMessage != null
+                          ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Error loading products',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                                SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    productProvider.fetchFeaturedProducts();
+                                  },
+                                  child: Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          )
+                          : productProvider.featuredProducts.isEmpty
+                          ? Center(
+                            child: Text(
+                              'No products available',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          )
+                          : ListView(
+                            scrollDirection: Axis.horizontal,
+                            children:
+                                productProvider.featuredProducts
+                                    .take(5) // Show only first 5 products
+                                    .map((product) => ECard(product: product))
+                                    .toList(),
+                          ),
                 ),
                 SizedBox(height: 40),
                 CustomIntroText(text: 'Recently Viewed'),
                 SizedBox(height: 20),
                 // GigCard(),
-            Text('GigCards'),
-
+                Text('GigCards'),
                 SizedBox(height: 10),
                 // GigCard(),
-            Text('GigCards'),
-
+                Text('GigCards'),
                 SizedBox(height: 10),
                 // GigCard(),
-            Text('GigCards'),
-
+                Text('GigCards'),
                 SizedBox(height: 10),
                 // GigCard(),
-            Text('GigCards'),
-
+                Text('GigCards'),
                 SizedBox(height: 10),
                 // GigCard(),
-            Text('GigCards'),
-
+                Text('GigCards'),
                 SizedBox(height: 20),
               ],
             ),
