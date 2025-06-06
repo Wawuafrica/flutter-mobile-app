@@ -130,8 +130,8 @@ class GigProvider extends BaseProvider {
   Future<List<Gig>> fetchGigsBySubCategory(String subCategoryId) async {
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
-        '/seller/gig',
-        queryParameters: {'subcategory_id': subCategoryId},
+        '/seller/gig/sub-category/$subCategoryId',
+        queryParameters: {'status': 'VERIFIED'},
       );
       if (response['statusCode'] == 200 && response['data'] is List) {
         final List<dynamic> gigsJson = response['data'] as List<dynamic>;
