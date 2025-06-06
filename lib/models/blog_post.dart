@@ -38,14 +38,18 @@ class BlogPost {
       category: json['category'] as String,
       status: json['status'] as String,
       user: BlogUser.fromJson(json['user'] as Map<String, dynamic>),
-      coverImage: BlogImage.fromJson(json['coverImage'] as Map<String, dynamic>),
+      coverImage: BlogImage.fromJson(
+        json['coverImage'] as Map<String, dynamic>,
+      ),
       likes: (json['likes'] as num?)?.toInt() ?? 0,
-      likers: (json['likers'] as List<dynamic>?)
+      likers:
+          (json['likers'] as List<dynamic>?)
               ?.map((e) => BlogLiker.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      comments: (json['comments'] as List<dynamic>?)
-              ?.map((e) => BlogComment.fromJson(e as Map<String, dynamic>))
+      comments:
+          (json['comments'] as List<dynamic>?)
+              ?.map((e) => BlogComment.fromJson(e as Map<String, dynamic>, ''))
               .toList() ??
           [],
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -103,15 +107,16 @@ class BlogPost {
     );
   }
 
-  // Helper methods
   bool get isLikedByCurrentUser {
     // TODO: Implement current user check
     return false;
   }
 
-  String get authorName => '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim();
+  String get authorName =>
+      '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim();
   String? get authorAvatar => user.profilePicture;
-  String get formattedDate => '${createdAt.day}/${createdAt.month}/${createdAt.year}';
+  String get formattedDate =>
+      '${createdAt.day}/${createdAt.month}/${createdAt.year}';
 }
 
 class BlogUser {
@@ -154,10 +159,7 @@ class BlogImage {
   final String name;
   final String link;
 
-  BlogImage({
-    required this.name,
-    required this.link,
-  });
+  BlogImage({required this.name, required this.link});
 
   factory BlogImage.fromJson(Map<String, dynamic> json) {
     return BlogImage(
@@ -167,10 +169,7 @@ class BlogImage {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'link': link,
-    };
+    return {'name': name, 'link': link};
   }
 }
 
@@ -212,7 +211,7 @@ class BlogComment {
   final DateTime createdAt;
   final BlogUser commentedBy;
   bool isLiked;
-  final List<BlogLiker>? likers;
+  final List<BlogLiker> likers;
   final List<BlogComment> subComments;
 
   BlogComment({
@@ -221,25 +220,36 @@ class BlogComment {
     required this.createdAt,
     required this.commentedBy,
     this.isLiked = false,
-    this.likers,
+    this.likers = const [],
     this.subComments = const [],
   });
 
-  factory BlogComment.fromJson(Map<String, dynamic> json) {
+  factory BlogComment.fromJson(
+    Map<String, dynamic> json,
+    String currentUserId,
+  ) {
+    final likers =
+        (json['likers'] as List<dynamic>?)
+            ?.map((e) => BlogLiker.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
     return BlogComment(
       id: json['id'] as int,
       content: json['content'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       commentedBy: BlogUser.fromJson(
-          json['commentedBy'] as Map<String, dynamic>),
-      isLiked: json['isLiked'] as bool? ?? false,
-      likers: json['likers'] != null
-          ? (json['likers'] as List<dynamic>)
-              .map((e) => BlogLiker.fromJson(e as Map<String, dynamic>))
-              .toList()
-          : null,
-      subComments: (json['subComments'] as List<dynamic>?)
-              ?.map((e) => BlogComment.fromJson(e as Map<String, dynamic>))
+        json['commentedBy'] as Map<String, dynamic>,
+      ),
+      isLiked: likers.any((liker) => liker.uuid == currentUserId),
+      likers: likers,
+      subComments:
+          (json['subComments'] as List<dynamic>?)
+              ?.map(
+                (e) => BlogComment.fromJson(
+                  e as Map<String, dynamic>,
+                  currentUserId,
+                ),
+              )
               .toList() ??
           [],
     );
@@ -252,7 +262,7 @@ class BlogComment {
       'createdAt': createdAt.toIso8601String(),
       'commentedBy': commentedBy.toJson(),
       'isLiked': isLiked,
-      'likers': likers?.map((e) => e.toJson()).toList(),
+      'likers': likers.map((e) => e.toJson()).toList(),
       'subComments': subComments.map((e) => e.toJson()).toList(),
     };
   }
