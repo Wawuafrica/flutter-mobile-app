@@ -83,6 +83,9 @@ class UserProvider extends ChangeNotifier {
       if (_currentUser != null) {
         await _subscribeToUserChannel();
         setSuccess();
+        print(
+          'Current User after login: ${jsonEncode(_currentUser?.toJson())}',
+        );
       } else {
         setError('Login failed: User object is null.');
       }
