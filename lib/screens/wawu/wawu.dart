@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/wawu_africa/wawu_africa.dart';
-import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
+import 'package:wawu_mobile/screens/wawu_merch/merch_auth/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 
@@ -31,10 +31,10 @@ class Wawu extends StatelessWidget {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: wawuColors.white,
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: const Color.fromARGB(255, 210, 210, 210),
+                      color: const Color.fromARGB(255, 223, 223, 223),
                     ),
                   ),
                   padding: const EdgeInsets.all(20.0),
@@ -54,10 +54,7 @@ class Wawu extends StatelessWidget {
                       const SizedBox(height: 10),
                       Expanded(
                         flex: 1,
-                        child: Image.asset(
-                          'assets/images/onboarding_images/oi1.webp',
-                          width: 150,
-                        ),
+                        child: Image.asset('assets/c1.png', width: 150),
                       ),
                       const SizedBox(height: 10),
                       Text(
@@ -82,7 +79,7 @@ class Wawu extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => WawuMerchMain()),
+                    MaterialPageRoute(builder: (context) => SignUpMerch()),
                   );
                 },
                 child: Container(

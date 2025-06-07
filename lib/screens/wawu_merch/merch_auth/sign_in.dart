@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
-// import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
-import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
+import 'package:wawu_mobile/screens/wawu_merch/merch_auth/sign_up.dart';
+import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 
-class SignIn extends StatefulWidget {
-  const SignIn({super.key});
+class SignInMerch extends StatefulWidget {
+  const SignInMerch({super.key});
 
   @override
-  State<SignIn> createState() => _SignInState();
+  State<SignInMerch> createState() => _SignInMerchState();
 }
 
-class _SignInState extends State<SignIn> {
+class _SignInMerchState extends State<SignInMerch> {
   bool isChecked = false;
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
@@ -110,7 +109,7 @@ class _SignInState extends State<SignIn> {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => MainScreen(),
+                              builder: (context) => WawuMerchMain(),
                             ),
                             (Route<dynamic> route) => false,
                           );
@@ -143,7 +142,7 @@ class _SignInState extends State<SignIn> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => SignUp(),
+                                      builder: (context) => SignUpMerch(),
                                     ),
                                   );
                                 },
@@ -158,88 +157,6 @@ class _SignInState extends State<SignIn> {
                     ],
                   ),
                   SizedBox(height: 20),
-
-                  // Row(
-                  //   mainAxisAlignment: MainAxisAlignment.center,
-                  //   spacing: 10,
-                  //   children: [
-                  //     Flexible(
-                  //       child: Container(
-                  //         width: double.infinity,
-                  //         height: 1,
-                  //         color: const Color.fromARGB(255, 209, 209, 209),
-                  //       ),
-                  //     ),
-                  //     Text('Or', style: TextStyle(fontSize: 13)),
-                  //     Flexible(
-                  //       child: Container(
-                  //         width: double.infinity,
-                  //         height: 1,
-                  //         color: const Color.fromARGB(255, 209, 209, 209),
-                  //       ),
-                  //     ),
-                  //   ],
-                  // ),
-                  // SizedBox(height: 30),
-                  // CustomButton(
-                  //   border: Border.all(
-                  //     color: const Color.fromARGB(255, 216, 216, 216),
-                  //   ),
-                  //   widget: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     spacing: 10,
-                  //     children: [
-                  //       SvgPicture.asset(
-                  //         'assets/images/svg/google.svg',
-                  //         width: 20,
-                  //         height: 20,
-                  //       ),
-                  //       Text('Continue with Google'),
-                  //     ],
-                  //   ),
-                  //   color: Colors.white,
-                  //   textColor: Colors.black,
-                  // ),
-                  // SizedBox(height: 10),
-                  // CustomButton(
-                  //   border: Border.all(
-                  //     color: const Color.fromARGB(255, 216, 216, 216),
-                  //   ),
-                  //   widget: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     spacing: 10,
-                  //     children: [
-                  //       SvgPicture.asset(
-                  //         'assets/images/svg/apple.svg',
-                  //         width: 20,
-                  //         height: 20,
-                  //       ),
-                  //       Text('Continue with Apple'),
-                  //     ],
-                  //   ),
-                  //   color: Colors.white,
-                  //   textColor: Colors.black,
-                  // ),
-                  // SizedBox(height: 10),
-                  // CustomButton(
-                  //   border: Border.all(
-                  //     color: const Color.fromARGB(255, 216, 216, 216),
-                  //   ),
-                  //   widget: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     spacing: 10,
-                  //     children: [
-                  //       SvgPicture.asset(
-                  //         'assets/images/svg/facebook.svg',
-                  //         width: 20,
-                  //         height: 20,
-                  //       ),
-                  //       Text('Continue with Facebook'),
-                  //     ],
-                  //   ),
-                  //   color: Colors.white,
-                  //   textColor: Colors.black,
-                  // ),
                 ],
               ),
             ),

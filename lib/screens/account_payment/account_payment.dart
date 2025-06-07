@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/account_payment/account_payment_checkout/account_payment_checkout.dart';
+import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
@@ -142,9 +143,7 @@ class _AccountPaymentState extends State<AccountPayment> {
               function: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => AccountPaymentCheckout(),
-                  ),
+                  MaterialPageRoute(builder: (context) => Disclaimer()),
                 );
               },
               widget: Text(

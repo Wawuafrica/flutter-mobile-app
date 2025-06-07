@@ -3,6 +3,7 @@ import 'package:wawu_mobile/screens/notifications/notifications.dart';
 import 'package:wawu_mobile/screens/settings_screen/merch_settings_screen.dart';
 import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_home/wawu_merch_home.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+// Import CustomNavItem along with CustomBottomNavigationBar
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
 
 class WawuMerchMain extends StatefulWidget {
@@ -19,11 +20,13 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
 
   final List<Widget> _screens = [WawuMerchHome(), MerchSettingsScreen()];
 
+  // Corrected _titles list: Removed 'spacing' from Row and used SizedBox
   final List<Widget> _titles = [
     Row(
-      spacing: 10.0,
       children: [
+        // Use children directly
         Image.asset('assets/images/other/avatar.webp', height: 40),
+        SizedBox(width: 10.0), // Use SizedBox for spacing
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -42,6 +45,15 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
     Text("Settings"),
   ];
 
+  // Define the CustomNavItems for WawuMerchMain
+  final List<CustomNavItem> _merchNavItems = [
+    CustomNavItem(iconPath: 'assets/images/svg/home.svg', label: 'Home'),
+    CustomNavItem(
+      iconPath: 'assets/images/svg/settings.svg',
+      label: 'Settings',
+    ),
+  ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -51,9 +63,9 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
 
   List<Widget> _getAppBarActions() {
     switch (_selectedIndex) {
-      case 0: // HomeScreen: Search and Notifications
+      case 0: // WawuMerchHome: Search and Notifications
         return [_buildSearchButton(), _buildNotificationsButton()];
-      case 1: // SettingsScreen: No actions
+      case 1: // MerchSettingsScreen: No actions
         return [];
       default:
         return [];
@@ -161,7 +173,8 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
         selectedIndex: _selectedIndex,
-        isStyleTwo: true,
+        // Removed isStyleTwo, now passing the specific items list
+        items: _merchNavItems,
         onItemTapped: _onItemTapped,
       ),
     );
