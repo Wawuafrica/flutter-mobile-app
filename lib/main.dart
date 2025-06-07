@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async'; // Import for StreamSubscription
 import 'package:logger/logger.dart'; // Import Logger
+import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
 // Services
@@ -25,6 +26,9 @@ import 'providers/plan_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/review_provider.dart';
 import 'providers/user_provider.dart';
+
+// Import your new screens
+import 'package:wawu_mobile/screens/main_screen/main_screen.dart'; // Assuming this path
 
 // Initialize Logger
 final _logger = Logger(
@@ -89,6 +93,11 @@ void main() async {
       'Main: PusherService initialized successfully and connection attempted.',
     );
 
+    // Initialize AuthService and load user data
+    _logger.d('Main: Initializing AuthService and loading user data...');
+    await authService.init(); // Load auth data here
+    _logger.i('Main: AuthService initialized and user data loaded.');
+
     _logger.d('Main: Running MyApp with MultiProvider...');
     runApp(
       MultiProvider(
@@ -148,7 +157,7 @@ void main() async {
             create:
                 (context) => BlogProvider(
                   apiService: apiService,
-                  // pusherService: pusherService,
+                  // pusherService: pusherService, // Uncomment if needed
                 ),
           ),
           ChangeNotifierProvider(
@@ -203,6 +212,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   List<ConnectivityResult> _connectionStatus = [ConnectivityResult.none];
 
+  // Future that completes when all initial data is loaded
+  late Future<void> _initialization;
+
   @override
   void initState() {
     super.initState();
@@ -212,6 +224,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       _updateConnectionStatus,
     );
+
+    // Initialize the future that will determine the initial screen
+    _initialization = _initializeAppDependencies();
+  }
+
+  Future<void> _initializeAppDependencies() async {
+    // We already initialized services in main(), so here we just
+    // ensure `AuthService.currentUser` is fully populated.
+    // If you had other long-running setup tasks specific to UI here, you'd add them.
+    // For now, we mainly rely on what's done in main().
+    // You can add a small delay here if you want the splash screen to show for a minimum duration.
+    await Future.delayed(
+      const Duration(milliseconds: 1000),
+    ); // Minimum 1.5 seconds splash
+
+    // You might want to refresh user data here if it's crucial for the initial render
+    // For example, if userProvider's currentUser isn't yet fully synchronized with what's
+    // needed for the role check, you could do:
+    // await Provider.of<UserProvider>(context, listen: false).fetchCurrentUser();
+    // However, since AuthService.init() was already called in main(), currentUser
+    // should be available from authService.
   }
 
   Future<void> _initConnectivity() async {
@@ -249,9 +282,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _logger.i(
         'MyApp: Network just became available. Attempting to re-engage services...',
       );
-      // PusherService is designed to auto-reconnect and re-subscribe on connection state change.
-      // So, directly calling resubscribeToChannels is usually sufficient here.
-      // The `initialize` call is intentionally removed as it implies a full re-setup.
       if (widget.pusherService.isInitialized) {
         _logger.d(
           'MyApp: PusherService is initialized, calling resubscribeToChannels.',
@@ -261,9 +291,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         _logger.w(
           'MyApp: PusherService is not initialized after network came back. This might indicate an earlier failure.',
         );
-        // Consider re-initializing PusherService here if it failed initially.
-        // However, the current setup assumes main.dart handles initial setup.
-        // For robustness, you might want to add a retry mechanism for Pusher.
         try {
           await widget.pusherService.initialize();
           _logger.i(
@@ -277,7 +304,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
     } else if (hadConnection && !hasConnectionNow) {
       _logger.w('MyApp: Network just went offline.');
-      // You might want to add specific handling here, e.g., display a message
     }
   }
 
@@ -302,18 +328,112 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Wawu Mobile',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        textTheme: GoogleFonts.soraTextTheme(Theme.of(context).textTheme),
-        primaryTextTheme: GoogleFonts.soraTextTheme(
-          Theme.of(context).primaryTextTheme,
+    return FutureBuilder(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          // Once initialization is complete, determine the actual home screen
+          final authService = Provider.of<AuthService>(context);
+          // final userProvider = Provider.of<UserProvider>(context);
+
+          final currentUser = authService.currentUser;
+
+          Widget homeScreen;
+
+          if (!authService.isAuthenticated ||
+              currentUser == null ||
+              currentUser.uuid.isEmpty) {
+            // Condition 1: User isn't authenticated, or no user data/UUID
+            _logger.i(
+              'MyApp: User not authenticated or missing UUID. Showing Wawu screen.',
+            );
+            homeScreen = const Wawu();
+          } else {
+            // User is authenticated and has user data with UUID
+            final userRole = currentUser.role?.toUpperCase();
+
+            if (userRole == 'SELLER' ||
+                userRole == 'BUYER' ||
+                userRole == 'PROFESSIONAL' ||
+                userRole == 'ARTISAN') {
+              // Condition 2: Authenticated, user data, UUID, and specific roles
+              _logger.i(
+                'MyApp: User is authenticated with role $userRole. Navigating to MainScreen.',
+              );
+              homeScreen = const MainScreen();
+            } else {
+              // Condition 3: Authenticated, user data, UUID, but role is not one of the specified
+              // ECOMMERCE_USER.
+              _logger.i(
+                'MyApp: User is authenticated with role $userRole. Navigating to WawuEcommerce.',
+              );
+              homeScreen = const WawuMerchMain();
+            }
+          }
+
+          return MaterialApp(
+            title: 'Wawu Mobile',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              textTheme: GoogleFonts.soraTextTheme(Theme.of(context).textTheme),
+              primaryTextTheme: GoogleFonts.soraTextTheme(
+                Theme.of(context).primaryTextTheme,
+              ),
+              colorScheme: ColorScheme.fromSeed(seedColor: wawuColors.primary),
+              useMaterial3: true,
+            ),
+            home: homeScreen,
+          );
+        } else {
+          // While initializing, show the splash screen
+          return MaterialApp(
+            home: SplashScreen(), // Your custom splash screen
+          );
+        }
+      },
+    );
+  }
+}
+
+// Your custom SplashScreen widget
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: wawuColors.white, // Or any color you prefer
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // You can replace this with your logo or any other splash content
+            Image.asset(
+              'assets/logo2.png', // Replace with your actual logo path
+              width: 200,
+              height: 200,
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 300,
+              child: Text(
+                'Are you tired? Worn out? Burned out on getting the world to see you and pay you? Come to me. Get away with me and you’ll recover your life. I’ll show you how to take a real rest. Walk with me and work with me watch how I do it',
+                style: GoogleFonts.sora(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Matthew 11:28 MSG',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 30),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ],
         ),
-        colorScheme: ColorScheme.fromSeed(seedColor: wawuColors.primary),
-        useMaterial3: true,
       ),
-      home: const Wawu(),
     );
   }
 }

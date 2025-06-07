@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
-// import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:wawu_mobile/features/authentication/screens/login/login_screen.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/account_type/account_type.dart';
-import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
+import 'package:wawu_mobile/screens/wawu_merch/merch_auth/sign_in.dart';
+import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 
-class SignUp extends StatefulWidget {
-  const SignUp({super.key});
+class SignUpMerch extends StatefulWidget {
+  const SignUpMerch({super.key});
 
   @override
-  State<SignUp> createState() => _SignUpState();
+  State<SignUpMerch> createState() => _SignUpMerchState();
 }
 
-class _SignUpState extends State<SignUp> {
+class _SignUpMerchState extends State<SignUpMerch> {
   bool isChecked = false;
   final TextEditingController emailController = TextEditingController();
   final TextEditingController firstNameController = TextEditingController();
@@ -233,7 +231,7 @@ class _SignUpState extends State<SignUp> {
                             'country': countryController.text,
                             'termsAccepted': isChecked,
                             'role':
-                                1, // Ensure this role ID is correct as per your backend
+                                5, // Ensure this role ID is correct as per your backend
                           };
 
                           await userProvider.register(userData);
@@ -243,7 +241,7 @@ class _SignUpState extends State<SignUp> {
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => AccountType(),
+                                builder: (context) => WawuMerchMain(),
                               ),
                             );
                           }
@@ -275,7 +273,7 @@ class _SignUpState extends State<SignUp> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => SignIn(),
+                                        builder: (context) => SignInMerch(),
                                       ),
                                     );
                                   },
@@ -290,111 +288,6 @@ class _SignUpState extends State<SignUp> {
                       ],
                     ),
                     SizedBox(height: 20),
-
-                    // Row(
-                    //   mainAxisAlignment: MainAxisAlignment.center,
-                    //   // The 'spacing' property is not available on Row. Use SizedBox for spacing between Flexible widgets.
-                    //   children: [
-                    //     Flexible(
-                    //       child: Container(
-                    //         width: double.infinity,
-                    //         height: 1,
-                    //         color: const Color.fromARGB(255, 209, 209, 209),
-                    //       ),
-                    //     ),
-                    //     SizedBox(width: 10), // Spacing
-                    //     // Text('Or', style: TextStyle(fontSize: 13)),
-                    //     // SizedBox(width: 10), // Spacing
-                    //     // Flexible(
-                    //     //   child: Container(
-                    //     //     width: double.infinity,
-                    //     //     height: 1,
-                    //     //     color: const Color.fromARGB(255, 209, 209, 209),
-                    //     //   ),
-                    //     // ),
-                    //   ],
-                    // ),
-                    // SizedBox(height: 30),
-                    // CustomButton(
-                    //   function:
-                    //       userProvider.isLoading
-                    //           ? null
-                    //           : () {
-                    //             // Handle Google Sign-Up
-                    //           },
-                    //   border: Border.all(
-                    //     color: const Color.fromARGB(255, 216, 216, 216),
-                    //   ),
-                    //   widget: Row(
-                    //     mainAxisAlignment: MainAxisAlignment.center,
-                    //     children: [
-                    //       // Removed spacing as it's not a valid property of Row
-                    //       SvgPicture.asset(
-                    //         'assets/images/svg/google.svg',
-                    //         width: 20,
-                    //         height: 20,
-                    //       ),
-                    //       SizedBox(width: 10), // Spacing
-                    //       Text('Continue with Google'),
-                    //     ],
-                    //   ),
-                    //   color: Colors.white,
-                    //   textColor: Colors.black,
-                    // ),
-                    // SizedBox(height: 10),
-                    // CustomButton(
-                    //   function:
-                    //       userProvider.isLoading
-                    //           ? null
-                    //           : () {
-                    //             // Handle Apple Sign-Up
-                    //           },
-                    //   border: Border.all(
-                    //     color: const Color.fromARGB(255, 216, 216, 216),
-                    //   ),
-                    //   widget: Row(
-                    //     mainAxisAlignment: MainAxisAlignment.center,
-                    //     children: [
-                    //       // Removed spacing
-                    //       SvgPicture.asset(
-                    //         'assets/images/svg/apple.svg',
-                    //         width: 20,
-                    //         height: 20,
-                    //       ),
-                    //       SizedBox(width: 10), // Spacing
-                    //       Text('Continue with Apple'),
-                    //     ],
-                    //   ),
-                    //   color: Colors.white,
-                    //   textColor: Colors.black,
-                    // ),
-                    // SizedBox(height: 10),
-                    // CustomButton(
-                    //   function:
-                    //       userProvider.isLoading
-                    //           ? null
-                    //           : () {
-                    //             // Handle Facebook Sign-Up
-                    //           },
-                    //   border: Border.all(
-                    //     color: const Color.fromARGB(255, 216, 216, 216),
-                    //   ),
-                    //   widget: Row(
-                    //     mainAxisAlignment: MainAxisAlignment.center,
-                    //     children: [
-                    //       // Removed spacing
-                    //       SvgPicture.asset(
-                    //         'assets/images/svg/facebook.svg',
-                    //         width: 20,
-                    //         height: 20,
-                    //       ),
-                    //       SizedBox(width: 10), // Spacing
-                    //       Text('Continue with Facebook'),
-                    //     ],
-                    //   ),
-                    //   color: Colors.white,
-                    //   textColor: Colors.black,
-                    // ),
                   ],
                 ),
               ),

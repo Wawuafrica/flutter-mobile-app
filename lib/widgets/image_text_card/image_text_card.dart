@@ -33,7 +33,7 @@ class ImageTextCard extends StatelessWidget {
                   asset,
                   width: 140,
                   fit: BoxFit.cover,
-                  cacheWidth: 140,
+                  // cacheWidth: ,
                 ),
               ),
             ),

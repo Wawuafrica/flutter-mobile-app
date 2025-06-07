@@ -2,16 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
+// New: Define a class for your custom navigation items
+class CustomNavItem {
+  final String iconPath;
+  final String label;
+
+  CustomNavItem({required this.iconPath, required this.label});
+}
+
 class CustomBottomNavigationBar extends StatelessWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
-  final bool isStyleTwo;
+  final List<CustomNavItem> items; // Now accepts a list of CustomNavItem
 
   const CustomBottomNavigationBar({
     super.key,
     required this.selectedIndex,
     required this.onItemTapped,
-    this.isStyleTwo = false,
+    required this.items, // Required
   });
 
   @override
@@ -31,27 +39,11 @@ class CustomBottomNavigationBar extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children:
-            !isStyleTwo
-                ? [
-                  _buildNavItem(0, 'assets/images/svg/home.svg', 'Home'),
-                  _buildNavItem(1, 'assets/images/svg/blog.svg', 'Blog'),
-                  _buildNavItem(2, 'assets/images/svg/message.svg', 'Message'),
-                  _buildNavItem(3, 'assets/images/svg/gigs.svg', 'Gigs'),
-                  _buildNavItem(
-                    4,
-                    'assets/images/svg/settings.svg',
-                    'Settings',
-                  ),
-                ]
-                : [
-                  _buildNavItem(0, 'assets/images/svg/home.svg', 'Home'),
-                  _buildNavItem(
-                    1,
-                    'assets/images/svg/settings.svg',
-                    'Settings',
-                  ),
-                ],
+        // Iterate through the provided items to build the navigation
+        children: List.generate(items.length, (index) {
+          final item = items[index];
+          return _buildNavItem(index, item.iconPath, item.label);
+        }),
       ),
     );
   }
@@ -74,10 +66,12 @@ class CustomBottomNavigationBar extends StatelessWidget {
           // SVG Icon
           SvgPicture.asset(
             iconPath,
-            color:
-                isSelected
-                    ? wawuColors.primary
-                    : const Color.fromARGB(255, 207, 207, 207),
+            colorFilter: ColorFilter.mode(
+              isSelected
+                  ? wawuColors.primary
+                  : const Color.fromARGB(255, 207, 207, 207),
+              BlendMode.srcIn, // Use BlendMode.srcIn for coloring SVG
+            ),
             height: 20,
           ),
           SizedBox(height: 4),
