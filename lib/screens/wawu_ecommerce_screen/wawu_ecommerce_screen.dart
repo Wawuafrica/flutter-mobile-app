@@ -244,16 +244,16 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
     );
   }
 
-  void _navigateToProduct(Product product) {
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
-    productProvider.selectProduct(product.id);
+  // void _navigateToProduct(Product product) {
+  //   final productProvider = Provider.of<ProductProvider>(
+  //     context,
+  //     listen: false,
+  //   );
+  //   productProvider.selectProduct(product.id);
 
-    // Navigate to SinglePackage screen
-    Navigator.pushNamed(context, '/single-package');
-  }
+  //   // Navigate to SinglePackage screen
+  //   Navigator.pushNamed(context, '/single-package');
+  // }
 
   Widget _buildInPageSearchBar() {
     return AnimatedContainer(

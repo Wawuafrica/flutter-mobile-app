@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
-import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 
 class WawuMerchHome extends StatelessWidget {

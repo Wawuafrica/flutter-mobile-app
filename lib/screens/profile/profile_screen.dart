@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/user.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/profile/change_password_screen/change_password_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
@@ -30,12 +29,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String? _selectedEducationCertification;
   String? _selectedEducationInstitution;
-  final TextEditingController _educationCourseOfStudyController = TextEditingController();
-  final TextEditingController _educationGraduationDateController = TextEditingController();
+  final TextEditingController _educationCourseOfStudyController =
+      TextEditingController();
+  final TextEditingController _educationGraduationDateController =
+      TextEditingController();
 
   String? _selectedProfessionalCertificationName;
-  final TextEditingController _professionalCertificationOrganizationController = TextEditingController();
-  final TextEditingController _professionalCertificationEndDateController = TextEditingController();
+  final TextEditingController _professionalCertificationOrganizationController =
+      TextEditingController();
+  final TextEditingController _professionalCertificationEndDateController =
+      TextEditingController();
 
   XFile? _profileImage;
   XFile? _coverImage;
@@ -61,16 +64,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _skills = user.additionalInfo?.skills ?? [];
       _selectedCountry = user.country;
       _stateController.text = user.state ?? '';
-      _facebookController.text = user.additionalInfo?.socialHandles?['facebook'] ?? '';
-      _linkedInController.text = user.additionalInfo?.socialHandles?['linkedIn'] ?? '';
-      _instagramController.text = user.additionalInfo?.socialHandles?['instagram'] ?? '';
-      _twitterController.text = user.additionalInfo?.socialHandles?['twitter'] ?? '';
+      _facebookController.text =
+          user.additionalInfo?.socialHandles?['facebook'] ?? '';
+      _linkedInController.text =
+          user.additionalInfo?.socialHandles?['linkedIn'] ?? '';
+      _instagramController.text =
+          user.additionalInfo?.socialHandles?['instagram'] ?? '';
+      _twitterController.text =
+          user.additionalInfo?.socialHandles?['twitter'] ?? '';
     }
   }
 
   Future<void> _pickImageForProfileAndCover(String imageType) async {
     final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
 
     if (pickedFile != null) {
       setState(() {
@@ -83,16 +92,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _pickDocumentImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  // Future<void> _pickDocumentImage() async {
+  //   final ImagePicker picker = ImagePicker();
+  //   final XFile? pickedFile = await picker.pickImage(
+  //     source: ImageSource.gallery,
+  //   );
 
-    if (pickedFile != null) {
-      setState(() {
-        _professionalCertificationImage = pickedFile;
-      });
-    }
-  }
+  //   if (pickedFile != null) {
+  //     setState(() {
+  //       _professionalCertificationImage = pickedFile;
+  //     });
+  //   }
+  // }
 
   void _addSkill() {
     if (_skillController.text.trim().isNotEmpty) {
@@ -112,7 +123,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (picked != null) {
       setState(() {
-        controller.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+        controller.text =
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       });
     }
   }
@@ -127,7 +139,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+    final categoryProvider = Provider.of<CategoryProvider>(
+      context,
+      listen: false,
+    );
 
     try {
       await userProvider.updateCurrentUserProfile(
@@ -138,8 +153,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         educationCourseOfStudy: _educationCourseOfStudyController.text,
         educationGraduationDate: _educationGraduationDateController.text,
         professionalCertificationName: _selectedProfessionalCertificationName,
-        professionalCertificationOrganization: _professionalCertificationOrganizationController.text,
-        professionalCertificationEndDate: _professionalCertificationEndDateController.text,
+        professionalCertificationOrganization:
+            _professionalCertificationOrganizationController.text,
+        professionalCertificationEndDate:
+            _professionalCertificationEndDateController.text,
         professionalCertificationImage: _professionalCertificationImage,
         meansOfIdentification: null, // Prevent updating meansOfIdentification
         country: _selectedCountry,
@@ -165,16 +182,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(userProvider.errorMessage ?? 'Failed to update profile'),
+              content: Text(
+                userProvider.errorMessage ?? 'Failed to update profile',
+              ),
             ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
       }
     } finally {
       if (mounted) {
@@ -250,8 +269,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Consumer2<CategoryProvider, UserProvider>(
       builder: (context, categoryProvider, userProvider, child) {
         final user = userProvider.currentUser;
-        final fullName = '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
-        final selectedSubCategory = categoryProvider.selectedSubCategory;
+        final fullName =
+            '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+        // final selectedSubCategory = categoryProvider.selectedSubCategory;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Profile'), centerTitle: true),
@@ -270,24 +290,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: double.infinity,
                         height: 100,
                         color: wawuColors.primary.withAlpha(50),
-                        child: _coverImage != null
-                            ? Image.file(
-                                File(_coverImage!.path),
-                                key: ValueKey(_coverImage!.path),
-                                fit: BoxFit.cover,
-                              )
-                            : (user?.coverImage != null
-                                ? Image.network(
-                                    user!.coverImage!,
-                                    fit: BoxFit.cover,
-                                  )
-                                : const Center(
-                                    child: Text(
-                                      'Add Cover Photo',
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                  )),
+                        child:
+                            _coverImage != null
+                                ? Image.file(
+                                  File(_coverImage!.path),
+                                  key: ValueKey(_coverImage!.path),
+                                  fit: BoxFit.cover,
+                                )
+                                : (user?.coverImage != null
+                                    ? Image.network(
+                                      user!.coverImage!,
+                                      fit: BoxFit.cover,
+                                    )
+                                    : const Center(
+                                      child: Text(
+                                        'Add Cover Photo',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                    )),
                       ),
                       Positioned(
                         top: 50,
@@ -305,20 +326,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   decoration: const BoxDecoration(
                                     color: Colors.white,
                                   ),
-                                  child: _profileImage != null
-                                      ? Image.file(
-                                          File(_profileImage!.path),
-                                          key: ValueKey(_profileImage!.path),
-                                          fit: BoxFit.cover,
-                                        )
-                                      : (user?.profileImage != null
-                                          ? Image.network(
-                                              user!.profileImage!,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Image.asset(
-                                              'assets/images/other/avatar.webp',
-                                            )),
+                                  child:
+                                      _profileImage != null
+                                          ? Image.file(
+                                            File(_profileImage!.path),
+                                            key: ValueKey(_profileImage!.path),
+                                            fit: BoxFit.cover,
+                                          )
+                                          : (user?.profileImage != null
+                                              ? Image.network(
+                                                user!.profileImage!,
+                                                fit: BoxFit.cover,
+                                              )
+                                              : Image.asset(
+                                                'assets/images/other/avatar.webp',
+                                              )),
                                 ),
                               ),
                             ),
@@ -370,7 +392,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Center(
                   child: Text(
                     fullName,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -400,7 +425,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   spacing: 5,
                   alignment: WrapAlignment.center,
                   children: [
-                    Icon(Icons.check_circle, size: 15, color: wawuColors.primary),
+                    Icon(
+                      Icons.check_circle,
+                      size: 15,
+                      color: wawuColors.primary,
+                    ),
                     const Text(
                       'Not Verified',
                       style: TextStyle(
@@ -416,11 +445,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   spacing: 5,
                   alignment: WrapAlignment.center,
                   children: const [
-                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
-                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
-                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
-                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
-                    Icon(Icons.star, size: 15, color: Color.fromARGB(255, 162, 162, 162)),
+                    Icon(
+                      Icons.star,
+                      size: 15,
+                      color: Color.fromARGB(255, 162, 162, 162),
+                    ),
+                    Icon(
+                      Icons.star,
+                      size: 15,
+                      color: Color.fromARGB(255, 162, 162, 162),
+                    ),
+                    Icon(
+                      Icons.star,
+                      size: 15,
+                      color: Color.fromARGB(255, 162, 162, 162),
+                    ),
+                    Icon(
+                      Icons.star,
+                      size: 15,
+                      color: Color.fromARGB(255, 162, 162, 162),
+                    ),
+                    Icon(
+                      Icons.star,
+                      size: 15,
+                      color: Color.fromARGB(255, 162, 162, 162),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -480,7 +529,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 InkWell(
                   onTap: _addSkill,
                   child: CustomButton(
-                    widget: const Text('Add', style: TextStyle(color: Colors.white)),
+                    widget: const Text(
+                      'Add',
+                      style: TextStyle(color: Colors.white),
+                    ),
                     color: wawuColors.buttonPrimary,
                     textColor: Colors.white,
                   ),
@@ -489,35 +541,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: _skills.map((skill) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: wawuColors.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(skill),
-                          const SizedBox(width: 5),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _skills.remove(skill);
-                              });
-                            },
-                            child: const Icon(Icons.close, size: 16),
+                  children:
+                      _skills.map((skill) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                          decoration: BoxDecoration(
+                            color: wawuColors.primary.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(skill),
+                              const SizedBox(width: 5),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _skills.remove(skill);
+                                  });
+                                },
+                                child: const Icon(Icons.close, size: 16),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 30),
                 const CustomIntroText(text: 'Education'),
                 if (user?.additionalInfo?.education != null)
-                  ...user!.additionalInfo!.education!.map((edu) => _buildEducationCard(edu)),
+                  ...user!.additionalInfo!.education!.map(
+                    (edu) => _buildEducationCard(edu),
+                  ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -572,7 +630,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       labelTextStyle2: true,
                       suffixIcon: Icons.calendar_today,
                       readOnly: true,
-                      onTap: () => _selectGraduationDate(_educationGraduationDateController),
+                      onTap:
+                          () => _selectGraduationDate(
+                            _educationGraduationDateController,
+                          ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Graduation Date is required';
@@ -585,15 +646,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 30),
                 const CustomIntroText(text: 'Professional Certification'),
                 if (user?.additionalInfo?.professionalCertification != null)
-                  ...user!.additionalInfo!.professionalCertification!
-                      .map((cert) => _buildProfessionalCertificationCard(cert)),
+                  ...user!.additionalInfo!.professionalCertification!.map(
+                    (cert) => _buildProfessionalCertificationCard(cert),
+                  ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 25),
                     const Text(
                       'Name',
-                      style: TextStyle(fontWeight: FontWeight.w400, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w400,
+                        fontSize: 16,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     CustomDropdown(
@@ -608,7 +673,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 20),
                     CustomTextfield(
-                      controller: _professionalCertificationOrganizationController,
+                      controller:
+                          _professionalCertificationOrganizationController,
                       hintText: 'Enter Organization Name',
                       labelText: 'Organization',
                       labelTextStyle2: true,
@@ -621,7 +687,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       labelTextStyle2: true,
                       suffixIcon: Icons.calendar_today,
                       readOnly: true,
-                      onTap: () => _selectGraduationDate(_professionalCertificationEndDateController),
+                      onTap:
+                          () => _selectGraduationDate(
+                            _professionalCertificationEndDateController,
+                          ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'End Date is required';
@@ -651,7 +720,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 40),
                 const CustomIntroText(text: 'Means Of Identification'),
                 const SizedBox(height: 20),
-                if (user?.additionalInfo?.meansOfIdentification?.file?.link != null)
+                if (user?.additionalInfo?.meansOfIdentification?.file?.link !=
+                    null)
                   Card(
                     margin: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Padding(
@@ -661,10 +731,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           const Text(
                             'Means of Identification',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                           const SizedBox(height: 5),
-                          Text('Document: ${user!.additionalInfo!.meansOfIdentification!.file!.link}'),
+                          Text(
+                            'Document: ${user!.additionalInfo!.meansOfIdentification!.file!.link}',
+                          ),
                         ],
                       ),
                     ),
@@ -753,15 +828,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 40),
                 CustomButton(
                   function: _isSavingProfile ? null : _saveProfile,
-                  widget: _isSavingProfile
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Save Changes',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                  widget:
+                      _isSavingProfile
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                            'Save Changes',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
                   color: wawuColors.primary,
                   textColor: Colors.white,
                 ),

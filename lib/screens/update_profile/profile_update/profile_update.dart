@@ -22,7 +22,8 @@ class ProfileUpdate extends StatefulWidget {
 }
 
 class _ProfileUpdateState extends State<ProfileUpdate> {
-  final _formKey = GlobalKey<FormState>(); // Added GlobalKey for form validation
+  final _formKey =
+      GlobalKey<FormState>(); // Added GlobalKey for form validation
 
   final TextEditingController _aboutController = TextEditingController();
   final TextEditingController _skillController = TextEditingController();
@@ -108,23 +109,23 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     }
   }
 
-  // New method for picking certification/ID images
-  Future<void> _pickDocumentImage(String documentType) async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+  // // New method for picking certification/ID images
+  // Future<void> _pickDocumentImage(String documentType) async {
+  //   final ImagePicker picker = ImagePicker();
+  //   final XFile? pickedFile = await picker.pickImage(
+  //     source: ImageSource.gallery,
+  //   );
 
-    if (pickedFile != null) {
-      setState(() {
-        if (documentType == 'professionalCertification') {
-          _professionalCertificationImage = pickedFile;
-        } else if (documentType == 'meansOfIdentification') {
-          _meansOfIdentification = pickedFile;
-        }
-      });
-    }
-  }
+  //   if (pickedFile != null) {
+  //     setState(() {
+  //       if (documentType == 'professionalCertification') {
+  //         _professionalCertificationImage = pickedFile;
+  //       } else if (documentType == 'meansOfIdentification') {
+  //         _meansOfIdentification = pickedFile;
+  //       }
+  //     });
+  //   }
+  // }
 
   void _addSkill() {
     if (_skillController.text.trim().isNotEmpty) {
@@ -140,11 +141,12 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(1900),
-      lastDate: DateTime(2040)
+      lastDate: DateTime(2040),
     );
     if (picked != null) {
       setState(() {
-        controller.text = "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+        controller.text =
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       });
     }
   }
@@ -172,11 +174,15 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
         educationCertification: _selectedEducationCertification,
         educationInstitution: _selectedEducationInstitution,
         educationCourseOfStudy: _educationCourseOfStudyController.text,
-        educationGraduationDate: _educationGraduationDateController.text, // Added this back if you have a place for it in the API payload
+        educationGraduationDate:
+            _educationGraduationDateController
+                .text, // Added this back if you have a place for it in the API payload
         professionalCertificationName: _selectedProfessionalCertificationName,
         professionalCertificationOrganization:
             _professionalCertificationOrganizationController.text,
-        professionalCertificationEndDate: _professionalCertificationEndDateController.text, // Added this back if you have a place for it in the API payload
+        professionalCertificationEndDate:
+            _professionalCertificationEndDateController
+                .text, // Added this back if you have a place for it in the API payload
         professionalCertificationImage: _professionalCertificationImage,
         meansOfIdentification: _meansOfIdentification,
         country: _selectedCountry,
@@ -258,7 +264,8 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
         return Scaffold(
           appBar: AppBar(title: const Text('Profile'), centerTitle: true),
-          body: Form( // Wrap with Form widget
+          body: Form(
+            // Wrap with Form widget
             key: _formKey, // Assign the GlobalKey
             child: ListView(
               padding: const EdgeInsets.all(20.0),
@@ -277,29 +284,29 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                             currentIsWeb
                                 ? (_coverWebImageBytes != null
                                     ? Image.memory(
-                                        _coverWebImageBytes!,
-                                        fit: BoxFit.cover,
-                                      )
+                                      _coverWebImageBytes!,
+                                      fit: BoxFit.cover,
+                                    )
                                     : const Center(
-                                        child: Text(
-                                          'Add Cover Photo',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      ))
+                                      child: Text(
+                                        'Add Cover Photo',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                    ))
                                 : (_coverImage != null
                                     ? Image.file(
-                                        File(_coverImage!.path), // Added key
-                                        key: ValueKey(_coverImage!.path),
-                                        fit: BoxFit.cover,
-                                      )
+                                      File(_coverImage!.path), // Added key
+                                      key: ValueKey(_coverImage!.path),
+                                      fit: BoxFit.cover,
+                                    )
                                     : const Center(
-                                        child: Text(
-                                          'Add Cover Photo',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(color: Colors.grey),
-                                        ),
-                                      )),
+                                      child: Text(
+                                        'Add Cover Photo',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                    )),
                       ),
                       Positioned(
                         top: 50,
@@ -321,21 +328,25 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                                       currentIsWeb
                                           ? (_profileWebImageBytes != null
                                               ? Image.memory(
-                                                  _profileWebImageBytes!,
-                                                  fit: BoxFit.cover,
-                                                )
+                                                _profileWebImageBytes!,
+                                                fit: BoxFit.cover,
+                                              )
                                               : Image.asset(
-                                                  'assets/images/other/avatar.webp',
-                                                ))
+                                                'assets/images/other/avatar.webp',
+                                              ))
                                           : (_profileImage != null
                                               ? Image.file(
-                                                  File(_profileImage!.path), // Added key
-                                                  key: ValueKey(_profileImage!.path),
-                                                  fit: BoxFit.cover,
-                                                )
+                                                File(
+                                                  _profileImage!.path,
+                                                ), // Added key
+                                                key: ValueKey(
+                                                  _profileImage!.path,
+                                                ),
+                                                fit: BoxFit.cover,
+                                              )
                                               : Image.asset(
-                                                  'assets/images/other/avatar.webp',
-                                                )),
+                                                'assets/images/other/avatar.webp',
+                                              )),
                                 ),
                               ),
                             ),
@@ -422,7 +433,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   spacing: 5,
                   alignment: WrapAlignment.center,
                   children: [
-                    Icon(Icons.check_circle, size: 15, color: wawuColors.primary),
+                    Icon(
+                      Icons.check_circle,
+                      size: 15,
+                      color: wawuColors.primary,
+                    ),
                     const Text(
                       'Not Verified',
                       style: TextStyle(
@@ -502,33 +517,34 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: _skills.map((skill) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: wawuColors.primary.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(skill),
-                          const SizedBox(width: 5),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _skills.remove(skill);
-                              });
-                            },
-                            child: const Icon(Icons.close, size: 16),
+                  children:
+                      _skills.map((skill) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                          decoration: BoxDecoration(
+                            color: wawuColors.primary.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(skill),
+                              const SizedBox(width: 5),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _skills.remove(skill);
+                                  });
+                                },
+                                child: const Icon(Icons.close, size: 16),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                 ),
                 const SizedBox(height: 30),
                 const CustomIntroText(text: 'Education'),
@@ -586,7 +602,10 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       labelTextStyle2: true,
                       suffixIcon: Icons.calendar_today,
                       readOnly: true, // Make it read-only
-                      onTap: () => _selectGraduationDate(_educationGraduationDateController),
+                      onTap:
+                          () => _selectGraduationDate(
+                            _educationGraduationDateController,
+                          ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Graduation Date is required';
@@ -604,7 +623,10 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   children: [
                     const Text(
                       'Name',
-                      style: TextStyle(fontWeight: FontWeight.w400, fontSize: 16),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w400,
+                        fontSize: 16,
+                      ),
                     ),
                     const SizedBox(height: 5),
                     CustomDropdown(
@@ -619,7 +641,8 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     ),
                     const SizedBox(height: 20),
                     CustomTextfield(
-                      controller: _professionalCertificationOrganizationController,
+                      controller:
+                          _professionalCertificationOrganizationController,
                       hintText: 'Enter Organization Name',
                       labelTextStyle2: true,
                       labelText: 'Organization',
@@ -632,7 +655,10 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       labelTextStyle2: true,
                       suffixIcon: Icons.calendar_today,
                       readOnly: true, // Make it read-only
-                      onTap: () => _selectGraduationDate(_professionalCertificationEndDateController),
+                      onTap:
+                          () => _selectGraduationDate(
+                            _professionalCertificationEndDateController,
+                          ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'End Date is required';
@@ -748,15 +774,16 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                 const SizedBox(height: 40),
                 CustomButton(
                   function: _isSavingProfile ? null : _saveProfile,
-                  widget: _isSavingProfile
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Save',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                  widget:
+                      _isSavingProfile
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                            'Save',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
                   color: wawuColors.primary,
                   textColor: Colors.white,
                 ),

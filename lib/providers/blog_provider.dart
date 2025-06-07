@@ -22,7 +22,9 @@ class BlogProvider extends BaseProvider {
   // Getters
   List<BlogPost> get posts => _posts;
   BlogPost? get selectedPost => _selectedPost;
+  @override
   bool get isLoading => _isLoading;
+  @override
   String? get errorMessage => _errorMessage;
   bool get hasMore => _hasMore;
 
