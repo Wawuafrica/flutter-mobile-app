@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:wawu_mobile/models/gig.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/providers/message_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';

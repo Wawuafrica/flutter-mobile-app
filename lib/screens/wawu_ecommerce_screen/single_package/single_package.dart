@@ -374,36 +374,36 @@ class _SinglePackageState extends State<SinglePackage> {
     );
   }
 
-  void _addToCart(Product product, ProductProvider provider) {
-    provider.addToCart(product.id);
+  // void _addToCart(Product product, ProductProvider provider) {
+  //   provider.addToCart(product.id);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${product.name} added to cart'),
-        backgroundColor: wawuColors.primary,
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(
+  //       content: Text('${product.name} added to cart'),
+  //       backgroundColor: wawuColors.primary,
+  //       duration: Duration(seconds: 2),
+  //     ),
+  //   );
+  // }
 
-  void _buyNow(Product product, ProductProvider provider) {
-    provider.addToCart(product.id);
+  // void _buyNow(Product product, ProductProvider provider) {
+  //   provider.addToCart(product.id);
 
-    // Navigate to checkout or cart screen
-    Navigator.pushNamed(context, '/cart');
-  }
+  //   // Navigate to checkout or cart screen
+  //   Navigator.pushNamed(context, '/cart');
+  // }
 
-  void _navigateToProduct(Product product) {
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
-    productProvider.selectProduct(product.id);
+  // void _navigateToProduct(Product product) {
+  //   final productProvider = Provider.of<ProductProvider>(
+  //     context,
+  //     listen: false,
+  //   );
+  //   productProvider.selectProduct(product.id);
 
-    // Since we're already on SinglePackage, we need to refresh the page
-    setState(() {
-      _selectedVariantValue = null;
-    });
-    _loadSimilarProducts();
-  }
+  //   // Since we're already on SinglePackage, we need to refresh the page
+  //   setState(() {
+  //     _selectedVariantValue = null;
+  //   });
+  //   _loadSimilarProducts();
+  // }
 }

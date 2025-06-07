@@ -10,7 +10,7 @@ import 'package:wawu_mobile/screens/settings_screen/settings_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 // Import the updated CustomBottomNavigationBar and CustomNavItem
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
-import 'package:wawu_mobile/models/user.dart'; // Import the User model
+// Import the User model
 
 class MainScreen extends StatefulWidget {
   final bool isAdmin;

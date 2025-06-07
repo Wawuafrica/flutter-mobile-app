@@ -301,7 +301,7 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                         return newReply != null;
                       },
                     );
-                  }).toList(),
+                  }),
                 SizedBox(height: 80),
               ],
             ),
@@ -374,13 +374,13 @@ class BlogCommentWidget extends StatefulWidget {
   final Future<bool> Function(int commentId, String reply) onReply;
 
   const BlogCommentWidget({
-    Key? key,
+    super.key,
     required this.comment,
     required this.postId,
     required this.isTopLevel,
     required this.onLike,
     required this.onReply,
-  }) : super(key: key);
+  });
 
   @override
   State<BlogCommentWidget> createState() => _BlogCommentWidgetState();

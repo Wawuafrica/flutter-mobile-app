@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 // import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:wawu_mobile/features/authentication/screens/login/login_screen.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/account_type/account_type.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';

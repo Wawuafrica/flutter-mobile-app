@@ -10,7 +10,7 @@ import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
 
 class BlogScreen extends StatefulWidget {
-  BlogScreen({super.key});
+  const BlogScreen({super.key});
 
   @override
   State<BlogScreen> createState() => _BlogScreenState();
@@ -245,12 +245,12 @@ class BlogListItem extends StatefulWidget {
   final VoidCallback onComment;
 
   const BlogListItem({
-    Key? key,
+    super.key,
     required this.blogPost,
     required this.onTap,
     required this.onLike,
     required this.onComment,
-  }) : super(key: key);
+  });
 
   @override
   State<BlogListItem> createState() => _BlogListItemState();
