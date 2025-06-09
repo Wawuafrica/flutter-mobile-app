@@ -16,7 +16,6 @@ import 'services/auth_service.dart';
 import 'services/pusher_service.dart';
 
 // Providers
-import 'providers/application_provider.dart';
 import 'providers/blog_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/gig_provider.dart';
@@ -24,7 +23,6 @@ import 'providers/message_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/plan_provider.dart';
 import 'providers/product_provider.dart';
-import 'providers/review_provider.dart';
 import 'providers/user_provider.dart';
 
 // Import your new screens
@@ -38,7 +36,6 @@ final _logger = Logger(
     lineLength: 120, // Width of the output
     colors: true, // Colorful log messages
     printEmojis: true, // Print an emoji for each log message
-    printTime: false, // Should each log message contain a timestamp
   ),
 );
 
@@ -116,7 +113,11 @@ void main() async {
                 ),
           ),
           ChangeNotifierProvider(
-            create: (context) => AdProvider(apiService: apiService),
+            create:
+                (context) => AdProvider(
+                  apiService: apiService,
+                  pusherService: pusherService,
+                ),
           ),
           ChangeNotifierProvider(
             create:
@@ -139,25 +140,18 @@ void main() async {
                   pusherService: pusherService,
                 ),
           ),
-          ChangeNotifierProvider(
-            create:
-                (context) => ApplicationProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
-          ),
-          ChangeNotifierProvider(
-            create:
-                (context) => ReviewProvider(
-                  apiService: apiService,
-                  pusherService: pusherService,
-                ),
-          ),
+          // ChangeNotifierProvider(
+          //   create:
+          //       (context) => ApplicationProvider(
+          //         apiService: apiService,
+          //         pusherService: pusherService,
+          //       ),
+          // ),
           ChangeNotifierProvider(
             create:
                 (context) => BlogProvider(
                   apiService: apiService,
-                  // pusherService: pusherService, // Uncomment if needed
+                  pusherService: pusherService, // Uncomment if needed
                 ),
           ),
           ChangeNotifierProvider(

@@ -22,17 +22,29 @@ class Message {
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
       id: json['uuid'] as String,
-      senderId: json['user']['uuid'] as String,
-      receiverId: json['chat']['uuid'] as String, // Maps to chat UUID
+      senderId:
+          json['user'] != null
+              ? json['user']['uuid'] as String
+              : '', // Handle case where user is null
+      receiverId:
+          json['chat'] != null
+              ? json['chat']['uuid'] as String
+              : '', // Handle case where chat is null - for lastMessage this might not exist
       content: json['message'] as String,
       timestamp: DateTime.parse(json['created_at'] as String),
-      isRead: false, // No read endpoint/event provided
-      attachmentUrl: json['media'] != null && (json['media'] as List).isNotEmpty
-          ? json['media'][0]['link'] as String
-          : null,
-      attachmentType: json['media'] != null && (json['media'] as List).isNotEmpty
-          ? (json['media'][0]['name'] as String).contains('image') ? 'image' : 'audio'
-          : null,
+      isRead:
+          json['sent_by_me'] as bool? ??
+          false, // Use sent_by_me or default to false
+      attachmentUrl:
+          json['media'] != null && (json['media'] as List).isNotEmpty
+              ? json['media'][0]['link'] as String?
+              : null,
+      attachmentType:
+          json['media'] != null && (json['media'] as List).isNotEmpty
+              ? (json['media'][0]['name'] as String).contains('image')
+                  ? 'image'
+                  : 'audio'
+              : null,
     );
   }
 
@@ -44,14 +56,16 @@ class Message {
       'message': content,
       'created_at': timestamp.toIso8601String(),
       'sent_by_me': isRead,
-      'media': attachmentUrl != null
-          ? [
-              {
-                'name': attachmentType == 'image' ? 'chat image' : 'voice note',
-                'link': attachmentUrl,
-              }
-            ]
-          : [],
+      'media':
+          attachmentUrl != null
+              ? [
+                {
+                  'name':
+                      attachmentType == 'image' ? 'chat image' : 'voice note',
+                  'link': attachmentUrl,
+                },
+              ]
+              : [],
     };
   }
 
