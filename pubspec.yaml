@@ -16,6 +16,7 @@ dependencies:
   flutter_native_splash: ^2.4.0
   timeago: ^3.7.1
   flutter_local_notifications: ^19.2.1
+  pusher_channels_flutter: ^2.5.0
   file_picker: ^10.1.9
   http_parser: ^4.1.2
   provider: ^6.1.2

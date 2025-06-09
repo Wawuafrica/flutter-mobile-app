@@ -6,10 +6,13 @@ import 'package:wawu_mobile/models/conversation.dart';
 import 'package:wawu_mobile/models/message.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/pusher_service.dart';
+import 'package:logger/logger.dart';
+import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 
 class MessageProvider extends ChangeNotifier {
   final ApiService _apiService;
   final PusherService _pusherService;
+  final Logger _logger = Logger();
 
   List<Conversation> _allConversations = [];
   List<Message> _currentMessages = [];
@@ -18,6 +21,8 @@ class MessageProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _hasError = false;
   String? _errorMessage;
+  final Set<String> _subscribedChatChannels =
+      {}; // Track subscribed chat channels
 
   MessageProvider({
     required ApiService apiService,
@@ -44,6 +49,7 @@ class MessageProvider extends ChangeNotifier {
     _isLoading = false;
     _hasError = true;
     _errorMessage = message;
+    _logger.e('MessageProvider Error: $message');
     notifyListeners();
   }
 
@@ -68,7 +74,16 @@ class MessageProvider extends ChangeNotifier {
                   (json) => Conversation.fromJson(json as Map<String, dynamic>),
                 )
                 .toList();
+
+        // Subscribe to all conversation channels
+        for (final conversation in _allConversations) {
+          await _subscribeToMessages(conversation.id);
+        }
+
         setSuccess();
+        _logger.i(
+          'MessageProvider: Fetched ${_allConversations.length} conversations',
+        );
       } else {
         setError(response['message'] ?? 'Failed to fetch conversations');
       }
@@ -96,6 +111,8 @@ class MessageProvider extends ChangeNotifier {
         _currentConversationId = existingConversation.id;
         _currentRecipientId = recipientId;
         await _fetchMessages(existingConversation.id);
+        await _subscribeToMessages(existingConversation.id);
+
         if (initialMessage != null && initialMessage.isNotEmpty) {
           await sendMessage(
             senderId: currentUserId,
@@ -114,52 +131,55 @@ class MessageProvider extends ChangeNotifier {
         options: Options(headers: {'Api-Token': '{{api_token}}'}),
       );
 
+      _logger.d('MessageProvider: Start conversation response: $response');
+
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        final newConversation = Conversation.fromJson(
-          response['data'] as Map<String, dynamic>,
+        _logger.d('MessageProvider: RecipientID CHECK $recipientId');
+        _logger.d(
+          'MessageProvider: Response data structure: ${response['data']}',
         );
-        _allConversations.add(newConversation);
-        _currentConversationId = newConversation.id;
-        _currentRecipientId = recipientId;
-        _currentMessages = [];
 
-        if (initialMessage != null && initialMessage.isNotEmpty) {
-          await sendMessage(
-            senderId: currentUserId,
-            receiverId: recipientId,
-            content: initialMessage,
+        try {
+          final newConversation = Conversation.fromJson(
+            response['data'] as Map<String, dynamic>,
           );
-        } else {
-          await _fetchMessages(newConversation.id);
-        }
 
-        setSuccess();
-        notifyListeners();
+          _allConversations.add(newConversation);
+          _currentConversationId = newConversation.id;
+          _currentRecipientId = recipientId;
+          _logger.d(
+            'MessageProvider: RecipientID CHECK1_5 $_currentRecipientId',
+          );
+
+          _currentMessages = [];
+
+          // Subscribe to the new conversation channel
+          await _subscribeToMessages(newConversation.id);
+
+          if (initialMessage != null && initialMessage.isNotEmpty) {
+            await sendMessage(
+              senderId: currentUserId,
+              receiverId: recipientId,
+              content: initialMessage,
+            );
+          } else {
+            await _fetchMessages(newConversation.id);
+          }
+
+          setSuccess();
+          notifyListeners();
+        } catch (jsonError) {
+          _logger.e('MessageProvider: JSON parsing error: $jsonError');
+          _logger.e('MessageProvider: Raw response data: ${response['data']}');
+          setError('Failed to parse conversation data: $jsonError');
+          return;
+        }
       } else {
         setError(response['message'] ?? 'Failed to create conversation');
       }
     } catch (e) {
+      _logger.e('MessageProvider: Full error details: $e');
       setError('Error starting conversation: $e');
-    }
-  }
-
-  Future<void> setCurrentConversation(
-    String currentUserId,
-    String recipientId,
-  ) async {
-    final conversation = _allConversations.firstWhere(
-      (conv) =>
-          conv.participants.any((user) => user.id == currentUserId) &&
-          conv.participants.any((user) => user.id == recipientId),
-      orElse: () => Conversation(id: '', participants: [], messages: []),
-    );
-
-    if (conversation.id.isNotEmpty) {
-      _currentConversationId = conversation.id;
-      _currentRecipientId = recipientId;
-      await _fetchMessages(conversation.id);
-      _subscribeToMessages(conversation.id);
-      notifyListeners();
     }
   }
 
@@ -176,6 +196,9 @@ class MessageProvider extends ChangeNotifier {
                 .map((json) => Message.fromJson(json as Map<String, dynamic>))
                 .toList();
         setSuccess();
+        _logger.i(
+          'MessageProvider: Fetched ${_currentMessages.length} messages for conversation $conversationId',
+        );
       } else {
         setError(response['message'] ?? 'Failed to fetch messages');
       }
@@ -202,6 +225,7 @@ class MessageProvider extends ChangeNotifier {
 
       String targetConversationId =
           conversation.id.isNotEmpty ? conversation.id : _currentConversationId;
+
       if (targetConversationId.isEmpty) {
         // Create new conversation
         final response = await _apiService.post(
@@ -220,6 +244,9 @@ class MessageProvider extends ChangeNotifier {
           targetConversationId = newConversation.id;
           _currentConversationId = newConversation.id;
           _currentRecipientId = receiverId;
+
+          // Subscribe to the new conversation channel
+          await _subscribeToMessages(newConversation.id);
           notifyListeners();
         } else {
           setError(response['message'] ?? 'Failed to create conversation');
@@ -274,6 +301,9 @@ class MessageProvider extends ChangeNotifier {
 
         setSuccess();
         notifyListeners();
+        _logger.i(
+          'MessageProvider: Message sent successfully to conversation $targetConversationId',
+        );
         return newMessage;
       } else {
         setError(response['message'] ?? 'Failed to send message');
@@ -285,41 +315,251 @@ class MessageProvider extends ChangeNotifier {
     }
   }
 
-  void _subscribeToMessages(String conversationId) {
-    final channelName = 'chat.$conversationId';
-    _pusherService.subscribeToChannel(channelName).then((channel) {
-      if (channel != null) {
-        _pusherService.bindToEvent(channelName, 'message.sent', (
-          eventDataString,
-        ) {
-          try {
-            final Map<String, dynamic> eventData =
-                jsonDecode(eventDataString) as Map<String, dynamic>;
-            final newMessage = Message.fromJson(eventData);
-            if (_currentConversationId == conversationId) {
-              _currentMessages.add(newMessage);
-            }
+  // Add this method to your MessageProvider class to prevent duplicate subscriptions
 
-            final convIndex = _allConversations.indexWhere(
-              (conv) => conv.id == conversationId,
-            );
-            if (convIndex != -1) {
-              final updatedMessages = [
-                newMessage,
-                ..._allConversations[convIndex].messages,
-              ];
-              _allConversations[convIndex] = Conversation(
-                id: _allConversations[convIndex].id,
-                participants: _allConversations[convIndex].participants,
-                messages: updatedMessages,
-              );
-            }
-            notifyListeners();
-          } catch (e) {
-            print('Error processing message.sent event: $e');
-          }
+  Future<void> _subscribeToMessages(String conversationId) async {
+    if (!_pusherService.isInitialized) {
+      _logger.w(
+        'MessageProvider: PusherService not initialized, cannot subscribe to messages',
+      );
+      return;
+    }
+
+    final channelName = 'chat.$conversationId';
+
+    // Check if already subscribed to avoid duplicate subscriptions
+    if (_subscribedChatChannels.contains(channelName)) {
+      _logger.d('MessageProvider: Already subscribed to channel: $channelName');
+      return;
+    }
+
+    try {
+      final success = await _pusherService.subscribeToChannel(channelName);
+      if (success) {
+        _subscribedChatChannels.add(channelName);
+
+        // Bind to message events
+        _pusherService.bindToEvent(channelName, 'message.sent', (
+          PusherEvent event,
+        ) {
+          _handleMessageSentEvent(event, conversationId);
         });
+
+        // Bind to other message-related events if needed
+        _pusherService.bindToEvent(channelName, 'message.read', (
+          PusherEvent event,
+        ) {
+          _handleMessageReadEvent(event, conversationId);
+        });
+
+        _pusherService.bindToEvent(channelName, 'message.deleted', (
+          PusherEvent event,
+        ) {
+          _handleMessageDeletedEvent(event, conversationId);
+        });
+
+        _logger.i(
+          'MessageProvider: Successfully subscribed to chat channel: $channelName',
+        );
+      } else {
+        _logger.e(
+          'MessageProvider: Failed to subscribe to chat channel: $channelName',
+        );
       }
-    });
+    } catch (e) {
+      _logger.e(
+        'MessageProvider: Error subscribing to chat channel $channelName: $e',
+      );
+    }
+  }
+
+  // Update the setCurrentConversation method to avoid duplicate subscriptions
+  Future<void> setCurrentConversation(
+    String currentUserId,
+    String recipientId,
+  ) async {
+    final conversation = _allConversations.firstWhere(
+      (conv) =>
+          conv.participants.any((user) => user.id == currentUserId) &&
+          conv.participants.any((user) => user.id == recipientId),
+      orElse: () => Conversation(id: '', participants: [], messages: []),
+    );
+
+    if (conversation.id.isNotEmpty) {
+      _currentConversationId = conversation.id;
+      _currentRecipientId = recipientId;
+
+      // Only fetch messages if we don't already have them or if they're outdated
+      if (_currentMessages.isEmpty ||
+          conversation.messages.length != _currentMessages.length) {
+        await _fetchMessages(conversation.id);
+      } else {
+        // Use existing messages from conversation
+        _currentMessages = conversation.messages;
+      }
+
+      // Subscribe to messages (this method already checks for duplicates)
+      await _subscribeToMessages(conversation.id);
+      notifyListeners();
+    }
+  }
+
+  void _handleMessageSentEvent(PusherEvent event, String conversationId) {
+    try {
+      if (event.data is! String) {
+        _logger.w(
+          'MessageProvider: Invalid message.sent event data. Expected String, got ${event.data.runtimeType}',
+        );
+        return;
+      }
+
+      final Map<String, dynamic> eventData =
+          jsonDecode(event.data) as Map<String, dynamic>;
+      final newMessage = Message.fromJson(eventData);
+
+      _logger.i(
+        'MessageProvider: Received new message for conversation $conversationId',
+      );
+
+      // Add to current messages if this is the active conversation
+      if (_currentConversationId == conversationId) {
+        // Check if message already exists to avoid duplicates
+        final existingIndex = _currentMessages.indexWhere(
+          (msg) => msg.id == newMessage.id,
+        );
+        if (existingIndex == -1) {
+          _currentMessages.add(newMessage);
+        }
+      }
+
+      // Update conversation in allConversations
+      final convIndex = _allConversations.indexWhere(
+        (conv) => conv.id == conversationId,
+      );
+      if (convIndex != -1) {
+        // Check if message already exists in conversation
+        final existingMsgIndex = _allConversations[convIndex].messages
+            .indexWhere((msg) => msg.id == newMessage.id);
+
+        if (existingMsgIndex == -1) {
+          final updatedMessages = [
+            newMessage,
+            ..._allConversations[convIndex].messages,
+          ];
+          _allConversations[convIndex] = Conversation(
+            id: _allConversations[convIndex].id,
+            participants: _allConversations[convIndex].participants,
+            messages: updatedMessages,
+          );
+        }
+      }
+
+      notifyListeners();
+    } catch (e) {
+      _logger.e('MessageProvider: Error processing message.sent event: $e');
+    }
+  }
+
+  void _handleMessageReadEvent(PusherEvent event, String conversationId) {
+    try {
+      if (event.data is! String) {
+        _logger.w(
+          'MessageProvider: Invalid message.read event data. Expected String, got ${event.data.runtimeType}',
+        );
+        return;
+      }
+
+      final Map<String, dynamic> eventData =
+          jsonDecode(event.data) as Map<String, dynamic>;
+      _logger.i(
+        'MessageProvider: Message read event for conversation $conversationId: $eventData',
+      );
+
+      // Handle message read status update
+      // You can update message read status in your UI here
+      notifyListeners();
+    } catch (e) {
+      _logger.e('MessageProvider: Error processing message.read event: $e');
+    }
+  }
+
+  void _handleMessageDeletedEvent(PusherEvent event, String conversationId) {
+    try {
+      if (event.data is! String) {
+        _logger.w(
+          'MessageProvider: Invalid message.deleted event data. Expected String, got ${event.data.runtimeType}',
+        );
+        return;
+      }
+
+      final Map<String, dynamic> eventData =
+          jsonDecode(event.data) as Map<String, dynamic>;
+      final deletedMessageId = eventData['message_id'] as String?;
+
+      if (deletedMessageId != null) {
+        _logger.i(
+          'MessageProvider: Message deleted event for conversation $conversationId, message ID: $deletedMessageId',
+        );
+
+        // Remove from current messages if this is the active conversation
+        if (_currentConversationId == conversationId) {
+          _currentMessages.removeWhere((msg) => msg.id == deletedMessageId);
+        }
+
+        // Remove from conversation in allConversations
+        final convIndex = _allConversations.indexWhere(
+          (conv) => conv.id == conversationId,
+        );
+        if (convIndex != -1) {
+          final updatedMessages =
+              _allConversations[convIndex].messages
+                  .where((msg) => msg.id != deletedMessageId)
+                  .toList();
+          _allConversations[convIndex] = Conversation(
+            id: _allConversations[convIndex].id,
+            participants: _allConversations[convIndex].participants,
+            messages: updatedMessages,
+          );
+        }
+
+        notifyListeners();
+      }
+    } catch (e) {
+      _logger.e('MessageProvider: Error processing message.deleted event: $e');
+    }
+  }
+
+  // Method to unsubscribe from a specific chat channel
+  Future<void> unsubscribeFromChat(String conversationId) async {
+    final channelName = 'chat.$conversationId';
+    if (_subscribedChatChannels.contains(channelName)) {
+      await _pusherService.unsubscribeFromChannel(channelName);
+      _subscribedChatChannels.remove(channelName);
+      _logger.i(
+        'MessageProvider: Unsubscribed from chat channel: $channelName',
+      );
+    }
+  }
+
+  // Method to unsubscribe from all chat channels (useful for logout)
+  Future<void> unsubscribeFromAllChats() async {
+    final channelsToUnsubscribe = List<String>.from(_subscribedChatChannels);
+    for (final channelName in channelsToUnsubscribe) {
+      await _pusherService.unsubscribeFromChannel(channelName);
+    }
+    _subscribedChatChannels.clear();
+    _logger.i('MessageProvider: Unsubscribed from all chat channels');
+  }
+
+  // Cleanup method to call on provider disposal
+  @override
+  void dispose() {
+    unsubscribeFromAllChats();
+    super.dispose();
+  }
+
+  // Method to refresh conversations and resubscribe to channels
+  Future<void> refreshConversations() async {
+    await fetchConversations();
   }
 }

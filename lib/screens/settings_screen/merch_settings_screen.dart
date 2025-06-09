@@ -8,7 +8,7 @@ import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
-import 'package:wawu_mobile/providers/review_provider.dart';
+// import 'package:wawu_mobile/providers/review_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/about_us_screen/about_us_screen.dart';
 import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
@@ -260,10 +260,6 @@ class MerchSettingsScreen extends StatelessWidget {
                     context,
                     listen: false,
                   );
-                  final applicationProvider = Provider.of<ApplicationProvider>(
-                    context,
-                    listen: false,
-                  );
                   final blogProvider = Provider.of<BlogProvider>(
                     context,
                     listen: false,
@@ -287,16 +283,16 @@ class MerchSettingsScreen extends StatelessWidget {
                     context,
                     listen: false,
                   );
-                  final reviewProvider = Provider.of<ReviewProvider>(
-                    context,
-                    listen: false,
-                  );
+                  // final reviewProvider = Provider.of<ReviewProvider>(
+                  //   context,
+                  //   listen: false,
+                  // );
 
                   // Clear states of providers that have a clearAll or reset method
                   userProvider
                       .logout(); // UserProvider has a specific logout which also clears state
                   adProvider.reset();
-                  applicationProvider.clearAll();
+                  // applicationProvider.clearAll();
                   blogProvider.refresh();
                   // CategoryProvider does not have a clearAll or reset, clear selected states individually
                   categoryProvider.clearSelectedCategory();
@@ -308,7 +304,7 @@ class MerchSettingsScreen extends StatelessWidget {
                   notificationProvider.clearAll();
                   planProvider.reset();
                   productProvider.clearAll();
-                  reviewProvider.clearAll();
+                  // reviewProvider.clearAll();
 
                   // Navigate to the login screen and clear navigation history
                   Navigator.pushAndRemoveUntil(

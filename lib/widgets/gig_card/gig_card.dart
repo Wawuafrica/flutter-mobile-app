@@ -14,7 +14,7 @@ class GigCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Provider.of<GigProvider>(context, listen: false).selectGig(gig.uuid);
+        Provider.of<GigProvider>(context, listen: false).selectGig(gig);
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -53,16 +53,26 @@ class GigCard extends StatelessWidget {
                           height: 110,
                           fit: BoxFit.cover,
                           errorBuilder:
-                              (context, error, stackTrace) => Image.asset(
-                                'assets/images/section/graphics.png',
-                                fit: BoxFit.cover,
+                              (context, error, stackTrace) => Container(
+                                height: 110,
+                                width: double.infinity,
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  color: Colors.grey[400],
+                                  size: 40,
+                                ),
                               ),
                         )
-                        : Image.asset(
-                          'assets/images/section/graphics.png',
-                          width: 100,
+                        : Container(
                           height: 110,
-                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          color: Colors.grey[200],
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey[400],
+                            size: 40,
+                          ),
                         ),
               ),
               const SizedBox(width: 10),

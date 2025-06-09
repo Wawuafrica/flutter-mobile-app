@@ -132,31 +132,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _pickProfessionalCertificationImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+  // Future<void> _pickProfessionalCertificationImage() async {
+  //   final ImagePicker picker = ImagePicker();
+  //   final XFile? pickedFile = await picker.pickImage(
+  //     source: ImageSource.gallery,
+  //   );
 
-    if (pickedFile != null) {
-      setState(() {
-        _professionalCertificationImage = pickedFile;
-      });
-    }
-  }
+  //   if (pickedFile != null) {
+  //     setState(() {
+  //       _professionalCertificationImage = pickedFile;
+  //     });
+  //   }
+  // }
 
-  Future<void> _pickMeansOfIdentificationImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+  // Future<void> _pickMeansOfIdentificationImage() async {
+  //   final ImagePicker picker = ImagePicker();
+  //   final XFile? pickedFile = await picker.pickImage(
+  //     source: ImageSource.gallery,
+  //   );
 
-    if (pickedFile != null) {
-      setState(() {
-        _meansOfIdentificationImage = pickedFile;
-      });
-    }
-  }
+  //   if (pickedFile != null) {
+  //     setState(() {
+  //       _meansOfIdentificationImage = pickedFile;
+  //     });
+  //   }
+  // }
 
   void _addSkill() {
     if (_skillController.text.trim().isNotEmpty) {
@@ -851,7 +851,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 25),
                     CustomTextfield(
                       controller: _countryController,
-                      hintText: 'Enter Country (e.g., Nigeria, United States)',
+                      hintText: 'Enter Country',
                       labelText: 'Country',
                       labelTextStyle2: true,
                     ),

@@ -22,6 +22,7 @@ class UserProvider extends ChangeNotifier {
   String? _errorMessage;
   bool _isSuccess = false;
   String? _userChannelName;
+  bool _isSubscribed = false;
 
   UserProvider({
     required ApiService apiService,
@@ -116,9 +117,10 @@ class UserProvider extends ChangeNotifier {
   Future<void> logout() async {
     setLoading();
     try {
-      if (_userChannelName != null) {
+      if (_userChannelName != null && _isSubscribed) {
         await _pusherService.unsubscribeFromChannel(_userChannelName!);
         _userChannelName = null;
+        _isSubscribed = false;
       }
       await _authService.logout();
       _currentUser = null;
@@ -229,67 +231,128 @@ class UserProvider extends ChangeNotifier {
 
     try {
       // --- Step 1: Update Profile Data ---
-      final profileFormData = dio.FormData.fromMap({
-        'about': about.trim(),
-        if (skills.isNotEmpty)
-          for (int i = 0; i < skills.length; i++) 'skills[$i]': skills[i],
-        if (educationCertification != null || educationInstitution != null) ...{
-          'education[0][certification]': educationCertification ?? '',
-          'education[0][institution]': educationInstitution ?? '',
-          'education[0][courseOfStudy]': educationCourseOfStudy ?? '',
-          'education[0][graduationDate]': educationGraduationDate ?? '',
-        },
-        if (meansOfIdentification != null) ...{
-          'meansOfIdentification[file]':
+      final profileFormDataMap = <String, dynamic>{'about': about.trim()};
+
+      // Add skills only if not empty
+      if (skills.isNotEmpty) {
+        for (int i = 0; i < skills.length; i++) {
+          profileFormDataMap['skills[$i]'] = skills[i];
+        }
+      }
+
+      // Add education data only if at least one field has value
+      final hasEducationData =
+          (educationCertification?.isNotEmpty == true) ||
+          (educationInstitution?.isNotEmpty == true) ||
+          (educationCourseOfStudy?.isNotEmpty == true) ||
+          (educationGraduationDate?.isNotEmpty == true);
+
+      if (hasEducationData) {
+        if (educationCertification?.isNotEmpty == true) {
+          profileFormDataMap['education[0][certification]'] =
+              educationCertification!;
+        }
+        if (educationInstitution?.isNotEmpty == true) {
+          profileFormDataMap['education[0][institution]'] =
+              educationInstitution!;
+        }
+        if (educationCourseOfStudy?.isNotEmpty == true) {
+          profileFormDataMap['education[0][courseOfStudy]'] =
+              educationCourseOfStudy!;
+        }
+        if (educationGraduationDate?.isNotEmpty == true) {
+          profileFormDataMap['education[0][graduationDate]'] =
+              educationGraduationDate!;
+        }
+      }
+
+      // Add means of identification only if provided
+      if (meansOfIdentification != null) {
+        profileFormDataMap['meansOfIdentification[file]'] =
+            kIsWeb
+                ? dio.MultipartFile.fromBytes(
+                  await meansOfIdentification.readAsBytes(),
+                  filename: 'id_doc.png',
+                )
+                : await dio.MultipartFile.fromFile(
+                  meansOfIdentification.path,
+                  filename: meansOfIdentification.path.split('/').last,
+                );
+        profileFormDataMap['meansOfIdentification[fileName]'] =
+            kIsWeb ? 'id_doc.png' : meansOfIdentification.path.split('/').last;
+      }
+
+      // Add professional certification only if at least one field has value
+      final hasProfessionalCertData =
+          (professionalCertificationName?.isNotEmpty == true) ||
+          (professionalCertificationOrganization?.isNotEmpty == true) ||
+          (professionalCertificationEndDate?.isNotEmpty == true) ||
+          (professionalCertificationImage != null);
+
+      if (hasProfessionalCertData) {
+        if (professionalCertificationName?.isNotEmpty == true) {
+          profileFormDataMap['professionalCertification[0][name]'] =
+              professionalCertificationName!;
+        }
+        if (professionalCertificationOrganization?.isNotEmpty == true) {
+          profileFormDataMap['professionalCertification[0][organization]'] =
+              professionalCertificationOrganization!.trim();
+        }
+        if (professionalCertificationEndDate?.isNotEmpty == true) {
+          profileFormDataMap['professionalCertification[0][endDate]'] =
+              professionalCertificationEndDate!.trim();
+        }
+        if (professionalCertificationImage != null) {
+          profileFormDataMap['professionalCertification[0][file]'] =
               kIsWeb
                   ? dio.MultipartFile.fromBytes(
-                    await meansOfIdentification.readAsBytes(),
-                    filename: 'id_doc.png',
+                    await professionalCertificationImage.readAsBytes(),
+                    filename: 'cert_doc.png',
                   )
                   : await dio.MultipartFile.fromFile(
-                    meansOfIdentification.path,
-                    filename: meansOfIdentification.path.split('/').last,
-                  ),
-          'meansOfIdentification[fileName]':
+                    professionalCertificationImage.path,
+                    filename:
+                        professionalCertificationImage.path.split('/').last,
+                  );
+          profileFormDataMap['professionalCertification[0][fileName]'] =
               kIsWeb
-                  ? 'id_doc.png'
-                  : meansOfIdentification.path.split('/').last,
-        },
-        if (professionalCertificationName != null ||
-            professionalCertificationOrganization != null ||
-            professionalCertificationImage != null) ...{
-          'professionalCertification[0][name]':
-              professionalCertificationName ?? '',
-          'professionalCertification[0][organization]':
-              professionalCertificationOrganization?.trim() ?? '',
-          'professionalCertification[0][endDate]':
-              professionalCertificationEndDate?.trim() ?? '',
-          if (professionalCertificationImage != null) ...{
-            'professionalCertification[0][file]':
-                kIsWeb
-                    ? dio.MultipartFile.fromBytes(
-                      await professionalCertificationImage.readAsBytes(),
-                      filename: 'cert_doc.png',
-                    )
-                    : await dio.MultipartFile.fromFile(
-                      professionalCertificationImage.path,
-                      filename:
-                          professionalCertificationImage.path.split('/').last,
-                    ),
-            'professionalCertification[0][fileName]':
-                kIsWeb
-                    ? 'cert_doc.png'
-                    : professionalCertificationImage.path.split('/').last,
-          },
-        },
-        'country': country?.trim() ?? '',
-        'state': state?.trim() ?? '',
-        'social[facebook]': socialHandles['facebook']?.trim() ?? '',
-        'social[linkedIn]': socialHandles['linkedIn']?.trim() ?? '',
-        'social[instagram]': socialHandles['instagram']?.trim() ?? '',
-        'social[twitter]': socialHandles['twitter']?.trim() ?? '',
-        if (subCategoryUuid != null) 'serviceSubCategories[0]': subCategoryUuid,
-      });
+                  ? 'cert_doc.png'
+                  : professionalCertificationImage.path.split('/').last;
+        }
+      }
+
+      // Add location data only if not empty
+      if (country?.trim().isNotEmpty == true) {
+        profileFormDataMap['country'] = country!.trim();
+      }
+      if (state?.trim().isNotEmpty == true) {
+        profileFormDataMap['state'] = state!.trim();
+      }
+
+      // Add social handles only if not empty
+      if (socialHandles['facebook']?.trim().isNotEmpty == true) {
+        profileFormDataMap['social[facebook]'] =
+            socialHandles['facebook']!.trim();
+      }
+      if (socialHandles['linkedIn']?.trim().isNotEmpty == true) {
+        profileFormDataMap['social[linkedIn]'] =
+            socialHandles['linkedIn']!.trim();
+      }
+      if (socialHandles['instagram']?.trim().isNotEmpty == true) {
+        profileFormDataMap['social[instagram]'] =
+            socialHandles['instagram']!.trim();
+      }
+      if (socialHandles['twitter']?.trim().isNotEmpty == true) {
+        profileFormDataMap['social[twitter]'] =
+            socialHandles['twitter']!.trim();
+      }
+
+      // Add sub category only if not empty
+      if (subCategoryUuid?.isNotEmpty == true) {
+        profileFormDataMap['serviceSubCategories[0]'] = subCategoryUuid!;
+      }
+
+      final profileFormData = dio.FormData.fromMap(profileFormDataMap);
 
       final profileResponse = await _apiService.post(
         '/user/profile/update',
@@ -307,34 +370,37 @@ class UserProvider extends ChangeNotifier {
 
       // --- Step 2: Update Profile and Cover Images ---
       if (profileImage != null || coverImage != null) {
-        final imageFormData = dio.FormData.fromMap({
-          if (profileImage != null) ...{
-            'profileImage[file]':
-                kIsWeb
-                    ? dio.MultipartFile.fromBytes(
-                      await profileImage.readAsBytes(),
-                      filename: 'jondoe_dp.png',
-                    )
-                    : await dio.MultipartFile.fromFile(
-                      profileImage.path,
-                      filename: 'jondoe_dp.png',
-                    ),
-            'profileImage[fileName]': 'jondoe_dp.png',
-          },
-          if (coverImage != null) ...{
-            'coverImage[file]':
-                kIsWeb
-                    ? dio.MultipartFile.fromBytes(
-                      await coverImage.readAsBytes(),
-                      filename: 'cover_image.png',
-                    )
-                    : await dio.MultipartFile.fromFile(
-                      coverImage.path,
-                      filename: 'cover_image.png',
-                    ),
-            'coverImage[fileName]': 'cover_image.png',
-          },
-        });
+        final imageFormDataMap = <String, dynamic>{};
+
+        if (profileImage != null) {
+          imageFormDataMap['profileImage[file]'] =
+              kIsWeb
+                  ? dio.MultipartFile.fromBytes(
+                    await profileImage.readAsBytes(),
+                    filename: 'jondoe_dp.png',
+                  )
+                  : await dio.MultipartFile.fromFile(
+                    profileImage.path,
+                    filename: 'jondoe_dp.png',
+                  );
+          imageFormDataMap['profileImage[fileName]'] = 'jondoe_dp.png';
+        }
+
+        if (coverImage != null) {
+          imageFormDataMap['coverImage[file]'] =
+              kIsWeb
+                  ? dio.MultipartFile.fromBytes(
+                    await coverImage.readAsBytes(),
+                    filename: 'cover_image.png',
+                  )
+                  : await dio.MultipartFile.fromFile(
+                    coverImage.path,
+                    filename: 'cover_image.png',
+                  );
+          imageFormDataMap['coverImage[fileName]'] = 'cover_image.png';
+        }
+
+        final imageFormData = dio.FormData.fromMap(imageFormDataMap);
 
         final imageResponse = await _apiService.post(
           '/user/profile/image/update',
@@ -355,8 +421,8 @@ class UserProvider extends ChangeNotifier {
       _currentUser = await _authService.getCurrentUserProfile();
       if (_currentUser != null) {
         await _authService.saveUser(_currentUser!);
-        setSuccess();
         print('User profile updated successfully for: ${_currentUser!.email}');
+        setSuccess();
       } else {
         setError('Failed to fetch updated user profile after update.');
       }
@@ -402,29 +468,48 @@ class UserProvider extends ChangeNotifier {
       return;
     }
 
-    final channelName = 'user.profile.${_authService.currentUser!.uuid}';
-    if (_userChannelName == channelName) {
+    if (!_pusherService.isInitialized) {
+      print('PusherService not initialized. Cannot subscribe to user channel.');
       return;
     }
 
-    if (_userChannelName != null && _userChannelName!.isNotEmpty) {
+    final channelName = 'user.profile.${_authService.currentUser!.uuid}';
+    if (_userChannelName == channelName && _isSubscribed) {
+      return;
+    }
+
+    // Unsubscribe from old channel if exists
+    if (_userChannelName != null &&
+        _userChannelName!.isNotEmpty &&
+        _isSubscribed) {
       await _pusherService.unsubscribeFromChannel(_userChannelName!);
       print('Unsubscribed from old Pusher channel: $_userChannelName');
       _userChannelName = null;
+      _isSubscribed = false;
     }
 
     try {
-      final channel = await _pusherService.subscribeToChannel(channelName);
-      if (channel != null) {
+      final success = await _pusherService.subscribeToChannel(channelName);
+      if (success) {
         _userChannelName = channelName;
+        _isSubscribed = true;
         print('Subscribed to Pusher channel: $channelName');
 
+        // Bind to user profile updated event
         _pusherService.bindToEvent(channelName, 'user.profile.updated', (
-          eventDataString,
+          event,
         ) {
           try {
+            if (event.data == null || event.data.isEmpty) {
+              print(
+                'UserProvider: Received empty event data for user.profile.updated',
+              );
+              return;
+            }
+
             final Map<String, dynamic> eventData =
-                jsonDecode(eventDataString) as Map<String, dynamic>;
+                jsonDecode(event.data) as Map<String, dynamic>;
+
             _currentUser =
                 _currentUser?.copyWith(
                   firstName: eventData['firstName'] as String?,
@@ -449,25 +534,25 @@ class UserProvider extends ChangeNotifier {
             print('User profile updated via Pusher: ${_currentUser!.email}');
           } catch (e) {
             print(
-              'Error processing user.profile.updated event: $e. Data: $eventDataString',
+              'Error processing user.profile.updated event: $e. Data: ${event.data}',
             );
           }
         });
       } else {
-        print(
-          'Failed to subscribe to Pusher channel: $channelName. Channel is null.',
-        );
+        print('Failed to subscribe to Pusher channel: $channelName');
         _userChannelName = null;
+        _isSubscribed = false;
       }
     } catch (e) {
-      print('Error subscribing or binding to Pusher channel $channelName: $e');
+      print('Error subscribing to Pusher channel $channelName: $e');
       _userChannelName = null;
+      _isSubscribed = false;
     }
   }
 
   @override
   void dispose() {
-    if (_userChannelName != null) {
+    if (_userChannelName != null && _isSubscribed) {
       _pusherService.unsubscribeFromChannel(_userChannelName!);
     }
     super.dispose();

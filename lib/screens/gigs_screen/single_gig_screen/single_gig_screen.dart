@@ -52,6 +52,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
 
     try {
       await messageProvider.startConversation(currentUserId, sellerId);
+      // await messageProvider.
       if (context.mounted) {
         Navigator.push(
           context,
