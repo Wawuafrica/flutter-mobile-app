@@ -10,6 +10,9 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
+import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
+
+import 'Countries.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -24,7 +27,9 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController countryController = TextEditingController();
+
+  // Replace countryController with selectedCountry string
+  String? selectedCountry;
 
   // Declare services without initialization
   late final ApiService apiService;
@@ -47,7 +52,6 @@ class _SignUpState extends State<SignUp> {
     firstNameController.dispose();
     lastNameController.dispose();
     passwordController.dispose();
-    countryController.dispose();
     super.dispose();
   }
 
@@ -139,19 +143,31 @@ class _SignUpState extends State<SignUp> {
                       },
                     ),
                     SizedBox(height: 20),
-                    CustomTextfield(
-                      labelText: 'Country',
-                      hintText: 'Nigeria',
-                      labelTextStyle2: true,
-                      controller: countryController,
-                      validator: (value) {
-                        // Add validation
-                        if (value == null || value.isEmpty) {
-                          return 'Country cannot be empty';
-                        }
-                        return null;
-                      },
+
+                    // Add label for the country dropdown
+                    Text(
+                      'Country',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
                     ),
+                    SizedBox(height: 8),
+
+                    // Replace CustomTextfield with CustomDropdown for country
+                    CustomDropdown(
+                      options: Countries.all,
+                      label: 'Select your country',
+                      selectedValue: selectedCountry,
+                      onChanged: (String? value) {
+                        setState(() {
+                          selectedCountry = value;
+                        });
+                      },
+                      isDisabled: userProvider.isLoading,
+                    ),
+
                     SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.start,
@@ -223,6 +239,18 @@ class _SignUpState extends State<SignUp> {
                             return;
                           }
 
+                          // Validate country selection
+                          if (selectedCountry == null ||
+                              selectedCountry!.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Please select your country.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
                           if (!isChecked) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -243,7 +271,8 @@ class _SignUpState extends State<SignUp> {
                             'firstName': firstNameController.text,
                             'lastName': lastNameController.text,
                             'password': passwordController.text,
-                            'country': countryController.text,
+                            'country':
+                                selectedCountry!, // Use selected country name
                             'termsAccepted': isChecked,
                             'role':
                                 1, // Ensure this role ID is correct as per your backend
@@ -310,111 +339,6 @@ class _SignUpState extends State<SignUp> {
                       ],
                     ),
                     SizedBox(height: 20),
-
-                    // Row(
-                    //   mainAxisAlignment: MainAxisAlignment.center,
-                    //   // The 'spacing' property is not available on Row. Use SizedBox for spacing between Flexible widgets.
-                    //   children: [
-                    //     Flexible(
-                    //       child: Container(
-                    //         width: double.infinity,
-                    //         height: 1,
-                    //         color: const Color.fromARGB(255, 209, 209, 209),
-                    //       ),
-                    //     ),
-                    //     SizedBox(width: 10), // Spacing
-                    //     // Text('Or', style: TextStyle(fontSize: 13)),
-                    //     // SizedBox(width: 10), // Spacing
-                    //     // Flexible(
-                    //     //   child: Container(
-                    //     //     width: double.infinity,
-                    //     //     height: 1,
-                    //     //     color: const Color.fromARGB(255, 209, 209, 209),
-                    //     //   ),
-                    //     // ),
-                    //   ],
-                    // ),
-                    // SizedBox(height: 30),
-                    // CustomButton(
-                    //   function:
-                    //       userProvider.isLoading
-                    //           ? null
-                    //           : () {
-                    //             // Handle Google Sign-Up
-                    //           },
-                    //   border: Border.all(
-                    //     color: const Color.fromARGB(255, 216, 216, 216),
-                    //   ),
-                    //   widget: Row(
-                    //     mainAxisAlignment: MainAxisAlignment.center,
-                    //     children: [
-                    //       // Removed spacing as it's not a valid property of Row
-                    //       SvgPicture.asset(
-                    //         'assets/images/svg/google.svg',
-                    //         width: 20,
-                    //         height: 20,
-                    //       ),
-                    //       SizedBox(width: 10), // Spacing
-                    //       Text('Continue with Google'),
-                    //     ],
-                    //   ),
-                    //   color: Colors.white,
-                    //   textColor: Colors.black,
-                    // ),
-                    // SizedBox(height: 10),
-                    // CustomButton(
-                    //   function:
-                    //       userProvider.isLoading
-                    //           ? null
-                    //           : () {
-                    //             // Handle Apple Sign-Up
-                    //           },
-                    //   border: Border.all(
-                    //     color: const Color.fromARGB(255, 216, 216, 216),
-                    //   ),
-                    //   widget: Row(
-                    //     mainAxisAlignment: MainAxisAlignment.center,
-                    //     children: [
-                    //       // Removed spacing
-                    //       SvgPicture.asset(
-                    //         'assets/images/svg/apple.svg',
-                    //         width: 20,
-                    //         height: 20,
-                    //       ),
-                    //       SizedBox(width: 10), // Spacing
-                    //       Text('Continue with Apple'),
-                    //     ],
-                    //   ),
-                    //   color: Colors.white,
-                    //   textColor: Colors.black,
-                    // ),
-                    // SizedBox(height: 10),
-                    // CustomButton(
-                    //   function:
-                    //       userProvider.isLoading
-                    //           ? null
-                    //           : () {
-                    //             // Handle Facebook Sign-Up
-                    //           },
-                    //   border: Border.all(
-                    //     color: const Color.fromARGB(255, 216, 216, 216),
-                    //   ),
-                    //   widget: Row(
-                    //     mainAxisAlignment: MainAxisAlignment.center,
-                    //     children: [
-                    //       // Removed spacing
-                    //       SvgPicture.asset(
-                    //         'assets/images/svg/facebook.svg',
-                    //         width: 20,
-                    //         height: 20,
-                    //       ),
-                    //       SizedBox(width: 10), // Spacing
-                    //       Text('Continue with Facebook'),
-                    //     ],
-                    //   ),
-                    //   color: Colors.white,
-                    //   textColor: Colors.black,
-                    // ),
                   ],
                 ),
               ),
