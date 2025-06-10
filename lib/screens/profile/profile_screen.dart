@@ -6,6 +6,8 @@ import 'package:wawu_mobile/models/user.dart'; // Ensure .dart is present
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart'; // Ensure .dart is present
 import 'package:wawu_mobile/screens/profile/change_password_screen/change_password_screen.dart';
+import 'package:wawu_mobile/services/api_service.dart';
+import 'package:wawu_mobile/services/auth_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 // import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart'; // Keep if still used elsewhere, otherwise remove
@@ -61,9 +63,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool _isSavingProfile = false;
 
+  // Declare services without initialization
+  late final ApiService apiService;
+  late final AuthService authService;
+
+  // @override
+  // void initState() {
+  //   super.initState();
+
+  // }
+
   @override
   void initState() {
     super.initState();
+    // Initialize services in initState
+    apiService = ApiService();
+    authService = AuthService(apiService: apiService);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.currentUser;
     if (user != null) {
@@ -555,7 +570,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const ChangePasswordScreen(),
+                        builder:
+                            (context) =>
+                                ChangePasswordScreen(authService: authService),
                       ),
                     );
                   },

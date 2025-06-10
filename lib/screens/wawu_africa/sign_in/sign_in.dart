@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
+import 'package:wawu_mobile/screens/profile/forgot_passoword/forgot_password.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
+import 'package:wawu_mobile/services/api_service.dart';
+import 'package:wawu_mobile/services/auth_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
@@ -20,6 +23,18 @@ class _SignInState extends State<SignIn> {
   bool isChecked = false;
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+
+  // Declare services without initialization
+  late final ApiService apiService;
+  late final AuthService authService;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize services in initState
+    apiService = ApiService();
+    authService = AuthService(apiService: apiService);
+  }
 
   @override
   void dispose() {
@@ -62,9 +77,23 @@ class _SignInState extends State<SignIn> {
                     obscureText: true,
                   ),
                   SizedBox(height: 20),
-                  Text(
-                    'Forgot Password',
-                    style: TextStyle(color: wawuColors.buttonSecondary),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ForgotPassword(
+                                authService:
+                                    authService, // Pass authService to ForgotPassword
+                              ),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Forgot Password',
+                      style: TextStyle(color: wawuColors.buttonSecondary),
+                    ),
                   ),
                   SizedBox(height: 20),
 

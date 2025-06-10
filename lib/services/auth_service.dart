@@ -26,8 +26,7 @@ class AuthService {
   String? _token;
   User? _currentUser; // Internal state for the current user
 
-  AuthService({required ApiService apiService})
-      : _apiService = apiService {
+  AuthService({required ApiService apiService}) : _apiService = apiService {
     // This needs to be asynchronous, so it's often called once in main or a wrapper widget
     // _loadAuthData(); // Don't call async in constructor directly
   }
@@ -35,7 +34,8 @@ class AuthService {
   // A getter for currentUser (this was the missing part)
   User? get currentUser => _currentUser;
   String? get token => _token;
-  bool get isAuthenticated => _token != null && _currentUser != null && _currentUser!.uuid.isNotEmpty;
+  bool get isAuthenticated =>
+      _token != null && _currentUser != null && _currentUser!.uuid.isNotEmpty;
 
   // Call this method explicitly after AuthService is instantiated
   Future<void> init() async {
@@ -47,7 +47,9 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       _token = prefs.getString(_authTokenKey);
       if (_token != null) {
-        _apiService.setAuthToken(_token!); // Ensure ApiService also gets the token
+        _apiService.setAuthToken(
+          _token!,
+        ); // Ensure ApiService also gets the token
         _logger.d('Token loaded successfully');
       } else {
         _apiService.clearAuthToken();
@@ -103,7 +105,9 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_userDataKey, jsonEncode(user.toJson()));
       _currentUser = user; // Update internal current user
-      _logger.d('User data saved successfully to local storage and internal state');
+      _logger.d(
+        'User data saved successfully to local storage and internal state',
+      );
     } catch (e) {
       _logger.e('Error saving user data: $e');
       throw AuthException('Failed to save user profile locally.');
@@ -123,10 +127,12 @@ class AuthService {
 
   // Static helper to extract error message
   static String extractErrorMessage(dynamic error) {
-    if (error is DioException) { // Use DioException for newer Dio versions
+    if (error is DioException) {
+      // Use DioException for newer Dio versions
       if (error.response?.data != null && error.response!.data is Map) {
         final Map<String, dynamic> errorData = error.response!.data;
-        if (errorData.containsKey('message') && errorData['message'] is String) {
+        if (errorData.containsKey('message') &&
+            errorData['message'] is String) {
           return errorData['message'];
         }
         if (errorData.containsKey('errors') && errorData['errors'] is Map) {
@@ -164,9 +170,13 @@ class AuthService {
       );
 
       final data = response['data'];
-      if (response['statusCode'] == 200 && data != null && data is Map<String, dynamic>) {
+      if (response['statusCode'] == 200 &&
+          data != null &&
+          data is Map<String, dynamic>) {
         final String token = data['token']; // Ensure token exists in response
-        final user = User.fromJson(data['user']); // If user data is at root of 'data'
+        final user = User.fromJson(
+          data['user'],
+        ); // If user data is at root of 'data'
         // If user data is nested: final user = User.fromJson(data['user'] as Map<String, dynamic>);
 
         await saveToken(token);
@@ -174,7 +184,9 @@ class AuthService {
         _logger.d('Sign-in successful for user: ${user.email}');
         return user;
       } else {
-        final errorMessage = response['message'] as String? ?? 'Sign-in failed: Invalid response.';
+        final errorMessage =
+            response['message'] as String? ??
+            'Sign-in failed: Invalid response.';
         _logger.w(errorMessage);
         throw AuthException(errorMessage);
       }
@@ -193,7 +205,9 @@ class AuthService {
       );
 
       final data = response['data'];
-      if (response['statusCode'] == 200 && data != null && data is Map<String, dynamic>) {
+      if (response['statusCode'] == 200 &&
+          data != null &&
+          data is Map<String, dynamic>) {
         final String token = data['token'];
         final user = User.fromJson(data); // If user data is at root of 'data'
 
@@ -202,7 +216,9 @@ class AuthService {
         _logger.d('Registration successful for user: ${user.email}');
         return user;
       } else {
-        final errorMessage = response['message'] as String? ?? 'Registration failed: Invalid response.';
+        final errorMessage =
+            response['message'] as String? ??
+            'Registration failed: Invalid response.';
         _logger.w(errorMessage);
         throw AuthException(errorMessage);
       }
@@ -221,7 +237,9 @@ class AuthService {
         _logger.d('Server logout successful');
       }
     } catch (e) {
-      _logger.e('Server logout failed (might be network issue or token invalidation): $e');
+      _logger.e(
+        'Server logout failed (might be network issue or token invalidation): $e',
+      );
     } finally {
       await _clearToken();
       await _clearUser();
@@ -231,25 +249,32 @@ class AuthService {
 
   Future<User> getCurrentUserProfile() async {
     try {
-      if (!isAuthenticated  || _currentUser == null || _currentUser!.uuid.isEmpty) {
+      if (!isAuthenticated ||
+          _currentUser == null ||
+          _currentUser!.uuid.isEmpty) {
         throw AuthException('Not authenticated. No token or user found.');
       }
 
-
       final userId = _currentUser!.uuid; // <-- EXTRACING THE USER'S UUID HERE
       print('AuthService: Attempting to fetch user profile for UUID: $userId');
-      
-      final response = await _apiService.get<Map<String, dynamic>>('/user/$userId'); // Or /user/profile
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/user/$userId',
+      ); // Or /user/profile
       // Assuming 'data' key contains the user object, or the response itself is the user object
       final userMap = response['data'] ?? response;
       print('THIS IS THE user data $userMap');
-      if (response['statusCode'] == 200 && userMap != null && userMap is Map<String, dynamic>) {
+      if (response['statusCode'] == 200 &&
+          userMap != null &&
+          userMap is Map<String, dynamic>) {
         final user = User.fromJson(userMap);
         await saveUser(user); // Update local storage with fresh profile data
         _logger.d('User profile fetched successfully');
         return user;
       } else {
-        final errorMessage = response['message'] as String? ?? 'Failed to fetch user profile: Invalid response structure.';
+        final errorMessage =
+            response['message'] as String? ??
+            'Failed to fetch user profile: Invalid response structure.';
         _logger.w(errorMessage);
         throw AuthException(errorMessage);
       }
@@ -266,7 +291,7 @@ class AuthService {
     try {
       final data = {'email': email};
       if (type != null) data['type'] = type;
-      await _apiService.post('/api/user/otp/send', data: data);
+      await _apiService.post('/user/otp/send', data: data);
       _logger.d('OTP sent successfully for email: $email');
     } catch (e) {
       final message = extractErrorMessage(e);
@@ -279,7 +304,7 @@ class AuthService {
     try {
       final data = {'email': email, 'otp': otp};
       if (type != null) data['type'] = type;
-      await _apiService.post('/api/user/otp/verify', data: data);
+      await _apiService.post('/user/otp/verify', data: data);
       _logger.d('OTP verified successfully for email: $email');
     } catch (e) {
       final message = extractErrorMessage(e);
@@ -290,7 +315,7 @@ class AuthService {
 
   Future<void> forgotPassword(String email) async {
     try {
-      await _apiService.post('/auth/forgot-password', data: {'email': email});
+      await _apiService.post('/user/password/forgot', data: {'email': email});
       _logger.d('Forgot password request sent successfully for email: $email');
     } catch (e) {
       final message = extractErrorMessage(e);
@@ -301,16 +326,14 @@ class AuthService {
 
   Future<void> resetPassword(
     String email,
-    String otp,
     String newPassword,
     String confirmPassword,
   ) async {
     try {
       await _apiService.post(
-        '/auth/reset-password',
+        '/user/password/reset',
         data: {
           'email': email,
-          'token': otp, // Backend might expect 'token' instead of 'otp' for reset
           'password': newPassword,
           'password_confirmation': confirmPassword,
         },
