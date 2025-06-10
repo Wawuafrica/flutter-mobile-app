@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomTextfield extends StatelessWidget {
   final String labelText;
@@ -17,6 +18,7 @@ class CustomTextfield extends StatelessWidget {
   final TextInputType? keyboardType;
   final Function()? onTap; // <--- ADDED: Callback for tap events
   final bool readOnly; // <--- ADDED: To make the text field read-only
+  final List<TextInputFormatter> inputFormatters;
 
   const CustomTextfield({
     super.key,
@@ -36,6 +38,7 @@ class CustomTextfield extends StatelessWidget {
     this.keyboardType,
     this.onTap, // <--- ADDED to constructor
     this.readOnly = false, // <--- ADDED to constructor with a default value
+    this.inputFormatters = const [],
   });
 
   @override
@@ -56,13 +59,14 @@ class CustomTextfield extends StatelessWidget {
         TextFormField(
           controller: controller,
           obscureText: obscureText,
+          inputFormatters: inputFormatters,
           onChanged: onChanged,
           maxLines:
               obscureText // Ensure maxLines is 1 for obscureText to prevent multi-line passwords
                   ? 1
                   : maxLines
-                      ? maxLinesNum
-                      : null,
+                  ? maxLinesNum
+                  : null,
           keyboardType: keyboardType,
           validator: validator,
           onTap: onTap, // <--- PASSED TO TextFormField
