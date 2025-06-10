@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class AccountTypeCard extends StatelessWidget {
   final Color cardColor;
@@ -27,7 +28,11 @@ class AccountTypeCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(5.0),
         decoration: BoxDecoration(
-          border: selected ? Border.all(color: Colors.blue, width: 2.0) : null,
+          borderRadius: BorderRadius.circular(10),
+          border:
+              selected
+                  ? Border.all(color: wawuColors.primary, width: 2.0)
+                  : null,
         ),
         child: Container(
           width: double.infinity,

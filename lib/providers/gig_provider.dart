@@ -118,7 +118,7 @@ class GigProvider extends BaseProvider {
   Future<bool> postReview(String gigId, Map<String, dynamic> reviewData) async {
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
-        '/seller/gig/$gigId/reviews',
+        '/seller/gig/review/$gigId',
         data: reviewData,
       );
       return response['statusCode'] == 200;

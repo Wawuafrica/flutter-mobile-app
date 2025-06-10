@@ -129,6 +129,42 @@ class PlanProvider extends BaseProvider {
     }
   }
 
+  Future<void> fetchUserSubscriptionDetails(String userId, int role) async {
+    print('fetchUserSubscriptionDetails: Starting fetch for user: $userId');
+    setLoading();
+    try {
+      final response = await _apiService.post(
+        '/user/subscription/details/$userId',
+        data: {'role': role}, // Payload as specified
+      );
+      print('fetchUserSubscriptionDetails: Response received: $response');
+
+      if (response != null &&
+          response['data'] != null &&
+          response['data']['subscription'] != null) {
+        _subscription = Subscription.fromJson(
+          response['data']['subscription'] as Map<String, dynamic>,
+        );
+        print(
+          'fetchUserSubscriptionDetails: Subscription details fetched: ${_subscription!.uuid}',
+        );
+        setSuccess();
+      } else {
+        _subscription = null;
+        print(
+          'fetchUserSubscriptionDetails: Invalid response structure or no subscription data',
+        );
+        setError(
+          'Failed to fetch subscription details: Invalid response structure or no subscription data',
+        );
+      }
+    } catch (e) {
+      _subscription = null;
+      print('fetchUserSubscriptionDetails: Error occurred: $e');
+      setError('Failed to fetch subscription details: $e');
+    }
+  }
+
   void selectPlan(Plan plan) {
     _selectedPlan = plan;
     print('selectPlan: Selected plan: ${plan.name}');

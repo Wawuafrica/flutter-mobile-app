@@ -171,25 +171,25 @@ class MainScreenState extends State<MainScreen> {
     }
   }
 
-  Widget _buildSearchButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: wawuColors.primary.withAlpha(30),
-        shape: BoxShape.circle,
-      ),
-      margin: EdgeInsets.only(right: 10),
-      height: 36,
-      width: 36,
-      child: IconButton(
-        icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
-        onPressed: () {
-          setState(() {
-            _isSearchOpen = !_isSearchOpen;
-          });
-        },
-      ),
-    );
-  }
+  // Widget _buildSearchButton() {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: wawuColors.primary.withAlpha(30),
+  //       shape: BoxShape.circle,
+  //     ),
+  //     margin: EdgeInsets.only(right: 10),
+  //     height: 36,
+  //     width: 36,
+  //     child: IconButton(
+  //       icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
+  //       onPressed: () {
+  //         setState(() {
+  //           _isSearchOpen = !_isSearchOpen;
+  //         });
+  //       },
+  //     ),
+  //   );
+  // }
 
   Widget _buildInPageSearchBar() {
     return AnimatedContainer(

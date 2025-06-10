@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wawu_mobile/screens/profile/forgot_passoword/new_password_screen/new_password_screen.dart';
+import 'package:wawu_mobile/screens/account_type/account_type.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
@@ -70,14 +70,7 @@ class _OtpScreenState extends State<OtpScreen> {
       if (mounted) {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder:
-                (context) => NewPasswordScreen(
-                  authService: widget.authService,
-                  email: widget.email,
-                  otp: _otpController.text.trim(),
-                ),
-          ),
+          MaterialPageRoute(builder: (context) => AccountType()),
         );
       }
     } catch (e) {
@@ -133,7 +126,7 @@ class _OtpScreenState extends State<OtpScreen> {
               SizedBox(height: 20),
               CustomTextfield(
                 controller: _otpController,
-                hintText: '******',
+                hintText: '123456',
                 labelTextStyle2: true,
                 keyboardType: TextInputType.number,
                 validator: _validateOtp,

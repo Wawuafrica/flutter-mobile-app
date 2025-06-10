@@ -5,7 +5,7 @@ import 'package:wawu_mobile/screens/account_payment/payment_webview.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
-import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
+// import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 
 class AccountPayment extends StatefulWidget {
   final String userId; // Pass user ID from previous screen
@@ -40,23 +40,23 @@ class _AccountPaymentState extends State<AccountPayment> {
     }
   }
 
-  void _applyDiscount() {
-    // You can implement discount code validation here
-    String discountCode = _discountController.text.trim();
-    if (discountCode.isNotEmpty) {
-      // Example: Apply 8% discount for demo
-      // In real app, validate with API
-      setState(() {
-        discountPercentage = 8.0;
-        _calculateTotal();
-      });
-    } else {
-      setState(() {
-        discountPercentage = 0.0;
-        _calculateTotal();
-      });
-    }
-  }
+  // void _applyDiscount() {
+  //   // You can implement discount code validation here
+  //   String discountCode = _discountController.text.trim();
+  //   if (discountCode.isNotEmpty) {
+  //     // Example: Apply 8% discount for demo
+  //     // In real app, validate with API
+  //     setState(() {
+  //       discountPercentage = 8.0;
+  //       _calculateTotal();
+  //     });
+  //   } else {
+  //     setState(() {
+  //       discountPercentage = 0.0;
+  //       _calculateTotal();
+  //     });
+  //   }
+  // }
 
   Future<void> _proceedToCheckout() async {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
