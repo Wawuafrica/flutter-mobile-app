@@ -20,140 +20,150 @@ class UpdateProfile extends StatelessWidget {
             Consumer<UserProvider>(
               builder: (context, userProvider, child) {
                 final user = userProvider.currentUser;
-                final fullName = '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+                final fullName =
+                    '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
                 final accountType = user?.role ?? 'Loading...'; // Use user.role
 
-                return Container(
-                  padding: EdgeInsets.all(10.0),
-                  width: double.infinity,
-                  height: 350,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: wawuColors.primaryBackground.withOpacity(0.2),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        clipBehavior: Clip.hardEdge,
-                        decoration: BoxDecoration(shape: BoxShape.circle),
-                        child: Image.asset(
-                          'assets/images/other/avatar.webp',
-                          fit: BoxFit.cover,
-                        ),
+                return Column(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10.0),
+                      width: double.infinity,
+                      height: 350,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        color: wawuColors.primaryBackground.withOpacity(0.2),
                       ),
-                      SizedBox(height: 10),
-                      Text(
-                        // Display dynamic full name
-                        fullName.isNotEmpty ? fullName : 'User Name',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        // Display dynamic account type (role)
-                        accountType,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: const Color.fromARGB(255, 125, 125, 125),
-                          fontWeight: FontWeight.w200,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Row(
-                        spacing: 5,
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.check_circle,
-                            size: 15,
-                            color: wawuColors.primary,
+                          Container(
+                            width: 100,
+                            height: 100,
+                            clipBehavior: Clip.hardEdge,
+                            decoration: BoxDecoration(shape: BoxShape.circle),
+                            child: Image.asset(
+                              'assets/images/other/avatar.webp',
+                              fit: BoxFit.cover,
+                            ),
                           ),
+                          SizedBox(height: 10),
                           Text(
-                            'Not Verified',
+                            // Display dynamic full name
+                            fullName.isNotEmpty ? fullName : 'User Name',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            // Display dynamic account type (role)
+                            accountType,
                             style: TextStyle(
                               fontSize: 13,
-                              color: wawuColors.primary,
+                              color: const Color.fromARGB(255, 125, 125, 125),
                               fontWeight: FontWeight.w200,
                             ),
                           ),
+                          SizedBox(height: 10),
+                          Row(
+                            spacing: 5,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                size: 15,
+                                color: wawuColors.primary,
+                              ),
+                              Text(
+                                'Not Verified',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: wawuColors.primary,
+                                  fontWeight: FontWeight.w200,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 10),
+                          Row(
+                            spacing: 5,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.star,
+                                size: 15,
+                                color: const Color.fromARGB(255, 162, 162, 162),
+                              ),
+                              Icon(
+                                Icons.star,
+                                size: 15,
+                                color: const Color.fromARGB(255, 162, 162, 162),
+                              ),
+                              Icon(
+                                Icons.star,
+                                size: 15,
+                                color: const Color.fromARGB(255, 162, 162, 162),
+                              ),
+                              Icon(
+                                Icons.star,
+                                size: 15,
+                                color: const Color.fromARGB(255, 162, 162, 162),
+                              ),
+                              Icon(
+                                Icons.star,
+                                size: 15,
+                                color: const Color.fromARGB(255, 162, 162, 162),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      SizedBox(height: 10),
-                      Row(
-                        spacing: 5,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.star,
-                            size: 15,
-                            color: const Color.fromARGB(255, 162, 162, 162),
-                          ),
-                          Icon(
-                            Icons.star,
-                            size: 15,
-                            color: const Color.fromARGB(255, 162, 162, 162),
-                          ),
-                          Icon(
-                            Icons.star,
-                            size: 15,
-                            color: const Color.fromARGB(255, 162, 162, 162),
-                          ),
-                          Icon(
-                            Icons.star,
-                            size: 15,
-                            color: const Color.fromARGB(255, 162, 162, 162),
-                          ),
-                          Icon(
-                            Icons.star,
-                            size: 15,
-                            color: const Color.fromARGB(255, 162, 162, 162),
-                          ),
-                        ],
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      "Hi $fullName",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: const Color.fromARGB(255, 125, 125, 125),
+                        fontWeight: FontWeight.w200,
                       ),
-                    ],
-                  ),
+                    ),
+
+                    Text(
+                      "Your expertise on WAWUAfrica is truly remarkable, bringing both excellence and joy to the platform. Your skills and wisdom are making a real difference! To help clients connect with you more easily, remember to keep your profile updated. We’re thrilled to have you here and celebrate your success. As you glorify God, enjoy the journey, and prosper, remember His promise: Commit your work to the Lord, and your plans will be established. Keep shining for His glory! (Proverbs 16:3).",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: const Color.fromARGB(255, 125, 125, 125),
+                        fontWeight: FontWeight.w200,
+                      ),
+                    ),
+
+                    SizedBox(height: 30),
+                    CustomButton(
+                      function: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProfileUpdate(),
+                          ),
+                        );
+                      },
+                      widget: Text(
+                        'Update Profile',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      color: wawuColors.buttonPrimary,
+                      textColor: Colors.white,
+                    ),
+                  ],
                 );
               },
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Hey Superwoman,  being a pro on WawuAfrica means awesome and fun stuff.  Your skills are a game-changer! But you gotta update your profile so clients can find you faster.',
-              style: TextStyle(
-                fontSize: 13,
-                color: const Color.fromARGB(255, 125, 125, 125),
-                fontWeight: FontWeight.w200,
-              ),
-            ),
-
-            Text(
-              "We're so proud to have you! Have fun, make some cash, and stay safe.",
-              style: TextStyle(
-                fontSize: 13,
-                color: const Color.fromARGB(255, 125, 125, 125),
-                fontWeight: FontWeight.w200,
-              ),
-            ),
-
-            SizedBox(height: 30),
-            CustomButton(
-              function: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfileUpdate()),
-                );
-              },
-              widget: Text(
-                'Update Profile',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              color: wawuColors.buttonPrimary,
-              textColor: Colors.white,
             ),
           ],
         ),

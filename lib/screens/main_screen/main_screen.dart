@@ -78,10 +78,38 @@ class MainScreenState extends State<MainScreen> {
   }
 
   List<Widget> _getAppBarTitles() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
     final List<Widget> titles = [
-      const Text(
-        'Home',
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+      Row(
+        spacing: 10.0,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            clipBehavior: Clip.hardEdge,
+            decoration: BoxDecoration(shape: BoxShape.circle),
+            child: Image.asset(
+              userProvider.currentUser?.profileImage ??
+                  'assets/images/other/avatar.webp',
+              cacheWidth: 70,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Hello ${userProvider.currentUser?.firstName}",
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              Text(
+                "Find Your Gig Today",
+                style: TextStyle(fontSize: 11, color: wawuColors.buttonPrimary),
+              ),
+            ],
+          ),
+        ],
       ),
       const Text(
         'Blog',
@@ -103,7 +131,6 @@ class MainScreenState extends State<MainScreen> {
     ];
 
     // Filter titles based on the actual screens present
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUser = userProvider.currentUser;
     final isBuyer = currentUser?.role?.toUpperCase() == 'BUYER';
 
@@ -138,68 +165,71 @@ class MainScreenState extends State<MainScreen> {
     } else {
       // For other roles, show the search bar and notifications
       return [
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            transitionBuilder: (child, animation) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: _isSearchOpen ? const Offset(1.0, 0.0) : Offset.zero,
-                  end: _isSearchOpen ? Offset.zero : const Offset(1.0, 0.0),
-                ).animate(animation),
-                child: child,
-              );
-            },
-            child:
-                _isSearchOpen
-                    ? Padding(
-                      key: const ValueKey('search_field'),
-                      padding: const EdgeInsets.only(right: 10.0),
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                          filled: true,
-                          fillColor: wawuColors.purpleDarkestContainer,
-                          prefixIcon: Icon(
-                            Icons.search,
-                            color: wawuColors.grey,
-                          ),
-                          suffixIcon: IconButton(
-                            icon: Icon(Icons.close, color: wawuColors.grey),
-                            onPressed: () {
-                              setState(() {
-                                _isSearchOpen = false;
-                                _searchController.clear();
-                              });
-                            },
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 0,
-                            horizontal: 10,
-                          ),
-                        ),
-                        style: TextStyle(color: wawuColors.primary),
-                      ),
-                    )
-                    : IconButton(
-                      key: const ValueKey('search_button'),
-                      icon: Icon(Icons.search, color: wawuColors.primary),
-                      onPressed: () {
-                        setState(() {
-                          _isSearchOpen = true;
-                        });
-                      },
-                    ),
-          ),
-        ),
+        // _buildSearchButton(),
         _buildNotificationsButton(),
       ];
     }
+  }
+
+  Widget _buildSearchButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: wawuColors.primary.withAlpha(30),
+        shape: BoxShape.circle,
+      ),
+      margin: EdgeInsets.only(right: 10),
+      height: 36,
+      width: 36,
+      child: IconButton(
+        icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
+        onPressed: () {
+          setState(() {
+            _isSearchOpen = !_isSearchOpen;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildInPageSearchBar() {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 200),
+      curve: Curves.ease,
+      height: _isSearchOpen ? 65 : 0,
+      child: ClipRRect(
+        child: SizedBox(
+          height: _isSearchOpen ? 65 : 0,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 15.0, vertical: 15.0),
+            child:
+                _isSearchOpen
+                    ? TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search...",
+                        hintStyle: TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: wawuColors.primary.withAlpha(30),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: wawuColors.primary.withAlpha(60),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: wawuColors.primary),
+                        ),
+                      ),
+                    )
+                    : null,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildNotificationsButton() {
@@ -236,6 +266,7 @@ class MainScreenState extends State<MainScreen> {
       ),
       body: Column(
         children: [
+          _buildInPageSearchBar(),
           const SizedBox.shrink(),
           Expanded(
             child: IndexedStack(index: _selectedIndex, children: _screens),

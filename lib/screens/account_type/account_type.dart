@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/category_selection/category_selection.dart';
+import 'package:wawu_mobile/screens/update_profile/update_profile.dart';
 // import 'package:wawu_mobile/screens/category_selection/category_selection.dart'; // Removed
 // import 'package:wawu_mobile/screens/location_verification/location_verification.dart'; // Removed
 import 'package:wawu_mobile/utils/constants/colors.dart'; // Assuming this exists for your colors
@@ -50,9 +51,12 @@ class _AccountTypeState extends State<AccountType> {
     // Initialize selectedAccountType from currentUser if available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      if (userProvider.currentUser != null && userProvider.currentUser!.role != null) {
+      if (userProvider.currentUser != null &&
+          userProvider.currentUser!.role != null) {
         setState(() {
-          selectedAccountType = _getAccountTypeString(userProvider.currentUser!.role);
+          selectedAccountType = _getAccountTypeString(
+            userProvider.currentUser!.role,
+          );
         });
       }
     });
@@ -65,7 +69,8 @@ class _AccountTypeState extends State<AccountType> {
     });
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final int? role = _roleMap[type]; // This correctly gets the new integer value
+    final int? role =
+        _roleMap[type]; // This correctly gets the new integer value
 
     if (role == null) {
       // This should ideally not happen if _roleMap is complete
@@ -81,6 +86,12 @@ class _AccountTypeState extends State<AccountType> {
 
     if (userProvider.isSuccess) {
       // Navigate to UpdateProfile for all account types
+      if (type == 'buyer') {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => UpdateProfile()),
+        );
+      }
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -92,7 +103,11 @@ class _AccountTypeState extends State<AccountType> {
     } else if (userProvider.hasError) {
       // Show a SnackBar for immediate feedback
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(userProvider.errorMessage ?? 'Failed to update account type.')),
+        SnackBar(
+          content: Text(
+            userProvider.errorMessage ?? 'Failed to update account type.',
+          ),
+        ),
       );
       // Reset provider state to clear success/error messages for next interaction
       userProvider.resetState(); // Reset after showing error
@@ -106,7 +121,10 @@ class _AccountTypeState extends State<AccountType> {
         return Scaffold(
           body: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 0.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 30.0,
+              vertical: 0.0,
+            ),
             child: ListView(
               children: [
                 SizedBox(height: 10.0),
@@ -117,10 +135,12 @@ class _AccountTypeState extends State<AccountType> {
 
                 // Show loading indicator when updating profile
                 if (userProvider.isLoading)
-                  Center(child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20.0),
-                    child: CircularProgressIndicator(),
-                  )),
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
 
                 // Show error message if update failed and not loading
                 if (userProvider.hasError && !userProvider.isLoading)
@@ -134,38 +154,55 @@ class _AccountTypeState extends State<AccountType> {
                   ),
 
                 // Professional Card
-                AccountTypeCard(
-                  navigate: userProvider.isLoading ? () {} : () => _onAccountTypeSelected('professional'),
-                  cardColor: wawuColors.purpleDarkestContainer,
-                  text: 'Professionals',
-                  desc: 'A highly accomplished and experienced superwoman with a proven track record, formal qualifications, and relevant certifications, operating a registered business.',
-                  textColor: Colors.white,
-                  selected: selectedAccountType == 'professional',
-                ),
-                SizedBox(height: 20),
+                if (!userProvider.isLoading)
+                  Column(
+                    children: [
+                      AccountTypeCard(
+                        navigate:
+                            userProvider.isLoading
+                                ? () {}
+                                : () => _onAccountTypeSelected('professional'),
+                        cardColor: wawuColors.purpleDarkestContainer,
+                        text: 'Professionals',
+                        desc:
+                            'A highly accomplished and experienced superwoman with a proven track record, formal qualifications, and relevant certifications, operating a registered business.',
+                        textColor: Colors.white,
+                        selected: selectedAccountType == 'professional',
+                      ),
+                      SizedBox(height: 20),
 
-                // Artisan Card
-                AccountTypeCard(
-                  navigate: userProvider.isLoading ? () {} : () => _onAccountTypeSelected('artisan'),
-                  cardColor: wawuColors.purpleContainer,
-                  text: 'Artisan',
-                  desc: 'A super-skilled, confident, and experienced woman ready to work but waiting to get her qualifications, certifications, and business registered.',
-                  textColor: Colors.white,
-                  selected: selectedAccountType == 'artisan',
-                ),
-                SizedBox(height: 20),
+                      // Artisan Card
+                      AccountTypeCard(
+                        navigate:
+                            userProvider.isLoading
+                                ? () {}
+                                : () => _onAccountTypeSelected('artisan'),
+                        cardColor: wawuColors.purpleContainer,
+                        text: 'Artisan',
+                        desc:
+                            'A super-skilled, confident, and experienced woman ready to work but waiting to get her qualifications, certifications, and business registered.',
+                        textColor: Colors.white,
+                        selected: selectedAccountType == 'artisan',
+                      ),
+                      SizedBox(height: 20),
 
-                // Buyer Card
-                AccountTypeCard(
-                  navigate: userProvider.isLoading ? () {} : () => _onAccountTypeSelected('buyer'),
-                  cardColor: wawuColors.white,
-                  text: 'Buyer',
-                  desc: 'High-achieving professionals, entrepreneurs, industry leaders, change agents, creative geniuses, and individuals ready to pay a Superwoman to get the Wow Experience.',
-                  textColor: Colors.black,
-                  borderBlack: true,
-                  selected: selectedAccountType == 'buyer',
-                ),
-                SizedBox(height: 20.0),
+                      // Buyer Card
+                      AccountTypeCard(
+                        navigate:
+                            userProvider.isLoading
+                                ? () {}
+                                : () => _onAccountTypeSelected('buyer'),
+                        cardColor: wawuColors.white,
+                        text: 'Buyer',
+                        desc:
+                            'High-achieving professionals, entrepreneurs, industry leaders, change agents, creative geniuses, and individuals ready to pay a Superwoman to get the Wow Experience.',
+                        textColor: Colors.black,
+                        borderBlack: true,
+                        selected: selectedAccountType == 'buyer',
+                      ),
+                      SizedBox(height: 20.0),
+                    ],
+                  ),
               ],
             ),
           ),
