@@ -130,13 +130,19 @@ class _PlanState extends State<Plan> {
                                       [],
                                   function: () {
                                     planProvider.selectPlan(plan);
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const AccountPayment(),
-                                      ),
-                                    );
+                                    final userId =
+                                        userProvider.currentUser?.uuid;
+                                    if (userId != null) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => AccountPayment(
+                                                userId: userId,
+                                              ),
+                                        ),
+                                      );
+                                    }
                                   },
                                 ),
                               );

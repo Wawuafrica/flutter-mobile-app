@@ -109,24 +109,6 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     }
   }
 
-  // // New method for picking certification/ID images
-  // Future<void> _pickDocumentImage(String documentType) async {
-  //   final ImagePicker picker = ImagePicker();
-  //   final XFile? pickedFile = await picker.pickImage(
-  //     source: ImageSource.gallery,
-  //   );
-
-  //   if (pickedFile != null) {
-  //     setState(() {
-  //       if (documentType == 'professionalCertification') {
-  //         _professionalCertificationImage = pickedFile;
-  //       } else if (documentType == 'meansOfIdentification') {
-  //         _meansOfIdentification = pickedFile;
-  //       }
-  //     });
-  //   }
-  // }
-
   void _addSkill() {
     if (_skillController.text.trim().isNotEmpty) {
       setState(() {
@@ -261,6 +243,8 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
         final user = userProvider.currentUser;
         final fullName =
             '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+        final isBuyer =
+            user?.role == 'BUYER'; // Determine if the user is a buyer
 
         return Scaffold(
           appBar: AppBar(title: const Text('Profile'), centerTitle: true),
@@ -416,38 +400,44 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                Center(
-                  child: Text(
-                    selectedSubCategory != null
-                        ? selectedSubCategory.name
-                        : 'No Specialty Selected',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: wawuColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 5,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 15,
-                      color: wawuColors.primary,
-                    ),
-                    const Text(
-                      'Not Verified',
+
+                // Conditionally display Specialty Selected for non-buyers
+                if (!isBuyer)
+                  Center(
+                    child: Text(
+                      selectedSubCategory != null
+                          ? selectedSubCategory.name
+                          : '',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Color.fromARGB(255, 125, 125, 125),
-                        fontWeight: FontWeight.w200,
+                        fontWeight: FontWeight.w600,
+                        color: wawuColors.primary,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                const SizedBox(height: 10),
+
+                // Conditionally display "Not Verified" for non-buyers
+                if (!isBuyer)
+                  Wrap(
+                    spacing: 5,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        size: 15,
+                        color: wawuColors.primary,
+                      ),
+                      const Text(
+                        'Not Verified',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color.fromARGB(255, 125, 125, 125),
+                          fontWeight: FontWeight.w200,
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 5,
@@ -481,229 +471,250 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const CustomIntroText(text: 'About'),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _aboutController,
-                  maxLength: _maxAboutLength,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    hintText: 'Tell us about yourself...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const CustomIntroText(text: 'Skills'),
-                const SizedBox(height: 10),
-                CustomTextfield(
-                  controller: _skillController,
-                  hintText: 'Add a skill...',
-                ),
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: _addSkill,
-                  child: CustomButton(
-                    widget: const Text(
-                      'Add',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    color: wawuColors.buttonPrimary,
-                    textColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children:
-                      _skills.map((skill) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: wawuColors.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(skill),
-                              const SizedBox(width: 5),
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _skills.remove(skill);
-                                  });
-                                },
-                                child: const Icon(Icons.close, size: 16),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                ),
-                const SizedBox(height: 30),
-                const CustomIntroText(text: 'Education'),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 25),
-                    const Text(
-                      'Certification',
-                      style: TextStyle(fontWeight: FontWeight.w400),
-                    ),
-                    const SizedBox(height: 5),
-                    CustomDropdown(
-                      options: const ['BSc', 'High School', 'MSc', 'PhD'],
-                      label: 'Select Certificate',
-                      selectedValue: _selectedEducationCertification,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedEducationCertification = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Institution',
-                      style: TextStyle(fontWeight: FontWeight.w400),
-                    ),
-                    const SizedBox(height: 5),
-                    CustomDropdown(
-                      options: const [
-                        'University Of Lagos',
-                        'University Of Ibadan',
-                        'University Of Port Harcourt',
-                      ],
-                      label: 'Select Institution',
-                      selectedValue: _selectedEducationInstitution,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedEducationInstitution = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    CustomTextfield(
-                      controller: _educationCourseOfStudyController,
-                      hintText: 'Enter course of study',
-                      labelTextStyle2: true,
-                      labelText: 'Course of Study',
-                    ),
-                    const SizedBox(height: 10),
-                    CustomTextfield(
-                      controller: _educationGraduationDateController,
-                      hintText: 'YYYY-MM-DD',
-                      labelText: 'Graduation Date',
-                      labelTextStyle2: true,
-                      suffixIcon: Icons.calendar_today,
-                      readOnly: true, // Make it read-only
-                      onTap:
-                          () => _selectGraduationDate(
-                            _educationGraduationDateController,
-                          ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Graduation Date is required';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-                const CustomIntroText(text: 'Professional Certification'),
-                const SizedBox(height: 25),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Name',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w400,
-                        fontSize: 16,
+
+                // Conditionally display "About" section for non-buyers
+                if (!isBuyer) ...[
+                  const CustomIntroText(text: 'About'),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _aboutController,
+                    maxLength: _maxAboutLength,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: 'Tell us about yourself...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    CustomDropdown(
-                      options: const ['CAC', 'Skill Certificate', 'MIT'],
-                      label: 'Select Certificate',
-                      selectedValue: _selectedProfessionalCertificationName,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedProfessionalCertificationName = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    CustomTextfield(
-                      controller:
-                          _professionalCertificationOrganizationController,
-                      hintText: 'Enter Organization Name',
-                      labelTextStyle2: true,
-                      labelText: 'Organization',
-                    ),
-                    const SizedBox(height: 20),
-                    CustomTextfield(
-                      controller: _professionalCertificationEndDateController,
-                      hintText: 'YYYY-MM-DD',
-                      labelText: 'End Date',
-                      labelTextStyle2: true,
-                      suffixIcon: Icons.calendar_today,
-                      readOnly: true, // Make it read-only
-                      onTap:
-                          () => _selectGraduationDate(
-                            _professionalCertificationEndDateController,
-                          ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'End Date is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Upload Certification Document',
-                      style: TextStyle(
-                        color: Color.fromARGB(255, 125, 125, 125),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    UploadImage(
-                      labelText: 'Upload Certification Document',
-                      onImageChanged: (xfile) {
-                        setState(() {
-                          _professionalCertificationImage = xfile;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
-                const CustomIntroText(text: 'Means Of Identification'),
-                const SizedBox(height: 20),
-                UploadImage(
-                  labelText: 'Upload Means of ID',
-                  onImageChanged: (xfile) {
-                    setState(() {
-                      _meansOfIdentification = xfile;
-                    });
-                  },
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Acceptable proof of address documents',
-                  style: TextStyle(
-                    color: Color.fromARGB(255, 125, 125, 125),
-                    fontSize: 13,
                   ),
-                ),
+                  const SizedBox(height: 20),
+                ],
+
+                // Conditionally display "Skills" section for non-buyers
+                if (!isBuyer) ...[
+                  const CustomIntroText(text: 'Skills'),
+                  const SizedBox(height: 10),
+                  CustomTextfield(
+                    controller: _skillController,
+                    hintText: 'Add a skill...',
+                  ),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: _addSkill,
+                    child: CustomButton(
+                      widget: const Text(
+                        'Add',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      color: wawuColors.buttonPrimary,
+                      textColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children:
+                        _skills.map((skill) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: wawuColors.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(skill),
+                                const SizedBox(width: 5),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _skills.remove(skill);
+                                    });
+                                  },
+                                  child: const Icon(Icons.close, size: 16),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                  ),
+                  const SizedBox(height: 30),
+                ],
+
+                // Conditionally display "Education" section for non-buyers
+                if (!isBuyer) ...[
+                  const CustomIntroText(text: 'Education'),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 25),
+                      const Text(
+                        'Certification',
+                        style: TextStyle(fontWeight: FontWeight.w400),
+                      ),
+                      const SizedBox(height: 5),
+                      CustomDropdown(
+                        options: const ['BSc', 'High School', 'MSc', 'PhD'],
+                        label: 'Select Certificate',
+                        selectedValue: _selectedEducationCertification,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedEducationCertification = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Institution',
+                        style: TextStyle(fontWeight: FontWeight.w400),
+                      ),
+                      const SizedBox(height: 5),
+                      CustomDropdown(
+                        options: const [
+                          'University Of Lagos',
+                          'University Of Ibadan',
+                          'University Of Port Harcourt',
+                        ],
+                        label: 'Select Institution',
+                        selectedValue: _selectedEducationInstitution,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedEducationInstitution = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      CustomTextfield(
+                        controller: _educationCourseOfStudyController,
+                        hintText: 'Enter course of study',
+                        labelTextStyle2: true,
+                        labelText: 'Course of Study',
+                      ),
+                      const SizedBox(height: 10),
+                      CustomTextfield(
+                        controller: _educationGraduationDateController,
+                        hintText: 'YYYY-MM-DD',
+                        labelText: 'Graduation Date',
+                        labelTextStyle2: true,
+                        suffixIcon: Icons.calendar_today,
+                        readOnly: true, // Make it read-only
+                        onTap:
+                            () => _selectGraduationDate(
+                              _educationGraduationDateController,
+                            ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Graduation Date is required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                ],
+
+                // Conditionally display "Professional Certification" section for non-buyers
+                if (!isBuyer) ...[
+                  const CustomIntroText(text: 'Professional Certification'),
+                  const SizedBox(height: 25),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Name',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w400,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      CustomDropdown(
+                        options: const ['CAC', 'Skill Certificate', 'MIT'],
+                        label: 'Select Certificate',
+                        selectedValue: _selectedProfessionalCertificationName,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedProfessionalCertificationName = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      CustomTextfield(
+                        controller:
+                            _professionalCertificationOrganizationController,
+                        hintText: 'Enter Organization Name',
+                        labelTextStyle2: true,
+                        labelText: 'Organization',
+                      ),
+                      const SizedBox(height: 20),
+                      CustomTextfield(
+                        controller: _professionalCertificationEndDateController,
+                        hintText: 'YYYY-MM-DD',
+                        labelText: 'End Date',
+                        labelTextStyle2: true,
+                        suffixIcon: Icons.calendar_today,
+                        readOnly: true, // Make it read-only
+                        onTap:
+                            () => _selectGraduationDate(
+                              _professionalCertificationEndDateController,
+                            ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'End Date is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Upload Certification Document',
+                        style: TextStyle(
+                          color: Color.fromARGB(255, 125, 125, 125),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      UploadImage(
+                        labelText: 'Upload Certification Document',
+                        onImageChanged: (xfile) {
+                          setState(() {
+                            _professionalCertificationImage = xfile;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 40),
+                ],
+
+                // Conditionally display "Means Of Identification" for non-buyers
+                if (!isBuyer) ...[
+                  const CustomIntroText(text: 'Means Of Identification'),
+                  const SizedBox(height: 20),
+                  UploadImage(
+                    labelText: 'Upload Means of ID',
+                    onImageChanged: (xfile) {
+                      setState(() {
+                        _meansOfIdentification = xfile;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Acceptable proof of address documents',
+                    style: TextStyle(
+                      color: Color.fromARGB(255, 125, 125, 125),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -742,36 +753,41 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   ],
                 ),
                 const SizedBox(height: 30),
-                const CustomIntroText(text: 'Social Handles'),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _facebookController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'Facebook',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _linkedInController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'LinkedIn',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _instagramController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'Instagram',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _twitterController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'X fka Twitter',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 40),
+
+                // Conditionally display "Social Handles" for non-buyers
+                if (!isBuyer) ...[
+                  const CustomIntroText(text: 'Social Handles'),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _facebookController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'Facebook',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _linkedInController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'LinkedIn',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _instagramController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'Instagram',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _twitterController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'X fka Twitter',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 40),
+                ],
+
                 CustomButton(
                   function: _isSavingProfile ? null : _saveProfile,
                   widget:
