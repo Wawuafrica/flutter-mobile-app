@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:wawu_mobile/models/notification.dart';
 import 'package:wawu_mobile/services/api_service.dart';

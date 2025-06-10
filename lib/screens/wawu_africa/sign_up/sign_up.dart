@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 // import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/account_type/account_type.dart';
+import 'package:wawu_mobile/screens/profile/forgot_passoword/otp_screen/otp_screen.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
+import 'package:wawu_mobile/services/api_service.dart';
+import 'package:wawu_mobile/services/auth_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
@@ -23,6 +25,18 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController countryController = TextEditingController();
+
+  // Declare services without initialization
+  late final ApiService apiService;
+  late final AuthService authService;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize services in initState
+    apiService = ApiService();
+    authService = AuthService(apiService: apiService);
+  }
 
   // Add a GlobalKey for the form to manage validation state
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -239,10 +253,17 @@ class _SignUpState extends State<SignUp> {
 
                           // Only navigate if the widget is still mounted and registration was successful
                           if (mounted && userProvider.isSuccess) {
+                            await authService.sendOtp(
+                              emailController.text.trim(),
+                            );
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => AccountType(),
+                                builder:
+                                    (context) => OtpScreen(
+                                      authService: authService,
+                                      email: emailController.text,
+                                    ),
                               ),
                             );
                           }

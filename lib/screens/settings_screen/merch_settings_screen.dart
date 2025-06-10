@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
-import 'package:wawu_mobile/providers/application_provider.dart';
 import 'package:wawu_mobile/providers/blog_provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';

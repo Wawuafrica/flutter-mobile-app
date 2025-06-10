@@ -1,14 +1,14 @@
+// settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
-import 'package:wawu_mobile/providers/application_provider.dart';
+// import 'package:wawu_mobile/providers/application_provider.dart';
 import 'package:wawu_mobile/providers/blog_provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
-import 'package:wawu_mobile/providers/plan_provider.dart';
+import 'package:wawu_mobile/providers/plan_provider.dart'; // Import PlanProvider
 import 'package:wawu_mobile/providers/product_provider.dart';
-// import 'package:wawu_mobile/providers/review_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/about_us_screen/about_us_screen.dart';
 import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
@@ -21,8 +21,41 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Fetch subscription data when the screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final userId = userProvider.currentUser?.uuid;
+      final userType = userProvider.currentUser?.role?.toLowerCase();
+      int role = 0; // Default role, assuming it's not artisan or professional
+
+      if (userType == 'artisan') {
+        role = 3;
+      } else if (userType == 'professional') {
+        role = 2;
+      } else {
+        role = 1; // Assuming 'user' or default role is 1
+      }
+
+      // Only call fetchUserSubscriptionDetails if userId is not null
+      if (userId != null) {
+        Provider.of<PlanProvider>(
+          context,
+          listen: false,
+        ).fetchUserSubscriptionDetails(userId, role);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,69 +152,197 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 160,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: wawuColors.primary,
-              ),
-              padding: const EdgeInsets.all(30.0),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: CustomRowSingleColumn(
-                      leftText: 'Subscription Plan',
-                      leftTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      rightText: 'Wawu Standard',
-                      rightTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+            Consumer<PlanProvider>(
+              builder: (context, planProvider, child) {
+                final userType =
+                    Provider.of<UserProvider>(
+                      context,
+                    ).currentUser?.role?.toLowerCase();
+
+                // Conditional rendering: Only show subscription if userType is 'artisan' or 'professional'
+                if (userType != 'artisan' && userType != 'professional') {
+                  return const SizedBox.shrink(); // Hide the subscription component
+                }
+
+                final subscriptionData = planProvider.subscription;
+                final isLoading = planProvider.isLoading;
+                final hasError = planProvider.hasError;
+
+                if (isLoading) {
+                  return Container(
+                    width: double.infinity,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.grey[200], // Placeholder color
                     ),
-                  ),
-                  Expanded(
-                    child: CustomRowSingleColumn(
-                      leftText: 'One Month Plan',
-                      leftTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      rightText: '28 Days Left',
-                      rightTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
+                    padding: const EdgeInsets.all(30.0),
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (hasError || subscriptionData == null) {
+                  return Container(
+                    width: double.infinity,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color:
+                          wawuColors
+                              .primary, // Or a different color for fallback
                     ),
-                  ),
-                  const SizedBox(height: 25),
-                  Expanded(
-                    child: CustomRowSingleColumn(
-                      leftText: 'Upgrade Plan',
-                      leftTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      rightText: '',
-                      rightTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    padding: const EdgeInsets.all(30.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'No active subscription',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () {
+                            // Retry fetching only if userId is available
+                            final currentUserId =
+                                Provider.of<UserProvider>(
+                                  context,
+                                  listen: false,
+                                ).currentUser?.uuid;
+                            final currentUserType =
+                                Provider.of<UserProvider>(
+                                  context,
+                                  listen: false,
+                                ).currentUser?.role?.toLowerCase();
+                            int currentRole = 0;
+                            if (currentUserType == 'artisan') {
+                              currentRole = 3;
+                            } else if (currentUserType == 'professional') {
+                              currentRole = 2;
+                            } else {
+                              currentRole = 1;
+                            }
+
+                            if (currentUserId != null) {
+                              planProvider.fetchUserSubscriptionDetails(
+                                currentUserId,
+                                currentRole,
+                              ); // Retry fetching
+                            }
+                          },
+                          child: Text(
+                            'Upgrade Plan or Retry',
+                            style: TextStyle(
+                              color: wawuColors.white.withOpacity(0.8),
+                              fontSize: 14,
+                              decoration: TextDecoration.underline,
+                              decorationColor: wawuColors.white.withOpacity(
+                                0.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                  );
+                }
+
+                // Display actual subscription data
+                final planName = subscriptionData.plan.name;
+                final expiresAt =
+                    subscriptionData.expiresAt; // Use expiresAt from the model
+
+                // Calculate days left (simplified example, consider using a date comparison library)
+                // Assuming expiresAt is in a parseable format, e.g., 'YYYY-MM-DD'
+                String daysLeftText = '';
+                try {
+                  final DateTime expiryDate = DateTime.parse(expiresAt);
+                  final DateTime now = DateTime.now();
+                  final Duration duration = expiryDate.difference(now);
+                  final int days = duration.inDays;
+                  if (days > 0) {
+                    daysLeftText = '$days Days Left';
+                  } else if (days == 0) {
+                    daysLeftText = 'Expires Today';
+                  } else {
+                    daysLeftText = 'Expired';
+                  }
+                } catch (e) {
+                  daysLeftText = 'N/A'; // Handle parsing errors
+                  print('Error parsing expiry date: $e');
+                }
+
+                return Container(
+                  width: double.infinity,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    color: wawuColors.primary,
                   ),
-                ],
-              ),
+                  padding: const EdgeInsets.all(30.0),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: CustomRowSingleColumn(
+                          leftText: 'Subscription Plan',
+                          leftTextStyle: TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          rightText: planName,
+                          rightTextStyle: TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: CustomRowSingleColumn(
+                          leftText: 'Expires On', // Changed text
+                          leftTextStyle: TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          rightText:
+                              '$expiresAt ($daysLeftText)', // Display expiry date and days left
+                          rightTextStyle: TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 25),
+                      Expanded(
+                        child: CustomRowSingleColumn(
+                          leftText: 'Upgrade Plan',
+                          leftTextStyle: TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          rightText: '',
+                          rightTextStyle: TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 20),
+            // ... rest of your settings screen widgets ...
             SettingsButtonCard(
               title: 'My Profile',
               navigate: () {
@@ -193,7 +354,6 @@ class SettingsScreen extends StatelessWidget {
                 );
               },
             ),
-            // SettingsButtonCard(title: 'Checkout Details', navigate: () {}),
             SettingsButtonCard(
               title: 'FAQ',
               navigate: () {
@@ -272,7 +432,6 @@ class SettingsScreen extends StatelessWidget {
                     context,
                     listen: false,
                   );
-                  // final messageProvider = Provider.of<MessageProvider>(context, listen: false);
                   final notificationProvider =
                       Provider.of<NotificationProvider>(context, listen: false);
                   final planProvider = Provider.of<PlanProvider>(
@@ -283,37 +442,25 @@ class SettingsScreen extends StatelessWidget {
                     context,
                     listen: false,
                   );
-                  // final reviewProvider = Provider.of<ReviewProvider>(
-                  //   context,
-                  //   listen: false,
-                  // );
 
                   // Clear states of providers that have a clearAll or reset method
-                  userProvider
-                      .logout(); // UserProvider has a specific logout which also clears state
+                  userProvider.logout();
                   adProvider.reset();
-                  // applicationProvider.clearAll();
                   blogProvider.refresh();
-                  // CategoryProvider does not have a clearAll or reset, clear selected states individually
                   categoryProvider.clearSelectedCategory();
                   categoryProvider.clearSelectedSubCategory();
                   categoryProvider.clearSelectedService();
                   gigProvider.clearAll();
-                  // MessageProvider does not have a clearAll or reset
-                  // NotificationProvider has clearAll
                   notificationProvider.clearAll();
-                  planProvider.reset();
+                  planProvider
+                      .reset(); // This will now clear _subscription as well
                   productProvider.clearAll();
-                  // reviewProvider.clearAll();
 
                   // Navigate to the login screen and clear navigation history
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const Wawu(),
-                    ), // Replace Wawu() with your login screen widget
-                    (Route<dynamic> route) =>
-                        false, // This predicate removes all routes from the stack
+                    MaterialPageRoute(builder: (context) => const Wawu()),
+                    (Route<dynamic> route) => false,
                   );
                 },
                 child: const Text(

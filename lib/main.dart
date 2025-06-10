@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
+import 'package:wawu_mobile/screens/account_type/account_type.dart';
 // import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -355,7 +356,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               _logger.i(
                 'MyApp: User is authenticated with role $userRole. Navigating to MainScreen.',
               );
-              homeScreen = const MainScreen();
+              homeScreen = const AccountType();
             } else {
               // Condition 3: Authenticated, user data, UUID, but role is not one of the specified
               // ECOMMERCE_USER.
