@@ -9,6 +9,7 @@ import 'package:wawu_mobile/models/chat_user.dart';
 import 'package:wawu_mobile/models/conversation.dart';
 import 'package:wawu_mobile/providers/message_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/screens/user_profile/user_profile.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
 import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
@@ -346,43 +347,53 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
 
             return Row(
               children: [
-                Stack(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      clipBehavior: Clip.hardEdge,
-                      decoration: const BoxDecoration(shape: BoxShape.circle),
-                      child:
-                          otherParticipant.avatar != null
-                              ? Image.network(
-                                otherParticipant.avatar!,
-                                fit: BoxFit.cover,
-                                errorBuilder:
-                                    (context, error, stackTrace) => Image.asset(
-                                      'assets/images/other/avatar.webp',
-                                      fit: BoxFit.cover,
-                                    ),
-                              )
-                              : Image.asset(
-                                'assets/images/other/avatar.webp',
-                                fit: BoxFit.cover,
-                              ),
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          // color: wawuColors.primary,
-                          shape: BoxShape.circle,
-                          // border: Border.all(color: Colors.white),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(
+                        builder: (context) => SellerProfileScreen(),
+                      ),
+                    );
+                  },
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: const BoxDecoration(shape: BoxShape.circle),
+                        child:
+                            otherParticipant.avatar != null
+                                ? Image.network(
+                                  otherParticipant.avatar!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder:
+                                      (context, error, stackTrace) =>
+                                          Image.asset(
+                                            'assets/images/other/avatar.webp',
+                                            fit: BoxFit.cover,
+                                          ),
+                                )
+                                : Image.asset(
+                                  'assets/images/other/avatar.webp',
+                                  fit: BoxFit.cover,
+                                ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            // color: wawuColors.primary,
+                            shape: BoxShape.circle,
+                            // border: Border.all(color: Colors.white),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Text(

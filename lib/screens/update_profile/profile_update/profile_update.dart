@@ -428,8 +428,10 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                         size: 15,
                         color: wawuColors.primary,
                       ),
-                      const Text(
-                        'Not Verified',
+                      Text(
+                        userProvider.currentUser?.status == 'VERIFIED'
+                            ? 'Verified'
+                            : 'Not Verified',
                         style: TextStyle(
                           fontSize: 13,
                           color: Color.fromARGB(255, 125, 125, 125),
