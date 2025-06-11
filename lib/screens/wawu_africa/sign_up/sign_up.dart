@@ -12,7 +12,7 @@ import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 
-import 'Countries.dart';
+import 'countries.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
