@@ -356,7 +356,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               _logger.i(
                 'MyApp: User is authenticated with role $userRole. Navigating to MainScreen.',
               );
-              homeScreen = const AccountType();
+              homeScreen = const MainScreen();
             } else {
               // Condition 3: Authenticated, user data, UUID, but role is not one of the specified
               // ECOMMERCE_USER.
