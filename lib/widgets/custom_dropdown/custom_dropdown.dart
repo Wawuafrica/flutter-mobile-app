@@ -30,7 +30,8 @@ class CustomDropdown extends StatefulWidget {
 }
 
 class _CustomDropdownState extends State<CustomDropdown> {
-  String? _internalSelectedValue; // Renamed to avoid conflict with widget.selectedValue
+  String?
+  _internalSelectedValue; // Renamed to avoid conflict with widget.selectedValue
 
   @override
   void initState() {
@@ -76,8 +77,8 @@ class _CustomDropdownState extends State<CustomDropdown> {
                   ),
                 ),
                 padding: widget.padding,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: ListView(
+                  // mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       widget.label,
@@ -87,9 +88,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    ...widget.options
-                        .map((option) => _buildOption(option))
-                        ,
+                    ...widget.options.map((option) => _buildOption(option)),
                   ],
                 ),
               ),
@@ -118,9 +117,10 @@ class _CustomDropdownState extends State<CustomDropdown> {
           option,
           style: TextStyle(
             fontSize: 16,
-            color: _internalSelectedValue == option
-                ? wawuColors.buttonPrimary
-                : Colors.black,
+            color:
+                _internalSelectedValue == option
+                    ? wawuColors.buttonPrimary
+                    : Colors.black,
           ),
         ),
       ),
@@ -130,14 +130,22 @@ class _CustomDropdownState extends State<CustomDropdown> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: widget.isDisabled ? null : _showCustomDropdown, // Disable tap if isDisabled
+      onTap:
+          widget.isDisabled
+              ? null
+              : _showCustomDropdown, // Disable tap if isDisabled
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: widget.isDisabled ? Colors.grey[300]! : Colors.grey), // Visual cue for disabled
+          border: Border.all(
+            color: widget.isDisabled ? Colors.grey[300]! : Colors.grey,
+          ), // Visual cue for disabled
           borderRadius: BorderRadius.circular(8),
-          color: widget.isDisabled ? Colors.grey[100] : null, // Background color for disabled
+          color:
+              widget.isDisabled
+                  ? Colors.grey[100]
+                  : null, // Background color for disabled
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -147,7 +155,10 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 _internalSelectedValue ?? widget.label,
                 style: TextStyle(
                   fontSize: 16,
-                  color: widget.isDisabled ? Colors.grey : Colors.black, // Text color for disabled
+                  color:
+                      widget.isDisabled
+                          ? Colors.grey
+                          : Colors.black, // Text color for disabled
                 ),
               ),
             ),

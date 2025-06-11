@@ -1,11 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'dart:html' as html;
 
 class PaymentWebView extends StatefulWidget {
   final String paymentUrl;
-  final String redirectUrl;
+  final String redirectUrl; // Your expected redirect URL
 
   const PaymentWebView({
     super.key,
@@ -18,70 +16,13 @@ class PaymentWebView extends StatefulWidget {
 }
 
 class _PaymentWebViewState extends State<PaymentWebView> {
-  late final WebViewController? controller;
+  late final WebViewController controller;
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
 
-    if (kIsWeb) {
-      // For web platform, we'll handle differently
-      _handleWebPlatform();
-    } else {
-      // For mobile platforms, use WebView
-      _initializeMobileWebView();
-    }
-  }
-
-  void _handleWebPlatform() {
-    // For web, we can either:
-    // 1. Open in a new tab/window
-    // 2. Use an iframe (limited due to CORS)
-    // 3. Show instructions to user
-
-    // Option 1: Open in new window and listen for messages
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _openPaymentWindow();
-    });
-  }
-
-  void _openPaymentWindow() {
-    // Open payment URL in a new window
-    html.window.open(
-      widget.paymentUrl,
-      'payment_window',
-      'width=600,height=700,scrollbars=yes,resizable=yes',
-    );
-
-    // Listen for messages from the payment window
-    html.window.addEventListener('message', (event) {
-      final messageEvent = event as html.MessageEvent;
-      if (messageEvent.origin == Uri.parse(widget.paymentUrl).origin) {
-        _handleWebPaymentCallback(messageEvent.data);
-      }
-    });
-
-    setState(() {
-      isLoading = false;
-    });
-  }
-
-  void _handleWebPaymentCallback(dynamic data) {
-    // Handle payment callback from popup window
-    if (data is Map) {
-      final status = data['status'];
-      final reference = data['reference'];
-
-      if (status == 'success') {
-        _onPaymentSuccess(reference ?? '');
-      } else {
-        _onPaymentFailed(data['message'] ?? 'Payment failed');
-      }
-    }
-  }
-
-  void _initializeMobileWebView() {
     controller =
         WebViewController()
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -93,6 +34,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                   isLoading = true;
                 });
 
+                // Check for Paystack callback URLs
                 if (_isPaymentCallback(url)) {
                   _handlePaymentCallback(url);
                 }
@@ -103,6 +45,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 });
                 print('Page finished loading: $url');
 
+                // Double check for callback URLs on page finish
                 if (_isPaymentCallback(url)) {
                   _handlePaymentCallback(url);
                 }
@@ -110,9 +53,10 @@ class _PaymentWebViewState extends State<PaymentWebView> {
               onNavigationRequest: (NavigationRequest request) {
                 print('Navigation to: ${request.url}');
 
+                // Intercept callback URLs
                 if (_isPaymentCallback(request.url)) {
                   _handlePaymentCallback(request.url);
-                  return NavigationDecision.prevent;
+                  return NavigationDecision.prevent; // Stop navigation
                 }
 
                 return NavigationDecision.navigate;
@@ -123,6 +67,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   }
 
   bool _isPaymentCallback(String url) {
+    // Check for various Paystack callback patterns
     return url.contains(widget.redirectUrl) ||
         url.contains('payment-callback') ||
         url.contains('paystack') &&
@@ -131,6 +76,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 url.contains('reference=') ||
                 url.contains('tx_ref=')) ||
         url.contains('flutterwave') && url.contains('status=') ||
+        // Check for success/failure indicators in URL
         (url.contains('status=successful') ||
             url.contains('status=success') ||
             url.contains('status=cancelled') ||
@@ -140,9 +86,11 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   void _handlePaymentCallback(String url) {
     print('Payment callback URL detected: $url');
 
+    // Parse the URL and extract payment info
     Uri uri = Uri.parse(url);
     Map<String, String> params = uri.queryParameters;
 
+    // Extract various possible parameter names from different payment providers
     String? status = params['status'];
     String? reference =
         params['reference'] ??
@@ -155,6 +103,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
     print('Reference: $reference');
     print('All params: $params');
 
+    // Handle different payment statuses
     if (status == 'success' || status == 'successful') {
       _onPaymentSuccess(reference ?? '');
     } else if (status == 'cancelled' || status == 'canceled') {
@@ -162,8 +111,11 @@ class _PaymentWebViewState extends State<PaymentWebView> {
     } else if (status == 'failed' || status == 'error') {
       _onPaymentFailed('Payment failed');
     } else if (reference != null && reference.isNotEmpty) {
+      // If we have a reference but unclear status, assume success
+      // You might want to verify this with your backend
       _onPaymentSuccess(reference);
     } else {
+      // Check URL path for success indicators
       if (url.toLowerCase().contains('success')) {
         _onPaymentSuccess(reference ?? 'unknown');
       } else if (url.toLowerCase().contains('cancel') ||
@@ -176,6 +128,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   void _onPaymentSuccess(String reference) {
     print('Payment successful with reference: $reference');
 
+    // Close webview and return success
     Navigator.of(context).pop({
       'status': 'success',
       'reference': reference,
@@ -186,10 +139,12 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   void _onPaymentFailed(String reason) {
     print('Payment failed: $reason');
 
+    // Close webview and return failure
     Navigator.of(context).pop({'status': 'failed', 'message': reason});
   }
 
   void _onBackPressed() {
+    // Handle back button press - treat as cancelled
     Navigator.of(
       context,
     ).pop({'status': 'cancelled', 'message': 'Payment was cancelled by user'});
@@ -197,12 +152,10 @@ class _PaymentWebViewState extends State<PaymentWebView> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) {
-        if (!didPop) {
-          _onBackPressed();
-        }
+    return WillPopScope(
+      onWillPop: () async {
+        _onBackPressed();
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -228,71 +181,29 @@ class _PaymentWebViewState extends State<PaymentWebView> {
               ),
           ],
         ),
-        body: kIsWeb ? _buildWebView() : _buildMobileView(),
-      ),
-    );
-  }
-
-  Widget _buildWebView() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.payment, size: 64, color: Colors.green),
-          const SizedBox(height: 16),
-          const Text(
-            'Payment Window Opened',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Please complete your payment in the popup window.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {
-              html.window.open(
-                widget.paymentUrl,
-                'payment_window',
-                'width=600,height=700,scrollbars=yes,resizable=yes',
-              );
-            },
-            child: const Text('Reopen Payment Window'),
-          ),
-          const SizedBox(height: 16),
-          TextButton(
-            onPressed: _onBackPressed,
-            child: const Text('Cancel Payment'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobileView() {
-    return Stack(
-      children: [
-        if (controller != null) WebViewWidget(controller: controller!),
-        if (isLoading)
-          Container(
-            color: Colors.white.withOpacity(0.8),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading payment page...',
-                    style: TextStyle(fontSize: 16),
+        body: Stack(
+          children: [
+            WebViewWidget(controller: controller),
+            if (isLoading)
+              Container(
+                color: Colors.white.withOpacity(0.8),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading payment page...',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }
