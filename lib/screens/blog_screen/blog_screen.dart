@@ -52,13 +52,10 @@ class _BlogScreenState extends State<BlogScreen> {
                   if (adProvider.isLoading) {
                     return Container(
                       width: double.infinity,
-                      height: 250,
+                      height: 220,
                       decoration: BoxDecoration(
                         color: wawuColors.borderPrimary.withAlpha(50),
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(10),
-                          bottomRight: Radius.circular(10),
-                        ),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(child: CircularProgressIndicator()),
                     );
@@ -67,13 +64,10 @@ class _BlogScreenState extends State<BlogScreen> {
                   if (adProvider.errorMessage != null) {
                     return Container(
                       width: double.infinity,
-                      height: 250,
+                      height: 220,
                       decoration: BoxDecoration(
                         color: wawuColors.borderPrimary.withAlpha(50),
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(10),
-                          bottomRight: Radius.circular(10),
-                        ),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -96,13 +90,10 @@ class _BlogScreenState extends State<BlogScreen> {
                   if (adProvider.ads.isEmpty) {
                     return Container(
                       width: double.infinity,
-                      height: 250,
+                      height: 220,
                       decoration: BoxDecoration(
                         color: wawuColors.borderPrimary.withAlpha(50),
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(10),
-                          bottomRight: Radius.circular(10),
-                        ),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Center(child: Text('No Ads available')),
                     );
@@ -123,7 +114,7 @@ class _BlogScreenState extends State<BlogScreen> {
                           },
                         );
                       }).toList();
-                  return FadingCarousel(height: 250, children: carouselItems);
+                  return FadingCarousel(height: 220, children: carouselItems);
                 },
               ),
               SizedBox(height: 20),

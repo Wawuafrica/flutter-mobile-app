@@ -65,7 +65,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           children: [
             const SizedBox(height: 20),
-            Container(width: double.infinity, height: 100, color: Colors.black),
+            Consumer<UserProvider>(
+              builder: (context, userProvider, child) {
+                final user = userProvider.currentUser;
+                final coverImageUrl = user?.coverImage;
+                return Container(
+                  width: double.infinity,
+                  height: 100,
+                  color: Colors.black,
+                  child:
+                      coverImageUrl != null && coverImageUrl.isNotEmpty
+                          ? Image.network(
+                            coverImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              // Fallback to default avatar if network image fails
+                              return Container();
+                            },
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) {
+                                return child;
+                              }
+                              return Container(
+                                color: Colors.grey[300],
+                                child: const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            },
+                          )
+                          : Container(),
+                );
+              },
+            ),
             SizedBox(
               height: 50,
               child: Stack(
@@ -252,7 +284,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
 
                 // Display actual subscription data
-                final planName = subscriptionData.plan.name;
+                final planName = subscriptionData.plan?.name;
                 final expiresAt =
                     subscriptionData.expiresAt; // Use expiresAt from the model
 
@@ -260,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Assuming expiresAt is in a parseable format, e.g., 'YYYY-MM-DD'
                 String daysLeftText = '';
                 try {
-                  final DateTime expiryDate = DateTime.parse(expiresAt);
+                  final DateTime expiryDate = DateTime.parse(expiresAt!);
                   final DateTime now = DateTime.now();
                   final Duration duration = expiryDate.difference(now);
                   final int days = duration.inDays;
@@ -278,12 +310,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 return Container(
                   width: double.infinity,
-                  height: 160,
+                  height: 140,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     color: wawuColors.primary,
                   ),
-                  padding: const EdgeInsets.all(30.0),
+                  padding: const EdgeInsets.all(20.0),
                   child: Column(
                     children: [
                       Expanded(
@@ -294,7 +326,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
-                          rightText: planName,
+                          rightText: planName ?? 'N/A',
                           rightTextStyle: TextStyle(
                             color: wawuColors.white,
                             fontSize: 11,

@@ -26,7 +26,9 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
 
   @override
   void dispose() {
-    Provider.of<GigProvider>(context, listen: false).clearSelectedGig();
+    if (mounted) {
+      Provider.of<GigProvider>(context, listen: false).clearSelectedGig();
+    }
     _reviewController.dispose();
     super.dispose();
   }
@@ -77,8 +79,18 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
       builder: (context, gigProvider, child) {
         final gig = gigProvider.selectedGig;
         if (gig == null) {
+          debugPrint('selectedGig is null in SingleGigScreen');
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading gig details...'),
+                ],
+              ),
+            ),
           );
         }
 

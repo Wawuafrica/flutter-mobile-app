@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/models/chat_user.dart';
@@ -6,12 +5,14 @@ import 'package:wawu_mobile/models/conversation.dart';
 import 'package:wawu_mobile/models/message.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/pusher_service.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:logger/logger.dart';
-import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
+import 'package:path/path.dart' as path;
 
 class MessageProvider extends ChangeNotifier {
   final ApiService _apiService;
   final PusherService _pusherService;
+  final UserProvider _userProvider;
   final Logger _logger = Logger();
 
   List<Conversation> _allConversations = [];
@@ -24,11 +25,16 @@ class MessageProvider extends ChangeNotifier {
   final Set<String> _subscribedChatChannels =
       {}; // Track subscribed chat channels
 
+  // Cache for user profiles
+  final Map<String, ChatUser> _userProfileCache = {};
+
   MessageProvider({
     required ApiService apiService,
     required PusherService pusherService,
+    required UserProvider userProvider,
   }) : _apiService = apiService,
-       _pusherService = pusherService;
+       _pusherService = pusherService,
+       _userProvider = userProvider;
 
   List<Conversation> get allConversations => _allConversations;
   List<Message> get currentMessages => _currentMessages;
@@ -37,6 +43,11 @@ class MessageProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get hasError => _hasError;
   String? get errorMessage => _errorMessage;
+
+  // Get cached user profile
+  ChatUser? getCachedUserProfile(String userId) {
+    return _userProfileCache[userId];
+  }
 
   void setLoading() {
     _isLoading = true;
@@ -75,6 +86,15 @@ class MessageProvider extends ChangeNotifier {
                 )
                 .toList();
 
+        // Fetch user profiles for all participants
+        for (var conv in _allConversations) {
+          for (var participant in conv.participants) {
+            if (!_userProfileCache.containsKey(participant.id)) {
+              await _fetchAndCacheUserProfile(participant.id);
+            }
+          }
+        }
+
         // Subscribe to all conversation channels
         for (final conversation in _allConversations) {
           await _subscribeToMessages(conversation.id);
@@ -92,6 +112,37 @@ class MessageProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _fetchAndCacheUserProfile(String userId) async {
+    if (userId.isEmpty || _userProfileCache.containsKey(userId)) return;
+
+    try {
+      dynamic user;
+      try {
+        // Attempting to use a generic method or property that might exist
+        if (_userProvider.viewedUser?.uuid == userId) {
+          user = _userProvider.viewedUser;
+        } else {
+          // Fallback to triggering a fetch if possible
+          await _userProvider.fetchUserById(userId);
+          if (_userProvider.viewedUser?.uuid == userId) {
+            user = _userProvider.viewedUser;
+          }
+        }
+      } catch (e) {
+        print('Error accessing user from provider: $e');
+      }
+      if (user != null) {
+        _userProfileCache[userId] = ChatUser(
+          id: user.uuid,
+          name: '${user.firstName} ${user.lastName}',
+          avatar: user.profileImage ?? '',
+        );
+      }
+    } catch (e) {
+      print('Error fetching user profile for ID $userId: $e');
+    }
+  }
+
   Future<void> startConversation(
     String currentUserId,
     String recipientId, [
@@ -99,6 +150,9 @@ class MessageProvider extends ChangeNotifier {
   ]) async {
     setLoading();
     try {
+      // Fetch recipient profile if not in cache
+      await _fetchAndCacheUserProfile(recipientId);
+
       // Check for existing conversation
       final existingConversation = _allConversations.firstWhere(
         (conv) =>
@@ -195,10 +249,13 @@ class MessageProvider extends ChangeNotifier {
             (response['data'] as List<dynamic>)
                 .map((json) => Message.fromJson(json as Map<String, dynamic>))
                 .toList();
+        // Sort messages by timestamp ascending (oldest first)
+        _currentMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         setSuccess();
         _logger.i(
           'MessageProvider: Fetched ${_currentMessages.length} messages for conversation $conversationId',
         );
+        notifyListeners();
       } else {
         setError(response['message'] ?? 'Failed to fetch messages');
       }
@@ -215,76 +272,103 @@ class MessageProvider extends ChangeNotifier {
     String? mediaType,
   }) async {
     setLoading();
-    try {
-      final conversation = _allConversations.firstWhere(
-        (conv) =>
-            conv.participants.any((user) => user.id == senderId) &&
-            conv.participants.any((user) => user.id == receiverId),
-        orElse: () => Conversation(id: '', participants: [], messages: []),
+    String targetConversationId = '';
+    // Find or create conversation logic here, ensuring targetConversationId is set before use
+    final conversation = _allConversations.firstWhere(
+      (conv) =>
+          conv.participants.any((user) => user.id == senderId) &&
+          conv.participants.any((user) => user.id == receiverId),
+      orElse: () => Conversation(id: '', participants: [], messages: []),
+    );
+    if (conversation.id.isNotEmpty) {
+      targetConversationId = conversation.id;
+    } else {
+      // Create new conversation if not found
+      final response = await _apiService.post(
+        '/chats',
+        data: {
+          'participant_ids': [senderId, receiverId],
+        },
+        options: Options(headers: {'Api-Token': '{{api_token}}'}),
       );
-
-      String targetConversationId =
-          conversation.id.isNotEmpty ? conversation.id : _currentConversationId;
-
-      if (targetConversationId.isEmpty) {
-        // Create new conversation
-        final response = await _apiService.post(
-          '/chats',
-          data: {
-            'participant_ids': [senderId, receiverId],
-          },
-          options: Options(headers: {'Api-Token': '{{api_token}}'}),
+      if (response['statusCode'] == 200 && response.containsKey('data')) {
+        final newConversation = Conversation.fromJson(
+          response['data'] as Map<String, dynamic>,
         );
-
-        if (response['statusCode'] == 200 && response.containsKey('data')) {
-          final newConversation = Conversation.fromJson(
-            response['data'] as Map<String, dynamic>,
-          );
-          _allConversations.add(newConversation);
-          targetConversationId = newConversation.id;
-          _currentConversationId = newConversation.id;
-          _currentRecipientId = receiverId;
-
-          // Subscribe to the new conversation channel
-          await _subscribeToMessages(newConversation.id);
-          notifyListeners();
-        } else {
-          setError(response['message'] ?? 'Failed to create conversation');
-          return null;
-        }
+        _allConversations.add(newConversation);
+        targetConversationId = newConversation.id;
+        _currentConversationId = newConversation.id;
+        _currentRecipientId = receiverId;
+        notifyListeners();
+      } else {
+        setError(response['message'] ?? 'Failed to create conversation');
+        return null;
       }
-
+    }
+    // Optimistic UI: Add message with pending status locally
+    final pendingMessage = Message(
+      id: 'local-pending-${DateTime.now().millisecondsSinceEpoch}',
+      senderId: senderId,
+      receiverId: receiverId,
+      content: content,
+      timestamp: DateTime.now(),
+      isRead: false,
+      attachmentUrl: mediaFilePath,
+      attachmentType: mediaType,
+      status: 'pending', // Set status to 'pending' using new field
+    );
+    _currentMessages.add(pendingMessage);
+    notifyListeners();
+    try {
       final formData = FormData.fromMap({
         'message': content,
         if (mediaFilePath != null)
-          'media': await MultipartFile.fromFile(mediaFilePath),
+          'media[file]': await MultipartFile.fromFile(mediaFilePath),
+        if (mediaFilePath != null)
+          'media[fileName]': path.basename(mediaFilePath),
       });
-
+      _logger.i(
+        'SendMessage request payload: $formData',
+      ); // Log request payload
       final response = await _apiService.post(
         '/chats/$targetConversationId/messages',
         data: formData,
         options: Options(headers: {'Api-Token': '{{api_token}}'}),
       );
-
+      _logger.i('API response for sendMessage: $response'); // Log full response
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        final newMessage = Message.fromJson(
+        final sentMessage = Message.fromJson(
           response['data'] as Map<String, dynamic>,
         );
-        _currentMessages.add(newMessage);
-
-        // Update conversation in allConversations
+        _currentMessages.removeWhere((m) => m.id == pendingMessage.id);
+        final sentMessageWithStatus = Message(
+          // Create sent message with status
+          id: sentMessage.id,
+          senderId: sentMessage.senderId,
+          receiverId: sentMessage.receiverId,
+          content: sentMessage.content,
+          timestamp: sentMessage.timestamp,
+          isRead: sentMessage.isRead,
+          attachmentUrl: sentMessage.attachmentUrl,
+          attachmentType: sentMessage.attachmentType,
+          status: 'sent', // Set status to 'sent'
+        );
+        _currentMessages.add(sentMessageWithStatus);
+        // Sort messages after adding new one
+        _currentMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         final convIndex = _allConversations.indexWhere(
           (conv) => conv.id == targetConversationId,
         );
         if (convIndex != -1) {
           final updatedMessages = [
-            newMessage,
+            sentMessageWithStatus,
             ..._allConversations[convIndex].messages,
           ];
           _allConversations[convIndex] = Conversation(
             id: _allConversations[convIndex].id,
             participants: _allConversations[convIndex].participants,
             messages: updatedMessages,
+            lastMessage: sentMessageWithStatus,
           );
         } else {
           _allConversations.add(
@@ -294,28 +378,47 @@ class MessageProvider extends ChangeNotifier {
                 ChatUser(id: senderId, name: '', avatar: null),
                 ChatUser(id: receiverId, name: '', avatar: null),
               ],
-              messages: [newMessage],
+              messages: [sentMessageWithStatus],
+              lastMessage: sentMessageWithStatus,
             ),
           );
         }
-
         setSuccess();
         notifyListeners();
-        _logger.i(
-          'MessageProvider: Message sent successfully to conversation $targetConversationId',
-        );
-        return newMessage;
+        _logger.i('Message sent successfully');
+        return sentMessageWithStatus;
       } else {
-        setError(response['message'] ?? 'Failed to send message');
+        _logger.e(
+          'API error: ${response['message'] ?? 'Unknown error'} with payload: $formData',
+        );
+        _currentMessages.removeWhere((m) => m.id == pendingMessage.id);
+        final failedMessage = Message(
+          id: 'local-failed-${DateTime.now().millisecondsSinceEpoch}',
+          senderId: senderId,
+          receiverId: receiverId,
+          content: content,
+          timestamp: DateTime.now(),
+          isRead: false,
+          attachmentUrl: mediaFilePath,
+          attachmentType: mediaType,
+          status: 'failed', // Set status to 'failed' using new field
+        );
+        _currentMessages.add(failedMessage);
+        notifyListeners();
         return null;
       }
     } catch (e) {
-      setError('Error sending message: $e');
+      _logger.e('Error sending message: $e');
+      _currentMessages.removeWhere((m) => m.id.startsWith('local-pending-'));
+      notifyListeners();
       return null;
     }
   }
 
-  // Add this method to your MessageProvider class to prevent duplicate subscriptions
+  void deleteMessage(String messageId) {
+    _currentMessages.removeWhere((m) => m.id == messageId);
+    notifyListeners();
+  }
 
   Future<void> _subscribeToMessages(String conversationId) async {
     if (!_pusherService.isInitialized) {
@@ -338,26 +441,6 @@ class MessageProvider extends ChangeNotifier {
       if (success) {
         _subscribedChatChannels.add(channelName);
 
-        // Bind to message events
-        _pusherService.bindToEvent(channelName, 'message.sent', (
-          PusherEvent event,
-        ) {
-          _handleMessageSentEvent(event, conversationId);
-        });
-
-        // Bind to other message-related events if needed
-        _pusherService.bindToEvent(channelName, 'message.read', (
-          PusherEvent event,
-        ) {
-          _handleMessageReadEvent(event, conversationId);
-        });
-
-        _pusherService.bindToEvent(channelName, 'message.deleted', (
-          PusherEvent event,
-        ) {
-          _handleMessageDeletedEvent(event, conversationId);
-        });
-
         _logger.i(
           'MessageProvider: Successfully subscribed to chat channel: $channelName',
         );
@@ -373,7 +456,6 @@ class MessageProvider extends ChangeNotifier {
     }
   }
 
-  // Update the setCurrentConversation method to avoid duplicate subscriptions
   Future<void> setCurrentConversation(
     String currentUserId,
     String recipientId,
@@ -404,132 +486,6 @@ class MessageProvider extends ChangeNotifier {
     }
   }
 
-  void _handleMessageSentEvent(PusherEvent event, String conversationId) {
-    try {
-      if (event.data is! String) {
-        _logger.w(
-          'MessageProvider: Invalid message.sent event data. Expected String, got ${event.data.runtimeType}',
-        );
-        return;
-      }
-
-      final Map<String, dynamic> eventData =
-          jsonDecode(event.data) as Map<String, dynamic>;
-      final newMessage = Message.fromJson(eventData);
-
-      _logger.i(
-        'MessageProvider: Received new message for conversation $conversationId',
-      );
-
-      // Add to current messages if this is the active conversation
-      if (_currentConversationId == conversationId) {
-        // Check if message already exists to avoid duplicates
-        final existingIndex = _currentMessages.indexWhere(
-          (msg) => msg.id == newMessage.id,
-        );
-        if (existingIndex == -1) {
-          _currentMessages.add(newMessage);
-        }
-      }
-
-      // Update conversation in allConversations
-      final convIndex = _allConversations.indexWhere(
-        (conv) => conv.id == conversationId,
-      );
-      if (convIndex != -1) {
-        // Check if message already exists in conversation
-        final existingMsgIndex = _allConversations[convIndex].messages
-            .indexWhere((msg) => msg.id == newMessage.id);
-
-        if (existingMsgIndex == -1) {
-          final updatedMessages = [
-            newMessage,
-            ..._allConversations[convIndex].messages,
-          ];
-          _allConversations[convIndex] = Conversation(
-            id: _allConversations[convIndex].id,
-            participants: _allConversations[convIndex].participants,
-            messages: updatedMessages,
-          );
-        }
-      }
-
-      notifyListeners();
-    } catch (e) {
-      _logger.e('MessageProvider: Error processing message.sent event: $e');
-    }
-  }
-
-  void _handleMessageReadEvent(PusherEvent event, String conversationId) {
-    try {
-      if (event.data is! String) {
-        _logger.w(
-          'MessageProvider: Invalid message.read event data. Expected String, got ${event.data.runtimeType}',
-        );
-        return;
-      }
-
-      final Map<String, dynamic> eventData =
-          jsonDecode(event.data) as Map<String, dynamic>;
-      _logger.i(
-        'MessageProvider: Message read event for conversation $conversationId: $eventData',
-      );
-
-      // Handle message read status update
-      // You can update message read status in your UI here
-      notifyListeners();
-    } catch (e) {
-      _logger.e('MessageProvider: Error processing message.read event: $e');
-    }
-  }
-
-  void _handleMessageDeletedEvent(PusherEvent event, String conversationId) {
-    try {
-      if (event.data is! String) {
-        _logger.w(
-          'MessageProvider: Invalid message.deleted event data. Expected String, got ${event.data.runtimeType}',
-        );
-        return;
-      }
-
-      final Map<String, dynamic> eventData =
-          jsonDecode(event.data) as Map<String, dynamic>;
-      final deletedMessageId = eventData['message_id'] as String?;
-
-      if (deletedMessageId != null) {
-        _logger.i(
-          'MessageProvider: Message deleted event for conversation $conversationId, message ID: $deletedMessageId',
-        );
-
-        // Remove from current messages if this is the active conversation
-        if (_currentConversationId == conversationId) {
-          _currentMessages.removeWhere((msg) => msg.id == deletedMessageId);
-        }
-
-        // Remove from conversation in allConversations
-        final convIndex = _allConversations.indexWhere(
-          (conv) => conv.id == conversationId,
-        );
-        if (convIndex != -1) {
-          final updatedMessages =
-              _allConversations[convIndex].messages
-                  .where((msg) => msg.id != deletedMessageId)
-                  .toList();
-          _allConversations[convIndex] = Conversation(
-            id: _allConversations[convIndex].id,
-            participants: _allConversations[convIndex].participants,
-            messages: updatedMessages,
-          );
-        }
-
-        notifyListeners();
-      }
-    } catch (e) {
-      _logger.e('MessageProvider: Error processing message.deleted event: $e');
-    }
-  }
-
-  // Method to unsubscribe from a specific chat channel
   Future<void> unsubscribeFromChat(String conversationId) async {
     final channelName = 'chat.$conversationId';
     if (_subscribedChatChannels.contains(channelName)) {
@@ -541,7 +497,6 @@ class MessageProvider extends ChangeNotifier {
     }
   }
 
-  // Method to unsubscribe from all chat channels (useful for logout)
   Future<void> unsubscribeFromAllChats() async {
     final channelsToUnsubscribe = List<String>.from(_subscribedChatChannels);
     for (final channelName in channelsToUnsubscribe) {
@@ -551,14 +506,18 @@ class MessageProvider extends ChangeNotifier {
     _logger.i('MessageProvider: Unsubscribed from all chat channels');
   }
 
-  // Cleanup method to call on provider disposal
   @override
   void dispose() {
-    unsubscribeFromAllChats();
-    super.dispose();
+    // Cancel any ongoing operations
+    _isLoading = false;
+    _hasError = false;
+
+    // Unsubscribe from all channels before disposing
+    unsubscribeFromAllChats().then((_) {
+      super.dispose();
+    });
   }
 
-  // Method to refresh conversations and resubscribe to channels
   Future<void> refreshConversations() async {
     await fetchConversations();
   }

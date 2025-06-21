@@ -139,90 +139,30 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 style: TextStyle(color: Colors.grey[600]),
               ),
               SizedBox(height: 30),
-              Stack(
-                children: [
-                  CustomTextfield(
-                    controller: _passwordController,
-                    labelText: 'Enter New Password',
-                    hintText: 'New Password',
-                    labelTextStyle2: true,
-                    obscureText: _obscurePassword,
-                    validator: _validatePassword,
-                    keyboardType: TextInputType.text,
-                    suffixIcon:
-                        _obscurePassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                  ),
-                  Positioned(
-                    right: 12,
-                    top:
-                        _isLoading
-                            ? 41
-                            : 41, // Adjust based on your text field height
-                    child: GestureDetector(
-                      onTap:
-                          _isLoading
-                              ? null
-                              : () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                      child: Container(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          color: _isLoading ? Colors.grey : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              CustomTextfield(
+                controller: _passwordController,
+                labelText: 'Enter New Password',
+                hintText: 'New Password',
+                labelTextStyle2: true,
+                obscureText: _obscurePassword,
+                validator: _validatePassword,
+                keyboardType: TextInputType.text,
+                suffixIcon:
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
               ),
               SizedBox(height: 20),
-              Stack(
-                children: [
-                  CustomTextfield(
-                    controller: _confirmPasswordController,
-                    labelText: 'Re-Enter New Password',
-                    hintText: 'Confirm Password',
-                    labelTextStyle2: true,
-                    obscureText: _obscureConfirmPassword,
-                    validator: _validateConfirmPassword,
-                    keyboardType: TextInputType.text,
-                    suffixIcon:
-                        _obscureConfirmPassword
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                  ),
-                  Positioned(
-                    right: 12,
-                    top: 41, // Adjust based on your text field height
-                    child: GestureDetector(
-                      onTap:
-                          _isLoading
-                              ? null
-                              : () {
-                                setState(() {
-                                  _obscureConfirmPassword =
-                                      !_obscureConfirmPassword;
-                                });
-                              },
-                      child: Container(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          _obscureConfirmPassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          color: _isLoading ? Colors.grey : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              CustomTextfield(
+                controller: _confirmPasswordController,
+                labelText: 'Re-Enter New Password',
+                hintText: 'Confirm Password',
+                labelTextStyle2: true,
+                obscureText: _obscureConfirmPassword,
+                validator: _validateConfirmPassword,
+                keyboardType: TextInputType.text,
+                suffixIcon:
+                    _obscureConfirmPassword
+                        ? Icons.visibility
+                        : Icons.visibility_off,
               ),
               SizedBox(height: 10),
               Text(

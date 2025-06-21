@@ -14,14 +14,55 @@ class GigCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Provider.of<GigProvider>(context, listen: false).selectGig(gig);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SingleGigScreen(),
-            // builder: (context) => SingleGigScreen(gigUuid: gig.uuid),
-          ),
-        );
+        try {
+          final gigProvider = Provider.of<GigProvider>(context, listen: false);
+
+          // Validate gig before processing
+          if (gig.uuid.isEmpty) {
+            debugPrint(
+              '[GigCard][ERROR] Gig has empty UUID, skipping navigation',
+            );
+            return;
+          }
+
+          debugPrint(
+            '[GigCard] Tapped gig: uuid=${gig.uuid}, title=${gig.title}',
+          );
+
+          // Select the gig
+          gigProvider.selectGig(gig);
+
+          // Add to recently viewed
+          debugPrint(
+            '[GigCard] About to addRecentlyViewedGig for gig: uuid=${gig.uuid}',
+          );
+          gigProvider.addRecentlyViewedGig(gig);
+          debugPrint('[GigCard] addRecentlyViewedGig completed successfully');
+
+          // Navigate to single gig screen
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SingleGigScreen()),
+          );
+        } catch (e, stackTrace) {
+          debugPrint('[GigCard][ERROR] Exception in onTap: $e');
+          debugPrint('[GigCard][ERROR] Stack trace: $stackTrace');
+
+          // Still try to navigate even if recently viewed fails
+          try {
+            final gigProvider = Provider.of<GigProvider>(
+              context,
+              listen: false,
+            );
+            gigProvider.selectGig(gig);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SingleGigScreen()),
+            );
+          } catch (navError) {
+            debugPrint('[GigCard][ERROR] Navigation also failed: $navError');
+          }
+        }
       },
       child: Container(
         width: double.infinity,
@@ -45,35 +86,7 @@ class GigCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child:
-                    gig.assets.photos.isNotEmpty
-                        ? Image.network(
-                          gig.assets.photos[0].link,
-                          width: 100,
-                          height: 110,
-                          fit: BoxFit.cover,
-                          errorBuilder:
-                              (context, error, stackTrace) => Container(
-                                height: 110,
-                                width: double.infinity,
-                                color: Colors.grey[200],
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  color: Colors.grey[400],
-                                  size: 40,
-                                ),
-                              ),
-                        )
-                        : Container(
-                          height: 110,
-                          width: double.infinity,
-                          color: Colors.grey[200],
-                          child: Icon(
-                            Icons.image_not_supported,
-                            color: Colors.grey[400],
-                            size: 40,
-                          ),
-                        ),
+                child: _buildGigImage(),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -82,7 +95,7 @@ class GigCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      gig.title,
+                      gig.title.isNotEmpty ? gig.title : 'Untitled Gig',
                       style: const TextStyle(fontSize: 13),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -96,35 +109,37 @@ class GigCard extends StatelessWidget {
                           decoration: const BoxDecoration(
                             shape: BoxShape.circle,
                           ),
-                          child: Image.asset(
-                            'assets/images/other/avatar.webp',
-                            fit: BoxFit.cover,
-                          ),
+                          child: _buildSellerImage(),
                         ),
                         const SizedBox(width: 5),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              gig.seller.fullName,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                gig.seller.fullName.isNotEmpty
+                                    ? gig.seller.fullName
+                                    : 'Unknown Seller',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            Text(
-                              gig.pricings.isNotEmpty
-                                  ? 'From ₦${gig.pricings[0].package.amount}'
-                                  : 'Price unavailable',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                              Text(
+                                _getPriceText(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                        const Spacer(),
+                        const SizedBox(width: 8),
                         Row(
                           children: [
                             Icon(
@@ -132,9 +147,11 @@ class GigCard extends StatelessWidget {
                               size: 15,
                               color: wawuColors.primary.withAlpha(50),
                             ),
-                            const Text(
-                              '4.9', // Placeholder
-                              style: TextStyle(
+                            Text(
+                              gig.averageRating > 0
+                                  ? gig.averageRating.toStringAsFixed(1)
+                                  : '0.0',
+                              style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -151,5 +168,70 @@ class GigCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildGigImage() {
+    if (gig.assets.photos.isNotEmpty && gig.assets.photos[0].link.isNotEmpty) {
+      return Image.network(
+        gig.assets.photos[0].link,
+        width: 100,
+        height: 110,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('[GigCard] Error loading gig image: $error');
+          return _buildPlaceholderImage();
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: 100,
+            height: 110,
+            color: Colors.grey[200],
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+      );
+    }
+    return _buildPlaceholderImage();
+  }
+
+  Widget _buildSellerImage() {
+    if (gig.seller.profileImage != null &&
+        gig.seller.profileImage!.isNotEmpty) {
+      return Image.network(
+        gig.seller.profileImage!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Image.asset(
+            'assets/images/other/avatar.webp',
+            fit: BoxFit.cover,
+          );
+        },
+      );
+    }
+    return Image.asset('assets/images/other/avatar.webp', fit: BoxFit.cover);
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      height: 110,
+      width: 100,
+      color: Colors.grey[200],
+      child: Icon(Icons.image_not_supported, color: Colors.grey[400], size: 40),
+    );
+  }
+
+  String _getPriceText() {
+    if (gig.pricings.isNotEmpty && gig.pricings[0].package.amount.isNotEmpty) {
+      try {
+        final amount = gig.pricings[0].package.amount;
+        return 'From ₦$amount';
+      } catch (e) {
+        debugPrint('[GigCard] Error parsing price: $e');
+      }
+    }
+    return 'Price unavailable';
   }
 }

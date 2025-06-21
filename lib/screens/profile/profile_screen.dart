@@ -4,12 +4,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/user.dart'; // Ensure .dart is present
 import 'package:wawu_mobile/providers/category_provider.dart';
+import 'package:wawu_mobile/providers/dropdown_data_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart'; // Ensure .dart is present
 import 'package:wawu_mobile/screens/profile/change_password_screen/change_password_screen.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
+import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 // import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart'; // Keep if still used elsewhere, otherwise remove
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
@@ -30,13 +32,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final int _maxAboutLength = 200;
 
   // New controllers for education fields (replacing dropdowns)
-  final TextEditingController _educationCertificationController =
-      TextEditingController();
-  final TextEditingController _educationInstitutionController =
-      TextEditingController();
+  String? _selectedCertification;
+  String? _selectedInstitution;
   final TextEditingController _educationCourseOfStudyController =
       TextEditingController();
   final TextEditingController _educationGraduationDateController =
+      TextEditingController();
+  final TextEditingController _customInstitutionController =
       TextEditingController();
 
   // New controllers for professional certification fields (replacing dropdown)
@@ -45,6 +47,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _professionalCertificationOrganizationController =
       TextEditingController();
   final TextEditingController _professionalCertificationEndDateController =
+      TextEditingController();
+  final TextEditingController _courseOfStudyController =
+      TextEditingController();
+  final TextEditingController _graduationDateController =
       TextEditingController();
 
   XFile? _profileImage;
@@ -61,7 +67,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _countryController = TextEditingController();
   final TextEditingController _stateController = TextEditingController();
 
-  bool _isSavingProfile = false;
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+
+  bool _isDirty = false; // Track if any field has been changed
+  bool _isLoading = true; // Start with loading state
 
   // Declare services without initialization
   late final ApiService apiService;
@@ -76,48 +86,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize services in initState
-    apiService = ApiService();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    apiService = Provider.of<ApiService>(context, listen: false);
     authService = AuthService(apiService: apiService);
+
+    final dropdownProvider = Provider.of<DropdownDataProvider>(
+      context,
+      listen: false,
+    );
+
+    // Fetch all dropdown data concurrently
+    await dropdownProvider.fetchDropdownData();
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.currentUser;
     if (user != null) {
       _aboutController.text = user.additionalInfo?.about ?? '';
       _skills = user.additionalInfo?.skills ?? [];
 
-      // Initialize education fields from existing user data
       if (user.additionalInfo?.education != null &&
           user.additionalInfo!.education!.isNotEmpty) {
-        final latestEducation =
-            user.additionalInfo!.education!.last; // Access safely
-        _educationCertificationController.text =
-            latestEducation.certification ?? '';
-        _educationInstitutionController.text =
-            latestEducation.institution ?? '';
+        final latestEducation = user.additionalInfo!.education!.last;
+        _selectedCertification = latestEducation.certification;
+        _selectedInstitution = latestEducation.institution;
         _educationCourseOfStudyController.text =
             latestEducation.courseOfStudy ?? '';
         _educationGraduationDateController.text =
             latestEducation.graduationDate ?? '';
+        if (latestEducation.certification == 'School-Level Qualifications') {
+          _customInstitutionController.text = latestEducation.institution ?? '';
+        } else {
+          _selectedInstitution = latestEducation.institution;
+        }
       }
 
-      // Initialize professional certification fields from existing user data
       if (user.additionalInfo?.professionalCertification != null &&
           user.additionalInfo!.professionalCertification!.isNotEmpty) {
         final latestProfCert =
-            user
-                .additionalInfo!
-                .professionalCertification!
-                .last; // Access safely
+            user.additionalInfo!.professionalCertification!.last;
         _professionalCertificationNameController.text =
             latestProfCert.name ?? '';
         _professionalCertificationOrganizationController.text =
             latestProfCert.organization ?? '';
         _professionalCertificationEndDateController.text =
-            latestProfCert.endDate ?? '';
+            user.additionalInfo?.professionalCertification?.last.endDate ?? '';
       }
 
-      _countryController.text =
-          user.country ?? ''; // Initialize country controller
+      if (user.additionalInfo?.education != null &&
+          user.additionalInfo!.education!.isNotEmpty) {
+        final education = user.additionalInfo!.education!.last;
+        _courseOfStudyController.text = education.courseOfStudy ?? '';
+        _graduationDateController.text = education.graduationDate ?? '';
+      }
+
+      _countryController.text = user.country ?? '';
       _stateController.text = user.state ?? '';
       _facebookController.text =
           user.additionalInfo?.socialHandles?['facebook'] ?? '';
@@ -127,6 +152,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
           user.additionalInfo?.socialHandles?['instagram'] ?? '';
       _twitterController.text =
           user.additionalInfo?.socialHandles?['twitter'] ?? '';
+      _phoneController.text = user.phoneNumber ?? '';
+      _emailController.text = user.email ?? '';
+    }
+
+    _addListeners();
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _addListeners() {
+    final controllers = [
+      _aboutController,
+      _skillController,
+
+      _educationCourseOfStudyController,
+      _educationGraduationDateController,
+      _professionalCertificationNameController,
+      _professionalCertificationOrganizationController,
+      _professionalCertificationEndDateController,
+      _courseOfStudyController,
+      _graduationDateController,
+      _facebookController,
+      _linkedInController,
+      _instagramController,
+      _twitterController,
+      _countryController,
+      _stateController,
+      _customInstitutionController,
+      _phoneController,
+      _emailController,
+    ];
+    for (var controller in controllers) {
+      controller.addListener(_onFieldChanged);
+    }
+  }
+
+  void _onFieldChanged() {
+    if (!_isDirty) {
+      setState(() {
+        _isDirty = true;
+      });
     }
   }
 
@@ -202,44 +272,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    setState(() {
-      _isSavingProfile = true;
-    });
-
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final categoryProvider = Provider.of<CategoryProvider>(
       context,
       listen: false,
     );
 
+    Map<String, dynamic> payload = {};
+    if (_aboutController.text.isNotEmpty) {
+      payload['about'] = _aboutController.text;
+    }
+    if (_skills.isNotEmpty) payload['skills'] = _skills;
+    if (_selectedCertification != null) {
+      payload['educationCertification'] = _selectedCertification;
+      // Conditionally add institution based on the selected certification
+      if (_selectedCertification == 'School-Level Qualifications') {
+        if (_customInstitutionController.text.isNotEmpty) {
+          payload['educationInstitution'] = _customInstitutionController.text;
+        }
+      } else {
+        if (_selectedInstitution != null) {
+          payload['educationInstitution'] = _selectedInstitution;
+        }
+      }
+    }
+    if (_educationCourseOfStudyController.text.isNotEmpty) {
+      payload['educationCourseOfStudy'] =
+          _educationCourseOfStudyController.text;
+    }
+    if (_educationGraduationDateController.text.isNotEmpty) {
+      payload['educationGraduationDate'] =
+          _educationGraduationDateController.text;
+    }
+    if (_professionalCertificationNameController.text.isNotEmpty) {
+      payload['professionalCertificationName'] =
+          _professionalCertificationNameController.text;
+    }
+    if (_professionalCertificationOrganizationController.text.isNotEmpty) {
+      payload['professionalCertificationOrganization'] =
+          _professionalCertificationOrganizationController.text;
+    }
+    if (_professionalCertificationEndDateController.text.isNotEmpty) {
+      payload['professionalCertificationEndDate'] =
+          _professionalCertificationEndDateController.text;
+    }
+    if (_countryController.text.isNotEmpty) {
+      payload['country'] = _countryController.text;
+    }
+    if (_stateController.text.isNotEmpty) {
+      payload['state'] = _stateController.text;
+    }
+    Map<String, String> socialHandles = {};
+    if (_facebookController.text.isNotEmpty) {
+      socialHandles['facebook'] = _facebookController.text;
+    }
+    if (_linkedInController.text.isNotEmpty) {
+      socialHandles['linkedIn'] = _linkedInController.text;
+    }
+    if (_instagramController.text.isNotEmpty) {
+      socialHandles['instagram'] = _instagramController.text;
+    }
+    if (_twitterController.text.isNotEmpty) {
+      socialHandles['twitter'] = _twitterController.text;
+    }
+    if (socialHandles.isNotEmpty) payload['socialHandles'] = socialHandles;
+    if (categoryProvider.selectedSubCategory?.uuid != null) {
+      payload['subCategoryUuid'] = categoryProvider.selectedSubCategory!.uuid;
+    }
+
     try {
       await userProvider.updateCurrentUserProfile(
-        about: _aboutController.text,
-        skills: _skills,
-        educationCertification: _educationCertificationController.text,
-        educationInstitution: _educationInstitutionController.text,
-        educationCourseOfStudy: _educationCourseOfStudyController.text,
-        educationGraduationDate: _educationGraduationDateController.text,
-        professionalCertificationName:
-            _professionalCertificationNameController.text,
-        professionalCertificationOrganization:
-            _professionalCertificationOrganizationController.text,
-        professionalCertificationEndDate:
-            _professionalCertificationEndDateController.text,
-        professionalCertificationImage: _professionalCertificationImage,
-        meansOfIdentification:
-            _meansOfIdentificationImage, // Pass the selected means of ID image
-        country: _countryController.text, // Use country controller
-        state: _stateController.text,
-        socialHandles: {
-          'facebook': _facebookController.text,
-          'linkedIn': _linkedInController.text,
-          'instagram': _instagramController.text,
-          'twitter': _twitterController.text,
-        },
-        subCategoryUuid: categoryProvider.selectedSubCategory?.uuid,
+        data: payload,
         profileImage: _profileImage,
         coverImage: _coverImage,
+        professionalCertificationImage: _professionalCertificationImage,
+        meansOfIdentification: _meansOfIdentificationImage,
       );
 
       if (userProvider.isSuccess) {
@@ -268,7 +375,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          _isSavingProfile = false;
+          _isDirty = false; // Reset dirtiness after save
         });
       }
     }
@@ -282,67 +389,153 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _educationGraduationDateController.dispose();
     _professionalCertificationOrganizationController.dispose();
     _professionalCertificationEndDateController.dispose();
+    _courseOfStudyController.dispose();
+    _graduationDateController.dispose();
     _facebookController.dispose();
     _linkedInController.dispose();
     _instagramController.dispose();
     _twitterController.dispose();
     _stateController.dispose();
-    _educationCertificationController.dispose(); // Dispose new controllers
-    _educationInstitutionController.dispose(); // Dispose new controllers
+    _customInstitutionController.dispose();
+
     _professionalCertificationNameController
         .dispose(); // Dispose new controllers
     _countryController.dispose(); // Dispose new country controller
+    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
   Widget _buildEducationCard(Education education) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              education.certification ?? 'Certification',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 5),
-            Text('Institution: ${education.institution ?? 'N/A'}'),
-            Text('Course: ${education.courseOfStudy ?? 'N/A'}'),
-            Text('Graduation: ${education.graduationDate ?? 'N/A'}'),
-          ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6B46C1), Color(0xFF9333EA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  education.certification ?? 'N/A',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  education.institution ?? 'N/A',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  education.graduationDate ?? 'N/A',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, color: Colors.white, size: 16),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildProfessionalCertificationCard(ProfessionalCertification cert) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              cert.name ?? 'Certification',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 5),
-            Text('Organization: ${cert.organization ?? 'N/A'}'),
-            Text('End Date: ${cert.endDate ?? 'N/A'}'),
-            if (cert.file?.link != null) Text('Document: ${cert.file!.link}'),
-          ],
+  Widget _buildCertificationCard(ProfessionalCertification cert) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6B46C1), Color(0xFF9333EA)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cert.name ?? 'N/A',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  cert.organization ?? 'N/A',
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  cert.endDate ?? 'N/A',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, color: Colors.white, size: 16),
+          ),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<CategoryProvider, UserProvider>(
-      builder: (context, categoryProvider, userProvider, child) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profile'), centerTitle: true),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Consumer3<CategoryProvider, UserProvider, DropdownDataProvider>(
+      builder: (
+        context,
+        categoryProvider,
+        userProvider,
+        dropdownProvider,
+        child,
+      ) {
         final user = userProvider.currentUser;
         final fullName =
             '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
@@ -362,101 +555,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
+                      // Cover Image with Edit Button
                       Container(
                         width: double.infinity,
                         height: 100,
-                        color: wawuColors.primary.withAlpha(50),
-                        child:
-                            _coverImage != null
-                                ? Image.file(
-                                  File(_coverImage!.path),
-                                  key: ValueKey(_coverImage!.path),
-                                  fit: BoxFit.cover,
-                                )
-                                : (user?.coverImage != null
-                                    ? Image.network(
-                                      user!.coverImage!,
-                                      fit: BoxFit.cover,
-                                    )
-                                    : const Center(
-                                      child: Text(
-                                        'Add Cover Photo',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                    )),
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              height: 100,
+                              color: wawuColors.primary.withAlpha(50),
+                              child:
+                                  _coverImage != null
+                                      ? Image.file(
+                                        File(_coverImage!.path),
+                                        key: ValueKey(_coverImage!.path),
+                                        fit: BoxFit.cover,
+                                      )
+                                      : (user?.coverImage != null
+                                          ? Image.network(
+                                            user!.coverImage!,
+                                            fit: BoxFit.cover,
+                                          )
+                                          : const Center(
+                                            child: Text(
+                                              'Add Cover Photo',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          )),
+                            ),
+                            Positioned(
+                              right: 10,
+                              bottom: -10,
+                              child: GestureDetector(
+                                onTap:
+                                    () => _pickImageForProfileAndCover('cover'),
+                                child: ClipOval(
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    color: const Color.fromARGB(
+                                      255,
+                                      219,
+                                      219,
+                                      219,
+                                    ),
+                                    child: Icon(
+                                      Icons.camera_alt,
+                                      size: 13,
+                                      color: wawuColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      // Profile Image with Edit Button
                       Positioned(
                         top: 50,
                         left: 0,
                         right: 0,
                         child: Center(
-                          child: ClipOval(
-                            child: Container(
-                              padding: const EdgeInsets.all(2.0),
-                              color: wawuColors.white,
-                              child: ClipOval(
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
+                          child: SizedBox(
+                            width: 104,
+                            height: 104,
+                            child: Stack(
+                              children: [
+                                ClipOval(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2.0),
+                                    color: wawuColors.white,
+                                    child: ClipOval(
+                                      child: Container(
+                                        width: 100,
+                                        height: 100,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                        ),
+                                        child:
+                                            _profileImage != null
+                                                ? Image.file(
+                                                  File(_profileImage!.path),
+                                                  key: ValueKey(
+                                                    _profileImage!.path,
+                                                  ),
+                                                  fit: BoxFit.cover,
+                                                )
+                                                : (user?.profileImage != null
+                                                    ? Image.network(
+                                                      user!.profileImage!,
+                                                      fit: BoxFit.cover,
+                                                    )
+                                                    : Image.asset(
+                                                      'assets/images/other/avatar.webp',
+                                                    )),
+                                      ),
+                                    ),
                                   ),
-                                  child:
-                                      _profileImage != null
-                                          ? Image.file(
-                                            File(_profileImage!.path),
-                                            key: ValueKey(_profileImage!.path),
-                                            fit: BoxFit.cover,
-                                          )
-                                          : (user?.profileImage != null
-                                              ? Image.network(
-                                                user!.profileImage!,
-                                                fit: BoxFit.cover,
-                                              )
-                                              : Image.asset(
-                                                'assets/images/other/avatar.webp',
-                                              )),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 120,
-                        bottom: 0,
-                        child: GestureDetector(
-                          onTap: () => _pickImageForProfileAndCover('profile'),
-                          child: ClipOval(
-                            child: Container(
-                              width: 30,
-                              height: 30,
-                              color: const Color.fromARGB(255, 219, 219, 219),
-                              child: Icon(
-                                Icons.camera_alt,
-                                size: 13,
-                                color: wawuColors.primary,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        right: 20,
-                        bottom: 45,
-                        child: GestureDetector(
-                          onTap: () => _pickImageForProfileAndCover('cover'),
-                          child: ClipOval(
-                            child: Container(
-                              width: 30,
-                              height: 30,
-                              color: const Color.fromARGB(255, 219, 219, 219),
-                              child: Icon(
-                                Icons.camera_alt,
-                                size: 13,
-                                color: wawuColors.primary,
-                              ),
+                                Positioned(
+                                  right: 4,
+                                  bottom: 4,
+                                  child: GestureDetector(
+                                    onTap:
+                                        () => _pickImageForProfileAndCover(
+                                          'profile',
+                                        ),
+                                    child: ClipOval(
+                                      child: Container(
+                                        width: 30,
+                                        height: 30,
+                                        color: const Color.fromARGB(
+                                          255,
+                                          219,
+                                          219,
+                                          219,
+                                        ),
+                                        child: Icon(
+                                          Icons.camera_alt,
+                                          size: 13,
+                                          color: wawuColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -485,84 +714,100 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
+                // const SizedBox(height: 10),
+                // Center(
+                //   child: Text(
+                //     user?.additionalInfo?.subCategories?. ?? 'No Specialty Selected',
+                //     style: TextStyle(
+                //       fontSize: 13,
+                //       fontWeight: FontWeight.w600,
+                //       color: wawuColors.primary,
+                //     ),
+                //   ),
+                // ),
                 const SizedBox(height: 10),
-                Center(
-                  child: Text(
-                    user?.jobType ?? 'No Specialty Selected',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: wawuColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 5,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 15,
-                      color: wawuColors.primary,
-                    ),
-                    const Text(
-                      'Not Verified',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Color.fromARGB(255, 125, 125, 125),
-                        fontWeight: FontWeight.w200,
+                if (user?.status ==
+                    'VERIFIED') // Assuming status or another field indicates verification
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    spacing: 5.0,
+                    children: [
+                      Container(
+                        width: 16,
+                        height: 16,
+                        decoration: const BoxDecoration(
+                          color: wawuColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: 12,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      const Text(
+                        'Verified',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: wawuColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                  ),
+                if (user?.status != 'VERIFIED')
+                  Wrap(
+                    spacing: 5,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        size: 15,
+                        color: wawuColors.primary,
+                      ),
+                      const Text(
+                        'Not Verified',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color.fromARGB(255, 125, 125, 125),
+                          fontWeight: FontWeight.w200,
+                        ),
+                      ),
+                    ],
+                  ),
                 const SizedBox(height: 10),
-                Wrap(
-                  spacing: 5,
-                  alignment: WrapAlignment.center,
-                  children: const [
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: Color.fromARGB(255, 162, 162, 162),
-                    ),
-                    Icon(
-                      Icons.star,
-                      size: 15,
-                      color: Color.fromARGB(255, 162, 162, 162),
-                    ),
-                  ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (index) {
+                    final rating =
+                        user?.profileCompletionRate != null
+                            ? (user!.profileCompletionRate! / 20).floor()
+                            : 4;
+                    return Icon(
+                      index < rating ? Icons.star : Icons.star_border,
+                      color: wawuColors.primary,
+                      size: 20,
+                    );
+                  }),
                 ),
                 const SizedBox(height: 20),
                 const CustomIntroText(text: 'Credentials'),
                 const SizedBox(height: 10),
                 CustomTextfield(
-                  hintText: user?.phoneNumber ?? 'Phone Number',
+                  controller: _phoneController,
                   labelText: 'Phone Number',
+                  hintText: 'Phone Number',
                   labelTextStyle2: true,
-                  // enabled: false,
+                  readOnly: true,
                 ),
                 const SizedBox(height: 10),
                 CustomTextfield(
-                  hintText: user?.email ?? 'Email',
+                  controller: _emailController,
                   labelText: 'Email',
+                  hintText: 'Email',
                   labelTextStyle2: true,
-                  // enabled: false,
+                  readOnly: true,
                 ),
                 const SizedBox(height: 10),
                 CustomButton(
@@ -650,31 +895,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 30),
                 const CustomIntroText(text: 'Education'),
-                if (user?.additionalInfo?.education != null)
-                  ...user!.additionalInfo!.education!.map(
-                    (edu) => _buildEducationCard(edu),
-                  ),
+                if (user?.additionalInfo?.education != null &&
+                    user!.additionalInfo!.education!.isNotEmpty)
+                  for (Education edu in user.additionalInfo!.education!)
+                    _buildEducationCard(edu),
+                const SizedBox(height: 12),
+                if (user?.additionalInfo?.education == null ||
+                    user!.additionalInfo!.education!.isEmpty)
+                  const Text('No education available'),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 25),
-                    CustomTextfield(
-                      controller: _educationCertificationController,
-                      hintText: 'Enter Certification (e.g., BSc, MSc, PhD)',
-                      labelText: 'Certification',
-                      labelTextStyle2: true,
+                    CustomDropdown(
+                      options:
+                          dropdownProvider.certifications
+                              .map((e) => e.name)
+                              .toList(),
+                      label: 'Select Certificate',
+                      selectedValue: _selectedCertification,
+                      onChanged: (value) {
+                        setState(() {
+                          _isDirty = true;
+                          _selectedCertification = value;
+                          // When the certificate type changes, clear the other institution field
+                          if (value == 'School-Level Qualifications') {
+                            _selectedInstitution = null;
+                          } else {
+                            _customInstitutionController.clear();
+                          }
+                        });
+                      },
                     ),
                     const SizedBox(height: 10),
-                    CustomTextfield(
-                      controller: _educationInstitutionController,
-                      hintText: 'Enter Institution (e.g., University Of Lagos)',
-                      labelText: 'Institution',
-                      labelTextStyle2: true,
-                    ),
+                    if (_selectedCertification == 'School-Level Qualifications')
+                      CustomTextfield(
+                        controller: _customInstitutionController,
+                        hintText: 'Enter your institution',
+                        labelText: 'Institution',
+                        labelTextStyle2: true,
+                      )
+                    else
+                      CustomDropdown(
+                        options:
+                            dropdownProvider.institutions
+                                .map((e) => e.name)
+                                .toList(),
+                        label: 'Select Institution',
+                        selectedValue: _selectedInstitution,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedInstitution = value;
+                            _isDirty = true;
+                          });
+                        },
+                      ),
                     const SizedBox(height: 10),
                     CustomTextfield(
                       controller: _educationCourseOfStudyController,
-                      hintText: 'Enter course of study',
+                      hintText: 'Enter your course of study',
                       labelText: 'Course of Study',
                       labelTextStyle2: true,
                     ),
@@ -701,10 +980,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 30),
                 const CustomIntroText(text: 'Professional Certification'),
-                if (user?.additionalInfo?.professionalCertification != null)
-                  ...user!.additionalInfo!.professionalCertification!.map(
-                    (cert) => _buildProfessionalCertificationCard(cert),
-                  ),
+                const SizedBox(height: 10),
+                if (user?.additionalInfo?.professionalCertification != null &&
+                    user!.additionalInfo!.professionalCertification!.isNotEmpty)
+                  for (ProfessionalCertification cert
+                      in user.additionalInfo!.professionalCertification!)
+                    _buildCertificationCard(cert),
+                const SizedBox(height: 12),
+                if (user?.additionalInfo?.professionalCertification == null ||
+                    user!.additionalInfo!.professionalCertification!.isEmpty)
+                  const Text('No certifications available'),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -912,20 +1197,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelTextStyle2: true,
                 ),
                 const SizedBox(height: 40),
+
                 CustomButton(
-                  function: _isSavingProfile ? null : _saveProfile,
                   widget:
-                      _isSavingProfile
-                          ? const CircularProgressIndicator(color: Colors.white)
+                      userProvider.isLoading
+                          ? CircularProgressIndicator()
                           : const Text(
-                            'Save Changes',
+                            'Save Profile',
                             style: TextStyle(
+                              fontWeight: FontWeight.bold,
                               color: Colors.white,
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
+                  function: userProvider.isLoading ? null : _saveProfile,
                   color: wawuColors.primary,
-                  textColor: Colors.white,
                 ),
               ],
             ),

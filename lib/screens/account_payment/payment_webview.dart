@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
+import 'package:provider/provider.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class PaymentWebView extends StatefulWidget {
@@ -18,6 +22,7 @@ class PaymentWebView extends StatefulWidget {
 class _PaymentWebViewState extends State<PaymentWebView> {
   late final WebViewController controller;
   bool isLoading = true;
+  final Logger _logger = Logger();
 
   @override
   void initState() {
@@ -29,7 +34,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
           ..setNavigationDelegate(
             NavigationDelegate(
               onPageStarted: (String url) {
-                print('Page started loading: $url');
+                _logger.i('Page started loading: $url');
                 setState(() {
                   isLoading = true;
                 });
@@ -43,7 +48,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 setState(() {
                   isLoading = false;
                 });
-                print('Page finished loading: $url');
+                _logger.i('Page finished loading: $url');
 
                 // Double check for callback URLs on page finish
                 if (_isPaymentCallback(url)) {
@@ -51,15 +56,20 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 }
               },
               onNavigationRequest: (NavigationRequest request) {
-                print('Navigation to: ${request.url}');
+                final String url = request.url;
+                _logger.i('Navigating to: $url');
 
-                // Intercept callback URLs
-                if (_isPaymentCallback(request.url)) {
-                  _handlePaymentCallback(request.url);
-                  return NavigationDecision.prevent; // Stop navigation
+                // Check if the URL is a payment callback
+                if (url.contains('wawuafrica.com/api/payment/callback')) {
+                  _handlePaymentCallback(url);
+                } else if (url.contains('your_success_url')) {
+                  // Example: handle a generic success URL if needed
+                  _onPaymentSuccess(url, 'unknown', 'unknown');
+                } else if (url.contains('your_failure_url')) {
+                  // Example: handle a generic failure URL if needed
+                  _onPaymentFailed('Payment failed', url);
                 }
-
-                return NavigationDecision.navigate;
+                return NavigationDecision.prevent; // Stop navigation
               },
             ),
           )
@@ -84,7 +94,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   }
 
   void _handlePaymentCallback(String url) {
-    print('Payment callback URL detected: $url');
+    _logger.i('Payment callback URL detected: $url');
 
     // Parse the URL and extract payment info
     Uri uri = Uri.parse(url);
@@ -92,55 +102,72 @@ class _PaymentWebViewState extends State<PaymentWebView> {
 
     // Extract various possible parameter names from different payment providers
     String? status = params['status'];
-    String? reference =
-        params['reference'] ??
-        params['trxref'] ??
-        params['tx_ref'] ??
-        params['transaction_id'];
+    String? reference = params['reference'] ?? params['transaction_id'];
+    String? trxref = params['trxref'] ?? params['tx_ref'];
 
-    print('Payment callback received:');
-    print('Status: $status');
-    print('Reference: $reference');
-    print('All params: $params');
+    _logger.i('Payment callback received:');
+    _logger.i('Status: $status');
+    _logger.i('Reference: $reference');
+    _logger.d('All params: $params');
 
     // Handle different payment statuses
     if (status == 'success' || status == 'successful') {
-      _onPaymentSuccess(reference ?? '');
+      _onPaymentSuccess(url, reference ?? '', trxref ?? '');
     } else if (status == 'cancelled' || status == 'canceled') {
-      _onPaymentFailed('Payment was cancelled by user');
+      _onPaymentFailed('Payment was cancelled by user', url);
     } else if (status == 'failed' || status == 'error') {
-      _onPaymentFailed('Payment failed');
-    } else if (reference != null && reference.isNotEmpty) {
+      _onPaymentFailed('Payment failed', url);
+    } else if (reference != null &&
+        reference.isNotEmpty &&
+        trxref != null &&
+        trxref.isNotEmpty) {
       // If we have a reference but unclear status, assume success
       // You might want to verify this with your backend
-      _onPaymentSuccess(reference);
+      _onPaymentSuccess(url, reference, trxref);
     } else {
       // Check URL path for success indicators
       if (url.toLowerCase().contains('success')) {
-        _onPaymentSuccess(reference ?? 'unknown');
+        _onPaymentSuccess(url, reference ?? 'unknown', trxref ?? 'unknown');
       } else if (url.toLowerCase().contains('cancel') ||
           url.toLowerCase().contains('fail')) {
-        _onPaymentFailed('Payment was not completed');
+        _onPaymentFailed('Payment was not completed', url);
       }
     }
   }
 
-  void _onPaymentSuccess(String reference) {
-    print('Payment successful with reference: $reference');
+  void _onPaymentSuccess(String redirectUrl, String reference, String trxref) {
+    _logger.i('Payment successful with reference: $reference');
 
-    // Close webview and return success
+    // Log the user ID
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final user = userProvider.currentUser;
+      if (user != null) {
+        _logger.i('Payment by User ID: ${user.uuid}');
+      } else {
+        _logger.w('User is null, cannot log user ID.');
+      }
+    } catch (e) {
+      _logger.e('Failed to get user from provider: $e');
+    }
+
+    // Pop the screen and return a success result with the full redirect URL
     Navigator.of(context).pop({
       'status': 'success',
-      'reference': reference,
+      'redirectUrl': redirectUrl, // Pass the full URL back
       'message': 'Payment successful',
     });
   }
 
-  void _onPaymentFailed(String reason) {
-    print('Payment failed: $reason');
+  void _onPaymentFailed(String message, String redirectUrl) {
+    _logger.e('Payment failed: $message');
 
-    // Close webview and return failure
-    Navigator.of(context).pop({'status': 'failed', 'message': reason});
+    // Pop the screen and return a failure result with the URL
+    Navigator.of(context).pop({
+      'status': 'failed',
+      'redirectUrl': redirectUrl, // Also pass URL on failure
+      'message': message,
+    });
   }
 
   void _onBackPressed() {
@@ -160,7 +187,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Complete Payment'),
-          backgroundColor: Colors.green,
+          backgroundColor: wawuColors.primary,
           foregroundColor: Colors.white,
           leading: IconButton(
             icon: const Icon(Icons.close),

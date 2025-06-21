@@ -7,6 +7,7 @@ class Message {
   final bool isRead;
   final String? attachmentUrl;
   final String? attachmentType;
+  final String? status;
 
   Message({
     required this.id,
@@ -17,6 +18,7 @@ class Message {
     this.isRead = false,
     this.attachmentUrl,
     this.attachmentType,
+    this.status,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,7 @@ class Message {
                   ? 'image'
                   : 'audio'
               : null,
+      status: 'sent', // Default to 'sent' since status is not from API
     );
   }
 
@@ -78,6 +81,7 @@ class Message {
     bool? isRead,
     String? attachmentUrl,
     String? attachmentType,
+    String? status,
   }) {
     return Message(
       id: id ?? this.id,
@@ -88,6 +92,7 @@ class Message {
       isRead: isRead ?? this.isRead,
       attachmentUrl: attachmentUrl ?? this.attachmentUrl,
       attachmentType: attachmentType ?? this.attachmentType,
+      status: status ?? this.status,
     );
   }
 }

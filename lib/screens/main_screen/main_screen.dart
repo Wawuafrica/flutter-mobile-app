@@ -89,12 +89,28 @@ class MainScreenState extends State<MainScreen> {
             height: 40,
             clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(shape: BoxShape.circle),
-            child: Image.asset(
-              userProvider.currentUser?.profileImage ??
-                  'assets/images/other/avatar.webp',
-              cacheWidth: 70,
-              fit: BoxFit.cover,
-            ),
+            child:
+                userProvider.currentUser?.profileImage != null &&
+                        userProvider.currentUser!.profileImage!.startsWith(
+                          'http',
+                        )
+                    ? Image.network(
+                      userProvider.currentUser!.profileImage!,
+                      cacheWidth: 70,
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (context, error, stackTrace) => Image.asset(
+                            'assets/images/other/avatar.webp',
+                            cacheWidth: 250,
+                            fit: BoxFit.cover,
+                          ),
+                    )
+                    : Image.asset(
+                      userProvider.currentUser?.profileImage ??
+                          'assets/images/other/avatar.webp',
+                      cacheWidth: 250,
+                      fit: BoxFit.cover,
+                    ),
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,

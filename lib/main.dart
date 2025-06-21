@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
-import 'package:wawu_mobile/screens/account_type/account_type.dart';
+// import 'package:wawu_mobile/screens/account_type/account_type.dart';
 // import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -24,9 +24,10 @@ import 'providers/gig_provider.dart';
 import 'providers/message_provider.dart';
 import 'providers/notification_provider.dart';
 import 'providers/plan_provider.dart';
+import 'providers/dropdown_data_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/user_provider.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 // Import your new screens
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart'; // Assuming this path
 
@@ -43,6 +44,11 @@ final _logger = Logger(
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await SharedPreferences.getInstance(); // Initialize SharedPreferences
+  } catch (e) {
+    debugPrint('Error initializing SharedPreferences: $e');
+  }
 
   _logger.i('Main: App startup initiated.');
 
@@ -126,6 +132,10 @@ void main() async {
                 (context) => MessageProvider(
                   apiService: apiService,
                   pusherService: pusherService,
+                  userProvider: Provider.of<UserProvider>(
+                    context,
+                    listen: false,
+                  ),
                 ),
           ),
           ChangeNotifierProvider(
@@ -168,6 +178,9 @@ void main() async {
           ),
           ChangeNotifierProvider(
             create: (context) => PlanProvider(apiService: apiService),
+          ),
+          ChangeNotifierProvider(
+            create: (context) => DropdownDataProvider(apiService: apiService),
           ),
         ],
         child: MyApp(pusherService: pusherService),
@@ -232,7 +245,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // For now, we mainly rely on what's done in main().
     // You can add a small delay here if you want the splash screen to show for a minimum duration.
     await Future.delayed(
-      const Duration(milliseconds: 1000),
+      const Duration(milliseconds: 5000),
     ); // Minimum 1.5 seconds splash
 
     // You might want to refresh user data here if it's crucial for the initial render
@@ -407,9 +420,10 @@ class SplashScreen extends StatelessWidget {
             Image.asset(
               'assets/logo2.png', // Replace with your actual logo path
               width: 200,
+              cacheWidth: 1100,
               height: 200,
             ),
-            const SizedBox(height: 10),
+            // const SizedBox(height: 10),
             SizedBox(
               width: 300,
               child: Text(

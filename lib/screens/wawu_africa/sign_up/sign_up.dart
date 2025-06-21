@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/profile/forgot_passoword/otp_screen/otp_screen.dart';
+import 'package:wawu_mobile/screens/account_type/account_type.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
@@ -282,17 +283,20 @@ class _SignUpState extends State<SignUp> {
 
                           // Only navigate if the widget is still mounted and registration was successful
                           if (mounted && userProvider.isSuccess) {
-                            await authService.sendOtp(
-                              emailController.text.trim(),
-                            );
+                            // await authService.sendOtp(
+                            //   emailController.text.trim(),
+                            // );
                             Navigator.pushReplacement(
                               context,
+                              // MaterialPageRoute(
+                              //   builder:
+                              //       (context) => OtpScreen(
+                              //         authService: authService,
+                              //         email: emailController.text,
+                              //       ),
+                              // ),
                               MaterialPageRoute(
-                                builder:
-                                    (context) => OtpScreen(
-                                      authService: authService,
-                                      email: emailController.text,
-                                    ),
+                                builder: (context) => AccountType(),
                               ),
                             );
                           }

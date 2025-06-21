@@ -3,13 +3,19 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import 'package:wawu_mobile/models/gig.dart';
-import 'package:wawu_mobile/providers/base_provider.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/pusher_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class GigProvider extends BaseProvider {
+class GigProvider extends ChangeNotifier {
   final ApiService _apiService;
   final PusherService _pusherService;
+
+  bool _isLoading = false;
+  String? _error;
+
+  bool get isLoading => _isLoading;
+  String? get error => _error;
 
   final Map<String, List<Gig>> _gigsByStatus = {
     'all': [],
@@ -21,17 +27,292 @@ class GigProvider extends BaseProvider {
   Gig? _selectedGig;
   bool _isGeneralChannelSubscribed = false;
   final List<String> _specificGigChannels = [];
+  final List<Gig> _recentlyViewedGigs = [];
+  final String _recentGigsKey = 'recently_viewed_gigs';
+  bool _isRecentlyViewedLoading = false;
+  bool _isDisposed = false;
 
-  List<Gig> get gigs => _gigsByStatus['all']!;
-  List<Gig> gigsForStatus(String? status) => _gigsByStatus[status ?? 'all']!;
+  List<Gig> get recentlyViewedGigs => List.unmodifiable(_recentlyViewedGigs);
+  bool get isRecentlyViewedLoading => _isRecentlyViewedLoading;
+
+  List<Gig> get gigs => List.unmodifiable(_gigsByStatus['all'] ?? []);
+  List<Gig> gigsForStatus(String? status) =>
+      List.unmodifiable(_gigsByStatus[status ?? 'all'] ?? []);
   Gig? get selectedGig => _selectedGig;
 
   GigProvider({ApiService? apiService, PusherService? pusherService})
     : _apiService = apiService ?? ApiService(),
-      _pusherService = pusherService ?? PusherService();
+      _pusherService = pusherService ?? PusherService() {
+    debugPrint('[RecentlyViewed] GigProvider constructor called.');
+    _loadRecentlyViewedGigs();
+  }
 
+  void _setLoading(bool loading) {
+    if (_isDisposed) return;
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setError(String? error) {
+    if (_isDisposed) return;
+    _error = error;
+    notifyListeners();
+  }
+
+  void _safeNotifyListeners() {
+    if (_isDisposed) return;
+    notifyListeners();
+  }
+
+  Future<void> _loadRecentlyViewedGigs() async {
+    if (_isDisposed) return;
+
+    debugPrint('[RecentlyViewed] _loadRecentlyViewedGigs called.');
+    _isRecentlyViewedLoading = true;
+    _safeNotifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedGigsJson = prefs.getStringList(_recentGigsKey);
+
+      if (_isDisposed) return;
+
+      if (savedGigsJson != null && savedGigsJson.isNotEmpty) {
+        _recentlyViewedGigs.clear();
+
+        for (final jsonStr in savedGigsJson) {
+          if (_isDisposed) return;
+
+          try {
+            if (jsonStr.trim().isEmpty) continue;
+
+            final Map<String, dynamic> json = jsonDecode(jsonStr);
+
+            // More robust validation
+            if (!_isValidGigJson(json)) {
+              debugPrint('[RecentlyViewed][WARNING] Skipping invalid gig data');
+              continue;
+            }
+
+            final gig = Gig.fromJson(json);
+
+            // Additional validation after creating Gig object
+            if (!_isValidGig(gig)) {
+              debugPrint(
+                '[RecentlyViewed][WARNING] Skipping invalid gig object',
+              );
+              continue;
+            }
+
+            _recentlyViewedGigs.add(gig);
+            debugPrint(
+              '[RecentlyViewed] Loaded gig: uuid=${gig.uuid}, title=${gig.title}',
+            );
+          } catch (e, stackTrace) {
+            debugPrint('[RecentlyViewed][ERROR] Error decoding gig: $e');
+            debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+            continue;
+          }
+        }
+
+        debugPrint(
+          '[RecentlyViewed] Successfully loaded ${_recentlyViewedGigs.length} gigs',
+        );
+      } else {
+        debugPrint('[RecentlyViewed] No saved gigs found');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[RecentlyViewed][ERROR] Error loading gigs: $e');
+      debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+      _recentlyViewedGigs.clear();
+    } finally {
+      if (!_isDisposed) {
+        _isRecentlyViewedLoading = false;
+        _safeNotifyListeners();
+      }
+    }
+  }
+
+  bool _isValidGigJson(Map<String, dynamic> json) {
+    try {
+      // Check for required fields
+      if (json['uuid'] == null ||
+          json['title'] == null ||
+          json['description'] == null ||
+          json['seller'] == null ||
+          json['created_at'] == null) {
+        return false;
+      }
+
+      // Check if uuid and title are not empty strings
+      if (json['uuid'].toString().trim().isEmpty ||
+          json['title'].toString().trim().isEmpty) {
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('[RecentlyViewed][ERROR] Error validating gig JSON: $e');
+      return false;
+    }
+  }
+
+  bool _isValidGig(Gig gig) {
+    try {
+      return gig.uuid.trim().isNotEmpty && gig.title.trim().isNotEmpty;
+    } catch (e) {
+      debugPrint('[RecentlyViewed][ERROR] Error validating gig object: $e');
+      return false;
+    }
+  }
+
+  Future<void> _saveRecentlyViewedGigs() async {
+    if (_isDisposed) return;
+
+    debugPrint('[RecentlyViewed] Saving ${_recentlyViewedGigs.length} gigs');
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> gigJsons = [];
+
+      for (final gig in _recentlyViewedGigs) {
+        if (_isDisposed) return;
+
+        try {
+          if (!_isValidGig(gig)) {
+            debugPrint(
+              '[RecentlyViewed][WARNING] Skipping invalid gig during save',
+            );
+            continue;
+          }
+
+          final jsonString = jsonEncode(gig.toJson());
+          gigJsons.add(jsonString);
+        } catch (e) {
+          debugPrint(
+            '[RecentlyViewed][ERROR] Error serializing gig ${gig.uuid}: $e',
+          );
+          continue;
+        }
+      }
+
+      if (!_isDisposed) {
+        await prefs.setStringList(_recentGigsKey, gigJsons);
+        debugPrint(
+          '[RecentlyViewed] Successfully saved ${gigJsons.length} gigs',
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[RecentlyViewed][ERROR] Exception saving gigs: $e');
+      debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+    }
+  }
+
+  Future<void> addRecentlyViewedGig(Gig? gig) async {
+    debugPrint('[RecentlyViewed] addRecentlyViewedGig called');
+
+    if (_isDisposed) {
+      debugPrint('[RecentlyViewed][ERROR] Provider is disposed');
+      return;
+    }
+
+    if (gig == null) {
+      debugPrint('[RecentlyViewed][ERROR] Attempted to add null gig');
+      return;
+    }
+
+    if (!_isValidGig(gig)) {
+      debugPrint('[RecentlyViewed][ERROR] Attempted to add invalid gig');
+      return;
+    }
+
+    try {
+      debugPrint(
+        '[RecentlyViewed] Adding gig: uuid=${gig.uuid}, title=${gig.title}',
+      );
+
+      // Remove existing entry if it exists
+      _recentlyViewedGigs.removeWhere((g) => g.uuid == gig.uuid);
+
+      // Add to beginning of list
+      _recentlyViewedGigs.insert(0, gig);
+
+      // Keep only last 5 items
+      if (_recentlyViewedGigs.length > 5) {
+        final removed = _recentlyViewedGigs.removeLast();
+        debugPrint('[RecentlyViewed] Removed oldest gig: ${removed.uuid}');
+      }
+
+      // Save to storage asynchronously
+      _saveRecentlyViewedGigs().catchError((error) {
+        debugPrint('[RecentlyViewed][ERROR] Failed to save: $error');
+      });
+
+      _safeNotifyListeners();
+      debugPrint('[RecentlyViewed] Successfully added gig');
+    } catch (e, stackTrace) {
+      debugPrint(
+        '[RecentlyViewed][ERROR] Exception in addRecentlyViewedGig: $e',
+      );
+      debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+    }
+  }
+
+  Future<void> clearRecentlyViewedGigs() async {
+    debugPrint('[RecentlyViewed] Clearing recently viewed gigs');
+
+    _recentlyViewedGigs.clear();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_recentGigsKey);
+      debugPrint('[RecentlyViewed] Cleared from SharedPreferences');
+    } catch (e) {
+      debugPrint(
+        '[RecentlyViewed][ERROR] Failed to clear from SharedPreferences: $e',
+      );
+    }
+
+    _safeNotifyListeners();
+  }
+
+  // Method to be called on logout
+  Future<void> clearUserData() async {
+    debugPrint('[GigProvider] Clearing all user data');
+
+    // Clear all gig data
+    _gigsByStatus.forEach((key, _) => _gigsByStatus[key] = []);
+    _selectedGig = null;
+
+    // Clear recently viewed gigs
+    await clearRecentlyViewedGigs();
+
+    // Unsubscribe from channels
+    if (_isGeneralChannelSubscribed) {
+      _pusherService.unsubscribeFromChannel('gigs');
+      _isGeneralChannelSubscribed = false;
+    }
+
+    for (final channel in _specificGigChannels) {
+      _pusherService.unsubscribeFromChannel(channel);
+    }
+    _specificGigChannels.clear();
+
+    // Reset loading states
+    _isLoading = false;
+    _error = null;
+    _isRecentlyViewedLoading = false;
+
+    _safeNotifyListeners();
+    debugPrint('[GigProvider] User data cleared successfully');
+  }
+
+  // Rest of your existing methods remain the same...
   Future<List<Gig>> fetchGigs({String? status}) async {
-    setLoading();
+    if (_isDisposed) return [];
+
+    _setLoading(true);
+    _setError(null);
 
     try {
       final Map<String, dynamic> queryParams =
@@ -41,10 +322,11 @@ class GigProvider extends BaseProvider {
         queryParameters: queryParams,
       );
 
+      if (_isDisposed) return [];
+
       if (response['statusCode'] == 200 && response['data'] is List) {
         final List<dynamic> gigsJson = response['data'] as List<dynamic>;
 
-        // Process and sort the gigs
         final List<Gig> gigs =
             gigsJson
                 .map((json) => Gig.fromJson(json as Map<String, dynamic>))
@@ -54,24 +336,17 @@ class GigProvider extends BaseProvider {
         final statusKey = status ?? 'all';
         _gigsByStatus[statusKey] = gigs;
 
-        // Only update 'all' tab if we're not already fetching all gigs
         if (status != null) {
-          // Create a map of existing gigs in 'all' by their UUID
           final existingGigs = <String, Gig>{};
           for (final gig in _gigsByStatus['all'] ?? <Gig>[]) {
             existingGigs[gig.uuid] = gig;
           }
-
-          // Add or update gigs in 'all' list
           for (final gig in gigs) {
             existingGigs[gig.uuid] = gig;
           }
-
-          // Convert back to list and sort
           final allGigs =
               existingGigs.values.toList()
                 ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
           _gigsByStatus['all'] = allGigs;
         }
 
@@ -79,86 +354,114 @@ class GigProvider extends BaseProvider {
           await _subscribeToGeneralGigsChannel();
         }
 
-        setSuccess();
+        _setLoading(false);
         return gigs;
       } else {
-        debugPrint('Invalid response format from /seller/gig');
-        _gigsByStatus[status ?? 'all'] = [];
-        setError('Invalid response format from /seller/gig');
+        final errorMessage = 'Invalid response format from /seller/gig';
+        _setError(errorMessage);
+        _setLoading(false);
         return [];
       }
     } catch (e) {
-      debugPrint('Failed to fetch gigs: $e');
-      _gigsByStatus[status ?? 'all'] = [];
-      setError('Failed to fetch gigs: $e');
+      final errorMessage = 'Failed to fetch gigs: $e';
+      _setError(errorMessage);
+      _setLoading(false);
       return [];
     }
   }
 
   Future<Gig?> createGig(FormData payload) async {
+    if (_isDisposed) return null;
+
+    _setLoading(true);
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
         '/seller/gig',
         data: payload,
       );
+
+      if (_isDisposed) return null;
+
       if (response['statusCode'] == 200 && response['data'] != null) {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         _gigsByStatus['all']!.insert(0, gig);
         _gigsByStatus['PENDING']!.insert(0, gig);
-        notifyListeners();
+        _safeNotifyListeners();
+        _setLoading(false);
         return gig;
       }
+      _setLoading(false);
       return null;
     } catch (e) {
       debugPrint('Failed to create gig: $e');
+      _setLoading(false);
       return null;
     }
   }
 
   Future<bool> postReview(String gigId, Map<String, dynamic> reviewData) async {
+    if (_isDisposed) return false;
+
+    _setLoading(true);
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
         '/seller/gig/review/$gigId',
         data: reviewData,
       );
+      _setLoading(false);
       return response['statusCode'] == 200;
     } catch (e) {
       debugPrint('Failed to post review: $e');
+      _setLoading(false);
       return false;
     }
   }
 
   Future<List<Gig>> fetchGigsBySubCategory(String subCategoryId) async {
+    if (_isDisposed) return [];
+
+    _setLoading(true);
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/services/$subCategoryId/gigs',
         queryParameters: {'status': 'VERIFIED'},
       );
+
+      if (_isDisposed) return [];
+
       if (response['statusCode'] == 200 && response['data'] is List) {
         final List<dynamic> gigsJson = response['data'] as List<dynamic>;
         final gigs =
             gigsJson
                 .map((json) => Gig.fromJson(json as Map<String, dynamic>))
                 .toList();
+        _setLoading(false);
         return gigs;
       }
+      _setLoading(false);
       return [];
     } catch (e) {
       debugPrint('Failed to fetch gigs by subcategory: $e');
+      _setLoading(false);
       return [];
     }
   }
 
   void selectGig(Gig gig) {
+    if (_isDisposed) return;
     _selectedGig = gig;
+    _safeNotifyListeners();
   }
 
   void clearSelectedGig() {
+    if (_isDisposed) return;
     _selectedGig = null;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   Future<void> _subscribeToGeneralGigsChannel() async {
+    if (_isDisposed) return;
+
     const channelName = 'gigs';
     try {
       final success = await _pusherService.subscribeToChannel(channelName);
@@ -169,32 +472,25 @@ class GigProvider extends BaseProvider {
 
       _isGeneralChannelSubscribed = true;
 
-      // Bind to gig.created event
       _pusherService.bindToEvent(channelName, 'gig.created', (event) {
+        if (_isDisposed) return;
+
         try {
           if (event.data is String) {
             final gigData = jsonDecode(event.data) as Map<String, dynamic>;
             final newGig = Gig.fromJson({...gigData, 'status': 'PENDING'});
             _gigsByStatus['all']!.insert(0, newGig);
             _gigsByStatus['PENDING']!.insert(0, newGig);
-            _gigsByStatus['all']!.sort(
-              (a, b) => b.createdAt.compareTo(a.createdAt),
-            );
-            _gigsByStatus['PENDING']!.sort(
-              (a, b) => b.createdAt.compareTo(a.createdAt),
-            );
-            notifyListeners();
-            debugPrint('GigProvider: New gig created and added to lists');
-          } else {
-            debugPrint('GigProvider: Invalid gig.created event data format');
+            _safeNotifyListeners();
           }
         } catch (e) {
           debugPrint('GigProvider: Error processing gig.created event: $e');
         }
       });
 
-      // Bind to gig.deleted event
       _pusherService.bindToEvent(channelName, 'gig.deleted', (event) {
+        if (_isDisposed) return;
+
         try {
           if (event.data is String) {
             final deletedGigData =
@@ -209,22 +505,13 @@ class GigProvider extends BaseProvider {
               if (_selectedGig?.uuid == gigUuid) {
                 _selectedGig = null;
               }
-              notifyListeners();
-              debugPrint('GigProvider: Gig $gigUuid removed from all lists');
-            } else {
-              debugPrint('GigProvider: gig.deleted event missing gig_uuid');
+              _safeNotifyListeners();
             }
-          } else {
-            debugPrint('GigProvider: Invalid gig.deleted event data format');
           }
         } catch (e) {
           debugPrint('GigProvider: Error processing gig.deleted event: $e');
         }
       });
-
-      debugPrint(
-        'GigProvider: Successfully subscribed to general gigs channel and bound events',
-      );
     } catch (e) {
       debugPrint(
         'GigProvider: Failed to subscribe to general gigs channel: $e',
@@ -233,52 +520,47 @@ class GigProvider extends BaseProvider {
   }
 
   Future<void> subscribeToSpecificGigChannel(String gigUuid) async {
+    if (_isDisposed) return;
+
     final channelName = 'gig.$gigUuid';
 
     if (_specificGigChannels.contains(channelName)) {
-      debugPrint(
-        'GigProvider: Already subscribed to specific gig channel: $channelName',
-      );
       return;
     }
 
     try {
       final success = await _pusherService.subscribeToChannel(channelName);
       if (!success) {
-        debugPrint(
-          'GigProvider: Failed to subscribe to specific gig channel: $channelName',
-        );
         return;
       }
 
       _specificGigChannels.add(channelName);
 
-      // Bind to gig.approved event
-      _pusherService.bindToEvent(channelName, 'gig.approved', (event) {
-        _handleGigApprovedEvent(channelName, event);
-      });
-
-      // Bind to gig.rejected event
-      _pusherService.bindToEvent(channelName, 'gig.rejected', (event) {
-        _handleGigRejectedEvent(channelName, event);
-      });
-
-      // Bind to gig.review event (new review added)
-      _pusherService.bindToEvent(channelName, 'gig.review', (event) {
-        _handleGigReviewEvent(channelName, event);
-      });
-
-      debugPrint(
-        'GigProvider: Successfully subscribed to specific gig channel: $channelName',
+      _pusherService.bindToEvent(
+        channelName,
+        'gig.approved',
+        _handleGigApprovedEvent,
+      );
+      _pusherService.bindToEvent(
+        channelName,
+        'gig.rejected',
+        _handleGigRejectedEvent,
+      );
+      _pusherService.bindToEvent(
+        channelName,
+        'gig.review',
+        _handleGigReviewEvent,
       );
     } catch (e) {
       debugPrint(
-        'GigProvider: Failed to subscribe to specific gig channel $channelName: $e',
+        'Failed to subscribe to specific gig channel $channelName: $e',
       );
     }
   }
 
-  void _handleGigApprovedEvent(String channel, PusherEvent event) {
+  void _handleGigApprovedEvent(PusherEvent event) {
+    if (_isDisposed) return;
+
     try {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
@@ -287,25 +569,7 @@ class GigProvider extends BaseProvider {
           final updatedGig = Gig.fromJson(
             eventData['gig'] as Map<String, dynamic>,
           );
-
-          // Update gig status to VERIFIED
-          final approvedGig = Gig(
-            uuid: updatedGig.uuid,
-            title: updatedGig.title,
-            description: updatedGig.description,
-            keywords: updatedGig.keywords,
-            about: updatedGig.about,
-            seller: updatedGig.seller,
-            services: updatedGig.services,
-            pricings: updatedGig.pricings,
-            faqs: updatedGig.faqs,
-            assets: updatedGig.assets,
-            status: 'VERIFIED', // Set status to VERIFIED for approved gigs
-            reviews: updatedGig.reviews,
-          );
-
-          _updateGigInAllLists(gigUuid, approvedGig);
-          debugPrint('GigProvider: Gig $gigUuid approved and updated');
+          _updateGigInAllLists(gigUuid, updatedGig);
         }
       }
     } catch (e) {
@@ -313,7 +577,9 @@ class GigProvider extends BaseProvider {
     }
   }
 
-  void _handleGigRejectedEvent(String channel, PusherEvent event) {
+  void _handleGigRejectedEvent(PusherEvent event) {
+    if (_isDisposed) return;
+
     try {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
@@ -322,25 +588,7 @@ class GigProvider extends BaseProvider {
           final updatedGig = Gig.fromJson(
             eventData['gig'] as Map<String, dynamic>,
           );
-
-          // Update gig status to REJECTED
-          final rejectedGig = Gig(
-            uuid: updatedGig.uuid,
-            title: updatedGig.title,
-            description: updatedGig.description,
-            keywords: updatedGig.keywords,
-            about: updatedGig.about,
-            seller: updatedGig.seller,
-            services: updatedGig.services,
-            pricings: updatedGig.pricings,
-            faqs: updatedGig.faqs,
-            assets: updatedGig.assets,
-            status: 'REJECTED', // Set status to REJECTED for rejected gigs
-            reviews: updatedGig.reviews,
-          );
-
-          _updateGigInAllLists(gigUuid, rejectedGig);
-          debugPrint('GigProvider: Gig $gigUuid rejected and updated');
+          _updateGigInAllLists(gigUuid, updatedGig);
         }
       }
     } catch (e) {
@@ -348,29 +596,18 @@ class GigProvider extends BaseProvider {
     }
   }
 
-  void _handleGigReviewEvent(String channel, PusherEvent event) {
+  void _handleGigReviewEvent(PusherEvent event) {
+    if (_isDisposed) return;
+
     try {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
         final gigUuid = eventData['gig_uuid'] as String?;
-
-        if (gigUuid != null) {
-          // Check if we have review data
-          if (eventData['review'] is Map<String, dynamic>) {
-            final reviewData = eventData['review'] as Map<String, dynamic>;
-            final newReview = Review.fromJson(reviewData);
-
-            // Add review to the gig
-            _addReviewToGig(gigUuid, newReview);
-            debugPrint('GigProvider: New review added to gig $gigUuid');
-          } else if (eventData['gig'] is Map<String, dynamic>) {
-            // If full gig data is provided with updated reviews
-            final updatedGig = Gig.fromJson(
-              eventData['gig'] as Map<String, dynamic>,
-            );
-            _updateGigInAllLists(gigUuid, updatedGig);
-            debugPrint('GigProvider: Gig $gigUuid updated with new reviews');
-          }
+        if (gigUuid != null && eventData['review'] is Map<String, dynamic>) {
+          final newReview = Review.fromJson(
+            eventData['review'] as Map<String, dynamic>,
+          );
+          _addReviewToGig(gigUuid, newReview);
         }
       }
     } catch (e) {
@@ -379,9 +616,9 @@ class GigProvider extends BaseProvider {
   }
 
   void _updateGigInAllLists(String gigUuid, Gig updatedGig) {
-    bool gigUpdated = false;
+    if (_isDisposed) return;
 
-    // Update existing gig in all status lists
+    bool gigUpdated = false;
     for (final status in _gigsByStatus.keys) {
       final index = _gigsByStatus[status]!.indexWhere(
         (gig) => gig.uuid == gigUuid,
@@ -392,38 +629,33 @@ class GigProvider extends BaseProvider {
       }
     }
 
-    // If gig wasn't found in existing lists but should be added
     if (!gigUpdated) {
-      // Add to 'all' list
       _gigsByStatus['all']!.insert(0, updatedGig);
-
-      // Add to specific status list if it exists
       if (_gigsByStatus.containsKey(updatedGig.status)) {
         _gigsByStatus[updatedGig.status]!.insert(0, updatedGig);
       }
     }
 
-    // Remove gig from status lists where it no longer belongs
     for (final status in _gigsByStatus.keys) {
       if (status != 'all' && status != updatedGig.status) {
         _gigsByStatus[status]!.removeWhere((gig) => gig.uuid == gigUuid);
       }
     }
 
-    // Sort all lists after updates
     for (final status in _gigsByStatus.keys) {
       _gigsByStatus[status]!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
 
-    // Update selected gig if it matches
     if (_selectedGig?.uuid == gigUuid) {
       _selectedGig = updatedGig;
     }
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   void _addReviewToGig(String gigUuid, Review newReview) {
+    if (_isDisposed) return;
+
     for (final status in _gigsByStatus.keys) {
       final index = _gigsByStatus[status]!.indexWhere(
         (gig) => gig.uuid == gigUuid,
@@ -431,8 +663,6 @@ class GigProvider extends BaseProvider {
       if (index != -1) {
         final currentGig = _gigsByStatus[status]![index];
         final updatedReviews = [...currentGig.reviews, newReview];
-
-        // Create updated gig with new review
         final updatedGig = Gig(
           uuid: currentGig.uuid,
           title: currentGig.title,
@@ -447,53 +677,53 @@ class GigProvider extends BaseProvider {
           status: currentGig.status,
           reviews: updatedReviews,
         );
-
         _gigsByStatus[status]![index] = updatedGig;
       }
     }
 
-    // Update selected gig if it matches
     if (_selectedGig?.uuid == gigUuid) {
-      final updatedReviews = [..._selectedGig!.reviews, newReview];
+      final g = _selectedGig!;
+      final updatedReviews = [...g.reviews, newReview];
       _selectedGig = Gig(
-        uuid: _selectedGig!.uuid,
-        title: _selectedGig!.title,
-        description: _selectedGig!.description,
-        keywords: _selectedGig!.keywords,
-        about: _selectedGig!.about,
-        seller: _selectedGig!.seller,
-        services: _selectedGig!.services,
-        pricings: _selectedGig!.pricings,
-        faqs: _selectedGig!.faqs,
-        assets: _selectedGig!.assets,
-        status: _selectedGig!.status,
+        uuid: g.uuid,
+        title: g.title,
+        description: g.description,
+        keywords: g.keywords,
+        about: g.about,
+        seller: g.seller,
+        services: g.services,
+        pricings: g.pricings,
+        faqs: g.faqs,
+        assets: g.assets,
+        status: g.status,
         reviews: updatedReviews,
       );
     }
 
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   void unsubscribeFromSpecificGigChannel(String gigUuid) {
+    if (_isDisposed) return;
+
     final channelName = 'gig.$gigUuid';
     if (_specificGigChannels.contains(channelName)) {
       _pusherService.unsubscribeFromChannel(channelName);
       _specificGigChannels.remove(channelName);
-      debugPrint(
-        'GigProvider: Unsubscribed from specific gig channel: $channelName',
-      );
     }
   }
 
-  void clearAll() {
-    _gigsByStatus.forEach((key, _) => _gigsByStatus[key] = []);
-    clearSelectedGig();
-    _isGeneralChannelSubscribed = false;
-    notifyListeners();
+  // Deprecated - use clearUserData() instead
+  @Deprecated('Use clearUserData() instead')
+  Future<void> clearAll() async {
+    await clearUserData();
   }
 
   @override
   void dispose() {
+    debugPrint('[GigProvider] dispose() called');
+    _isDisposed = true;
+
     if (_isGeneralChannelSubscribed) {
       _pusherService.unsubscribeFromChannel('gigs');
     }

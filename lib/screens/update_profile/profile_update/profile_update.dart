@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
+import 'package:wawu_mobile/providers/dropdown_data_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/countries.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
@@ -30,14 +32,17 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   final List<String> _skills = [];
   final int _maxAboutLength = 200;
 
-  String? _selectedEducationCertification;
-  String? _selectedEducationInstitution;
+  String? _selectedCertification;
+  String? _selectedInstitution;
   final TextEditingController _educationCourseOfStudyController =
       TextEditingController();
   final TextEditingController _educationGraduationDateController =
       TextEditingController(); // New field
+  final TextEditingController _customInstitutionController =
+      TextEditingController();
 
-  String? _selectedProfessionalCertificationName;
+  final TextEditingController _professionalCertificationNameController =
+      TextEditingController();
   final TextEditingController _professionalCertificationOrganizationController =
       TextEditingController();
   final TextEditingController _professionalCertificationEndDateController =
@@ -59,6 +64,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   final TextEditingController _stateController = TextEditingController();
 
   bool _isSavingProfile = false;
+  bool _isDirty = false; // To track if any field has been changed
 
   // --- IMPORTANT DEBUGGING FLAG ---
   // Set this to `true` to force Web behavior (e.g., when debugging web on a mobile build).
@@ -67,12 +73,80 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   final bool _forceIsWeb =
       kIsWeb; // Default to kIsWeb, change to true/false for debugging
 
+  bool _isLoading = true; // Start with loading state
+
   @override
   void initState() {
     super.initState();
-    // Logic for initial images (e.g., loading from a URL if `user.profileImageUrl` is available)
-    // For web, you would typically fetch bytes from a URL here if initialImagePath was a URL.
-    // For mobile, if you have a local path for an initial image, you'd load it.
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    final dropdownProvider = Provider.of<DropdownDataProvider>(
+      context,
+      listen: false,
+    );
+
+    await dropdownProvider.fetchDropdownData();
+
+    final user = Provider.of<UserProvider>(context, listen: false).currentUser;
+    if (user != null) {
+      if (user.additionalInfo?.education != null &&
+          user.additionalInfo!.education!.isNotEmpty) {
+        _selectedCertification =
+            user.additionalInfo!.education!.last.certification;
+        final latestEducation = user.additionalInfo!.education!.last;
+        _selectedCertification = latestEducation.certification;
+        if (latestEducation.certification == 'School-Level Qualifications') {
+          _customInstitutionController.text = latestEducation.institution ?? '';
+        } else {
+          _selectedInstitution = latestEducation.institution;
+        }
+      }
+      if (user.additionalInfo?.professionalCertification != null &&
+          user.additionalInfo!.professionalCertification!.isNotEmpty) {
+        _professionalCertificationNameController.text =
+            user.additionalInfo!.professionalCertification!.last.name ?? '';
+      }
+    }
+
+    _addListeners();
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _addListeners() {
+    final controllers = [
+      _aboutController,
+      _skillController,
+      _educationCourseOfStudyController,
+      _educationGraduationDateController,
+      _professionalCertificationNameController,
+      _professionalCertificationOrganizationController,
+      _professionalCertificationEndDateController,
+      _facebookController,
+      _linkedInController,
+      _instagramController,
+      _twitterController,
+      _stateController,
+      _customInstitutionController,
+    ];
+
+    for (var controller in controllers) {
+      controller.addListener(_onFieldChanged);
+    }
+  }
+
+  void _onFieldChanged() {
+    if (!_isDirty) {
+      setState(() {
+        _isDirty = true;
+      });
+    }
   }
 
   Future<void> _pickImageForProfileAndCover(String imageType) async {
@@ -82,6 +156,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     );
 
     if (pickedFile != null) {
+      _onFieldChanged(); // Mark as dirty
       setState(() {
         // If it's web, read the bytes immediately
         if (_forceIsWeb) {
@@ -135,7 +210,6 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) {
-      // If the form is not valid, do not proceed
       return;
     }
 
@@ -149,35 +223,75 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       listen: false,
     );
 
+    // Dynamically build the payload
+    Map<String, dynamic> payload = {};
+    if (_aboutController.text.isNotEmpty) {
+      payload['about'] = _aboutController.text;
+    }
+    if (_skills.isNotEmpty) payload['skills'] = _skills;
+    if (_selectedCertification != null) {
+      payload['educationCertification'] = _selectedCertification;
+    }
+    if (_selectedCertification == 'School-Level Qualifications') {
+      if (_customInstitutionController.text.isNotEmpty) {
+        payload['educationInstitution'] = _customInstitutionController.text;
+      }
+    } else {
+      if (_selectedInstitution != null) {
+        payload['educationInstitution'] = _selectedInstitution;
+      }
+    }
+    if (_educationCourseOfStudyController.text.isNotEmpty) {
+      payload['educationCourseOfStudy'] =
+          _educationCourseOfStudyController.text;
+    }
+    if (_educationGraduationDateController.text.isNotEmpty) {
+      payload['educationGraduationDate'] =
+          _educationGraduationDateController.text;
+    }
+    if (_professionalCertificationNameController.text.isNotEmpty) {
+      payload['professionalCertificationName'] =
+          _professionalCertificationNameController.text;
+    }
+    if (_professionalCertificationOrganizationController.text.isNotEmpty) {
+      payload['professionalCertificationOrganization'] =
+          _professionalCertificationOrganizationController.text;
+    }
+    if (_professionalCertificationEndDateController.text.isNotEmpty) {
+      payload['professionalCertificationEndDate'] =
+          _professionalCertificationEndDateController.text;
+    }
+    if (_selectedCountry != null) payload['country'] = _selectedCountry;
+    if (_stateController.text.isNotEmpty) {
+      payload['state'] = _stateController.text;
+    }
+
+    Map<String, String> socialHandles = {};
+    if (_facebookController.text.isNotEmpty) {
+      socialHandles['facebook'] = _facebookController.text;
+    }
+    if (_linkedInController.text.isNotEmpty) {
+      socialHandles['linkedIn'] = _linkedInController.text;
+    }
+    if (_instagramController.text.isNotEmpty) {
+      socialHandles['instagram'] = _instagramController.text;
+    }
+    if (_twitterController.text.isNotEmpty) {
+      socialHandles['twitter'] = _twitterController.text;
+    }
+    if (socialHandles.isNotEmpty) payload['socialHandles'] = socialHandles;
+
+    if (categoryProvider.selectedSubCategory?.uuid != null) {
+      payload['subCategoryUuid'] = categoryProvider.selectedSubCategory!.uuid;
+    }
+
     try {
       await userProvider.updateCurrentUserProfile(
-        about: _aboutController.text,
-        skills: _skills,
-        educationCertification: _selectedEducationCertification,
-        educationInstitution: _selectedEducationInstitution,
-        educationCourseOfStudy: _educationCourseOfStudyController.text,
-        educationGraduationDate:
-            _educationGraduationDateController
-                .text, // Added this back if you have a place for it in the API payload
-        professionalCertificationName: _selectedProfessionalCertificationName,
-        professionalCertificationOrganization:
-            _professionalCertificationOrganizationController.text,
-        professionalCertificationEndDate:
-            _professionalCertificationEndDateController
-                .text, // Added this back if you have a place for it in the API payload
-        professionalCertificationImage: _professionalCertificationImage,
-        meansOfIdentification: _meansOfIdentification,
-        country: _selectedCountry,
-        state: _stateController.text,
-        socialHandles: {
-          'facebook': _facebookController.text,
-          'linkedIn': _linkedInController.text,
-          'instagram': _instagramController.text,
-          'twitter': _twitterController.text,
-        },
-        subCategoryUuid: categoryProvider.selectedSubCategory?.uuid,
+        data: payload,
         profileImage: _profileImage,
         coverImage: _coverImage,
+        professionalCertificationImage: _professionalCertificationImage,
+        meansOfIdentification: _meansOfIdentification,
       );
 
       if (userProvider.isSuccess) {
@@ -218,27 +332,50 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
   @override
   void dispose() {
-    _aboutController.dispose();
-    _skillController.dispose();
-    _educationCourseOfStudyController.dispose();
-    _educationGraduationDateController.dispose();
-    _professionalCertificationOrganizationController.dispose();
-    _professionalCertificationEndDateController.dispose();
-    _facebookController.dispose();
-    _linkedInController.dispose();
-    _instagramController.dispose();
-    _twitterController.dispose();
-    _stateController.dispose();
+    // Remove listeners to prevent memory leaks
+    final controllers = [
+      _aboutController,
+      _skillController,
+      _educationCourseOfStudyController,
+      _educationGraduationDateController,
+      _professionalCertificationNameController,
+      _professionalCertificationOrganizationController,
+      _professionalCertificationEndDateController,
+      _facebookController,
+      _linkedInController,
+      _instagramController,
+      _twitterController,
+      _stateController,
+      _customInstitutionController,
+    ];
+
+    for (var controller in controllers) {
+      controller.removeListener(_onFieldChanged);
+      controller.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profile'), centerTitle: true),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     // Use the forced boolean for rendering logic
     final bool currentIsWeb = _forceIsWeb;
 
-    return Consumer2<CategoryProvider, UserProvider>(
-      builder: (context, categoryProvider, userProvider, child) {
+    return Consumer3<CategoryProvider, UserProvider, DropdownDataProvider>(
+      builder: (
+        context,
+        categoryProvider,
+        userProvider,
+        dropdownProvider,
+        child,
+      ) {
         final selectedSubCategory = categoryProvider.selectedSubCategory;
         final user = userProvider.currentUser;
         final fullName =
@@ -561,35 +698,54 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       ),
                       const SizedBox(height: 5),
                       CustomDropdown(
-                        options: const ['BSc', 'High School', 'MSc', 'PhD'],
+                        options:
+                            dropdownProvider.certifications
+                                .map((e) => e.name)
+                                .toList(),
                         label: 'Select Certificate',
-                        selectedValue: _selectedEducationCertification,
+                        selectedValue: _selectedCertification,
                         onChanged: (value) {
                           setState(() {
-                            _selectedEducationCertification = value;
+                            _isDirty = true;
+                            _selectedCertification = value;
+                            // When the certificate type changes, clear the other institution field
+                            if (value == 'School-Level Qualifications') {
+                              _selectedInstitution = null;
+                            } else {
+                              _customInstitutionController.clear();
+                            }
                           });
                         },
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        'Institution',
-                        style: TextStyle(fontWeight: FontWeight.w400),
-                      ),
+                      if (_selectedCertification !=
+                          'School-Level Qualifications')
+                        const Text(
+                          'Institution',
+                          style: TextStyle(fontWeight: FontWeight.w400),
+                        ),
                       const SizedBox(height: 5),
-                      CustomDropdown(
-                        options: const [
-                          'University Of Lagos',
-                          'University Of Ibadan',
-                          'University Of Port Harcourt',
-                        ],
-                        label: 'Select Institution',
-                        selectedValue: _selectedEducationInstitution,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedEducationInstitution = value;
-                          });
-                        },
-                      ),
+                      _selectedCertification == 'School-Level Qualifications'
+                          ? CustomTextfield(
+                            controller: _customInstitutionController,
+                            hintText: 'Enter your institution',
+                            labelText: 'Institution',
+                            labelTextStyle2: true,
+                          )
+                          : CustomDropdown(
+                            options:
+                                dropdownProvider.institutions
+                                    .map((e) => e.name)
+                                    .toList(),
+                            label: 'Select Institution',
+                            selectedValue: _selectedInstitution,
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedInstitution = value;
+                                _isDirty = true;
+                              });
+                            },
+                          ),
                       const SizedBox(height: 10),
                       CustomTextfield(
                         controller: _educationCourseOfStudyController,
@@ -636,15 +792,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                         ),
                       ),
                       const SizedBox(height: 5),
-                      CustomDropdown(
-                        options: const ['CAC', 'Skill Certificate', 'MIT'],
-                        label: 'Select Certificate',
-                        selectedValue: _selectedProfessionalCertificationName,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedProfessionalCertificationName = value;
-                          });
-                        },
+                      CustomTextfield(
+                        controller: _professionalCertificationNameController,
+                        hintText: 'Enter Certificate Name',
+                        labelText: 'Certificate Name',
+                        labelTextStyle2: true,
                       ),
                       const SizedBox(height: 20),
                       CustomTextfield(
@@ -727,16 +879,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     ),
                     const SizedBox(height: 5),
                     CustomDropdown(
-                      options: const [
-                        'Nigeria',
-                        'Ghana',
-                        'South Africa',
-                        'Mali',
-                        'Kenya',
-                        'United States',
-                        'Canada',
-                        'United Kingdom',
-                      ],
+                      options: Countries.all,
                       label: 'Select Country',
                       selectedValue: _selectedCountry,
                       onChanged: (value) {
@@ -790,20 +933,34 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   const SizedBox(height: 40),
                 ],
 
-                CustomButton(
-                  function: _isSavingProfile ? null : _saveProfile,
-                  widget:
+                ElevatedButton(
+                  onPressed:
+                      _isSavingProfile
+                          ? null
+                          : () {
+                            if (!_isDirty) {
+                              // Skip: Navigate to the next screen or back
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const Plan(),
+                                ),
+                              );
+                            } else {
+                              // Continue: Save the profile
+                              _saveProfile();
+                            }
+                          },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        wawuColors
+                            .primary, // Assuming wawuColors is defined; adjust if needed
+                    foregroundColor: Colors.white,
+                  ),
+                  child:
                       _isSavingProfile
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                            'Save',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  color: wawuColors.primary,
-                  textColor: Colors.white,
+                          : Text(_isDirty ? 'Continue' : 'Skip'),
                 ),
               ],
             ),

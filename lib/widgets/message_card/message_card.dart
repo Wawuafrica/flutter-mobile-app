@@ -7,33 +7,38 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 class MessageCard extends StatelessWidget {
   final Conversation conversation;
   final String currentUserId;
+  final ChatUser? recipient;
   final void Function()? onTap;
 
   const MessageCard({
     super.key,
     required this.conversation,
-    required this.currentUserId, this.onTap,
+    required this.currentUserId,
+    this.recipient,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Get the other participant's name and avatar
-    final otherParticipant = conversation.participants.firstWhere(
-      (user) => user.id != currentUserId, 
+    // Get the other participant's name and avatar from recipient if available, otherwise from conversation
+    final otherParticipant = recipient ?? conversation.participants.firstWhere(
+      (user) => user.id != currentUserId,
       orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
     );
 
     // Get last message details
     final lastMessage = conversation.lastMessage;
     final lastMessageContent = lastMessage?.content ?? 'No messages yet';
-    final lastMessageTime = lastMessage?.timestamp != null
-        ? timeago.format(lastMessage!.timestamp)
-        : '';
+    final lastMessageTime =
+        lastMessage?.timestamp != null
+            ? timeago.format(lastMessage!.timestamp)
+            : '';
 
     // Count unread messages (simplified, as isRead is always false)
-    final unreadCount = conversation.messages
-        .where((msg) => msg.senderId != currentUserId)
-        .length;
+    final unreadCount =
+        conversation.messages
+            .where((msg) => msg.senderId != currentUserId)
+            .length;
 
     return InkWell(
       onTap: onTap,
@@ -51,32 +56,34 @@ class MessageCard extends StatelessWidget {
                   height: 50,
                   clipBehavior: Clip.hardEdge,
                   decoration: const BoxDecoration(shape: BoxShape.circle),
-                  child: otherParticipant.avatar != null
-                      ? Image.network(
-                          otherParticipant.avatar!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Image.asset(
+                  child:
+                      otherParticipant.avatar != null && otherParticipant.avatar!.isNotEmpty
+                          ? Image.network(
+                            otherParticipant.avatar!,
+                            fit: BoxFit.cover,
+                            errorBuilder:
+                                (context, error, stackTrace) => Image.asset(
+                                  'assets/images/other/avatar.webp',
+                                  fit: BoxFit.cover,
+                                ),
+                          )
+                          : Image.asset(
                             'assets/images/other/avatar.webp',
                             fit: BoxFit.cover,
                           ),
-                        )
-                      : Image.asset(
-                          'assets/images/other/avatar.webp',
-                          fit: BoxFit.cover,
-                        ),
                 ),
-                Positioned(
-                  right: 5,
-                  bottom: 0,
-                  child: Container(
-                    width: 10.0,
-                    height: 10.0,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: wawuColors.primary,
-                    ),
-                  ),
-                ),
+                // Positioned(
+                //   right: 5,
+                //   bottom: 0,
+                //   child: Container(
+                //     width: 10.0,
+                //     height: 10.0,
+                //     decoration: BoxDecoration(
+                //       shape: BoxShape.circle,
+                //       color: wawuColors.primary,
+                //     ),
+                //   ),
+                // ),
               ],
             ),
             const SizedBox(width: 10.0),

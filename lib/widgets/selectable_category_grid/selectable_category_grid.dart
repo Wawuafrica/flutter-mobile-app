@@ -26,17 +26,11 @@ class _SelectableCategoryGridState extends State<SelectableCategoryGrid> {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      // padding: const EdgeInsets.all(16),
-      shrinkWrap: true, // Allow the grid to shrink-wrap its content
-      physics: const NeverScrollableScrollPhysics(), // Disable grid scrolling
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 1, // 2 columns
-        crossAxisSpacing: 16, // Spacing between columns
-        mainAxisSpacing: 16, // Spacing between rows
-        childAspectRatio: 5.1, // Adjust the aspect ratio to make items shorter
-      ),
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: widget.categories.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final category = widget.categories[index];
         final isSelected = category == selectedCategory;
@@ -44,30 +38,23 @@ class _SelectableCategoryGridState extends State<SelectableCategoryGrid> {
         return GestureDetector(
           onTap: () => _onCategorySelected(category),
           child: Container(
-            padding: EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(20.0),
             decoration: BoxDecoration(
               color: isSelected ? Colors.black : Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color:
-                    isSelected
-                        ? Colors.transparent
-                        : const Color.fromARGB(255, 235, 235, 235),
+                color: isSelected
+                    ? Colors.transparent
+                    : const Color.fromARGB(255, 235, 235, 235),
               ),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  category,
-                  style: TextStyle(
-                    fontSize: 14,
-                    // fontWeight: FontWeight.bold,
-                    color: isSelected ? Colors.white : Colors.black,
-                  ),
-                ),
-              ],
+            child: Text(
+              category,
+              style: TextStyle(
+                fontSize: 14,
+                // fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : Colors.black,
+              ),
             ),
           ),
         );

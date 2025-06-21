@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
+import 'package:wawu_mobile/providers/base_provider.dart';
+import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
 import 'package:wawu_mobile/screens/account_payment/payment_webview.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
@@ -112,43 +114,41 @@ class _AccountPaymentState extends State<AccountPayment> {
   }
 
   Future<void> _handlePaymentResult(Map<String, String> result) async {
-    if (result['status'] == 'success') {
-      // Show loading while processing callback
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+    // The full redirect URL is now passed in the 'redirectUrl' key.
+    final String? redirectUrl = result['redirectUrl'];
 
-      try {
-        final planProvider = Provider.of<PlanProvider>(context, listen: false);
+    if (redirectUrl == null || redirectUrl.isEmpty) {
+      _showErrorDialog('Payment verification failed: Missing redirect URL.');
+      return;
+    }
 
-        // Construct callback URL with the payment result
-        String callbackUrl =
-            'https://staging.wawuafrica.com/api/payment/callback?'
-            'status=successful'
-            '&tx_ref=${result['reference'] ?? ''}'
-            '&transaction_id=${result['reference'] ?? ''}';
+    // Show a loading indicator while we verify the payment.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
 
-        await planProvider.handlePaymentCallback(callbackUrl);
+    try {
+      final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
-        // Close loading dialog
-        Navigator.pop(context);
+      // Directly call the provider with the full redirect URL.
+      await planProvider.handlePaymentCallback(redirectUrl);
 
-        if (planProvider.subscription != null) {
-          _showSuccessDialog();
-        } else {
-          _showErrorDialog(
-            'Payment verification failed. Please contact support.',
-          );
-        }
-      } catch (e) {
-        // Close loading dialog
-        Navigator.pop(context);
-        _showErrorDialog('Payment verification failed: ${e.toString()}');
+      // Close the loading dialog.
+      Navigator.pop(context);
+
+      if (planProvider.state == LoadingState.success) {
+        _showSuccessDialog();
+      } else {
+        _showErrorDialog(
+          planProvider.errorMessage ?? 'Payment verification failed.',
+        );
       }
-    } else {
-      _showErrorDialog(result['message'] ?? 'Payment failed');
+    } catch (e) {
+      // Close the loading dialog in case of an unexpected error.
+      Navigator.pop(context);
+      _showErrorDialog('An unexpected error occurred: ${e.toString()}');
     }
   }
 
@@ -166,8 +166,11 @@ class _AccountPaymentState extends State<AccountPayment> {
             actions: [
               TextButton(
                 onPressed: () {
-                  // Navigate back to home or dashboard
-                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const Disclaimer()),
+                    (Route<dynamic> route) => false,
+                  );
                 },
                 child: const Text('Continue'),
               ),
@@ -279,7 +282,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                       ],
                       const SizedBox(height: 16),
                       Text(
-                        '${selectedPlan.currency} ${selectedPlan.amount.toStringAsFixed(2)} / ${selectedPlan.interval}',
+                        '${selectedPlan.currency} ${selectedPlan.amount.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -371,7 +374,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                             fontWeight: FontWeight.w600,
                           ),
                           rightText:
-                              '${selectedPlan.currency} ${calculatedTotal.toStringAsFixed(2)}',
+                              '${selectedPlan.currency} ${calculatedTotal.toStringAsFixed(0)}',
                           rightTextStyle: TextStyle(
                             color: Colors.white,
                             fontSize: 11,

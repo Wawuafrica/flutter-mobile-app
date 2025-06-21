@@ -19,7 +19,7 @@ class ReviewComponent extends StatelessWidget {
         borderRadius: BorderRadius.circular(10.0),
       ),
       width: double.infinity,
-      height: 180,
+      // height: 100,
       padding: const EdgeInsets.all(20.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
