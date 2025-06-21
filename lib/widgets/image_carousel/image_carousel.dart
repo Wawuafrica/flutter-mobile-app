@@ -53,8 +53,8 @@ class _ImageTextCarouselState extends State<ImageTextCarousel> {
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  Theme.of(context).colorSheme.background.withOpacity(0.2),
-                                  Theme.of(context).colorSheme.background.withOpacity(0.8),
+                                  Theme.of(context).colorScheme.background.withOpacity(0.2),
+                                  Theme.of(context).colorScheme.background.withOpacity(0.8),
                                 ],
                               ),
                             ),
