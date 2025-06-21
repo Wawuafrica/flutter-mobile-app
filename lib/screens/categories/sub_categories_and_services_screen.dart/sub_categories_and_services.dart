@@ -9,14 +9,15 @@ class SubCategoriesAndServices extends StatefulWidget {
   const SubCategoriesAndServices({super.key});
 
   @override
-  State<SubCategoriesAndServices> createState() => _SubCategoriesAndServicesState();
+  State<SubCategoriesAndServices> createState() =>
+      _SubCategoriesAndServicesState();
 }
 
 class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
   final Map<String, List<Service>> _subCategoryServices = {};
   final Map<String, bool> _loadingServices = {};
   bool _isInitialLoading = true;
-  
+
   @override
   void initState() {
     super.initState();
@@ -26,28 +27,31 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
   }
 
   Future<void> _initializeScreen() async {
-    final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+    final categoryProvider = Provider.of<CategoryProvider>(
+      context,
+      listen: false,
+    );
     final selectedCategory = categoryProvider.selectedCategory;
-    
+
     if (selectedCategory != null) {
       // Always start with loading state
       setState(() {
         _isInitialLoading = true;
       });
-      
+
       // Clear previous data immediately
       _subCategoryServices.clear();
       _loadingServices.clear();
-      
+
       // Clear subcategories in provider to prevent showing old data
       categoryProvider.clearSelectedSubCategory();
-      
+
       // Add a small delay to ensure UI shows loading state
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       // Load new subcategories
       await _loadSubCategories();
-      
+
       // Hide loading state
       if (mounted) {
         setState(() {
@@ -58,9 +62,12 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
   }
 
   Future<void> _loadSubCategories() async {
-    final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+    final categoryProvider = Provider.of<CategoryProvider>(
+      context,
+      listen: false,
+    );
     final selectedCategory = categoryProvider.selectedCategory;
-    
+
     if (selectedCategory != null) {
       await categoryProvider.fetchSubCategories(selectedCategory.uuid);
     }
@@ -75,9 +82,12 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
       _loadingServices[subCategoryId] = true;
     });
 
-    final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+    final categoryProvider = Provider.of<CategoryProvider>(
+      context,
+      listen: false,
+    );
     final services = await categoryProvider.fetchServices(subCategoryId);
-    
+
     setState(() {
       _subCategoryServices[subCategoryId] = services;
       _loadingServices[subCategoryId] = false;
@@ -85,14 +95,15 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
   }
 
   void _onServiceTap(Service service) {
-    final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+    final categoryProvider = Provider.of<CategoryProvider>(
+      context,
+      listen: false,
+    );
     categoryProvider.selectService(service);
-    
+
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => FilteredGigs(),
-      ),
+      MaterialPageRoute(builder: (context) => FilteredGigs()),
     );
   }
 
@@ -112,9 +123,7 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                 Container(
                   padding: const EdgeInsets.all(20.0),
                   height: 100,
-                  decoration: BoxDecoration(
-                    color: wawuColors.purpleDarkContainer,
-                  ),
+                  decoration: BoxDecoration(color: wawuColors.primary),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -143,10 +152,7 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                           SizedBox(height: 16),
                           Text(
                             'Loading subcategories...',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(fontSize: 14, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -155,7 +161,8 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                 // Show content only when not in initial loading state
                 else ...[
                   // Show loading indicator only for provider subcategories load
-                  if (categoryProvider.isLoading && categoryProvider.subCategories.isEmpty)
+                  if (categoryProvider.isLoading &&
+                      categoryProvider.subCategories.isEmpty)
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.all(40.0),
@@ -163,7 +170,8 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                       ),
                     ),
                   // Show error state for subcategories
-                  if (categoryProvider.hasError && categoryProvider.subCategories.isEmpty)
+                  if (categoryProvider.hasError &&
+                      categoryProvider.subCategories.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(20.0),
@@ -193,18 +201,15 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                     ),
                   ),
                   // Show empty state only if not loading and no subcategories
-                  if (!categoryProvider.isLoading && 
-                      categoryProvider.subCategories.isEmpty && 
+                  if (!categoryProvider.isLoading &&
+                      categoryProvider.subCategories.isEmpty &&
                       !categoryProvider.hasError)
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.all(20.0),
                         child: Text(
                           'No subcategories available',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ),
                     ),
@@ -227,26 +232,25 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
         borderRadius: BorderRadius.circular(10.0),
       ),
       child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-        ),
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           title: Text(subCategory.name),
           onExpansionChanged: (isExpanded) {
-            if (isExpanded && !_subCategoryServices.containsKey(subCategory.uuid)) {
+            if (isExpanded &&
+                !_subCategoryServices.containsKey(subCategory.uuid)) {
               _loadServicesForSubCategory(subCategory.uuid);
             }
           },
-          childrenPadding: const EdgeInsets.only(
-            left: 0,
-            right: 0,
-            bottom: 16,
-          ),
+          childrenPadding: const EdgeInsets.only(left: 0, right: 0, bottom: 16),
           children: [
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: _buildServicesContent(subCategory.uuid, isLoading, services),
+              child: _buildServicesContent(
+                subCategory.uuid,
+                isLoading,
+                services,
+              ),
             ),
           ],
         ),
@@ -254,7 +258,11 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
     );
   }
 
-  Widget _buildServicesContent(String subCategoryId, bool isLoading, List<Service> services) {
+  Widget _buildServicesContent(
+    String subCategoryId,
+    bool isLoading,
+    List<Service> services,
+  ) {
     if (isLoading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 16.0),
@@ -289,30 +297,36 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: services.map((service) => 
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10.0),
-          child: GestureDetector(
-            onTap: () => _onServiceTap(service),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
-              decoration: BoxDecoration(
-                // color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(8.0),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Text(
-                service.name,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.black87,
+      children:
+          services
+              .map(
+                (service) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10.0),
+                  child: GestureDetector(
+                    onTap: () => _onServiceTap(service),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8.0,
+                        horizontal: 12.0,
+                      ),
+                      decoration: BoxDecoration(
+                        // color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8.0),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Text(
+                        service.name,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ),
-      ).toList(),
+              )
+              .toList(),
     );
   }
 }

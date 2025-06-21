@@ -13,11 +13,11 @@ import 'package:wawu_mobile/screens/about_us_screen/about_us_screen.dart';
 import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
 import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
 import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
-import 'package:wawu_mobile/screens/profile/profile_screen.dart';
+// import 'package:wawu_mobile/screens/profile/profile_screen.dart';
 import 'package:wawu_mobile/screens/terms_of_use_screen/terms_of_use_screen.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
-import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
+// import 'package:wawu_mobile/utils/constants/colors.dart';
+// import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
 
 class MerchSettingsScreen extends StatelessWidget {
@@ -118,80 +118,17 @@ class MerchSettingsScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 20),
-            Container(
-              width: double.infinity,
-              height: 160,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: wawuColors.primary,
-              ),
-              padding: const EdgeInsets.all(30.0),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: CustomRowSingleColumn(
-                      leftText: 'Subscription Plan',
-                      leftTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      rightText: 'Wawu Standard',
-                      rightTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: CustomRowSingleColumn(
-                      leftText: 'One Month Plan',
-                      leftTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      rightText: '28 Days Left',
-                      rightTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 25),
-                  Expanded(
-                    child: CustomRowSingleColumn(
-                      leftText: 'Upgrade Plan',
-                      leftTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      rightText: '',
-                      rightTextStyle: TextStyle(
-                        color: wawuColors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SettingsButtonCard(
-              title: 'My Profile',
-              navigate: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfileScreen(),
-                  ),
-                );
-              },
-            ),
+            // SettingsButtonCard(
+            //   title: 'My Profile',
+            //   navigate: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //         builder: (context) => const ProfileScreen(),
+            //       ),
+            //     );
+            //   },
+            // ),
             // SettingsButtonCard(title: 'Checkout Details', navigate: () {}),
             SettingsButtonCard(
               title: 'FAQ',

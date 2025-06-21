@@ -285,27 +285,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 // Display actual subscription data
                 final planName = subscriptionData.plan?.name;
-                final expiresAt =
-                    subscriptionData.expiresAt; // Use expiresAt from the model
-
-                // Calculate days left (simplified example, consider using a date comparison library)
-                // Assuming expiresAt is in a parseable format, e.g., 'YYYY-MM-DD'
+                final expiresAt = subscriptionData.expiresAt;
                 String daysLeftText = '';
-                try {
-                  final DateTime expiryDate = DateTime.parse(expiresAt!);
-                  final DateTime now = DateTime.now();
-                  final Duration duration = expiryDate.difference(now);
-                  final int days = duration.inDays;
-                  if (days > 0) {
-                    daysLeftText = '$days Days Left';
-                  } else if (days == 0) {
-                    daysLeftText = 'Expires Today';
-                  } else {
-                    daysLeftText = 'Expired';
+                if (expiresAt == null || expiresAt.isEmpty) {
+                  daysLeftText = 'N/A';
+                } else {
+                  try {
+                    final DateTime expiryDate = DateTime.parse(expiresAt);
+                    final DateTime now = DateTime.now();
+                    final Duration duration = expiryDate.difference(now);
+                    final int days = duration.inDays;
+                    if (days > 0) {
+                      daysLeftText = '$days Days Left';
+                    } else if (days == 0) {
+                      daysLeftText = 'Expires Today';
+                    } else {
+                      daysLeftText = 'Expired';
+                    }
+                  } catch (e) {
+                    daysLeftText = 'N/A';
+                    print('Error parsing expiry date: $e');
                   }
-                } catch (e) {
-                  daysLeftText = 'N/A'; // Handle parsing errors
-                  print('Error parsing expiry date: $e');
                 }
 
                 return Container(

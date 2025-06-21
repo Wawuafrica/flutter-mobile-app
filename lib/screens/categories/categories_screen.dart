@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
+import 'package:wawu_mobile/utils/error_utils.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -60,10 +61,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     style: const TextStyle(color: Colors.red),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   ElevatedButton(
-                    onPressed: () => categoryProvider.fetchCategories(),
+                    onPressed: () {
+                      categoryProvider.fetchCategories();
+                    },
                     child: const Text('Retry'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.mail_outline),
+                    label: const Text('Contact Support'),
+                    onPressed: () {
+                      showErrorSupportDialog(
+                        context: context,
+                        title: 'Contact Support',
+                        message: 'If this problem persists, please contact our support team. We are here to help!',
+                      );
+                    },
                   ),
                 ],
               ),

@@ -50,16 +50,12 @@ class ContactUsScreen extends StatelessWidget {
                         ),
                         Text(
                           'Our team is on the line',
-                          style: TextStyle(
-                            color: Color.fromARGB(255, 181, 181, 181),
-                            fontSize: 11,
-                          ),
+                          style: TextStyle(fontSize: 11),
                         ),
                         Text(
                           'Mon-Fri • 9-17',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Color.fromARGB(255, 181, 181, 181),
                             fontSize: 11,
                           ),
                         ),
@@ -94,16 +90,12 @@ class ContactUsScreen extends StatelessWidget {
                         ),
                         Text(
                           'Our team is on the line',
-                          style: TextStyle(
-                            color: Color.fromARGB(255, 181, 181, 181),
-                            fontSize: 11,
-                          ),
+                          style: TextStyle(fontSize: 11),
                         ),
                         Text(
                           'Mon-Fri • 9-17',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Color.fromARGB(255, 181, 181, 181),
                             fontSize: 11,
                           ),
                         ),
@@ -114,13 +106,7 @@ class ContactUsScreen extends StatelessWidget {
               ],
             ),
             SizedBox(height: 40),
-            Text(
-              'Contact Us on Social Media',
-              style: TextStyle(
-                color: const Color.fromARGB(255, 182, 182, 182),
-                fontSize: 12,
-              ),
-            ),
+            Text('Contact Us on Social Media', style: TextStyle(fontSize: 12)),
             SizedBox(height: 10),
             _buildSocialContactCard(
               'Instagram',

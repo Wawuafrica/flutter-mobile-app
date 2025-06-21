@@ -69,7 +69,7 @@ class WawuAfrica extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: wawuColors.primary),
-                      color: wawuColors.white,
+                      color: Colors.transparent,
                     ),
                     width: double.infinity,
                     height: 50,

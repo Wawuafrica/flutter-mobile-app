@@ -424,11 +424,7 @@ class ProductProvider extends BaseProvider {
   Future<void> _subscribeToGeneralProductsChannel() async {
     const channelName = 'products';
     try {
-      final channel = await _pusherService.subscribeToChannel(channelName);
-      if (channel == null) {
-        print('Failed to subscribe to general products channel');
-        return;
-      }
+      await _pusherService.subscribeToChannel(channelName);
 
       _isGeneralChannelSubscribed = true;
       _pusherService.bindToEvent(
@@ -451,40 +447,28 @@ class ProductProvider extends BaseProvider {
       _currentSpecificProductChannel = updatedChannelName;
 
       // Subscribe to updated channel
-      final updatedChannel = await _pusherService.subscribeToChannel(
+      await _pusherService.subscribeToChannel(updatedChannelName);
+      _pusherService.bindToEvent(
         updatedChannelName,
+        'product.updated',
+        _handleProductUpdated,
       );
-      if (updatedChannel != null) {
-        _pusherService.bindToEvent(
-          updatedChannelName,
-          'product.updated',
-          _handleProductUpdated,
-        );
-      }
 
       // Subscribe to deleted channel
-      final deletedChannel = await _pusherService.subscribeToChannel(
+      await _pusherService.subscribeToChannel(deletedChannelName);
+      _pusherService.bindToEvent(
         deletedChannelName,
+        'product.deleted',
+        _handleProductDeleted,
       );
-      if (deletedChannel != null) {
-        _pusherService.bindToEvent(
-          deletedChannelName,
-          'product.deleted',
-          _handleProductDeleted,
-        );
-      }
 
       // Subscribe to review channel
-      final reviewChannel = await _pusherService.subscribeToChannel(
+      await _pusherService.subscribeToChannel(reviewChannelName);
+      _pusherService.bindToEvent(
         reviewChannelName,
+        'product.review.created',
+        _handleProductReviewCreated,
       );
-      if (reviewChannel != null) {
-        _pusherService.bindToEvent(
-          reviewChannelName,
-          'product.review.created',
-          _handleProductReviewCreated,
-        );
-      }
     } catch (e) {
       print(
         'Failed to subscribe to specific product channels for $productId: $e',

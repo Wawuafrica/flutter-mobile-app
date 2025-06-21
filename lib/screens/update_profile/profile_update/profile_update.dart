@@ -14,6 +14,7 @@ import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
+import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
 
 class ProfileUpdate extends StatefulWidget {
@@ -378,13 +379,44 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       ) {
         final selectedSubCategory = categoryProvider.selectedSubCategory;
         final user = userProvider.currentUser;
+        final bool isBuyer = (user?.role?.toUpperCase() == 'BUYER');
         final fullName =
             '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
-        final isBuyer =
-            user?.role == 'BUYER'; // Determine if the user is a buyer
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Profile'), centerTitle: true),
+          appBar: AppBar(
+            title: const Text('Profile'),
+            centerTitle: true,
+            actions: [
+              OnboardingProgressIndicator(
+                currentStep: 'profile_update',
+                steps: const [
+                  'account_type',
+                  'category_selection',
+                  'subcategory_selection',
+                  'update_profile',
+                  'profile_update',
+                  'plan',
+                  'payment',
+                  'payment_processing',
+                  'verify_payment',
+                  'disclaimer',
+                ],
+                stepLabels: const {
+                  'account_type': 'Account',
+                  'category_selection': 'Category',
+                  'subcategory_selection': 'Subcategory',
+                  'update_profile': 'Intro',
+                  'profile_update': 'Profile',
+                  'plan': 'Plan',
+                  'payment': 'Payment',
+                  'payment_processing': 'Processing',
+                  'verify_payment': 'Verify',
+                  'disclaimer': 'Disclaimer',
+                },
+              ),
+            ],
+          ),
           body: Form(
             // Wrap with Form widget
             key: _formKey, // Assign the GlobalKey

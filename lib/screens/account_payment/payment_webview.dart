@@ -186,7 +186,10 @@ class _PaymentWebViewState extends State<PaymentWebView> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Complete Payment'),
+          title: const Text(
+            'Complete Payment',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           backgroundColor: wawuColors.primary,
           foregroundColor: Colors.white,
           leading: IconButton(

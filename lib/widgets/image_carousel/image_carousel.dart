@@ -10,16 +10,13 @@ class ImageTextCarousel extends StatefulWidget {
 }
 
 final List<Map<String, String>> carouselItems = [
+  {'image': 'assets/c1.png', 'text': 'Welcome to Wawu Mobile!'},
   {
-    'image': 'assets/images/onboarding_images/oi1.webp',
-    'text': 'Welcome to Wawu Mobile!',
-  },
-  {
-    'image': 'assets/images/onboarding_images/oi2.webp',
+    'image': 'assets/images/section/programming.png',
     'text': 'Explore amazing features.',
   },
   {
-    'image': 'assets/images/onboarding_images/oi3.webp',
+    'image': 'assets/images/onboarding_images/oi2.webp',
     'text': 'Get started now!',
   },
 ];
@@ -38,7 +35,33 @@ class _ImageTextCarouselState extends State<ImageTextCarousel> {
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset(item['image']!, height: 200, fit: BoxFit.cover),
+                    Stack(
+                      children: [
+                        Image.asset(
+                          item['image']!,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            height: 60,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Theme.of(context).colorSheme.background.withOpacity(0.2),
+                                  Theme.of(context).colorSheme.background.withOpacity(0.8),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 20),
                     Text(
                       item['text']!,

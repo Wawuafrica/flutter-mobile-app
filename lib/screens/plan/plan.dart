@@ -2,22 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/account_payment/account_payment.dart';
 import 'package:wawu_mobile/widgets/plan_card/plan_card.dart';
+import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
+import 'package:wawu_mobile/utils/error_utils.dart';
 
 class Plan extends StatefulWidget {
   const Plan({super.key});
 
   @override
-  _PlanState createState() => _PlanState();
+  State<Plan> createState() => _PlanState();
 }
 
 class _PlanState extends State<Plan> {
   @override
   void initState() {
     super.initState();
-    // Fetch plans when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // Persist onboarding step as 'plan' when user lands here
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await OnboardingStateService.saveStep('plan');
       context.read<PlanProvider>().fetchAllPlans();
     });
   }
@@ -25,7 +29,40 @@ class _PlanState extends State<Plan> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Select A Plan'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text(
+          'Select A Plan',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        actions: [
+          OnboardingProgressIndicator(
+            currentStep: 'plan',
+            steps: const [
+              'account_type',
+              'category_selection',
+              'subcategory_selection',
+              'profile_update',
+              'plan',
+              'payment',
+              'payment_processing',
+              'verify_payment',
+              'disclaimer',
+            ],
+            stepLabels: const {
+              'account_type': 'Account',
+              'category_selection': 'Category',
+              'subcategory_selection': 'Subcategory',
+              'profile_update': 'Profile',
+              'plan': 'Plan',
+              'payment': 'Payment',
+              'payment_processing': 'Processing',
+              'verify_payment': 'Verify',
+              'disclaimer': 'Disclaimer',
+            },
+          ),
+        ],
+      ),
       body: Consumer2<PlanProvider, UserProvider>(
         builder: (context, planProvider, userProvider, child) {
           if (planProvider.isLoading) {
@@ -33,9 +70,35 @@ class _PlanState extends State<Plan> {
           }
           if (planProvider.hasError) {
             return Center(
-              child: Text(
-                planProvider.errorMessage ?? 'Failed to load plans',
-                style: const TextStyle(color: Colors.red),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    planProvider.errorMessage ?? 'Failed to load plans',
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    onPressed: () {
+                      planProvider.fetchAllPlans();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.mail_outline),
+                    label: const Text('Contact Support'),
+                    onPressed: () {
+                      showErrorSupportDialog(
+                        context: context,
+                        title: 'Contact Support',
+                        message:
+                            'If this problem persists, please contact our support team. We are here to help!',
+                      );
+                    },
+                  ),
+                ],
               ),
             );
           }

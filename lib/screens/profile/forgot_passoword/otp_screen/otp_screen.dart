@@ -123,7 +123,7 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 20),
+              SizedBox(height: 5),
               Text('Enter OTP', style: TextStyle(fontSize: 22)),
               SizedBox(height: 10),
               Text(
@@ -162,7 +162,7 @@ class _OtpScreenState extends State<OtpScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 5),
               CustomButton(
                 function: _isLoading ? null : _handleVerifyOtp,
                 widget:

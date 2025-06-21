@@ -837,250 +837,251 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   decoration: InputDecoration(
                     hintText: 'Tell us about yourself...',
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                const CustomIntroText(text: 'Skills'),
-                const SizedBox(height: 10),
-                CustomTextfield(
-                  controller: _skillController,
-                  hintText: 'Add a skill...',
-                ),
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: _addSkill,
-                  child: CustomButton(
-                    widget: const Text(
-                      'Add',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    color: wawuColors.buttonPrimary,
-                    textColor: Colors.white,
+                if (user?.role != 'BUYER') ...[
+                  const SizedBox(height: 20),
+                  const CustomIntroText(text: 'Skills'),
+                  const SizedBox(height: 10),
+                  CustomTextfield(
+                    controller: _skillController,
+                    hintText: 'Add a skill...',
                   ),
-                ),
-                const SizedBox(height: 20),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children:
-                      _skills.map((skill) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: wawuColors.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(skill),
-                              const SizedBox(width: 5),
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _skills.remove(skill);
-                                  });
-                                },
-                                child: const Icon(Icons.close, size: 16),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                ),
-                const SizedBox(height: 30),
-                const CustomIntroText(text: 'Education'),
-                if (user?.additionalInfo?.education != null &&
-                    user!.additionalInfo!.education!.isNotEmpty)
-                  for (Education edu in user.additionalInfo!.education!)
-                    _buildEducationCard(edu),
-                const SizedBox(height: 12),
-                if (user?.additionalInfo?.education == null ||
-                    user!.additionalInfo!.education!.isEmpty)
-                  const Text('No education available'),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 25),
-                    CustomDropdown(
-                      options:
-                          dropdownProvider.certifications
-                              .map((e) => e.name)
-                              .toList(),
-                      label: 'Select Certificate',
-                      selectedValue: _selectedCertification,
-                      onChanged: (value) {
-                        setState(() {
-                          _isDirty = true;
-                          _selectedCertification = value;
-                          // When the certificate type changes, clear the other institution field
-                          if (value == 'School-Level Qualifications') {
-                            _selectedInstitution = null;
-                          } else {
-                            _customInstitutionController.clear();
-                          }
-                        });
-                      },
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: _addSkill,
+                    child: CustomButton(
+                      widget: const Text(
+                        'Add',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      color: wawuColors.buttonPrimary,
+                      textColor: Colors.white,
                     ),
-                    const SizedBox(height: 10),
-                    if (_selectedCertification == 'School-Level Qualifications')
-                      CustomTextfield(
-                        controller: _customInstitutionController,
-                        hintText: 'Enter your institution',
-                        labelText: 'Institution',
-                        labelTextStyle2: true,
-                      )
-                    else
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children:
+                        _skills.map((skill) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: wawuColors.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(skill),
+                                const SizedBox(width: 5),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _skills.remove(skill);
+                                    });
+                                  },
+                                  child: const Icon(Icons.close, size: 16),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                  ),
+                  const SizedBox(height: 30),
+                  const CustomIntroText(text: 'Education'),
+                  if (user?.additionalInfo?.education != null &&
+                      user!.additionalInfo!.education!.isNotEmpty)
+                    for (Education edu in user.additionalInfo!.education!)
+                      _buildEducationCard(edu),
+                  const SizedBox(height: 12),
+                  if (user?.additionalInfo?.education == null ||
+                      user!.additionalInfo!.education!.isEmpty)
+                    const Text('No education available'),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 25),
                       CustomDropdown(
                         options:
-                            dropdownProvider.institutions
+                            dropdownProvider.certifications
                                 .map((e) => e.name)
                                 .toList(),
-                        label: 'Select Institution',
-                        selectedValue: _selectedInstitution,
+                        label: 'Select Certificate',
+                        selectedValue: _selectedCertification,
                         onChanged: (value) {
                           setState(() {
-                            _selectedInstitution = value;
                             _isDirty = true;
+                            _selectedCertification = value;
+                            // When the certificate type changes, clear the other institution field
+                            if (value == 'School-Level Qualifications') {
+                              _selectedInstitution = null;
+                            } else {
+                              _customInstitutionController.clear();
+                            }
                           });
                         },
                       ),
-                    const SizedBox(height: 10),
-                    CustomTextfield(
-                      controller: _educationCourseOfStudyController,
-                      hintText: 'Enter your course of study',
-                      labelText: 'Course of Study',
-                      labelTextStyle2: true,
-                    ),
-                    const SizedBox(height: 10),
-                    CustomTextfield(
-                      controller: _educationGraduationDateController,
-                      hintText: 'YYYY-MM-DD',
-                      labelText: 'Graduation Date',
-                      labelTextStyle2: true,
-                      suffixIcon: Icons.calendar_today,
-                      readOnly: true,
-                      onTap:
-                          () => _selectGraduationDate(
-                            _educationGraduationDateController,
-                          ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Graduation Date is required';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
-                const CustomIntroText(text: 'Professional Certification'),
-                const SizedBox(height: 10),
-                if (user?.additionalInfo?.professionalCertification != null &&
-                    user!.additionalInfo!.professionalCertification!.isNotEmpty)
-                  for (ProfessionalCertification cert
-                      in user.additionalInfo!.professionalCertification!)
-                    _buildCertificationCard(cert),
-                const SizedBox(height: 12),
-                if (user?.additionalInfo?.professionalCertification == null ||
-                    user!.additionalInfo!.professionalCertification!.isEmpty)
-                  const Text('No certifications available'),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 25),
-                    CustomTextfield(
-                      controller: _professionalCertificationNameController,
-                      hintText:
-                          'Enter Certificate Name (e.g., CAC, Skill Certificate)',
-                      labelText: 'Name',
-                      labelTextStyle2: true,
-                    ),
-                    const SizedBox(height: 20),
-                    CustomTextfield(
-                      controller:
-                          _professionalCertificationOrganizationController,
-                      hintText: 'Enter Organization Name',
-                      labelText: 'Organization',
-                      labelTextStyle2: true,
-                    ),
-                    const SizedBox(height: 20),
-                    CustomTextfield(
-                      controller: _professionalCertificationEndDateController,
-                      hintText: 'YYYY-MM-DD',
-                      labelText: 'End Date',
-                      labelTextStyle2: true,
-                      suffixIcon: Icons.calendar_today,
-                      readOnly: true,
-                      onTap:
-                          () => _selectGraduationDate(
-                            _professionalCertificationEndDateController,
-                          ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'End Date is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Upload Certification Document',
-                      style: TextStyle(
-                        color: Color.fromARGB(255, 125, 125, 125),
-                        fontSize: 13,
+                      const SizedBox(height: 10),
+                      if (_selectedCertification == 'School-Level Qualifications')
+                        CustomTextfield(
+                          controller: _customInstitutionController,
+                          hintText: 'Enter your institution',
+                          labelText: 'Institution',
+                          labelTextStyle2: true,
+                        )
+                      else
+                        CustomDropdown(
+                          options:
+                              dropdownProvider.institutions
+                                  .map((e) => e.name)
+                                  .toList(),
+                          label: 'Select Institution',
+                          selectedValue: _selectedInstitution,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedInstitution = value;
+                              _isDirty = true;
+                            });
+                          },
+                        ),
+                      const SizedBox(height: 10),
+                      CustomTextfield(
+                        controller: _educationCourseOfStudyController,
+                        hintText: 'Enter your course of study',
+                        labelText: 'Course of Study',
+                        labelTextStyle2: true,
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    // Display existing professional certification image if available
-                    if (user?.additionalInfo?.professionalCertification !=
-                            null &&
-                        user!
-                            .additionalInfo!
-                            .professionalCertification!
-                            .isNotEmpty &&
-                        user
-                                .additionalInfo!
-                                .professionalCertification!
-                                .last
-                                .file
-                                ?.link !=
-                            null)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        height: 100,
-                        width: 100,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(5),
-                          image: DecorationImage(
-                            image: NetworkImage(
-                              user
+                      const SizedBox(height: 10),
+                      CustomTextfield(
+                        controller: _educationGraduationDateController,
+                        hintText: 'YYYY-MM-DD',
+                        labelText: 'Graduation Date',
+                        labelTextStyle2: true,
+                        suffixIcon: Icons.calendar_today,
+                        readOnly: true,
+                        onTap:
+                            () => _selectGraduationDate(
+                          _educationGraduationDateController,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Graduation Date is required';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+                  const CustomIntroText(text: 'Professional Certification'),
+                  const SizedBox(height: 10),
+                  if (user?.additionalInfo?.professionalCertification != null &&
+                      user!.additionalInfo!.professionalCertification!.isNotEmpty)
+                    for (ProfessionalCertification cert
+                        in user.additionalInfo!.professionalCertification!)
+                      _buildCertificationCard(cert),
+                  const SizedBox(height: 12),
+                  if (user?.additionalInfo?.professionalCertification == null ||
+                      user!.additionalInfo!.professionalCertification!.isEmpty)
+                    const Text('No certifications available'),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 25),
+                      CustomTextfield(
+                        controller: _professionalCertificationNameController,
+                        hintText:
+                            'Enter Certificate Name (e.g., CAC, Skill Certificate)',
+                        labelText: 'Name',
+                        labelTextStyle2: true,
+                      ),
+                      const SizedBox(height: 20),
+                      CustomTextfield(
+                        controller:
+                            _professionalCertificationOrganizationController,
+                        hintText: 'Enter Organization Name',
+                        labelText: 'Organization',
+                        labelTextStyle2: true,
+                      ),
+                      const SizedBox(height: 20),
+                      CustomTextfield(
+                        controller: _professionalCertificationEndDateController,
+                        hintText: 'YYYY-MM-DD',
+                        labelText: 'End Date',
+                        labelTextStyle2: true,
+                        suffixIcon: Icons.calendar_today,
+                        readOnly: true,
+                        onTap:
+                            () => _selectGraduationDate(
+                          _professionalCertificationEndDateController,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'End Date is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Upload Certification Document',
+                        style: TextStyle(
+                          color: Color.fromARGB(255, 125, 125, 125),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Display existing professional certification image if available
+                      if (user?.additionalInfo?.professionalCertification !=
+                              null &&
+                          user!
+                              .additionalInfo!
+                              .professionalCertification!
+                              .isNotEmpty &&
+                          user
                                   .additionalInfo!
                                   .professionalCertification!
                                   .last
-                                  .file!
-                                  .link!,
+                                  .file
+                                  ?.link !=
+                              null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          height: 100,
+                          width: 100,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(5),
+                            image: DecorationImage(
+                              image: NetworkImage(
+                                user
+                                    .additionalInfo!
+                                    .professionalCertification!
+                                    .last
+                                    .file!
+                                    .link!,
+                              ),
+                              fit: BoxFit.cover,
                             ),
-                            fit: BoxFit.cover,
                           ),
                         ),
+                      UploadImage(
+                        labelText: 'Upload Certification Document',
+                        onImageChanged: (xfile) {
+                          setState(() {
+                            _professionalCertificationImage = xfile;
+                          });
+                        },
                       ),
-                    UploadImage(
-                      labelText: 'Upload Certification Document',
-                      onImageChanged: (xfile) {
-                        setState(() {
-                          _professionalCertificationImage = xfile;
-                        });
-                      },
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 40),
                 const CustomIntroText(text: 'Means Of Identification'),
                 const SizedBox(height: 20),

@@ -570,23 +570,23 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                         context,
                         listen: false,
                       );
-                      final userProvider = Provider.of<UserProvider>(
-                        context,
-                        listen: false,
-                      );
                       final result = await gigProvider.postReview(gig.uuid, {
                         'rating': _selectedRating,
                         'review': _reviewController.text,
                         // 'user_id': userProvider.currentUser?.uuid ?? '',
                       });
                       if (result && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Review submitted successfully'),
-                          ),
-                        );
-                        _reviewController.clear();
-                        setState(() => _selectedRating = 0);
+                        // Refresh gig details to get the new review instantly
+                        await gigProvider.fetchGigById(gig.uuid);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Review submitted successfully'),
+                            ),
+                          );
+                          _reviewController.clear();
+                          setState(() => _selectedRating = 0);
+                        }
                       }
                     }
                   },

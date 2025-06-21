@@ -53,5 +53,11 @@
 		<string>We need access to your camera to take photos.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>We need access to your microphone to record videos.</string>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>https</string>
+			<string>http</string>
+			<string>whatsapp</string>
+		</array>
 	</dict>
 </plist>
