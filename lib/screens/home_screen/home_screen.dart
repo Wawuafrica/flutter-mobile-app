@@ -13,6 +13,8 @@ import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 // import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
+import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
+import 'package:wawu_mobile/providers/gig_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,9 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ) {
         // Asset paths to map to the first three categories (in order)
         final List<String> assetPaths = [
-          'assets/images/section/photography.png',
           'assets/images/section/programming.png',
-          'assets/images/section/video.png',
+          'assets/images/section/photography.png',
+          'assets/images/section/sales.png',
         ];
 
         return Scaffold(
@@ -80,10 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 250,
                         decoration: BoxDecoration(
                           color: wawuColors.borderPrimary.withAlpha(50),
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(10),
-                            bottomRight: Radius.circular(10),
-                          ),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Center(child: CircularProgressIndicator()),
                       );
@@ -95,10 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 250,
                         decoration: BoxDecoration(
                           color: wawuColors.borderPrimary.withAlpha(50),
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(10),
-                            bottomRight: Radius.circular(10),
-                          ),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -124,10 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 250,
                         decoration: BoxDecoration(
                           color: wawuColors.borderPrimary.withAlpha(50),
-                          borderRadius: BorderRadius.only(
-                            bottomLeft: Radius.circular(10),
-                            bottomRight: Radius.circular(10),
-                          ),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Center(child: Text('No Ads available')),
                       );
@@ -148,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             },
                           );
                         }).toList();
-                    return FadingCarousel(height: 250, children: carouselItems);
+                    return FadingCarousel(height: 220, children: carouselItems);
                   },
                 ),
                 SizedBox(height: 20),
@@ -223,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  height: 220,
+                  height: 200,
                   child:
                       productProvider.isLoading
                           ? Center(child: CircularProgressIndicator())
@@ -265,21 +258,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 40),
                 CustomIntroText(text: 'Recently Viewed'),
                 SizedBox(height: 20),
-                // GigCard(),
-                Text('GigCards'),
-                SizedBox(height: 10),
-                // GigCard(),
-                Text('GigCards'),
-                SizedBox(height: 10),
-                // GigCard(),
-                Text('GigCards'),
-                SizedBox(height: 10),
-                // GigCard(),
-                Text('GigCards'),
-                SizedBox(height: 10),
-                // GigCard(),
-                Text('GigCards'),
-                SizedBox(height: 20),
+                Consumer<GigProvider>(
+                  builder: (context, gigProvider, child) {
+                    debugPrint(
+                      '[HomeScreen] Recently Viewed section built. isLoading: \\${gigProvider.isRecentlyViewedLoading}, count: \\${gigProvider.recentlyViewedGigs.length}',
+                    );
+                    if (gigProvider.isRecentlyViewedLoading) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+                    if (gigProvider.recentlyViewedGigs.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.0),
+                        child: Text(
+                          'No recently viewed gigs',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                      );
+                    }
+                    return SizedBox(
+                      height: 150,
+                      child: ListView.builder(
+                        scrollDirection: Axis.vertical,
+                        itemCount: gigProvider.recentlyViewedGigs.length,
+                        itemBuilder: (context, index) {
+                          final gig = gigProvider.recentlyViewedGigs[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: GigCard(gig: gig),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),

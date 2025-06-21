@@ -9,10 +9,10 @@ import 'package:wawu_mobile/models/chat_user.dart';
 import 'package:wawu_mobile/models/conversation.dart';
 import 'package:wawu_mobile/providers/message_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/user_profile/user_profile.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
 import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
+import 'package:wawu_mobile/screens/user_profile/user_profile_screen.dart';
 
 class SingleMessageScreen extends StatefulWidget {
   const SingleMessageScreen({super.key});
@@ -32,6 +32,14 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   Timer? _debounceTimer;
   final Map<String, Duration> _voiceMessageDurations = {};
   bool _isInitialized = false;
+  final ScrollController _scrollController = ScrollController();
+
+  // Store provider references to avoid accessing them after disposal
+  MessageProvider? _messageProvider;
+  UserProvider? _userProvider;
+
+  // Store scaffold messenger reference safely
+  ScaffoldMessengerState? _scaffoldMessenger;
 
   @override
   void initState() {
@@ -42,56 +50,92 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    // Store scaffold messenger reference safely
+    _scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+
+    // Store provider references safely
+    _messageProvider = Provider.of<MessageProvider>(context, listen: false);
+    _userProvider = Provider.of<UserProvider>(context, listen: false);
+
     if (!_isInitialized) {
       _initializeConversation();
       _isInitialized = true;
     }
+    _scrollToBottom();
+
+    // Add listener using stored reference
+    _messageProvider?.addListener(_onMessageProviderChange);
+  }
+
+  void _onMessageProviderChange() {
+    if (mounted) {
+      _scrollToBottom();
+    }
+  }
+
+  void _showErrorSnackbar(String message) {
+    // Use the safely stored reference and check if still mounted
+    if (mounted && _scaffoldMessenger != null) {
+      _scaffoldMessenger!.showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _showSnackbar(String message, {Color? backgroundColor}) {
+    // Use the safely stored reference and check if still mounted
+    if (mounted && _scaffoldMessenger != null) {
+      _scaffoldMessenger!.showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: backgroundColor),
+      );
+    }
   }
 
   Future<void> _initializeConversation() async {
+    if (!mounted) return;
+
     // Handle route arguments for new conversations
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final messageProvider = Provider.of<MessageProvider>(
-      context,
-      listen: false,
-    );
-    final currentUserId =
-        Provider.of<UserProvider>(context, listen: false).currentUser?.uuid ??
-        '';
+    final currentUserId = _userProvider?.currentUser?.uuid ?? '';
 
     if (args != null &&
         args.containsKey('recipientId') &&
-        currentUserId.isNotEmpty) {
+        currentUserId.isNotEmpty &&
+        _messageProvider != null) {
       final recipientId = args['recipientId'] as String;
       final initialMessage = args['initialMessage'] as String?;
 
       try {
-        await messageProvider.startConversation(
+        await _messageProvider!.startConversation(
           currentUserId,
           recipientId,
           initialMessage,
         );
       } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error initializing conversation: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        _showErrorSnackbar('Error initializing conversation: $e');
       }
     }
   }
 
   @override
   void dispose() {
+    // Remove listener before disposing
+    _messageProvider?.removeListener(_onMessageProviderChange);
+
     _messageController.removeListener(_onTextChanged);
     _messageController.dispose();
     _audioRecorder.dispose();
     _recordingTimer?.cancel();
     _debounceTimer?.cancel();
+    _scrollController.dispose();
+
+    // Clear provider references
+    _messageProvider = null;
+    _userProvider = null;
+    _scaffoldMessenger = null;
+
     super.dispose();
   }
 
@@ -107,56 +151,42 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   }
 
   Future<void> _sendMessage() async {
+    if (!mounted || _messageProvider == null || _userProvider == null) return;
+
     if (!_isTextFieldEmpty) {
-      final currentUserId =
-          Provider.of<UserProvider>(context, listen: false).currentUser?.uuid ??
-          '';
-      final messageProvider = Provider.of<MessageProvider>(
-        context,
-        listen: false,
-      );
-      final recipientId = messageProvider.currentRecipientId;
+      final currentUserId = _userProvider!.currentUser?.uuid ?? '';
+      final recipientId = _messageProvider!.currentRecipientId;
 
       if (currentUserId.isEmpty || recipientId.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('User not authenticated or recipient not selected'),
-            ),
-          );
-        }
+        _showSnackbar('User not authenticated or recipient not selected');
         return;
       }
 
       final message = _messageController.text.trim();
       try {
-        await messageProvider.sendMessage(
+        await _messageProvider!.sendMessage(
           senderId: currentUserId,
           receiverId: recipientId,
           content: message,
         );
-        _messageController.clear();
-      } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to send message: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
+          _messageController.clear();
         }
+      } catch (e) {
+        _showErrorSnackbar('Failed to send message: $e');
       }
+    }
+    if (mounted) {
+      _scrollToBottom();
     }
   }
 
   Future<void> _startRecording() async {
+    if (!mounted) return;
+
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission denied')),
-        );
-      }
+      _showSnackbar('Microphone permission denied');
       return;
     }
 
@@ -180,67 +210,46 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (mounted) {
           setState(() => _recordingDuration += const Duration(seconds: 1));
+        } else {
+          timer.cancel();
         }
       });
     } catch (e) {
       print('Recording error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to start recording: $e')),
-        );
-      }
+      _showErrorSnackbar('Failed to start recording: $e');
     }
   }
 
   Future<void> _stopRecording() async {
+    if (!mounted || _messageProvider == null || _userProvider == null) return;
+
     try {
       _recordingTimer?.cancel();
       await _audioRecorder.stop();
 
       if (_currentAudioPath != null) {
-        final currentUserId =
-            Provider.of<UserProvider>(
-              context,
-              listen: false,
-            ).currentUser?.uuid ??
-            '';
-        final messageProvider = Provider.of<MessageProvider>(
-          context,
-          listen: false,
-        );
-        final recipientId = messageProvider.currentRecipientId;
+        final currentUserId = _userProvider!.currentUser?.uuid ?? '';
+        final recipientId = _messageProvider!.currentRecipientId;
 
         if (currentUserId.isEmpty || recipientId.isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'User not authenticated or recipient not selected',
-                ),
-              ),
-            );
-          }
+          _showSnackbar('User not authenticated or recipient not selected');
           return;
         }
 
-        final message = await messageProvider.sendMessage(
+        final message = await _messageProvider!.sendMessage(
           senderId: currentUserId,
           receiverId: recipientId,
           content: 'Voice message',
           mediaFilePath: _currentAudioPath!,
           mediaType: 'audio',
         );
-        if (message != null) {
+        if (message != null && mounted) {
           _voiceMessageDurations[message.id] = _recordingDuration;
         }
       }
     } catch (e) {
       print('Stop recording error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to stop recording: $e')));
-      }
+      _showErrorSnackbar('Failed to stop recording: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -249,6 +258,9 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           _currentAudioPath = null;
         });
       }
+    }
+    if (mounted) {
+      _scrollToBottom();
     }
   }
 
@@ -259,10 +271,23 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   String _formatDuration(Duration d) =>
       '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 
+  void _scrollToBottom() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final currentUserId =
-        Provider.of<UserProvider>(context).currentUser?.uuid ?? '';
+    final currentUserId = _userProvider?.currentUser?.uuid ?? '';
     final messageProvider = Provider.of<MessageProvider>(context);
 
     if (currentUserId.isEmpty) {
@@ -319,20 +344,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
     return Scaffold(
       appBar: AppBar(
         elevation: 1.0,
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 10.0),
-            width: 40,
-            height: 40,
-            child: const Center(child: Icon(Icons.video_call)),
-          ),
-          Container(
-            margin: const EdgeInsets.only(right: 10.0),
-            width: 40,
-            height: 40,
-            child: const Center(child: Icon(Icons.call)),
-          ),
-        ],
         title: Consumer<MessageProvider>(
           builder: (context, messageProvider, child) {
             final conversation = messageProvider.allConversations.firstWhere(
@@ -340,120 +351,152 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
               orElse:
                   () => Conversation(id: '', participants: [], messages: []),
             );
-            final otherParticipant = conversation.participants.firstWhere(
-              (user) => user.id != currentUserId,
-              orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
-            );
+            final otherParticipantId =
+                conversation.participants
+                    .firstWhere(
+                      (user) => user.id != currentUserId,
+                      orElse:
+                          () => ChatUser(id: '', name: 'Unknown', avatar: null),
+                    )
+                    .id;
+            final recipient =
+                messageProvider.getCachedUserProfile(otherParticipantId) ??
+                ChatUser(id: otherParticipantId, name: 'Unknown', avatar: null);
 
-            return Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => SellerProfileScreen(),
-                      ),
-                    );
-                  },
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        clipBehavior: Clip.hardEdge,
-                        decoration: const BoxDecoration(shape: BoxShape.circle),
-                        child:
-                            otherParticipant.avatar != null
-                                ? Image.network(
-                                  otherParticipant.avatar!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder:
-                                      (context, error, stackTrace) =>
-                                          Image.asset(
-                                            'assets/images/other/avatar.webp',
-                                            fit: BoxFit.cover,
-                                          ),
-                                )
-                                : Image.asset(
-                                  'assets/images/other/avatar.webp',
-                                  fit: BoxFit.cover,
-                                ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          width: 10,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            // color: wawuColors.primary,
-                            shape: BoxShape.circle,
-                            // border: Border.all(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
+            return GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserProfileScreen(userId: recipient.id),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  otherParticipant.name,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ],
+                );
+              },
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    clipBehavior: Clip.hardEdge,
+                    decoration: const BoxDecoration(shape: BoxShape.circle),
+                    child:
+                        recipient.avatar != null && recipient.avatar!.isNotEmpty
+                            ? Image.network(
+                              recipient.avatar!,
+                              fit: BoxFit.cover,
+                              errorBuilder:
+                                  (context, error, stackTrace) => Image.asset(
+                                    'assets/images/other/avatar.webp',
+                                    fit: BoxFit.cover,
+                                  ),
+                            )
+                            : Image.asset(
+                              'assets/images/other/avatar.webp',
+                              fit: BoxFit.cover,
+                            ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(recipient.name, style: TextStyle(fontSize: 16)),
+                ],
+              ),
             );
           },
         ),
       ),
       body: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        margin: const EdgeInsets.only(bottom: 60.0),
+        margin: const EdgeInsets.only(bottom: 80.0),
         child: Consumer<MessageProvider>(
           builder: (context, messageProvider, child) {
             final messages = messageProvider.currentMessages;
 
-            if (messageProvider.isLoading && messages.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
+            if (messages.isEmpty) {
+              return const Center(child: Text('No messages yet'));
             }
 
-            return messages.isEmpty
-                ? const Center(child: Text('No messages yet'))
-                : ListView.builder(
-                  reverse: true, // Show newest messages at bottom
-                  itemCount: messages.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == messages.length) {
-                      return const SizedBox(height: 20);
-                    }
-                    // Reverse the index to show messages in correct order
-                    final message = messages[messages.length - 1 - index];
-                    final isLeft = message.senderId != currentUserId;
-                    final time = _getCurrentTime(message.timestamp);
+            return ListView.builder(
+              reverse: false,
+              controller: _scrollController,
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final message = messages[index];
+                final isLeft = message.senderId != currentUserId;
+                final time = _getCurrentTime(message.timestamp);
 
-                    return message.attachmentType == 'audio'
-                        ? VoiceMessageBubble(
-                          isLeft: isLeft,
-                          source:
-                              message.attachmentUrl ?? _currentAudioPath ?? '',
-                          time: time,
-                          duration:
-                              _voiceMessageDurations[message.id] != null
-                                  ? _formatDuration(
-                                    _voiceMessageDurations[message.id]!,
-                                  )
-                                  : '0:00',
-                        )
-                        : MessageBubbles(
-                          isLeft: isLeft,
-                          message: message.content,
-                          time: time,
-                        );
-                  },
+                return ListTile(
+                  title:
+                      message.attachmentType == 'audio'
+                          ? VoiceMessageBubble(
+                            isLeft: isLeft,
+                            source: message.attachmentUrl ?? '',
+                            time: time,
+                            duration: _formatDuration(
+                              _voiceMessageDurations[message.id] ??
+                                  Duration.zero,
+                            ),
+                            status: message.status,
+                            onFailedTap: () => _showResendDialog(message),
+                          )
+                          : MessageBubbles(
+                            isLeft: isLeft,
+                            message: message.content,
+                            time: time,
+                            status: message.status,
+                            onFailedTap: () => _showResendDialog(message),
+                          ),
                 );
+              },
+            );
           },
         ),
       ),
       bottomSheet: _buildBottomSheet(),
+    );
+  }
+
+  void _showResendDialog(message) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Message Failed'),
+            content: const Text('Resend or delete?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  if (mounted) {
+                    Navigator.pop(context);
+                    if (_messageProvider != null) {
+                      _messageProvider!.deleteMessage(message.id);
+                      _messageProvider!.sendMessage(
+                        senderId: message.senderId,
+                        receiverId: message.receiverId,
+                        content: message.content,
+                        mediaFilePath: message.attachmentUrl,
+                        mediaType: message.attachmentType,
+                      );
+                    }
+                  }
+                },
+                child: const Text('Resend'),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (mounted) {
+                    Navigator.pop(context);
+                    if (_messageProvider != null) {
+                      _messageProvider!.deleteMessage(message.id);
+                    }
+                  }
+                },
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
     );
   }
 
@@ -470,10 +513,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          IconButton(
-            onPressed: () {},
-            icon: Icon(Icons.add, color: wawuColors.purpleDarkContainer),
-          ),
           Expanded(
             child: Container(
               decoration: BoxDecoration(

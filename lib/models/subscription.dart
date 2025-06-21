@@ -1,4 +1,4 @@
-// subscription_models.dart
+import 'plan.dart';
 import 'user.dart';
 
 class PaymentLink {
@@ -15,118 +15,73 @@ class PaymentLink {
   }
 }
 
-class SubscriptionPlan {
-  final String uuid;
-  final String name;
-  final String? description;
-  final String amount;
-  final String currency;
-  final String flutterwavePlanId;
-  final String interval;
-  final String createdAt;
-  final String updatedAt;
-
-  SubscriptionPlan({
-    required this.uuid,
-    required this.name,
-    this.description,
-    required this.amount,
-    required this.currency,
-    required this.flutterwavePlanId,
-    required this.interval,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  factory SubscriptionPlan.fromJson(Map<String, dynamic> json) {
-    return SubscriptionPlan(
-      uuid: json['uuid'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String?,
-      amount: json['amount'] as String,
-      currency: json['currency'] as String,
-      flutterwavePlanId: json['flutterwave_plan_id'] as String,
-      interval: json['interval'] as String,
-      createdAt: json['created_at'] as String,
-      updatedAt: json['updated_at'] as String,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'uuid': uuid,
-      'name': name,
-      'description': description,
-      'amount': amount,
-      'currency': currency,
-      'flutterwave_plan_id': flutterwavePlanId,
-      'interval': interval,
-      'created_at': createdAt,
-      'updated_at': updatedAt,
-    };
-  }
-}
+// lib/models/subscription.dart
 
 class Subscription {
-  final int flutterwaveSubscriptionId;
-  final String status;
-  final String subscribedAt;
-  final String expiresAt;
-  final String nextBillingDate;
-  final String reference;
-  final int amount;
-  final String uuid;
-  final String updatedAt;
-  final String createdAt;
-  final SubscriptionPlan plan;
-  final User user;
+  final int? flutterwaveSubscriptionId;
+  final String? status;
+  final String? subscribedAt;
+  final String? expiresAt;
+  final String? nextBillingDate;
+  final String? reference;
+  final double? amount; // Changed to double? to handle int and string values
+  final String? uuid;
+  final String? updatedAt;
+  final String? createdAt;
+  final Plan? plan;
+  final User? user;
 
   Subscription({
-    required this.flutterwaveSubscriptionId,
-    required this.status,
-    required this.subscribedAt,
-    required this.expiresAt,
-    required this.nextBillingDate,
-    required this.reference,
-    required this.amount,
-    required this.uuid,
-    required this.updatedAt,
-    required this.createdAt,
-    required this.plan,
-    required this.user,
+    this.flutterwaveSubscriptionId,
+    this.status,
+    this.subscribedAt,
+    this.expiresAt,
+    this.nextBillingDate,
+    this.reference,
+    this.amount,
+    this.uuid,
+    this.updatedAt,
+    this.createdAt,
+    this.plan,
+    this.user,
   });
 
   factory Subscription.fromJson(Map<String, dynamic> json) {
-    return Subscription(
-      flutterwaveSubscriptionId: json['flutterwave_subscription_id'] as int,
-      status: json['status'] as String,
-      subscribedAt: json['subscribed_at'] as String,
-      expiresAt: json['expires_at'] as String,
-      nextBillingDate: json['next_billing_date'] as String,
-      reference: json['reference'] as String,
-      amount: json['amount'] as int,
-      uuid: json['uuid'] as String,
-      updatedAt: json['updated_at'] as String,
-      createdAt: json['created_at'] as String,
-      plan: SubscriptionPlan.fromJson(json['plan'] as Map<String, dynamic>),
-      user: User.fromJson(json['user'] as Map<String, dynamic>),
-    );
-  }
+    // Robustly parse 'amount' which can be a String or num
+    dynamic amountValue = json['amount'];
+    double? parsedAmount;
+    if (amountValue is String) {
+      parsedAmount = double.tryParse(amountValue);
+    } else if (amountValue is num) {
+      parsedAmount = amountValue.toDouble();
+    }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'flutterwave_subscription_id': flutterwaveSubscriptionId,
-      'status': status,
-      'subscribed_at': subscribedAt,
-      'expires_at': expiresAt,
-      'next_billing_date': nextBillingDate,
-      'reference': reference,
-      'amount': amount,
-      'uuid': uuid,
-      'updated_at': updatedAt,
-      'created_at': createdAt,
-      'plan': plan.toJson(),
-      'user': user.toJson(),
-    };
+    // Robustly parse 'flutterwave_subscription_id' which can be a String or int
+    dynamic idValue = json['flutterwave_subscription_id'];
+    int? parsedId;
+    if (idValue is String) {
+      parsedId = int.tryParse(idValue);
+    } else if (idValue is num) {
+      parsedId = idValue.toInt();
+    }
+
+    return Subscription(
+      flutterwaveSubscriptionId: parsedId, // Use the safely parsed ID
+      status: json['status'] as String?,
+      subscribedAt: json['subscribed_at'] as String?,
+      expiresAt: json['expires_at'] as String?,
+      nextBillingDate: json['next_billing_date'] as String?,
+      reference: json['reference'] as String?,
+      amount: parsedAmount, // Use the safely parsed amount
+      uuid: json['uuid'] as String?,
+      updatedAt: json['updated_at'] as String?,
+      createdAt: json['created_at'] as String?,
+      plan: json['plan'] != null
+          ? Plan.fromJson(json['plan'] as Map<String, dynamic>)
+          : null,
+      user: json['user'] != null
+          ? User.fromJson(json['user'] as Map<String, dynamic>)
+          : null,
+    );
   }
 }

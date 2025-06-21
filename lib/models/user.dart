@@ -348,7 +348,6 @@ class AdditionalInfo {
   final String? language; // If language comes outside preferredLanguage
   final String? website;
 
-
   AdditionalInfo({
     this.about,
     this.bio,
@@ -363,34 +362,24 @@ class AdditionalInfo {
     this.website,
   });
 
-  factory AdditionalInfo.fromJson(Map<String, dynamic> json) {
-    // Helper to safely cast map values to String for socialHandles
+  factory AdditionalInfo.fromJson(Map<String, dynamic>? json) {  // Changed to Map<String, dynamic>? to handle null input
+    if (json == null) {
+      return AdditionalInfo();  // Return a default instance if json is null
+    }
     Map<String, String>? parseSocialHandles(Map<String, dynamic>? socialJson) {
       if (socialJson == null) return null;
       return socialJson.map((key, value) => MapEntry(key, value.toString()));
     }
-
     return AdditionalInfo(
       about: json['about'] as String?,
-      bio: json['bio'] as String?, // Assuming 'bio' field if it exists
-      skills: (json['skills'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
-      subCategories: (json['subCategories'] as List<dynamic>?)
-          ?.map((e) => ServiceSubCategory.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      bio: json['bio'] as String?,
+      skills: (json['skills'] is List) ? (json['skills'] as List<dynamic>?)?.map((e) => e?.toString()).whereType<String>().toList() : null,
+      subCategories: (json['subCategories'] is List) ? (json['subCategories'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? ServiceSubCategory.fromJson(e) : null).whereType<ServiceSubCategory>().toList() : null,
       preferredLanguage: json['preferredLanguage'] as String?,
-      education: (json['education'] as List<dynamic>?)
-          ?.map((e) => Education.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      professionalCertification: (json['professionalCertification'] as List<dynamic>?)
-          ?.map((e) => ProfessionalCertification.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      meansOfIdentification: json['meansOfIdentification'] != null &&
-              json['meansOfIdentification'] is Map
-          ? MeansOfIdentification.fromJson(
-              json['meansOfIdentification'] as Map<String, dynamic>)
-          : null,
-      socialHandles:
-          parseSocialHandles(json['socialHandles'] as Map<String, dynamic>?),
+      education: (json['education'] is List) ? (json['education'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? Education.fromJson(e) : null).whereType<Education>().toList() : null,
+      professionalCertification: (json['professionalCertification'] is List) ? (json['professionalCertification'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? ProfessionalCertification.fromJson(e) : null).whereType<ProfessionalCertification>().toList() : null,
+      meansOfIdentification: (json['meansOfIdentification'] is Map<String, dynamic>) ? MeansOfIdentification.fromJson(json['meansOfIdentification'] as Map<String, dynamic>) : null,
+      socialHandles: (json['socialHandles'] is Map) ? parseSocialHandles(json['socialHandles'] as Map<String, dynamic>) : null,
       language: json['language'] as String?,
       website: json['website'] as String?,
     );

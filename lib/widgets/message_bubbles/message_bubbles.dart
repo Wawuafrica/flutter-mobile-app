@@ -5,12 +5,16 @@ class MessageBubbles extends StatelessWidget {
   final bool isLeft;
   final String message;
   final String time;
+  final String? status;
+  final VoidCallback? onFailedTap;
 
   const MessageBubbles({
     super.key,
     this.isLeft = true,
     required this.message,
     required this.time,
+    this.status,
+    this.onFailedTap,
   });
 
   @override
@@ -55,7 +59,20 @@ class MessageBubbles extends StatelessWidget {
             ],
           ),
         ),
-        Text(time, style: TextStyle(fontSize: 10, color: Colors.grey)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: isLeft ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (status == 'pending') Icon(Icons.access_time, size: 12, color: Colors.grey),
+            if (status == 'sent') Icon(Icons.done, size: 12, color: Colors.green),
+            if (status == 'failed') GestureDetector(
+              onTap: onFailedTap,
+              child: Icon(Icons.error, size: 12, color: Colors.red),
+            ),
+            if (status != null) SizedBox(width: 5),
+            Text(time, style: TextStyle(fontSize: 10, color: Colors.grey)),
+          ],
+        ),
         SizedBox(height: 10),
       ],
     );

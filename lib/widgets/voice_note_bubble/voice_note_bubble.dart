@@ -12,6 +12,8 @@ class VoiceMessageBubble extends StatefulWidget {
   final String source;
   final String time;
   final String duration;
+  final String? status;
+  final VoidCallback? onFailedTap;
 
   const VoiceMessageBubble({
     super.key,
@@ -19,6 +21,8 @@ class VoiceMessageBubble extends StatefulWidget {
     required this.source,
     required this.time,
     required this.duration,
+    this.status,
+    this.onFailedTap,
   });
 
   @override
@@ -26,57 +30,79 @@ class VoiceMessageBubble extends StatefulWidget {
 }
 
 class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
+  static AudioPlayer? _currentlyPlayingPlayer;
+
   late AudioPlayer _audioPlayer;
   bool _isPlaying = false;
-  Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
   bool _isDownloaded = false;
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
   final GlobalKey _progressKey = GlobalKey();
 
+  // Store scaffold messenger reference safely
+  ScaffoldMessengerState? _scaffoldMessenger;
+
   @override
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
-    _initAudio();
-    _checkExistingFile();
-    _setupAudioListeners();
+    _initAudioPlayer(widget.source); // Initialize with the provided source
+    _checkExistingFile(); // Check if file already exists
+    _setupAudioListeners(); // Setup audio listeners
+    if (_isNetwork && !_isDownloaded && !_isDownloading) {
+      _downloadFile(); // Start download immediately if it's a network source
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Safely store ScaffoldMessenger reference
+    _scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
   }
 
   bool get _isNetwork => widget.source.startsWith('http');
 
-  // Proper audio initialization flow
-  Future<void> _initAudio() async {
+  Future<void> _initAudioPlayer(String source) async {
     try {
-      if (_isNetwork) {
-        if (_isDownloaded) {
-          final path = await _getSanitizedPath();
-          await _audioPlayer.setAudioSource(AudioSource.file((path)));
+      // Set source as URL for remote audio
+      await _audioPlayer.setUrl(source);
+      // Listen for duration changes to update UI
+      _audioPlayer.durationStream.listen((Duration? d) {
+        if (d != null && mounted) {
           setState(() {
-            _isDownloaded = true;
-            _isDownloading = false;
+            _duration = d;
           });
         }
-      } else {
-        final file = widget.source;
-        await _audioPlayer.setAudioSource(AudioSource.file(file));
-        setState(() {
-          _isDownloaded = true;
-          _isDownloading = false;
-        });
-      }
-      setState(() => _isDownloaded = true);
+      });
+      // Listen for position changes to update slider
+      _audioPlayer.positionStream.listen((Duration p) {
+        if (mounted) {
+          setState(() {
+            _position = p;
+          });
+        }
+      });
+      // Listen for player state changes
+      _audioPlayer.playerStateStream.listen((PlayerState state) {
+        if (mounted) {
+          setState(() {
+            _isPlaying = state.playing;
+          });
+        }
+      });
     } catch (e) {
-      print("Audio initialization error: $e");
-      _showErrorSnackbar('Failed to load audio: ${e.toString()}');
+      print('Error initializing audio player: $e');
     }
   }
 
   void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    // Use the safely stored reference and check if still mounted
+    if (mounted && _scaffoldMessenger != null) {
+      _scaffoldMessenger!.showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   // Improved file existence check
@@ -98,27 +124,34 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
 
   void _setupAudioListeners() {
     _audioPlayer.positionStream.listen((position) {
-      if (_audioPlayer.processingState != ProcessingState.completed) {
+      if (_audioPlayer.processingState != ProcessingState.completed &&
+          mounted) {
         setState(() => _position = position);
       }
     });
 
     _audioPlayer.durationStream.listen((duration) {
-      setState(() => _duration = duration ?? Duration.zero);
+      if (mounted) {
+        setState(() => _duration = duration ?? Duration.zero);
+      }
     });
 
     _audioPlayer.playbackEventStream.listen((event) {
-      if (event.processingState == ProcessingState.completed) {
+      if (event.processingState == ProcessingState.completed && mounted) {
         _resetToStart();
       }
     });
 
     _audioPlayer.playerStateStream.listen((state) {
-      setState(() => _isPlaying = state.playing);
+      if (mounted) {
+        setState(() => _isPlaying = state.playing);
+      }
     });
   }
 
   Future<void> _resetToStart() async {
+    if (!mounted) return;
+
     await _audioPlayer.seek(Duration.zero);
     await _audioPlayer.pause();
     if (mounted) {
@@ -137,21 +170,23 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
   }
 
   Future<void> _downloadFile() async {
-    setState(() {
-      _isDownloading = true;
-      _downloadProgress = 0;
-    });
+    if (_isDownloading || _isDownloaded || !mounted) return;
+
+    if (mounted) {
+      setState(() => _isDownloading = true);
+    }
 
     try {
-      final Dio dioInstance = Dio();
-      final savePath = await _getSanitizedPath();
-      print(savePath);
+      final client = Dio();
+      final path = await _getSanitizedPath();
+      final dir = path.substring(0, path.lastIndexOf('/'));
+      await Directory(dir).create(recursive: true);
 
-      await dioInstance.download(
+      await client.download(
         widget.source,
-        savePath,
+        path,
         onReceiveProgress: (received, total) {
-          if (total != -1) {
+          if (total != -1 && mounted) {
             setState(() => _downloadProgress = received / total);
           }
         },
@@ -159,15 +194,13 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
 
       if (mounted) {
         setState(() => _isDownloaded = true);
+        await _initAudioPlayer(widget.source);
       }
-      await _initAudio();
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
-    } finally {
+      // This is the critical fix - safe error handling
       if (mounted) {
         setState(() => _isDownloading = false);
+        _showErrorSnackbar('Failed to download audio: $e');
       }
     }
   }
@@ -177,11 +210,15 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
 
   @override
   void dispose() {
+    // Clean up audio player before disposing
     _audioPlayer.dispose();
+    _scaffoldMessenger = null;
     super.dispose();
   }
 
   void _handleSeek(Offset localPosition) {
+    if (!mounted) return;
+
     final box = _progressKey.currentContext?.findRenderObject() as RenderBox?;
     if (box == null) return;
 
@@ -190,7 +227,9 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
     final newPosition = _duration * percent;
 
     _audioPlayer.seek(newPosition);
-    setState(() => _position = newPosition);
+    if (mounted) {
+      setState(() => _position = newPosition);
+    }
   }
 
   @override
@@ -227,7 +266,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildDownloadSection(iconColor, true),
+                  _buildDownloadSection(iconColor, widget.isLeft),
                   const SizedBox(width: 10),
                   _buildProgressBar(),
                   const SizedBox(width: 10),
@@ -240,9 +279,26 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
             ],
           ),
         ),
-        Text(
-          widget.time,
-          style: const TextStyle(fontSize: 10, color: Colors.grey),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment:
+              widget.isLeft ? MainAxisAlignment.end : MainAxisAlignment.start,
+          children: [
+            if (widget.status == 'pending')
+              Icon(Icons.access_time, size: 12, color: Colors.grey),
+            if (widget.status == 'sent')
+              Icon(Icons.done, size: 12, color: Colors.green),
+            if (widget.status == 'failed')
+              GestureDetector(
+                onTap: widget.onFailedTap,
+                child: Icon(Icons.error, size: 12, color: Colors.red),
+              ),
+            if (widget.status != null) SizedBox(width: 5),
+            Text(
+              widget.time,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+          ],
         ),
       ],
     );
@@ -261,7 +317,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                   _isPlaying ? Icons.pause : Icons.play_arrow,
                   color: iconColor,
                 ),
-                onPressed: _handlePlayPause,
+                onPressed: _togglePlayPause,
               ),
             ],
           ),
@@ -301,7 +357,7 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
                     _isPlaying ? Icons.pause : Icons.play_arrow,
                     color: iconColor,
                   ),
-                  onPressed: _handlePlayPause,
+                  onPressed: _togglePlayPause,
                 ),
             ],
           ),
@@ -351,12 +407,34 @@ class _VoiceMessageBubbleState extends State<VoiceMessageBubble> {
     );
   }
 
-  void _handlePlayPause() async {
+  Future<void> _togglePlayPause() async {
+    if (!mounted) return;
+
     if (_isPlaying) {
       await _audioPlayer.pause();
+      if (mounted) {
+        setState(() => _isPlaying = false);
+      }
+      _currentlyPlayingPlayer = null;
     } else {
-      if (_position >= _duration) await _audioPlayer.seek(Duration.zero);
+      // Stop any currently playing voice note
+      if (_currentlyPlayingPlayer != null &&
+          _currentlyPlayingPlayer != _audioPlayer) {
+        await _currentlyPlayingPlayer!.stop();
+      }
+      _currentlyPlayingPlayer = _audioPlayer;
       await _audioPlayer.play();
+      if (mounted) {
+        setState(() => _isPlaying = true);
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(VoiceMessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.source != oldWidget.source) {
+      _initAudioPlayer(widget.source); // Reinitialize if source changes
     }
   }
 }

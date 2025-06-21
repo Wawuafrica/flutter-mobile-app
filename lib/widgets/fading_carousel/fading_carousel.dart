@@ -9,7 +9,7 @@ class FadingCarousel extends StatefulWidget {
   const FadingCarousel({
     super.key,
     required this.children,
-    this.height = 250,
+    this.height = 200,
     this.isBorderRadius = true,
   });
 
@@ -40,12 +40,7 @@ class FadingCarouselState extends State<FadingCarousel> {
         Container(
           height: widget.height,
           clipBehavior: Clip.hardEdge,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(10),
-              bottomRight: Radius.circular(10),
-            ),
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
           child: PageView.builder(
             controller: _pageController,
             onPageChanged: _onPageChanged,

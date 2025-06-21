@@ -64,7 +64,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 Navigator.pop(context); // Close the modal when tapping outside
               },
               child: Container(
-                color: widget.overlayColor, // Use the provided overlay color
+                // color: widget.overlayColor, // Use the provided overlay color
               ),
             ),
             Align(
