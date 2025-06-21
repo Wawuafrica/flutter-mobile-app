@@ -69,7 +69,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
             colorFilter: ColorFilter.mode(
               isSelected
                   ? wawuColors.primary
-                  : const Color.fromARGB(255, 207, 207, 207),
+                  : const Color.fromARGB(255, 106, 106, 106),
               BlendMode.srcIn, // Use BlendMode.srcIn for coloring SVG
             ),
             height: 20,
@@ -82,7 +82,7 @@ class CustomBottomNavigationBar extends StatelessWidget {
               color:
                   isSelected
                       ? wawuColors.primary
-                      : const Color.fromARGB(255, 207, 207, 207),
+                      : const Color.fromARGB(255, 106, 106, 106),
               fontSize: 12,
             ),
           ),

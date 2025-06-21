@@ -73,7 +73,7 @@ class _BlogScreenState extends State<BlogScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Error loading ads: ${adProvider.errorMessage}',
+                            'Error loading ads',
                             textAlign: TextAlign.center,
                           ),
                           TextButton(
@@ -383,7 +383,8 @@ class _BlogListItemState extends State<BlogListItem> {
                           GestureDetector(
                             onTap: _handleLike,
                             child: Container(
-                              width: 50,
+                              padding: EdgeInsets.symmetric(horizontal: 10),
+                              // width: 50,
                               height: 25,
                               decoration: BoxDecoration(
                                 color:
@@ -427,7 +428,8 @@ class _BlogListItemState extends State<BlogListItem> {
                           GestureDetector(
                             onTap: widget.onComment,
                             child: Container(
-                              width: 50,
+                              // width: 30,
+                              padding: EdgeInsets.symmetric(horizontal: 10),
                               height: 25,
                               decoration: BoxDecoration(
                                 color: wawuColors.primary.withAlpha(70),

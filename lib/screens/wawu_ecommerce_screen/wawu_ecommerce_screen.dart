@@ -4,6 +4,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/models/variant.dart';
+import 'package:wawu_mobile/utils/error_utils.dart';
 
 class WawuEcommerceScreen extends StatefulWidget {
   const WawuEcommerceScreen({super.key});
@@ -79,19 +80,78 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
     );
     final allProducts = productProvider.products;
 
+    // Enhanced search functionality
     _filteredProducts =
         allProducts.where((product) {
           final searchLower = query.toLowerCase();
           return product.name.toLowerCase().contains(searchLower) ||
               product.description.toLowerCase().contains(searchLower) ||
+              product.shortDescription.toLowerCase().contains(searchLower) ||
               product.manufacturerBrand.toLowerCase().contains(searchLower) ||
               product.category.toLowerCase().contains(searchLower) ||
               product.tags.any(
                 (tag) => tag.toLowerCase().contains(searchLower),
+              ) ||
+              // Search in variants
+              product.variants.any(
+                (variant) =>
+                    variant.name.toLowerCase().contains(searchLower) ||
+                    variant.value.toLowerCase().contains(searchLower),
               );
         }).toList();
 
+    // Sort search results by relevance
+    _filteredProducts.sort((a, b) {
+      final aName = a.name.toLowerCase();
+      final bName = b.name.toLowerCase();
+      final queryLower = query.toLowerCase();
+
+      // Exact matches first
+      if (aName == queryLower && bName != queryLower) return -1;
+      if (bName == queryLower && aName != queryLower) return 1;
+
+      // Starts with query second
+      if (aName.startsWith(queryLower) && !bName.startsWith(queryLower))
+        return -1;
+      if (bName.startsWith(queryLower) && !aName.startsWith(queryLower))
+        return 1;
+
+      // Alphabetical order for the rest
+      return aName.compareTo(bName);
+    });
+
     setState(() {});
+  }
+
+  // void _navigateToProduct(Product product) {
+  //   final productProvider = Provider.of<ProductProvider>(
+  //     context,
+  //     listen: false,
+  //   );
+
+  //   // Select the product
+  //   productProvider.selectProduct(product.id);
+
+  //   // Navigate to SinglePackage screen
+  //   Navigator.pushNamed(context, '/single-package').then((_) {
+  //     // Optional: Refresh products when returning from product detail
+  //     // This ensures any changes are reflected
+  //     if (mounted) {
+  //       setState(() {});
+  //     }
+  //   });
+  // }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _isSearching = false;
+      _filteredProducts = [];
+      _isSearchOpen = false;
+    });
+
+    // Hide keyboard
+    FocusScope.of(context).unfocus();
   }
 
   @override
@@ -102,21 +162,26 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
         actions: [
           Container(
             decoration: BoxDecoration(
-              color: wawuColors.primary.withAlpha(30),
+              color:
+                  _isSearchOpen
+                      ? wawuColors.primary.withAlpha(80)
+                      : wawuColors.primary.withAlpha(30),
               shape: BoxShape.circle,
             ),
             margin: EdgeInsets.only(right: 10),
             height: 36,
             width: 36,
             child: IconButton(
-              icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
+              icon: Icon(
+                _isSearchOpen ? Icons.close : Icons.search,
+                size: 17,
+                color: wawuColors.primary,
+              ),
               onPressed: () {
                 setState(() {
                   _isSearchOpen = !_isSearchOpen;
                   if (!_isSearchOpen) {
-                    _searchController.clear();
-                    _isSearching = false;
-                    _filteredProducts = [];
+                    _clearSearch();
                   }
                 });
               },
@@ -129,6 +194,7 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
         child: Column(
           children: [
             _buildInPageSearchBar(),
+            if (_isSearching) _buildSearchResultsHeader(),
             SizedBox(height: 20),
             Expanded(
               child: Consumer<ProductProvider>(
@@ -139,19 +205,35 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
                   }
 
                   if (productProvider.hasError &&
-                      productProvider.products.isEmpty) {
+                      productProvider.errorMessage != null) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('Error: ${productProvider.errorMessage}'),
-                          SizedBox(height: 16),
+                          Text(
+                            'Error: ${productProvider.errorMessage}',
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 10),
                           ElevatedButton(
-                            onPressed:
-                                () => productProvider.fetchProducts(
-                                  refresh: true,
-                                ),
-                            child: Text('Retry'),
+                            onPressed: () {
+                              productProvider.fetchProducts();
+                            },
+                            child: const Text('Retry'),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.mail_outline),
+                            label: const Text('Contact Support'),
+                            onPressed: () {
+                              showErrorSupportDialog(
+                                context: context,
+                                title: 'Contact Support',
+                                message:
+                                    'If this problem persists, please contact our support team. We are here to help!',
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -165,11 +247,35 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
 
                   if (productsToShow.isEmpty) {
                     return Center(
-                      child: Text(
-                        _isSearching
-                            ? 'No products found for your search'
-                            : 'No products available',
-                        style: TextStyle(fontSize: 16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _isSearching
+                                ? Icons.search_off
+                                : Icons.inventory_2_outlined,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            _isSearching
+                                ? 'No products found for "${_searchController.text}"'
+                                : 'No products available',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          if (_isSearching) ...[
+                            SizedBox(height: 12),
+                            TextButton(
+                              onPressed: _clearSearch,
+                              child: Text('Clear Search'),
+                            ),
+                          ],
+                        ],
                       ),
                     );
                   }
@@ -178,7 +284,7 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
                     controller: _scrollController,
                     itemCount: _getItemCount(productsToShow, productProvider),
                     itemBuilder: (context, index) {
-                      if (index < productsToShow.length) {
+                      if (index < (productsToShow.length / 2).ceil()) {
                         return _buildProductRow(productsToShow, index);
                       } else {
                         // Loading indicator at the bottom
@@ -240,25 +346,50 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
     return Container(
       padding: EdgeInsets.all(16),
       alignment: Alignment.center,
-      child: CircularProgressIndicator(),
+      child: Column(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 8),
+          Text(
+            'Loading more products...',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ],
+      ),
     );
   }
 
-  // void _navigateToProduct(Product product) {
-  //   final productProvider = Provider.of<ProductProvider>(
-  //     context,
-  //     listen: false,
-  //   );
-  //   productProvider.selectProduct(product.id);
-
-  //   // Navigate to SinglePackage screen
-  //   Navigator.pushNamed(context, '/single-package');
-  // }
+  Widget _buildSearchResultsHeader() {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '${_filteredProducts.length} result${_filteredProducts.length != 1 ? 's' : ''} found',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (_searchController.text.isNotEmpty)
+            TextButton(
+              onPressed: _clearSearch,
+              child: Text(
+                'Clear',
+                style: TextStyle(color: wawuColors.primary, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildInPageSearchBar() {
     return AnimatedContainer(
-      duration: Duration(milliseconds: 200),
-      curve: Curves.ease,
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
       height: _isSearchOpen ? 55 : 0,
       child: ClipRRect(
         child: SizedBox(
@@ -270,6 +401,8 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
                     ? TextField(
                       controller: _searchController,
                       onChanged: _onSearchChanged,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
                       decoration: InputDecoration(
                         hintText: "Search products, brands, categories...",
                         hintStyle: TextStyle(fontSize: 12),
@@ -287,6 +420,11 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide(color: wawuColors.primary),
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: wawuColors.primary,
+                          size: 18,
                         ),
                         suffixIcon:
                             _searchController.text.isNotEmpty

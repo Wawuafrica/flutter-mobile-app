@@ -8,8 +8,10 @@ import 'package:wawu_mobile/screens/update_profile/update_profile.dart';
 // import 'package:wawu_mobile/screens/category_selection/category_selection.dart'; // Removed
 // import 'package:wawu_mobile/screens/location_verification/location_verification.dart'; // Removed
 import 'package:wawu_mobile/utils/constants/colors.dart'; // Assuming this exists for your colors
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/widgets/account_type_card/account_type_card.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
+import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 
 class AccountType extends StatefulWidget {
   const AccountType({super.key});
@@ -85,20 +87,22 @@ class _AccountTypeState extends State<AccountType> {
     if (!mounted) return; // Check if the widget is still in the tree
 
     if (userProvider.isSuccess) {
-      // Navigate to UpdateProfile for all account types
-      if (type == 'buyer') {
+      await OnboardingStateService.saveRole(type);
+      if (type.toUpperCase() == 'BUYER') {
+        // For buyers, go straight to update profile
+        await OnboardingStateService.saveStep('update_profile');
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => UpdateProfile()),
         );
+      } else {
+        // For other types, go to category selection
+        await OnboardingStateService.saveStep('category_selection');
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => CategorySelection()),
+        );
       }
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => CategorySelection(), // Changed navigation
-        ),
-      );
-      // Reset provider state to clear success/error messages for next interaction
       userProvider.resetState();
     } else if (userProvider.hasError) {
       // Show a SnackBar for immediate feedback
@@ -109,8 +113,9 @@ class _AccountTypeState extends State<AccountType> {
           ),
         ),
       );
-      // Reset provider state to clear success/error messages for next interaction
-      userProvider.resetState(); // Reset after showing error
+      // Clear onboarding state on error
+      await OnboardingStateService.clear();
+      userProvider.resetState();
     }
   }
 
@@ -119,6 +124,37 @@ class _AccountTypeState extends State<AccountType> {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         return Scaffold(
+          appBar: AppBar(
+            actions: [
+              OnboardingProgressIndicator(
+                currentStep: 'account_type',
+                steps: const [
+                  'account_type',
+                  'category_selection',
+                  'subcategory_selection',
+                  'update_profile',
+                  'profile_update',
+                  'plan',
+                  'payment',
+                  'payment_processing',
+                  'verify_payment',
+                  'disclaimer',
+                ],
+                stepLabels: const {
+                  'account_type': 'Account',
+                  'category_selection': 'Category',
+                  'subcategory_selection': 'Subcategory',
+                  'update_profile': 'Intro',
+                  'profile_update': 'Profile',
+                  'plan': 'Plan',
+                  'payment': 'Payment',
+                  'payment_processing': 'Processing',
+                  'verify_payment': 'Verify',
+                  'disclaimer': 'Disclaimer',
+                },
+              ),
+            ],
+          ),
           body: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(
@@ -127,7 +163,6 @@ class _AccountTypeState extends State<AccountType> {
             ),
             child: ListView(
               children: [
-                SizedBox(height: 10.0),
                 CustomIntroBar(
                   text: 'Account Type',
                   desc: 'Select the user account type you want to sign up as',

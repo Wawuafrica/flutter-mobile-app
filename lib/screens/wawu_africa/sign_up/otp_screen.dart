@@ -5,6 +5,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 
 class OtpScreen extends StatefulWidget {
   final AuthService authService;
@@ -66,9 +67,10 @@ class _OtpScreenState extends State<OtpScreen> {
 
       _showSnackBar('OTP verified successfully!');
 
-      // Navigate to new password screen
+      // After OTP verification, advance onboarding to 'account_type' and route to onboarding.
       if (mounted) {
-        Navigator.push(
+        await OnboardingStateService.saveStep('account_type');
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => AccountType()),
         );
@@ -123,10 +125,10 @@ class _OtpScreenState extends State<OtpScreen> {
                 'We sent a verification code to ${widget.email}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 5),
               CustomTextfield(
                 controller: _otpController,
-                hintText: '123456',
+                hintText: '******',
                 labelTextStyle2: true,
                 keyboardType: TextInputType.number,
                 validator: _validateOtp,
@@ -155,7 +157,7 @@ class _OtpScreenState extends State<OtpScreen> {
                   ),
                 ],
               ),
-              SizedBox(height: 20),
+              SizedBox(height: 5),
               CustomButton(
                 function: _isLoading ? null : _handleVerifyOtp,
                 widget:

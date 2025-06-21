@@ -3,10 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/update_profile/update_profile.dart'; // Import the ProfileUpdate screen
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/utils/error_utils.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/selectable_category_grid/selectable_category_grid.dart';
+import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 
 class SubCategorySelection extends StatefulWidget {
   final String categoryId;
@@ -28,7 +31,8 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
         context,
         listen: false,
       );
-      if (categoryProvider.subCategories.isEmpty && !categoryProvider.isLoading) {
+      if (categoryProvider.subCategories.isEmpty &&
+          !categoryProvider.isLoading) {
         categoryProvider.fetchSubCategories(widget.categoryId);
       }
     });
@@ -49,7 +53,9 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
     return Consumer2<CategoryProvider, UserProvider>(
       builder: (context, categoryProvider, userProvider, child) {
         if (categoryProvider.isLoading) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         if (categoryProvider.hasError) {
@@ -63,10 +69,25 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                     style: const TextStyle(color: Colors.red),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
                   ElevatedButton(
-                    onPressed: () => categoryProvider.fetchSubCategories(widget.categoryId),
+                    onPressed: () {
+                      categoryProvider.fetchSubCategories(widget.categoryId);
+                    },
                     child: const Text('Retry'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.mail_outline),
+                    label: const Text('Contact Support'),
+                    onPressed: () {
+                      showErrorSupportDialog(
+                        context: context,
+                        title: 'Contact Support',
+                        message:
+                            'If this problem persists, please contact our support team. We are here to help!',
+                      );
+                    },
                   ),
                 ],
               ),
@@ -75,6 +96,37 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
         }
 
         return Scaffold(
+          appBar: AppBar(
+            actions: [
+              OnboardingProgressIndicator(
+                currentStep: 'subcategory_selection',
+                steps: const [
+                  'account_type',
+                  'category_selection',
+                  'subcategory_selection',
+                  'update_profile',
+                  'profile_update',
+                  'plan',
+                  'payment',
+                  'payment_processing',
+                  'verify_payment',
+                  'disclaimer',
+                ],
+                stepLabels: const {
+                  'account_type': 'Account',
+                  'category_selection': 'Category',
+                  'subcategory_selection': 'Subcategory',
+                  'update_profile': 'Intro',
+                  'profile_update': 'Profile',
+                  'plan': 'Plan',
+                  'payment': 'Payment',
+                  'payment_processing': 'Processing',
+                  'verify_payment': 'Verify',
+                  'disclaimer': 'Disclaimer',
+                },
+              ),
+            ],
+          ),
           body: Stack(
             children: [
               SingleChildScrollView(
@@ -84,12 +136,12 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 20),
                       CustomIntroBar(
                         // Ensure the text is safe from null selectedCategory
-                        text: categoryProvider.selectedCategory != null
-                            ? categoryProvider.selectedCategory!.name
-                            : 'Select Subcategory',
+                        text:
+                            categoryProvider.selectedCategory != null
+                                ? categoryProvider.selectedCategory!.name
+                                : 'Select Subcategory',
                         // If desc is ever needed here, handle it similarly
                         // desc: 'This is the description for ${categoryProvider.selectedCategory?.name ?? 'your selected category'}.',
                       ),
@@ -115,13 +167,22 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                           ),
                         ),
                       SelectableCategoryGrid(
-                        categories: categoryProvider.subCategories.map((subCategory) => subCategory.name).toList(),
+                        categories:
+                            categoryProvider.subCategories
+                                .map((subCategory) => subCategory.name)
+                                .toList(),
                         onCategorySelected: (subCategoryName) {
-                          final selectedSubCategory = categoryProvider.subCategories
-                              .firstWhere((subCategory) => subCategory.name == subCategoryName);
+                          final selectedSubCategory = categoryProvider
+                              .subCategories
+                              .firstWhere(
+                                (subCategory) =>
+                                    subCategory.name == subCategoryName,
+                              );
                           _toggleSelection(selectedSubCategory.uuid);
                           // Also store the selected SubCategory object in the CategoryProvider
-                          categoryProvider.selectSubCategory(selectedSubCategory);
+                          categoryProvider.selectSubCategory(
+                            selectedSubCategory,
+                          );
                         },
                       ),
                       const SizedBox(height: 20),
@@ -137,9 +198,12 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                   visible: _selectedSubCategoryId != null,
                   child: Container(
                     color: Theme.of(context).scaffoldBackgroundColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 15.0,
+                    ),
                     child: CustomButton(
-                      function: () {
+                      function: () async {
                         if (_selectedSubCategoryId == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -154,6 +218,11 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                         //   'subcategories': [_selectedSubCategoryId!],
                         // });
 
+                        // Persist onboarding step and subcategory
+                        await OnboardingStateService.saveStep('profile_update');
+                        await OnboardingStateService.saveSubCategory(
+                          _selectedSubCategoryId!,
+                        );
                         // Navigate to ProfileUpdate screen
                         Navigator.push(
                           context,

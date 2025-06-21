@@ -307,7 +307,31 @@ class GigProvider extends ChangeNotifier {
     debugPrint('[GigProvider] User data cleared successfully');
   }
 
-  // Rest of your existing methods remain the same...
+  // Fetch a single gig by its UUID, update selectedGig, and notify listeners
+  Future<Gig?> fetchGigById(String gigId) async {
+    if (_isDisposed) return null;
+    _setLoading(true);
+    try {
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/seller/gig/$gigId',
+      );
+      if (_isDisposed) return null;
+      if (response['statusCode'] == 200 && response['data'] != null) {
+        final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
+        selectGig(gig);
+        _setLoading(false);
+        return gig;
+      } else {
+        _setLoading(false);
+        _setError('Failed to fetch gig details.');
+        return null;
+      }
+    } catch (e) {
+      _setLoading(false);
+      _setError('Failed to fetch gig details: $e');
+      return null;
+    }
+  }
   Future<List<Gig>> fetchGigs({String? status}) async {
     if (_isDisposed) return [];
 

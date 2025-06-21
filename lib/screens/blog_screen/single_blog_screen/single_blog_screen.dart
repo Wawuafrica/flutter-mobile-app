@@ -177,6 +177,7 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                 SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  spacing: 10.0,
                   children: [
                     GestureDetector(
                       onTap: () => _handleLikePost(selectedPost.uuid),
@@ -275,7 +276,10 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                           selectedPost.uuid,
                           commentId,
                         );
-                        if (!success) {
+                        if (success) {
+                          // Always refresh the post to ensure up-to-date comment like state
+                          await blogProvider.fetchPostById(selectedPost.uuid);
+                        } else {
                           _showSnackBar(
                             'Failed to like comment. Please try again.',
                           );
@@ -456,21 +460,25 @@ class _BlogCommentWidgetState extends State<BlogCommentWidget> {
     }
   }
 
+  BlogComment? _findCommentById(List<BlogComment> comments, int id) {
+    for (final comment in comments) {
+      if (comment.id == id) return comment;
+      final sub = _findCommentById(comment.subComments, id);
+      if (sub != null) return sub;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<BlogProvider>(
       builder: (context, blogProvider, child) {
-        // Get the latest comment from the provider to ensure updated like count
         final selectedPost = blogProvider.selectedPost;
         BlogComment currentComment = widget.comment;
         if (selectedPost != null) {
-          final updatedComment = selectedPost.comments.firstWhere(
-            (c) => c.id == widget.comment.id,
-            orElse: () => widget.comment,
-          );
-          currentComment = updatedComment;
+          final found = _findCommentById(selectedPost.comments, widget.comment.id);
+          if (found != null) currentComment = found;
         }
-
         final userProvider = context.watch<UserProvider>();
         final currentUserId = userProvider.currentUser?.uuid ?? '';
         final isCommentLiked = currentComment.likers.any(

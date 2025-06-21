@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 // import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/profile/forgot_passoword/otp_screen/otp_screen.dart';
-import 'package:wawu_mobile/screens/account_type/account_type.dart';
+import 'otp_screen.dart';
+// import 'package:wawu_mobile/screens/account_type/account_type.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
@@ -283,20 +284,19 @@ class _SignUpState extends State<SignUp> {
 
                           // Only navigate if the widget is still mounted and registration was successful
                           if (mounted && userProvider.isSuccess) {
-                            // await authService.sendOtp(
-                            //   emailController.text.trim(),
-                            // );
+                            // Store onboarding progress: user started onboarding and is at OTP step.
+                            await OnboardingStateService.saveStep('otp');
+                            await authService.sendOtp(
+                              emailController.text.trim(),
+                            );
                             Navigator.pushReplacement(
                               context,
-                              // MaterialPageRoute(
-                              //   builder:
-                              //       (context) => OtpScreen(
-                              //         authService: authService,
-                              //         email: emailController.text,
-                              //       ),
-                              // ),
                               MaterialPageRoute(
-                                builder: (context) => AccountType(),
+                                builder:
+                                    (context) => OtpScreen(
+                                      authService: authService,
+                                      email: emailController.text,
+                                    ),
                               ),
                             );
                           }

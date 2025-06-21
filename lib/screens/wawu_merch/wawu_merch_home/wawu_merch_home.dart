@@ -5,6 +5,7 @@ import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/screens/wawu_ecommerce_screen/wawu_ecommerce_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
+// import 'package:wawu_mobile/utils/error_utils.dart';
 import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 

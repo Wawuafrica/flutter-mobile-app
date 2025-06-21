@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
@@ -35,7 +36,6 @@ class _SinglePackageState extends State<SinglePackage> {
     final selectedProduct = productProvider.selectedProduct;
 
     if (selectedProduct != null) {
-      // Get similar products based on category or tags
       _similarProducts =
           productProvider.products
               .where(
@@ -51,6 +51,77 @@ class _SinglePackageState extends State<SinglePackage> {
 
       if (mounted) setState(() {});
     }
+  }
+
+  Future<void> _openWhatsApp(Product product) async {
+    const String phoneNumber = "2347050622222";
+    String message = _buildWhatsAppMessage(product);
+    String encodedMessage = Uri.encodeComponent(message);
+
+    final String whatsappUrl =
+        "https://wa.me/$phoneNumber?text=$encodedMessage";
+    final Uri url = Uri.parse(whatsappUrl);
+
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
+  String _buildWhatsAppMessage(Product product) {
+    StringBuffer message = StringBuffer();
+
+    message.writeln("🛍️ *PRODUCT INQUIRY*");
+    message.writeln("━━━━━━━━━━━━━━━━━━━━");
+    message.writeln("");
+
+    message.writeln("📦 *Product:* ${product.name}");
+
+    if (product.manufacturerBrand.isNotEmpty) {
+      message.writeln("🏷️ *Brand:* ${product.manufacturerBrand}");
+    }
+    message.writeln("📂 *Category:* ${product.category}");
+
+    message.writeln("");
+    message.writeln("💰 *PRICING*");
+    if (product.hasDiscount()) {
+      message.writeln(
+        "💸 *Sale Price:* ${product.currency} ${product.getDiscountedPrice().toStringAsFixed(2)}",
+      );
+      message.writeln(
+        "🏷️ *Original Price:* ~${product.currency} ${product.price.toStringAsFixed(2)}~",
+      );
+      message.writeln(
+        "🎯 *You Save:* ${product.getSavingsPercentage().toStringAsFixed(0)}% OFF",
+      );
+    } else {
+      message.writeln(
+        "💸 *Price:* ${product.currency} ${product.price.toStringAsFixed(2)}",
+      );
+    }
+
+    if (_selectedVariantValue != null && product.variants.isNotEmpty) {
+      final selectedVariant = product.variants.firstWhere(
+        (variant) => variant.value == _selectedVariantValue,
+        orElse: () => product.variants.first,
+      );
+      message.writeln("");
+      message.writeln(
+        "⚙️ *Selected Option:* ${selectedVariant.name}: ${selectedVariant.value}",
+      );
+    }
+
+    if (product.shortDescription.isNotEmpty) {
+      message.writeln("");
+      message.writeln("📝 *Description:* ${product.shortDescription}");
+    }
+
+    message.writeln("");
+    message.writeln("━━━━━━━━━━━━━━━━━━━━");
+    message.writeln(
+      "Hi! I'm interested in purchasing this product. Could you please provide more details about availability and delivery options?",
+    );
+    message.writeln("");
+    message.writeln("Thank you! 😊");
+
+    return message.toString();
   }
 
   @override
@@ -287,28 +358,12 @@ class _SinglePackageState extends State<SinglePackage> {
   Widget _buildActionButtons(Product product, ProductProvider provider) {
     return Column(
       children: [
+        SizedBox(height: 10),
         CustomButton(
-          widget: Text(
-            product.isAvailable ? 'Add to Cart' : 'Out of Stock',
-            style: TextStyle(color: Colors.white),
-          ),
-          color: product.isAvailable ? wawuColors.primary : Colors.grey,
-          // onPressed: product.isAvailable
-          //     ? () => _addToCart(product, provider)
-          //     : null,
+          widget: Text('Buy Now', style: TextStyle(color: Colors.white)),
+          color: wawuColors.primary,
+          function: () => _openWhatsApp(product),
         ),
-        if (product.isAvailable) ...[
-          SizedBox(height: 10),
-          CustomButton(
-            widget: Text(
-              'Buy Now',
-              style: TextStyle(color: wawuColors.primary),
-            ),
-            color: Colors.white,
-            // borderColor: wawuColors.primary,
-            // onPressed: () => _buyNow(product, provider),
-          ),
-        ],
       ],
     );
   }
@@ -352,7 +407,6 @@ class _SinglePackageState extends State<SinglePackage> {
                   child: ECard(
                     product: _similarProducts[firstIndex],
                     isMargin: false,
-                    // onTap: () => _navigateToProduct(_similarProducts[firstIndex]),
                   ),
                 ),
                 SizedBox(width: 10),
@@ -362,7 +416,6 @@ class _SinglePackageState extends State<SinglePackage> {
                           ? ECard(
                             product: _similarProducts[secondIndex],
                             isMargin: false,
-                            // onTap: () => _navigateToProduct(_similarProducts[secondIndex]),
                           )
                           : SizedBox(),
                 ),
@@ -373,37 +426,4 @@ class _SinglePackageState extends State<SinglePackage> {
       ],
     );
   }
-
-  // void _addToCart(Product product, ProductProvider provider) {
-  //   provider.addToCart(product.id);
-
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(
-  //       content: Text('${product.name} added to cart'),
-  //       backgroundColor: wawuColors.primary,
-  //       duration: Duration(seconds: 2),
-  //     ),
-  //   );
-  // }
-
-  // void _buyNow(Product product, ProductProvider provider) {
-  //   provider.addToCart(product.id);
-
-  //   // Navigate to checkout or cart screen
-  //   Navigator.pushNamed(context, '/cart');
-  // }
-
-  // void _navigateToProduct(Product product) {
-  //   final productProvider = Provider.of<ProductProvider>(
-  //     context,
-  //     listen: false,
-  //   );
-  //   productProvider.selectProduct(product.id);
-
-  //   // Since we're already on SinglePackage, we need to refresh the page
-  //   setState(() {
-  //     _selectedVariantValue = null;
-  //   });
-  //   _loadSimilarProducts();
-  // }
 }

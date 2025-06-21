@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
+import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 
 class Disclaimer extends StatelessWidget {
   const Disclaimer({super.key});
@@ -9,10 +10,39 @@ class Disclaimer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Disclaimer')),
+      appBar: AppBar(
+        title: Text('Disclaimer'),
+        actions: [
+          OnboardingProgressIndicator(
+            currentStep: 'disclaimer',
+            steps: const [
+              'account_type',
+              'category_selection',
+              'subcategory_selection',
+              'profile_update',
+              'plan',
+              'payment',
+              'payment_processing',
+              'verify_payment',
+              'disclaimer',
+            ],
+            stepLabels: const {
+              'account_type': 'Account',
+              'category_selection': 'Category',
+              'subcategory_selection': 'Subcategory',
+              'profile_update': 'Profile',
+              'plan': 'Plan',
+              'payment': 'Payment',
+              'payment_processing': 'Processing',
+              'verify_payment': 'Verify',
+              'disclaimer': 'Disclaimer',
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
+        child: ListView(
           children: [
             Container(
               width: double.infinity,
@@ -47,10 +77,10 @@ class Disclaimer extends StatelessWidget {
               color: wawuColors.primary,
               function: () {
                 Navigator.pushAndRemoveUntil(
-  context,
-  MaterialPageRoute(builder: (context) => MainScreen()),
-  (Route<dynamic> route) => false,
-);
+                  context,
+                  MaterialPageRoute(builder: (context) => MainScreen()),
+                  (Route<dynamic> route) => false,
+                );
               },
             ),
           ],

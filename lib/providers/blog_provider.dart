@@ -88,8 +88,10 @@ class BlogProvider extends BaseProvider {
         eventData['post'] as Map<String, dynamic>,
       );
 
-      // Add new post to the beginning of the list
-      _posts.insert(0, newPost);
+      // Prevent duplicate posts: only add if not already present
+      if (!_posts.any((post) => post.uuid == newPost.uuid)) {
+        _posts.insert(0, newPost);
+      }
       notifyListeners();
 
       _logger.d('BlogProvider: New post added: ${newPost.title}');
@@ -311,6 +313,7 @@ class BlogProvider extends BaseProvider {
         '/posts',
         queryParameters: {'page': _currentPage},
       );
+      _logger.d('BlogProvider: Fetch posts response: ${response['data']}');
 
       if (response['statusCode'] == 200) {
         final List<dynamic> postsData = response['data'] ?? [];
@@ -375,6 +378,8 @@ class BlogProvider extends BaseProvider {
     try {
       final response = await _apiService.post('/post/like/$postId');
 
+      _logger.d('BlogProvider: Post like response: ${response['data']}');
+      _logger.d('BlogProvider: Post like response: ${response['statusCode']}');
       if (response['statusCode'] == 200) {
         final updatedPost = BlogPost.fromJson(response['data']);
 
@@ -383,6 +388,8 @@ class BlogProvider extends BaseProvider {
         if (postIndex != -1) {
           _posts[postIndex] = updatedPost;
         }
+
+        _logger.d('BlogProvider: Post like updated: ${updatedPost.title}');
 
         // Update selected post if it's the one being liked
         if (_selectedPost?.uuid == postId) {

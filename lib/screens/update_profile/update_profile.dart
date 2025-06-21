@@ -4,6 +4,7 @@ import 'package:wawu_mobile/providers/user_provider.dart'; // Added
 import 'package:wawu_mobile/screens/update_profile/profile_update/profile_update.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
+import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 
 class UpdateProfile extends StatelessWidget {
   const UpdateProfile({super.key});
@@ -11,9 +12,40 @@ class UpdateProfile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Update Profile')),
+      appBar: AppBar(
+        title: Text('Update Profile'),
+        actions: [
+          OnboardingProgressIndicator(
+            currentStep: 'update_profile',
+            steps: const [
+              'account_type',
+              'category_selection',
+              'subcategory_selection',
+              'update_profile',
+              'profile_update',
+              'plan',
+              'payment',
+              'payment_processing',
+              'verify_payment',
+              'disclaimer',
+            ],
+            stepLabels: const {
+              'account_type': 'Account',
+              'category_selection': 'Category',
+              'subcategory_selection': 'Subcategory',
+              'update_profile': 'Intro',
+              'profile_update': 'Profile',
+              'plan': 'Plan',
+              'payment': 'Payment',
+              'payment_processing': 'Processing',
+              'verify_payment': 'Verify',
+              'disclaimer': 'Disclaimer',
+            },
+          ),
+        ],
+      ),
       body: Container(
-        padding: EdgeInsets.all(20.0),
+        padding: EdgeInsets.symmetric(horizontal: 20.0),
         child: ListView(
           children: [
             // Wrapped the user info section with Consumer

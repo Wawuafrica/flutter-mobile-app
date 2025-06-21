@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wawu_mobile/screens/notifications/notifications.dart';
+import 'package:provider/provider.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
+// import 'package:wawu_mobile/screens/notifications/notifications.dart';
 import 'package:wawu_mobile/screens/settings_screen/merch_settings_screen.dart';
 import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_home/wawu_merch_home.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
@@ -20,30 +22,60 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
 
   final List<Widget> _screens = [WawuMerchHome(), MerchSettingsScreen()];
 
-  // Corrected _titles list: Removed 'spacing' from Row and used SizedBox
-  final List<Widget> _titles = [
-    Row(
-      children: [
-        // Use children directly
-        Image.asset('assets/images/other/avatar.webp', height: 40),
-        SizedBox(width: 10.0), // Use SizedBox for spacing
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Hello Mavis",
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            Text(
-              "Welcome to Wawu-Merch",
-              style: TextStyle(fontSize: 11, color: wawuColors.buttonPrimary),
-            ),
-          ],
-        ),
-      ],
-    ),
-    Text("Settings"),
-  ];
+  // Fixed _titles list - moved userProvider access to build method
+  List<Widget> _getTitles(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    return [
+      Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            clipBehavior: Clip.hardEdge,
+            decoration: BoxDecoration(shape: BoxShape.circle),
+            child:
+                userProvider.currentUser?.profileImage != null &&
+                        userProvider.currentUser!.profileImage!.startsWith(
+                          'http',
+                        )
+                    ? Image.network(
+                      userProvider.currentUser!.profileImage!,
+                      cacheWidth: 70,
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (context, error, stackTrace) => Image.asset(
+                            'assets/images/other/avatar.webp',
+                            cacheWidth: 250,
+                            fit: BoxFit.cover,
+                          ),
+                    )
+                    : Image.asset(
+                      userProvider.currentUser?.profileImage ??
+                          'assets/images/other/avatar.webp',
+                      cacheWidth: 250,
+                      fit: BoxFit.cover,
+                    ),
+          ),
+          SizedBox(width: 10.0), // Replaced spacing with SizedBox
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Hello ${userProvider.currentUser?.firstName ?? 'User'}",
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              Text(
+                "Welcome to Wawu-Merch",
+                style: TextStyle(fontSize: 11, color: wawuColors.buttonPrimary),
+              ),
+            ],
+          ),
+        ],
+      ),
+      Text("Settings"),
+    ];
+  }
 
   // Define the CustomNavItems for WawuMerchMain
   final List<CustomNavItem> _merchNavItems = [
@@ -64,7 +96,7 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
   List<Widget> _getAppBarActions() {
     switch (_selectedIndex) {
       case 0: // WawuMerchHome: Search and Notifications
-        return [_buildSearchButton(), _buildNotificationsButton()];
+        return [];
       case 1: // MerchSettingsScreen: No actions
         return [];
       default:
@@ -72,25 +104,25 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
     }
   }
 
-  Widget _buildSearchButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: wawuColors.primary.withAlpha(30),
-        shape: BoxShape.circle,
-      ),
-      margin: EdgeInsets.only(right: 10),
-      height: 36,
-      width: 36,
-      child: IconButton(
-        icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
-        onPressed: () {
-          setState(() {
-            _isSearchOpen = !_isSearchOpen;
-          });
-        },
-      ),
-    );
-  }
+  // Widget _buildSearchButton() {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: wawuColors.primary.withAlpha(30),
+  //       shape: BoxShape.circle,
+  //     ),
+  //     margin: EdgeInsets.only(right: 10),
+  //     height: 36,
+  //     width: 36,
+  //     child: IconButton(
+  //       icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
+  //       onPressed: () {
+  //         setState(() {
+  //           _isSearchOpen = !_isSearchOpen;
+  //         });
+  //       },
+  //     ),
+  //   );
+  // }
 
   /// Smoothly Animated Search Bar
   Widget _buildInPageSearchBar() {
@@ -134,32 +166,34 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
     );
   }
 
-  Widget _buildNotificationsButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: wawuColors.purpleDarkestContainer,
-        shape: BoxShape.circle,
-      ),
-      margin: EdgeInsets.only(right: 10),
-      height: 36,
-      width: 36,
-      child: IconButton(
-        icon: Icon(Icons.notifications, size: 17, color: Colors.white),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => Notifications()),
-          );
-        },
-      ),
-    );
-  }
+  // Widget _buildNotificationsButton() {
+  //   return Container(
+  //     decoration: BoxDecoration(
+  //       color: wawuColors.purpleDarkestContainer,
+  //       shape: BoxShape.circle,
+  //     ),
+  //     margin: EdgeInsets.only(right: 10),
+  //     height: 36,
+  //     width: 36,
+  //     child: IconButton(
+  //       icon: Icon(Icons.notifications, size: 17, color: Colors.white),
+  //       onPressed: () {
+  //         Navigator.push(
+  //           context,
+  //           MaterialPageRoute(builder: (context) => Notifications()),
+  //         );
+  //       },
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
+    final titles = _getTitles(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: _titles[_selectedIndex],
+        title: titles[_selectedIndex],
         automaticallyImplyLeading: false,
         actions: _getAppBarActions(),
       ),
@@ -173,7 +207,6 @@ class _WawuMerchMainState extends State<WawuMerchMain> {
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
         selectedIndex: _selectedIndex,
-        // Removed isStyleTwo, now passing the specific items list
         items: _merchNavItems,
         onItemTapped: _onItemTapped,
       ),

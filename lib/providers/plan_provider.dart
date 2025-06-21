@@ -1,7 +1,8 @@
 import '../models/plan.dart';
 import '../models/subscription.dart';
 import '../services/api_service.dart';
-import 'base_provider.dart';
+import 'package:wawu_mobile/providers/base_provider.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 
 class PlanProvider extends BaseProvider {
   final ApiService _apiService;
@@ -101,19 +102,24 @@ class PlanProvider extends BaseProvider {
         final statusCode = response['statusCode'];
 
         if (statusCode == 200) {
-          // On success, the subscription object is in the 'data' field.
-          if (response != null &&
-              response['data'] != null &&
-              response['data']['subscription'] != null) {
-            _subscription = Subscription.fromJson(
-              response['data']['subscription'] as Map<String, dynamic>,
-            );
+          // On success, the subscription object is directly in the 'data' field.
+          if (response['data'] != null) {
+            // Check if the data contains subscription information
+            final dataMap = response['data'] as Map<String, dynamic>;
+
+            // The subscription data is directly in the 'data' field, not nested under 'subscription'
+            _subscription = Subscription.fromJson(dataMap);
+
             print(
               'handlePaymentCallback: Subscription created successfully: ${_subscription!.uuid}',
             );
             setSuccess();
+            // Mark the next onboarding step after successful payment
+            await OnboardingStateService.saveStep('disclaimer');
           } else {
-            setError(response?['message'] ?? 'Failed to fetch subscription details.');
+            setError(
+              response['message'] ?? 'Failed to fetch subscription details.',
+            );
           }
         } else {
           // Handle failure cases (e.g., statusCode 400 or others).

@@ -30,31 +30,57 @@ class BlogPost {
   });
 
   factory BlogPost.fromJson(Map<String, dynamic> json) {
-    return BlogPost(
-      uuid: json['uuid'] as String,
-      title: json['title'] as String,
-      content: json['content'] as String,
-      page: json['page'] as String,
-      category: json['category'] as String,
-      status: json['status'] as String,
-      user: BlogUser.fromJson(json['user'] as Map<String, dynamic>),
-      coverImage: BlogImage.fromJson(
-        json['coverImage'] as Map<String, dynamic>,
-      ),
-      likes: (json['likes'] as num?)?.toInt() ?? 0,
-      likers:
-          (json['likers'] as List<dynamic>?)
-              ?.map((e) => BlogLiker.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      comments:
-          (json['comments'] as List<dynamic>?)
-              ?.map((e) => BlogComment.fromJson(e as Map<String, dynamic>, ''))
-              .toList() ??
-          [],
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
-    );
+    // Defensive parsing and error logging
+    try {
+      if (json['user'] is! Map<String, dynamic>) {
+        print('[BlogPost.fromJson] ERROR: user field is not a Map. Value: \\${json['user']}');
+        throw Exception('Expected user to be Map<String, dynamic>, got: \\${json['user'].runtimeType}');
+      }
+      if (json['coverImage'] is! Map<String, dynamic>) {
+        print('[BlogPost.fromJson] ERROR: coverImage field is not a Map. Value: \\${json['coverImage']}');
+        throw Exception('Expected coverImage to be Map<String, dynamic>, got: \\${json['coverImage'].runtimeType}');
+      }
+      if (json['comments'] != null && json['comments'] is! List) {
+        print('[BlogPost.fromJson] ERROR: comments field is not a List. Value: \\${json['comments']}');
+        throw Exception('Expected comments to be List, got: \\${json['comments'].runtimeType}');
+      }
+      if (json['likers'] != null && json['likers'] is! List) {
+        print('[BlogPost.fromJson] ERROR: likers field is not a List. Value: \\${json['likers']}');
+        throw Exception('Expected likers to be List, got: \\${json['likers'].runtimeType}');
+      }
+      return BlogPost(
+        uuid: json['uuid'] as String,
+        title: json['title'] as String,
+        content: json['content'] as String,
+        page: json['page'] as String,
+        category: json['category'] as String,
+        status: json['status'] as String,
+        user: BlogUser.fromJson(json['user'] as Map<String, dynamic>),
+        coverImage: BlogImage.fromJson(
+          json['coverImage'] as Map<String, dynamic>,
+        ),
+        likes: (json['likes'] as num?)?.toInt() ?? 0,
+        likers: () {
+          final likersRaw = json['likers'];
+          if (likersRaw is List) {
+            return likersRaw.map((e) => BlogLiker.fromJson(e)).where((liker) => liker.uuid.isNotEmpty).toList();
+          }
+          return <BlogLiker>[];
+        }(),
+        comments: () {
+          final commentsRaw = json['comments'];
+          if (commentsRaw is List) {
+            return commentsRaw.map((e) => BlogComment.fromJson(e as Map<String, dynamic>, '')).toList();
+          }
+          return <BlogComment>[];
+        }(),
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
+    } catch (e, stack) {
+      print('[BlogPost.fromJson] Parsing error: $e\nStack: $stack\nInput: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -135,12 +161,20 @@ class BlogUser {
   });
 
   factory BlogUser.fromJson(Map<String, dynamic> json) {
+    String? profilePicture;
+    if (json['profilePicture'] != null) {
+      if (json['profilePicture'] is String) {
+        profilePicture = json['profilePicture'];
+      } else if (json['profilePicture'] is Map<String, dynamic>) {
+        profilePicture = json['profilePicture']['link'] as String?;
+      }
+    }
     return BlogUser(
       uuid: json['uuid'],
       firstName: json['firstName'],
       lastName: json['lastName'],
       email: json['email'],
-      profilePicture: json['profilePicture'],
+      profilePicture: profilePicture,
     );
   }
 
@@ -186,13 +220,30 @@ class BlogLiker {
     this.profilePicture,
   });
 
-  factory BlogLiker.fromJson(Map<String, dynamic> json) {
-    return BlogLiker(
-      name: json['name'] as String,
-      uuid: json['uuid'] as String,
-      email: json['email'] as String,
-      profilePicture: json['profilePicture'],
-    );
+  factory BlogLiker.fromJson(dynamic json) {
+    if (json is Map<String, dynamic>) {
+      String? profilePicture;
+      if (json['profilePicture'] != null) {
+        if (json['profilePicture'] is String) {
+          profilePicture = json['profilePicture'];
+        } else if (json['profilePicture'] is Map<String, dynamic>) {
+          profilePicture = json['profilePicture']['link'] as String?;
+        }
+      }
+      return BlogLiker(
+        name: json['name'] as String? ?? '',
+        uuid: json['uuid'] as String? ?? '',
+        email: json['email'] as String? ?? '',
+        profilePicture: profilePicture,
+      );
+    } else if (json is String) {
+      // If backend returns just a user ID string
+      print('[BlogLiker.fromJson] WARNING: Got String instead of Map. Value: $json');
+      return BlogLiker(name: '', uuid: json, email: '', profilePicture: null);
+    } else {
+      print('[BlogLiker.fromJson] ERROR: Unexpected type: ${json.runtimeType}, value: $json');
+      return BlogLiker(name: '', uuid: '', email: '', profilePicture: null);
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -228,31 +279,41 @@ class BlogComment {
     Map<String, dynamic> json,
     String currentUserId,
   ) {
-    final likers =
-        (json['likers'] as List<dynamic>?)
-            ?.map((e) => BlogLiker.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
-    return BlogComment(
-      id: json['id'] as int,
-      content: json['content'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      commentedBy: BlogUser.fromJson(
-        json['commentedBy'] as Map<String, dynamic>,
-      ),
-      isLiked: likers.any((liker) => liker.uuid == currentUserId),
-      likers: likers,
-      subComments:
-          (json['subComments'] as List<dynamic>?)
-              ?.map(
-                (e) => BlogComment.fromJson(
-                  e as Map<String, dynamic>,
-                  currentUserId,
-                ),
-              )
-              .toList() ??
-          [],
-    );
+    try {
+      // Defensive: likers can be null, missing, or a list
+      final likersRaw = json['likers'];
+      List<BlogLiker> likers = [];
+      if (likersRaw is List) {
+        likers = likersRaw.map((e) => BlogLiker.fromJson(e)).where((l) => l.uuid.isNotEmpty).toList();
+      }
+
+      // Defensive: subComments can be null, missing, or a list
+      final subCommentsRaw = json['subComments'];
+      List<BlogComment> subComments = [];
+      if (subCommentsRaw is List) {
+        subComments = subCommentsRaw.map((e) => BlogComment.fromJson(e as Map<String, dynamic>, currentUserId)).toList();
+      }
+
+      // isLiked may be provided by backend, otherwise fallback to likers
+      bool isLiked = false;
+      if (json['isLiked'] != null) {
+        isLiked = json['isLiked'] is bool ? json['isLiked'] : false;
+      } else {
+        isLiked = likers.any((liker) => liker.uuid == currentUserId);
+      }
+      return BlogComment(
+        id: json['id'] as int,
+        content: json['content'] as String,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        commentedBy: BlogUser.fromJson(json['commentedBy'] as Map<String, dynamic>),
+        isLiked: isLiked,
+        likers: likers,
+        subComments: subComments,
+      );
+    } catch (e, stack) {
+      print('[BlogComment.fromJson] Parsing error: $e\nStack: $stack\nInput: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {

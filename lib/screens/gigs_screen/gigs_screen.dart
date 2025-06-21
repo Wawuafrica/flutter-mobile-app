@@ -82,15 +82,17 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    _loadGigs();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadGigs();
+    });
   }
 
   Future<void> _loadGigs() async {
     if (_isInitialLoad) setState(() => _isInitialLoad = true);
-    
+
     final gigProvider = Provider.of<GigProvider>(context, listen: false);
     await gigProvider.fetchGigs(status: widget.status);
-    
+
     if (mounted) {
       setState(() {
         _isInitialLoad = false;
@@ -101,7 +103,7 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
 
   Future<void> _onRefresh() async {
     if (_isRefreshing) return;
-    
+
     setState(() => _isRefreshing = true);
     await _loadGigs();
   }
@@ -114,7 +116,7 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
       builder: (context, provider, child) {
         final gigs = provider.gigsForStatus(widget.status);
         final bool isLoading = provider.isLoading && _isInitialLoad;
-        
+
         // Show loading indicator on initial load
         if (isLoading && gigs.isEmpty) {
           return const Center(
@@ -177,7 +179,9 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        wawuColors.primary,
+                      ),
                     ),
                   ),
                 ),

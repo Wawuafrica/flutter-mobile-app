@@ -100,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Error loading ads: ${adProvider.errorMessage}',
+                              'Error loading ads',
                               textAlign: TextAlign.center,
                             ),
                             TextButton(
@@ -276,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: EdgeInsets.symmetric(vertical: 16.0),
                         child: Text(
                           'No recently viewed gigs',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       );
                     }

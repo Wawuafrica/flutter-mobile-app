@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wawu_mobile/models/plan.dart' as plan_model;
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/base_provider.dart';
 import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/account_payment/payment_webview.dart';
+import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
+import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
+import 'package:wawu_mobile/widgets/payment/payment_success_dialog.dart';
+import 'package:wawu_mobile/widgets/payment/payment_error_dialog.dart';
 // import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 
 class AccountPayment extends StatefulWidget {
@@ -26,8 +32,27 @@ class _AccountPaymentState extends State<AccountPayment> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _calculateTotal();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await OnboardingStateService.saveStep('payment');
+      final planProvider = Provider.of<PlanProvider>(context, listen: false);
+      // --- Onboarding Plan Restore Logic ---
+      if (planProvider.selectedPlan == null) {
+        final planJson = await OnboardingStateService.getPlan();
+        if (planJson != null) {
+          try {
+            final plan = plan_model.Plan.fromJson(planJson);
+            planProvider.selectPlan(plan);
+            _calculateTotal();
+          } catch (e) {
+            // ignore restore error
+            _calculateTotal();
+          }
+        } else {
+          _calculateTotal();
+        }
+      } else {
+        _calculateTotal();
+      }
     });
   }
 
@@ -86,6 +111,8 @@ class _AccountPaymentState extends State<AccountPayment> {
       Navigator.pop(context);
 
       if (planProvider.paymentLink != null) {
+        // Persist onboarding step as 'payment_processing'
+        await OnboardingStateService.saveStep('payment_processing');
         // Navigate to payment webview
         final paymentResult = await Navigator.push<Map<String, String>>(
           context,
@@ -114,6 +141,8 @@ class _AccountPaymentState extends State<AccountPayment> {
   }
 
   Future<void> _handlePaymentResult(Map<String, String> result) async {
+    // Persist onboarding step as 'verify_payment'
+    await OnboardingStateService.saveStep('verify_payment');
     // The full redirect URL is now passed in the 'redirectUrl' key.
     final String? redirectUrl = result['redirectUrl'];
 
@@ -152,47 +181,29 @@ class _AccountPaymentState extends State<AccountPayment> {
     }
   }
 
-  void _showSuccessDialog() {
+  void _showSuccessDialog() async {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    showDialog(
+    final result = await showDialog(
       context: context,
       barrierDismissible: false,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Payment Successful!'),
-            content: Text(
-              'Your ${planProvider.selectedPlan?.name ?? 'subscription'} has been activated successfully.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const Disclaimer()),
-                    (Route<dynamic> route) => false,
-                  );
-                },
-                child: const Text('Continue'),
-              ),
-            ],
-          ),
+          (context) =>
+              PaymentSuccessDialog(planName: planProvider.selectedPlan?.name),
     );
+    if (result == true) {
+      await OnboardingStateService.setComplete();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => Disclaimer()),
+        (Route<dynamic> route) => false,
+      );
+    }
   }
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Payment Error'),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
+      builder: (context) => PaymentErrorDialog(errorMessage: message),
     );
   }
 
@@ -209,22 +220,44 @@ class _AccountPaymentState extends State<AccountPayment> {
         final selectedPlan = planProvider.selectedPlan;
 
         if (selectedPlan == null) {
+          // Fallback UI if no plan is selected or restored
           return Scaffold(
             appBar: AppBar(title: const Text('Payment')),
-            body: const Center(
+            body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
+                  const Icon(Icons.error_outline, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text(
                     'No plan selected',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'Please go back and select a subscription plan',
                     style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  // Fallback button to select a plan
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: CustomButton(
+                      widget: const Text(
+                        'Select a Plan',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      color: wawuColors.primary,
+                      function: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (context) => Plan()),
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -233,7 +266,39 @@ class _AccountPaymentState extends State<AccountPayment> {
         }
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Payment')),
+          appBar: AppBar(
+            title: const Text(
+              'Payment',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            actions: [
+              OnboardingProgressIndicator(
+                currentStep: 'payment',
+                steps: const [
+                  'account_type',
+                  'category_selection',
+                  'subcategory_selection',
+                  'profile_update',
+                  'plan',
+                  'payment',
+                  'payment_processing',
+                  'verify_payment',
+                  'disclaimer',
+                ],
+                stepLabels: const {
+                  'account_type': 'Account',
+                  'category_selection': 'Category',
+                  'subcategory_selection': 'Subcategory',
+                  'profile_update': 'Profile',
+                  'plan': 'Plan',
+                  'payment': 'Payment',
+                  'payment_processing': 'Processing',
+                  'verify_payment': 'Verify',
+                  'disclaimer': 'Disclaimer',
+                },
+              ),
+            ],
+          ),
           body: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 20.0,
