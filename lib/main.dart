@@ -231,9 +231,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
-  List<ConnectivityResult> _connectionStatus = [ConnectivityResult.none];
-
   // Track initialization state to prevent splash screen from showing again
   bool _isInitialized = false;
   Widget? _currentScreen;
@@ -243,12 +240,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _logger.d('MyApp: Initializing connectivity monitoring...');
-    _initConnectivity();
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
-      _updateConnectionStatus,
-    );
-    
+    _logger.d('MyApp: App state initialized');
+
     // Initialize the app and determine the initial screen
     _initializeApp();
   }
@@ -257,12 +250,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     try {
       // Show splash for minimum duration
       await Future.delayed(const Duration(milliseconds: 2000));
-      
+
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUser = authService.currentUser;
-      
+
       Widget initialScreen;
-      
+
       if (!authService.isAuthenticated ||
           currentUser == null ||
           currentUser.uuid.isEmpty) {
@@ -273,10 +266,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       } else {
         final userRole = currentUser.role?.toUpperCase();
         final onboardingComplete = await OnboardingStateService.isComplete();
-        
+
         if (!onboardingComplete) {
           final onboardingStep = await OnboardingStateService.getStep();
-          
+
           if (onboardingStep == null) {
             _logger.i(
               'MyApp: Onboarding step is null, treating as new onboarding.',
@@ -337,7 +330,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           initialScreen = const WawuMerchMain();
         }
       }
-      
+
       setState(() {
         _currentScreen = initialScreen;
         _isInitialized = true;
@@ -351,80 +344,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _initConnectivity() async {
-    late List<ConnectivityResult> result;
-    try {
-      result = await Connectivity().checkConnectivity();
-      _logger.d('MyApp: Initial connectivity check result: $result');
-    } catch (e) {
-      _logger.e('MyApp: Could not check connectivity: $e');
-      result = [ConnectivityResult.none];
-    }
+  void _handleNetworkReconnection() {
+    if (!_isInitialized || _hasShownReconnectNotification) return;
 
-    if (!mounted) {
-      _logger.w('MyApp: _initConnectivity called but widget is not mounted.');
-      return;
-    }
+    _hasShownReconnectNotification = true;
 
-    return _updateConnectionStatus(result);
-  }
-
-  Future<void> _updateConnectionStatus(List<ConnectivityResult> result) async {
-    final bool hadConnection =
-        !_connectionStatus.contains(ConnectivityResult.none);
-    final bool hasConnectionNow = !result.contains(ConnectivityResult.none);
-
-    setState(() {
-      _connectionStatus = result;
+    // Reset the flag after a delay to allow future notifications
+    Timer(const Duration(seconds: 5), () {
+      _hasShownReconnectNotification = false;
     });
 
-    _logger.d(
-      'MyApp: Connectivity status updated. Current: $_connectionStatus',
-    );
-
-    // Only handle reconnection logic if app is initialized and we actually reconnected
-    if (_isInitialized && !hadConnection && hasConnectionNow && !_hasShownReconnectNotification) {
-      _hasShownReconnectNotification = true;
-      
-      // Reset the flag after a delay to allow future notifications
-      Timer(const Duration(seconds: 5), () {
-        _hasShownReconnectNotification = false;
-      });
-      
-      _logger.i(
-        'MyApp: Network just became available. Attempting to re-engage services...',
-      );
-      
-      if (widget.pusherService.isInitialized) {
-        _logger.d(
-          'MyApp: PusherService is initialized, calling resubscribeToChannels.',
-        );
-        widget.pusherService.resubscribeToChannels();
-      } else {
-        _logger.w(
-          'MyApp: PusherService is not initialized after network came back. This might indicate an earlier failure.',
-        );
-        try {
-          await widget.pusherService.initialize();
-          _logger.i(
-            'MyApp: PusherService successfully re-initialized after network recovery.',
-          );
-        } catch (e) {
-          _logger.e(
-            'MyApp: Failed to re-initialize PusherService on network recovery: $e',
-          );
-        }
-      }
-      
-      // Refresh data from providers
-      _refreshProvidersData();
-    } else if (hadConnection && !hasConnectionNow) {
-      _logger.w('MyApp: Network just went offline.');
-    }
-  }
-
-  void _refreshProvidersData() {
-    if (!mounted || !_isInitialized) return;
+    _logger.i('MyApp: Network reconnected. Re-engaging services...');
 
     // Show reconnection notification
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -441,7 +371,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
     });
 
-    // Refresh all providers data
+    // Handle Pusher service reconnection
+    if (widget.pusherService.isInitialized) {
+      _logger.d(
+        'MyApp: PusherService is initialized, calling resubscribeToChannels.',
+      );
+      widget.pusherService.resubscribeToChannels();
+    } else {
+      _logger.w(
+        'MyApp: PusherService is not initialized. Attempting to re-initialize.',
+      );
+      widget.pusherService
+          .initialize()
+          .then((_) {
+            _logger.i(
+              'MyApp: PusherService successfully re-initialized after network recovery.',
+            );
+          })
+          .catchError((e) {
+            _logger.e(
+              'MyApp: Failed to re-initialize PusherService on network recovery: $e',
+            );
+          });
+    }
+
+    // Refresh data from providers
     _refreshProvidersSafely();
   }
 
@@ -461,7 +415,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // --- ProductProvider ---
     try {
-      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
       await productProvider.fetchFeaturedProducts();
       await productProvider.fetchProducts(refresh: true);
     } catch (e) {
@@ -470,7 +427,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // --- CategoryProvider ---
     try {
-      final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+      final categoryProvider = Provider.of<CategoryProvider>(
+        context,
+        listen: false,
+      );
       await categoryProvider.fetchCategories();
     } catch (e) {
       _logger.e('Error refreshing CategoryProvider: $e');
@@ -478,7 +438,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // --- MessageProvider ---
     try {
-      final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+      final messageProvider = Provider.of<MessageProvider>(
+        context,
+        listen: false,
+      );
       await messageProvider.fetchConversations();
     } catch (e) {
       _logger.e('Error refreshing MessageProvider: $e');
@@ -505,7 +468,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // --- DropdownDataProvider ---
     try {
-      final dropdownProvider = Provider.of<DropdownDataProvider>(context, listen: false);
+      final dropdownProvider = Provider.of<DropdownDataProvider>(
+        context,
+        listen: false,
+      );
       await dropdownProvider.fetchDropdownData();
     } catch (e) {
       _logger.e('Error refreshing DropdownDataProvider: $e');
@@ -514,10 +480,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    _logger.d(
-      'MyApp: Disposing of connectivity subscription and WidgetsBindingObserver.',
-    );
-    _connectivitySubscription.cancel();
+    _logger.d('MyApp: Disposing of WidgetsBindingObserver.');
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -526,8 +489,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _logger.d('MyApp: App lifecycle state changed to: $state');
     if (state == AppLifecycleState.resumed) {
-      _logger.i('MyApp: App resumed. Re-checking connectivity.');
-      _initConnectivity(); // Re-check connectivity when app resumes
+      _logger.i('MyApp: App resumed. Checking for network changes.');
+      // Let the NetworkStatusProvider handle connectivity checks
     }
   }
 
@@ -546,32 +509,50 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       home: Consumer<NetworkStatusProvider>(
         builder: (context, networkStatus, child) {
+          // Handle reconnection when network comes back online
+          if (networkStatus.hasInitialized && networkStatus.wasOffline) {
+            _logger.d('MyApp: Network status indicates reconnection');
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _handleNetworkReconnection();
+            });
+          }
+
           return Stack(
             children: [
               // Main app content
               _isInitialized && _currentScreen != null
                   ? _currentScreen!
                   : const SplashScreen(),
-              
+
               // Offline indicator
-              if (!networkStatus.isOnline)
+              if (networkStatus.hasInitialized && !networkStatus.isOnline)
                 Positioned(
                   top: 0,
                   left: 0,
                   right: 0,
                   child: Material(
                     color: Colors.red,
+                    elevation: 4,
                     child: SafeArea(
                       child: Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(8),
-                        child: const Text(
-                          'No internet connection',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.wifi_off, color: Colors.white, size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'No internet connection',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

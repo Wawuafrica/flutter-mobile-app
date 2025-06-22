@@ -6,33 +6,68 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 class NetworkStatusProvider extends ChangeNotifier {
   bool _isOnline = true;
   bool _wasOffline = false;
+  bool _hasInitialized = false;
   late final StreamSubscription<List<ConnectivityResult>> _subscription;
 
   bool get isOnline => _isOnline;
   bool get wasOffline => _wasOffline;
+  bool get hasInitialized => _hasInitialized;
 
   NetworkStatusProvider() {
     _init();
   }
 
   void _init() async {
-    final results = await Connectivity().checkConnectivity();
-    _updateStatus(results);
-    _subscription = Connectivity().onConnectivityChanged.listen(_updateStatus);
+    try {
+      // Get initial connectivity status
+      final results = await Connectivity().checkConnectivity();
+      _updateStatus(results, isInitial: true);
+
+      // Listen for connectivity changes
+      _subscription = Connectivity().onConnectivityChanged.listen((results) {
+        _updateStatus(results, isInitial: false);
+      });
+
+      _hasInitialized = true;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('NetworkStatusProvider: Error initializing: $e');
+      _hasInitialized = true;
+      notifyListeners();
+    }
   }
 
-  void _updateStatus(List<ConnectivityResult> results) {
+  void _updateStatus(
+    List<ConnectivityResult> results, {
+    required bool isInitial,
+  }) {
     final online = results.any((r) => r != ConnectivityResult.none);
+
     if (_isOnline != online) {
-      _wasOffline = !_isOnline && online;
+      final wasOnlineBefore = _isOnline;
       _isOnline = online;
-      notifyListeners();
-      // After notifying, reset _wasOffline so it's only true for one frame
-      if (_wasOffline) {
-        Future.delayed(Duration(milliseconds: 100), () {
-          _wasOffline = false;
+
+      // Only set _wasOffline if we're coming back online after being offline
+      // and this is not the initial check
+      if (!isInitial && !wasOnlineBefore && online) {
+        _wasOffline = true;
+        debugPrint(
+          'NetworkStatusProvider: Network reconnected - setting wasOffline to true',
+        );
+
+        // Reset _wasOffline after notifying listeners
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            _wasOffline = false;
+            notifyListeners();
+          });
         });
       }
+
+      debugPrint(
+        'NetworkStatusProvider: Status changed - isOnline: $_isOnline, wasOffline: $_wasOffline',
+      );
+      notifyListeners();
     }
   }
 
