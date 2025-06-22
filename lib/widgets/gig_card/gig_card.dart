@@ -69,8 +69,11 @@ class GigCard extends StatelessWidget {
         height: 120,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.transparent, width: 0.5),
-          color: Colors.white,
+          border: Border.all(
+            color: const Color.fromARGB(255, 216, 216, 216),
+            width: 0.5,
+          ),
+          color: Colors.transparent,
         ),
         child: Padding(
           padding: const EdgeInsets.all(10.0),

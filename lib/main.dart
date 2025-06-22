@@ -228,10 +228,13 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isInitialized = false;
   Widget? _currentScreen;
-  bool _isRefreshingData = false; // Renamed for clarity
-  bool _hasShownReconnectNotification = false;
+  bool _isRefreshingData = false;
   Timer? _reconnectionDebouncer;
-  Timer? _refreshDataDebouncer; // Renamed for clarity
+
+  // Tracks if the "No internet connection" notification is currently shown
+  bool _isOfflineNotificationShown = false;
+  // Tracks if the "You're back online!" notification has been shown recently
+  bool _hasShownReconnectionNotification = false;
 
   @override
   void initState() {
@@ -247,7 +250,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         const Duration(milliseconds: 2000),
       ); // Splash minimum duration
 
-      if (!mounted) return; // Check if widget is still in the tree
+      if (!mounted) return;
 
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUser = authService.currentUser;
@@ -354,9 +357,51 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  void _handleNetworkReconnection() {
+  // --- Network Connection Handling ---
+
+  void _handleNetworkStatusChange(NetworkStatusProvider networkStatus) {
     if (!_isInitialized) return; // Only process after initial app load
 
+    if (!networkStatus.isOnline && _isOfflineNotificationShown == false) {
+      // Show "No internet" if currently online and not already shown
+      setState(() {
+        _isOfflineNotificationShown = true;
+      });
+      _logger.i(
+        'MyApp: Network went offline. Displaying "No internet" banner.',
+      );
+      // Cancel any pending reconnection debouncer if we go offline
+      _reconnectionDebouncer?.cancel();
+      _isRefreshingData = false; // Reset refresh flag
+      _hasShownReconnectionNotification =
+          false; // Allow reconnection notification to show again
+    } else if (networkStatus.isOnline && networkStatus.wasOffline) {
+      // Network reconnected (was offline, now online)
+      _logger.d(
+        'MyApp: Network status indicates reconnection (was offline, now online).',
+      );
+      if (_isOfflineNotificationShown) {
+        setState(() {
+          _isOfflineNotificationShown = false;
+        });
+        _logger.i('MyApp: Network reconnected. Hiding "No internet" banner.');
+      }
+      _handleNetworkReconnection();
+    } else if (networkStatus.isOnline &&
+        !networkStatus.wasOffline &&
+        _isOfflineNotificationShown) {
+      // Case where it comes online but wasn't explicitly "offline" (e.g., initial load was offline)
+      // Hide the banner if it's showing and we're online
+      setState(() {
+        _isOfflineNotificationShown = false;
+      });
+      _logger.i(
+        'MyApp: Network is online. Hiding "No internet" banner if shown.',
+      );
+    }
+  }
+
+  void _handleNetworkReconnection() {
     _reconnectionDebouncer?.cancel(); // Cancel any existing debouncer
 
     _reconnectionDebouncer = Timer(const Duration(seconds: 3), () {
@@ -364,22 +409,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       if (!mounted) return;
 
       if (!_isRefreshingData) {
-        // Prevent multiple refreshes
-        _isRefreshingData =
-            true; // Set flag at the start of reconnection process
+        _isRefreshingData = true;
         _logger.i(
           'MyApp: Network reconnected. Re-engaging services and refreshing data...',
         );
 
         _showReconnectionNotification(); // Show notification
 
-        // Handle services reconnection
         _handlePusherReconnection();
 
-        // Trigger data refresh without blocking the UI
         _refreshProvidersOptimized().whenComplete(() {
           if (mounted) {
-            _isRefreshingData = false; // Reset flag when refresh completes
+            _isRefreshingData = false;
             _logger.i(
               'MyApp: Network reconnection and data refresh process completed.',
             );
@@ -390,11 +431,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _showReconnectionNotification() {
-    if (_hasShownReconnectNotification) return;
+    if (_hasShownReconnectionNotification) return;
 
-    _hasShownReconnectNotification = true;
+    _hasShownReconnectionNotification = true;
 
-    // Show notification using the existing utility
     if (mounted) {
       showNotification(
         "✨ You're back online! Wawu is syncing your world. ✨",
@@ -407,10 +447,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     }
 
-    // Reset notification flag after 5 seconds to allow showing again later if connection drops and recovers
     Timer(const Duration(seconds: 5), () {
       if (mounted) {
-        _hasShownReconnectNotification = false;
+        _hasShownReconnectionNotification = false;
       }
     });
   }
@@ -451,7 +490,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       'MyApp: Starting optimized data refresh after network reconnection',
     );
 
-    // List of refresh functions with their respective timeouts
     final List<Future<void> Function()> refreshTasks = [
       () => _refreshUserProviderSafe(),
       () => _refreshMessageProviderSafe(),
@@ -465,19 +503,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       () => _refreshNotificationProviderSafe(),
     ];
 
-    // Execute refresh tasks sequentially with small delays to prevent UI jank
     for (var task in refreshTasks) {
       if (!mounted) return;
-      await Future.delayed(
-        const Duration(milliseconds: 50),
-      ); // Small delay between tasks
-      await task(); // Await each task to ensure it starts before the next, but handle its internal timeout
+      await Future.delayed(const Duration(milliseconds: 50));
+      await task();
     }
 
     _logger.i('MyApp: Optimized provider refresh completed successfully');
   }
 
-  // Safe refresh methods with proper error handling and timeouts
   Future<void> _refreshUserProviderSafe() async {
     if (!mounted) return;
     try {
@@ -562,8 +596,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         context,
         listen: false,
       );
-      // Using Future.wait here is okay if these two are highly dependent or very fast.
-      // If they are slow, consider making them separate `task()` calls in the main refresh loop.
       await Future.wait([
         productProvider.fetchFeaturedProducts().timeout(
           const Duration(seconds: 10),
@@ -676,7 +708,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _logger.d('MyApp: Disposing of WidgetsBindingObserver.');
     WidgetsBinding.instance.removeObserver(this);
     _reconnectionDebouncer?.cancel();
-    _refreshDataDebouncer?.cancel(); // Cancel the renamed debouncer
     super.dispose();
   }
 
@@ -705,23 +736,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       home: Consumer<NetworkStatusProvider>(
         builder: (context, networkStatus, child) {
-          if (networkStatus.hasInitialized &&
-              networkStatus.wasOffline &&
-              networkStatus.isOnline) {
-            _logger.d(
-              'MyApp: Network status indicates reconnection (was offline, now online).',
-            );
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _handleNetworkReconnection();
-            });
-          }
+          // Trigger network status handling logic
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _handleNetworkStatusChange(networkStatus);
+          });
 
           return Stack(
             children: [
               _isInitialized && _currentScreen != null
                   ? _currentScreen!
                   : const SplashScreen(),
-              if (networkStatus.hasInitialized && !networkStatus.isOnline)
+              // Only show the "No internet connection" banner if it's explicitly marked to be shown
+              if (_isOfflineNotificationShown)
                 Positioned(
                   top: 0,
                   left: 0,
@@ -773,9 +799,10 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/logo2.png', width: 200, cacheWidth: 400),
+            Image.asset('assets/logo2.png', width: 180, cacheWidth: 400),
+            const SizedBox(height: 20),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
               child: SizedBox(
                 width: 300,
                 child: Text(

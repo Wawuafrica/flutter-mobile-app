@@ -5,12 +5,12 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 /// Provides app-wide network status and events for online/offline transitions.
 class NetworkStatusProvider extends ChangeNotifier {
   bool _isOnline = true;
-  bool _wasOffline = false;
+  bool _wasOffline =
+      false; // Tracks if the app was previously offline and is now online
   bool _hasInitialized = false;
-  bool _isInitializing = false;
   late final StreamSubscription<List<ConnectivityResult>> _subscription;
-  Timer? _debounceTimer;
 
+  // Getters
   bool get isOnline => _isOnline;
   bool get wasOffline => _wasOffline;
   bool get hasInitialized => _hasInitialized;
@@ -20,102 +20,64 @@ class NetworkStatusProvider extends ChangeNotifier {
   }
 
   void _init() {
-    if (_isInitializing) return;
-    _isInitializing = true;
+    // No need for _isInitializing flag if we initialize immediately
+    // and rely on _hasInitialized for external checks.
 
-    // Use microtask to prevent blocking the constructor
-    scheduleMicrotask(() async {
-      try {
-        // Get initial connectivity status
-        final results = await Connectivity().checkConnectivity();
-        _updateStatus(results, isInitial: true);
-
-        // Listen for connectivity changes
-        _subscription = Connectivity().onConnectivityChanged.listen((results) {
-          _updateStatus(results, isInitial: false);
+    // Get initial connectivity status
+    Connectivity()
+        .checkConnectivity()
+        .then((results) {
+          _updateStatus(results);
+          _hasInitialized = true;
+          notifyListeners(); // Notify listeners after initial status is set
+        })
+        .catchError((e) {
+          debugPrint(
+            'NetworkStatusProvider: Error checking initial connectivity: $e',
+          );
+          _hasInitialized = true;
+          notifyListeners(); // Still notify even on error to unblock UI if needed
         });
 
-        _hasInitialized = true;
-        _isInitializing = false;
-
-        // Use microtask to prevent blocking
-        scheduleMicrotask(() {
-          if (!_hasDisposed) notifyListeners();
-        });
-      } catch (e) {
-        debugPrint('NetworkStatusProvider: Error initializing: $e');
-        _hasInitialized = true;
-        _isInitializing = false;
-
-        scheduleMicrotask(() {
-          if (!_hasDisposed) notifyListeners();
-        });
-      }
+    // Listen for connectivity changes
+    _subscription = Connectivity().onConnectivityChanged.listen((results) {
+      _updateStatus(results);
     });
+  }
+
+  void _updateStatus(List<ConnectivityResult> results) {
+    if (_hasDisposed) return;
+
+    final bool newOnlineStatus = results.any(
+      (r) => r != ConnectivityResult.none,
+    );
+
+    // Only update and notify if the status has actually changed
+    if (_isOnline != newOnlineStatus) {
+      // If we were offline and are now online, set _wasOffline to true
+      if (!_isOnline && newOnlineStatus) {
+        _wasOffline = true;
+        debugPrint(
+          'NetworkStatusProvider: Network reconnected. Setting _wasOffline to true.',
+        );
+      } else {
+        _wasOffline =
+            false; // Reset _wasOffline if going offline or staying online
+      }
+
+      _isOnline = newOnlineStatus;
+      debugPrint(
+        'NetworkStatusProvider: Status changed - isOnline: $_isOnline, wasOffline: $_wasOffline',
+      );
+      notifyListeners(); // Notify immediately on status change
+    }
   }
 
   bool _hasDisposed = false;
 
-  void _updateStatus(
-    List<ConnectivityResult> results, {
-    required bool isInitial,
-  }) {
-    if (_hasDisposed) return;
-
-    // Debounce rapid connectivity changes
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-      _processStatusUpdate(results, isInitial: isInitial);
-    });
-  }
-
-  void _processStatusUpdate(
-    List<ConnectivityResult> results, {
-    required bool isInitial,
-  }) {
-    if (_hasDisposed) return;
-
-    final online = results.any((r) => r != ConnectivityResult.none);
-
-    if (_isOnline != online) {
-      final wasOnlineBefore = _isOnline;
-      _isOnline = online;
-
-      // Only set _wasOffline if we're coming back online after being offline
-      // and this is not the initial check
-      if (!isInitial && !wasOnlineBefore && online) {
-        _wasOffline = true;
-        debugPrint(
-          'NetworkStatusProvider: Network reconnected - setting wasOffline to true',
-        );
-
-        // Reset _wasOffline after a short delay using microtask
-        Timer(const Duration(seconds: 5), () {
-          // Changed from 3 seconds to 5 seconds
-          if (!_hasDisposed) {
-            _wasOffline = false;
-            scheduleMicrotask(() {
-              if (!_hasDisposed) notifyListeners();
-            });
-          }
-        });
-      }
-
-      debugPrint(
-        'NetworkStatusProvider: Status changed - isOnline: $_isOnline, wasOffline: $_wasOffline',
-      );
-
-      // Use microtask to prevent UI blocking
-      scheduleMicrotask(() {
-        if (!_hasDisposed) notifyListeners();
-      });
-    }
-  }
-
   @override
   void dispose() {
     _hasDisposed = true;
-    _debounceTimer?.cancel();
     _subscription.cancel();
     super.dispose();
   }
