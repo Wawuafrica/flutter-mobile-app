@@ -30,21 +30,8 @@ jobs:
     - name: Get Flutter dependencies
       run: flutter pub get
 
-    - name: Build debug APK
-      run: flutter build apk --debug
-
     - name: Build release APK
       run: flutter build apk --release
-
-    - name: Upload debug APK to release
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: build/app/outputs/flutter-apk/app-debug.apk
-        asset_name: wawu-debug.apk
-        tag: v1.0
-        overwrite: true
-        body: "Android Debug and Release APKs"
 
     - name: Upload release APK to release
       uses: svenstaro/upload-release-action@v2
