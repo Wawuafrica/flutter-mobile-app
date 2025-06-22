@@ -37,13 +37,16 @@ class Wawu extends StatelessWidget {
                       color: const Color.fromARGB(255, 223, 223, 223),
                     ),
                   ),
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 10.0,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'JOIN WAWU',
+                        'JOIN WAWUAfrica',
                         style: TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
@@ -51,19 +54,46 @@ class Wawu extends StatelessWidget {
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 10),
+                      // const SizedBox(height: 10),
                       Expanded(
                         flex: 1,
-                        child: Image.asset('assets/c1.png', width: 150),
+                        child: Stack(
+                          children: [
+                            Image.asset(
+                              'assets/c1.png',
+                              width: 150,
+                              height: 200,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Theme.of(context).colorScheme.surface
+                                          .withValues(alpha: 0),
+                                      Theme.of(context).colorScheme.surface
+                                          .withValues(alpha: 0.8),
+                                      Theme.of(context).colorScheme.surface
+                                          .withValues(alpha: 1),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Text(
                         'You either want GIVE a Wow Experience, or GET a Wow Experience.',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 13,
-                          // fontWeight: FontWeight.w600,
-                        ),
+                        style: TextStyle(color: Colors.black, fontSize: 13),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 10),
@@ -87,17 +117,17 @@ class Wawu extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: wawuColors.primaryBackground,
                     borderRadius: BorderRadius.circular(10),
-                    // border: Border.all(
-                    //   color: const Color.fromARGB(255, 210, 210, 210),
-                    // ),
                   ),
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20.0,
+                    vertical: 10.0,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'WOW MERCH',
+                        'WAWU MERCH',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -108,19 +138,44 @@ class Wawu extends StatelessWidget {
                       const SizedBox(height: 10),
                       Expanded(
                         flex: 1,
-                        child: Image.asset(
-                          'assets/images/onboarding_images/oi2.webp',
-                          width: 150,
+                        child: Stack(
+                          children: [
+                            Image.asset(
+                              'assets/images/onboarding_images/oi2.webp',
+                              width: 150,
+                              height: 200,
+                              fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      wawuColors.primaryBackground.withValues(
+                                        alpha: 0,
+                                      ),
+                                      wawuColors.primaryBackground.withValues(
+                                        alpha: 0.8,
+                                      ),
+                                      wawuColors.primaryBackground,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 10),
                       Text(
                         'Looking and feeling good is empowering',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          // fontWeight: FontWeight.w600,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 13),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 10),

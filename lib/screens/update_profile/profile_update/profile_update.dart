@@ -8,6 +8,7 @@ import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/dropdown_data_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
+import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/countries.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
@@ -879,27 +880,24 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   const SizedBox(height: 40),
                 ],
 
-                // Conditionally display "Means Of Identification" for non-buyers
-                if (!isBuyer) ...[
-                  const CustomIntroText(text: 'Means Of Identification'),
-                  const SizedBox(height: 20),
-                  UploadImage(
-                    labelText: 'Upload Means of ID',
-                    onImageChanged: (xfile) {
-                      setState(() {
-                        _meansOfIdentification = xfile;
-                      });
-                    },
+                const CustomIntroText(text: 'Means Of Identification'),
+                const SizedBox(height: 20),
+                UploadImage(
+                  labelText: 'Upload Means of ID',
+                  onImageChanged: (xfile) {
+                    setState(() {
+                      _meansOfIdentification = xfile;
+                    });
+                  },
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Acceptable proof of address documents',
+                  style: TextStyle(
+                    color: Color.fromARGB(255, 125, 125, 125),
+                    fontSize: 13,
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Acceptable proof of address documents',
-                    style: TextStyle(
-                      color: Color.fromARGB(255, 125, 125, 125),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+                ),
 
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -970,14 +968,25 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       _isSavingProfile
                           ? null
                           : () {
+                            final userProvider = Provider.of<UserProvider>(context, listen: false);
+                            final role = userProvider.currentUser?.role?.toLowerCase();
                             if (!_isDirty) {
                               // Skip: Navigate to the next screen or back
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const Plan(),
-                                ),
-                              );
+                              if (role == 'buyer') {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const Disclaimer(),
+                                  ),
+                                );
+                              } else {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const Plan(),
+                                  ),
+                                );
+                              }
                             } else {
                               // Continue: Save the profile
                               _saveProfile();

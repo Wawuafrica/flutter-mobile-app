@@ -799,7 +799,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: 'Phone Number',
                   hintText: 'Phone Number',
                   labelTextStyle2: true,
-                  readOnly: true,
+                  // readOnly: true,
                 ),
                 const SizedBox(height: 10),
                 CustomTextfield(
@@ -828,19 +828,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: wawuColors.primary,
                 ),
                 const SizedBox(height: 20),
-                const CustomIntroText(text: 'About'),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _aboutController,
-                  maxLength: _maxAboutLength,
-                  maxLines: 5,
-                  decoration: InputDecoration(
-                    hintText: 'Tell us about yourself...',
-                    border: OutlineInputBorder(
+                if (user?.role != 'BUYER') ...[
+                  const CustomIntroText(text: 'About'),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _aboutController,
+                    maxLength: _maxAboutLength,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: 'Tell us about yourself...',
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                ),
-                if (user?.role != 'BUYER') ...[
                   const SizedBox(height: 20),
                   const CustomIntroText(text: 'Skills'),
                   const SizedBox(height: 10),
@@ -928,7 +927,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       const SizedBox(height: 10),
-                      if (_selectedCertification == 'School-Level Qualifications')
+                      if (_selectedCertification ==
+                          'School-Level Qualifications')
                         CustomTextfield(
                           controller: _customInstitutionController,
                           hintText: 'Enter your institution',
@@ -967,8 +967,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         readOnly: true,
                         onTap:
                             () => _selectGraduationDate(
-                          _educationGraduationDateController,
-                        ),
+                              _educationGraduationDateController,
+                            ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Graduation Date is required';
@@ -982,7 +982,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const CustomIntroText(text: 'Professional Certification'),
                   const SizedBox(height: 10),
                   if (user?.additionalInfo?.professionalCertification != null &&
-                      user!.additionalInfo!.professionalCertification!.isNotEmpty)
+                      user!
+                          .additionalInfo!
+                          .professionalCertification!
+                          .isNotEmpty)
                     for (ProfessionalCertification cert
                         in user.additionalInfo!.professionalCertification!)
                       _buildCertificationCard(cert),
@@ -1019,8 +1022,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         readOnly: true,
                         onTap:
                             () => _selectGraduationDate(
-                          _professionalCertificationEndDateController,
-                        ),
+                              _professionalCertificationEndDateController,
+                            ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'End Date is required';
@@ -1168,37 +1171,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-                const CustomIntroText(text: 'Social Handles'),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _facebookController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'Facebook',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _linkedInController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'LinkedIn',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _instagramController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'Instagram',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 20),
-                CustomTextfield(
-                  controller: _twitterController,
-                  hintText: 'Enter your social media handle',
-                  labelText: 'X fka Twitter',
-                  labelTextStyle2: true,
-                ),
-                const SizedBox(height: 40),
-
+                if (user?.role != 'BUYER') ...[
+                  const CustomIntroText(text: 'Social Handles'),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _facebookController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'Facebook',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _linkedInController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'LinkedIn',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _instagramController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'Instagram',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 20),
+                  CustomTextfield(
+                    controller: _twitterController,
+                    hintText: 'Enter your social media handle',
+                    labelText: 'X fka Twitter',
+                    labelTextStyle2: true,
+                  ),
+                  const SizedBox(height: 40),
+                ],
                 CustomButton(
                   widget:
                       userProvider.isLoading

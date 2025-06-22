@@ -193,6 +193,7 @@ class UpdateProfile extends StatelessWidget {
                       color: wawuColors.buttonPrimary,
                       textColor: Colors.white,
                     ),
+                    SizedBox(height: 30),
                   ],
                 );
               },
