@@ -100,8 +100,8 @@ class PlanCard extends StatelessWidget {
                               size: 20,
                               color:
                                   feature['check'] as bool
-                                      ? Colors.green
-                                      : Colors.red,
+                                      ? Colors.black
+                                      : Colors.black,
                             ),
                             const SizedBox(width: 10),
                             Expanded(

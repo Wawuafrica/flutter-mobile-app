@@ -3,15 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'providers/network_status_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
-// import 'package:wawu_mobile/screens/account_type/account_type.dart';
-// import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'dart:async'; // Import for StreamSubscription
-import 'package:logger/logger.dart'; // Import Logger
+import 'dart:async';
+import 'package:logger/logger.dart';
 import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:flutter/foundation.dart'; // Import for compute
 
 // Services
 import 'services/api_service.dart';
@@ -29,8 +27,9 @@ import 'providers/dropdown_data_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/user_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 // Import your new screens
-import 'package:wawu_mobile/screens/main_screen/main_screen.dart'; // Assuming this path
+import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/widgets/in_app_notifications.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/account_type/account_type.dart';
@@ -55,10 +54,12 @@ final _logger = Logger(
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
     await SharedPreferences.getInstance(); // Initialize SharedPreferences
   } catch (e) {
     debugPrint('Error initializing SharedPreferences: $e');
+    _logger.e('Main: Error initializing SharedPreferences: $e');
   }
 
   _logger.i('Main: App startup initiated.');
@@ -71,7 +72,6 @@ void main() async {
     _logger.e(
       'Main: Error loading .env file: $e. Ensure .env file exists and is accessible.',
     );
-    // Consider showing a fatal error screen here if env vars are critical
     runApp(
       const MaterialApp(
         home: Scaffold(
@@ -83,17 +83,15 @@ void main() async {
         ),
       ),
     );
-    return; // Stop execution
+    return;
   }
 
-  // Instantiate services early
   _logger.d('Main: Instantiating core services...');
   final apiService = ApiService();
   final authService = AuthService(apiService: apiService);
-  final pusherService = PusherService(); // Get the singleton instance
+  final pusherService = PusherService();
 
   try {
-    // Initialize ApiService first as AuthService depends on it
     _logger.d('Main: Initializing ApiService...');
     await apiService.initialize(
       apiBaseUrl:
@@ -102,16 +100,14 @@ void main() async {
     );
     _logger.i('Main: ApiService initialized.');
 
-    // Initialize PusherService early in the app lifecycle
     _logger.d('Main: Initializing PusherService...');
     await pusherService.initialize();
     _logger.i(
       'Main: PusherService initialized successfully and connection attempted.',
     );
 
-    // Initialize AuthService and load user data
     _logger.d('Main: Initializing AuthService and loading user data...');
-    await authService.init(); // Load auth data here
+    await authService.init();
     _logger.i('Main: AuthService initialized and user data loaded.');
 
     _logger.d('Main: Running MyApp with MultiProvider...');
@@ -205,7 +201,6 @@ void main() async {
       error: e,
       stackTrace: st,
     );
-    // Fallback UI if initialization fails
     runApp(
       MaterialApp(
         home: Scaffold(
@@ -231,25 +226,28 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  // Track initialization state to prevent splash screen from showing again
   bool _isInitialized = false;
   Widget? _currentScreen;
+  bool _isRefreshingData = false; // Renamed for clarity
   bool _hasShownReconnectNotification = false;
+  Timer? _reconnectionDebouncer;
+  Timer? _refreshDataDebouncer; // Renamed for clarity
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _logger.d('MyApp: App state initialized');
-
-    // Initialize the app and determine the initial screen
     _initializeApp();
   }
 
   Future<void> _initializeApp() async {
     try {
-      // Show splash for minimum duration
-      await Future.delayed(const Duration(milliseconds: 2000));
+      await Future.delayed(
+        const Duration(milliseconds: 2000),
+      ); // Splash minimum duration
+
+      if (!mounted) return; // Check if widget is still in the tree
 
       final authService = Provider.of<AuthService>(context, listen: false);
       final currentUser = authService.currentUser;
@@ -265,126 +263,168 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         initialScreen = const Wawu();
       } else {
         final userRole = currentUser.role?.toUpperCase();
-        final onboardingComplete = await OnboardingStateService.isComplete();
-
-        // Debug logging to help troubleshoot onboarding state
+        final shouldShowOnboarding =
+            await OnboardingStateService.shouldShowOnboarding();
         final debugState = await OnboardingStateService.getDebugState();
         _logger.i('MyApp: Onboarding debug state: $debugState');
         _logger.i(
-          'MyApp: User role: $userRole, Onboarding complete: $onboardingComplete',
+          'MyApp: User role: $userRole, Should show onboarding: $shouldShowOnboarding',
         );
 
-        if (!onboardingComplete) {
+        if (shouldShowOnboarding) {
           final onboardingStep = await OnboardingStateService.getStep();
+          _logger.i(
+            'MyApp: User onboarding in progress. Step: $onboardingStep',
+          );
 
-          if (onboardingStep == null) {
-            _logger.i(
-              'MyApp: Onboarding step is null, treating as new onboarding.',
-            );
-            initialScreen = const AccountType();
-          } else {
-            switch (onboardingStep) {
-              case 'account_type':
-                initialScreen = const AccountType();
-                break;
-              case 'category_selection':
-                initialScreen = const CategorySelection();
-                break;
-              case 'subcategory_selection':
-                final categoryId = await OnboardingStateService.getCategory();
-                if (categoryId != null && categoryId.isNotEmpty) {
-                  initialScreen = SubCategorySelection(categoryId: categoryId);
-                } else {
-                  initialScreen = const AccountType();
-                }
-                break;
-              case 'update_profile':
-                initialScreen = const UpdateProfile();
-                break;
-              case 'profile_update':
-                initialScreen = const ProfileUpdate();
-                break;
-              case 'plan':
-                initialScreen = const Plan();
-                break;
-              case 'payment':
-              case 'payment_processing':
-              case 'verify_payment':
-                initialScreen = AccountPayment(userId: currentUser.uuid);
-                break;
-              case 'disclaimer':
-                initialScreen = const Disclaimer();
-                break;
-              default:
-                _logger.w('MyApp: Unknown onboarding step: $onboardingStep');
-                initialScreen = const AccountType();
-            }
-            _logger.i(
-              'MyApp: User onboarding in progress. Step: $onboardingStep',
-            );
+          switch (onboardingStep) {
+            case 'otp':
+            case 'account_type':
+              initialScreen = const AccountType();
+              break;
+            case 'category_selection':
+              initialScreen = const CategorySelection();
+              break;
+            case 'subcategory_selection':
+              final categoryId = await OnboardingStateService.getCategory();
+              initialScreen =
+                  (categoryId != null && categoryId.isNotEmpty)
+                      ? SubCategorySelection(categoryId: categoryId)
+                      : const AccountType(); // Fallback
+              break;
+            case 'update_profile':
+              initialScreen = const UpdateProfile();
+              break;
+            case 'profile_update':
+              initialScreen = const ProfileUpdate();
+              break;
+            case 'plan':
+              initialScreen = const Plan();
+              break;
+            case 'payment':
+            case 'payment_processing':
+            case 'verify_payment':
+              initialScreen = AccountPayment(userId: currentUser.uuid);
+              break;
+            case 'disclaimer':
+              initialScreen = const Disclaimer();
+              break;
+            default:
+              _logger.w(
+                'MyApp: Unknown onboarding step: $onboardingStep. Defaulting to AccountType.',
+              );
+              initialScreen = const AccountType();
           }
-        } else if (userRole == 'SELLER' ||
-            userRole == 'BUYER' ||
-            userRole == 'PROFESSIONAL' ||
-            userRole == 'ARTISAN') {
-          _logger.i(
-            'MyApp: User is authenticated with role $userRole. Navigating to MainScreen.',
-          );
-          initialScreen = const MainScreen();
         } else {
-          _logger.i(
-            'MyApp: User is authenticated with role $userRole. Navigating to WawuEcommerce.',
-          );
-          initialScreen = const WawuMerchMain();
+          if (userRole == 'SELLER' ||
+              userRole == 'BUYER' ||
+              userRole == 'PROFESSIONAL' ||
+              userRole == 'ARTISAN') {
+            _logger.i(
+              'MyApp: User authenticated with role $userRole. Navigating to MainScreen.',
+            );
+            initialScreen = const MainScreen();
+          } else {
+            _logger.i(
+              'MyApp: User authenticated with role $userRole. Navigating to WawuMerchMain.',
+            );
+            initialScreen = const WawuMerchMain();
+          }
         }
       }
 
-      setState(() {
-        _currentScreen = initialScreen;
-        _isInitialized = true;
-      });
-    } catch (e) {
-      _logger.e('MyApp: Error during app initialization: $e');
-      setState(() {
-        _currentScreen = const Wawu();
-        _isInitialized = true;
-      });
+      if (mounted) {
+        setState(() {
+          _currentScreen = initialScreen;
+          _isInitialized = true;
+        });
+      }
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error during app initialization. Showing Wawu screen as fallback.',
+        error: e,
+        stackTrace: st,
+      );
+      if (mounted) {
+        setState(() {
+          _currentScreen = const Wawu();
+          _isInitialized = true;
+        });
+      }
     }
   }
 
   void _handleNetworkReconnection() {
-    if (!_isInitialized || _hasShownReconnectNotification) return;
+    if (!_isInitialized) return; // Only process after initial app load
+
+    _reconnectionDebouncer?.cancel(); // Cancel any existing debouncer
+
+    _reconnectionDebouncer = Timer(const Duration(seconds: 3), () {
+      // Debounce for 3 seconds to ensure stable connection
+      if (!mounted) return;
+
+      if (!_isRefreshingData) {
+        // Prevent multiple refreshes
+        _isRefreshingData =
+            true; // Set flag at the start of reconnection process
+        _logger.i(
+          'MyApp: Network reconnected. Re-engaging services and refreshing data...',
+        );
+
+        _showReconnectionNotification(); // Show notification
+
+        // Handle services reconnection
+        _handlePusherReconnection();
+
+        // Trigger data refresh without blocking the UI
+        _refreshProvidersOptimized().whenComplete(() {
+          if (mounted) {
+            _isRefreshingData = false; // Reset flag when refresh completes
+            _logger.i(
+              'MyApp: Network reconnection and data refresh process completed.',
+            );
+          }
+        });
+      }
+    });
+  }
+
+  void _showReconnectionNotification() {
+    if (_hasShownReconnectNotification) return;
 
     _hasShownReconnectNotification = true;
 
-    // Reset the flag after a delay to allow future notifications
+    // Show notification using the existing utility
+    if (mounted) {
+      showNotification(
+        "✨ You're back online! Wawu is syncing your world. ✨",
+        context,
+        backgroundColor: Colors.green,
+        textStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      );
+    }
+
+    // Reset notification flag after 5 seconds to allow showing again later if connection drops and recovers
     Timer(const Duration(seconds: 5), () {
-      _hasShownReconnectNotification = false;
-    });
-
-    _logger.i('MyApp: Network reconnected. Re-engaging services...');
-
-    // Show reconnection notification
-    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        showNotification(
-          "✨ You're back online! Wawu is syncing your world. ✨",
-          context,
-          backgroundColor: wawuColors.primary,
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        );
+        _hasShownReconnectNotification = false;
       }
     });
+  }
 
-    // Handle Pusher service reconnection
+  void _handlePusherReconnection() {
     if (widget.pusherService.isInitialized) {
       _logger.d(
         'MyApp: PusherService is initialized, calling resubscribeToChannels.',
       );
-      widget.pusherService.resubscribeToChannels();
+      try {
+        widget.pusherService.resubscribeToChannels();
+      } catch (e) {
+        _logger.e('MyApp: Error resubscribing to Pusher channels: $e');
+      }
     } else {
       _logger.w(
         'MyApp: PusherService is not initialized. Attempting to re-initialize.',
@@ -402,87 +442,232 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             );
           });
     }
-
-    // Refresh data from providers
-    _refreshProvidersSafely();
   }
 
-  Future<void> _refreshProvidersSafely() async {
+  Future<void> _refreshProvidersOptimized() async {
     if (!mounted) return;
 
-    // --- BlogProvider ---
+    _logger.i(
+      'MyApp: Starting optimized data refresh after network reconnection',
+    );
+
+    // List of refresh functions with their respective timeouts
+    final List<Future<void> Function()> refreshTasks = [
+      () => _refreshUserProviderSafe(),
+      () => _refreshMessageProviderSafe(),
+      () => _refreshCategoryProviderSafe(),
+      () => _refreshBlogProviderSafe(),
+      () => _refreshProductProviderSafe(),
+      () => _refreshPlanProviderSafe(),
+      () => _refreshDropdownProviderSafe(),
+      () => _refreshGigProviderSafe(),
+      () => _refreshAdProviderSafe(),
+      () => _refreshNotificationProviderSafe(),
+    ];
+
+    // Execute refresh tasks sequentially with small delays to prevent UI jank
+    for (var task in refreshTasks) {
+      if (!mounted) return;
+      await Future.delayed(
+        const Duration(milliseconds: 50),
+      ); // Small delay between tasks
+      await task(); // Await each task to ensure it starts before the next, but handle its internal timeout
+    }
+
+    _logger.i('MyApp: Optimized provider refresh completed successfully');
+  }
+
+  // Safe refresh methods with proper error handling and timeouts
+  Future<void> _refreshUserProviderSafe() async {
+    if (!mounted) return;
     try {
-      final blogProvider = Provider.of<BlogProvider>(context, listen: false);
-      if (blogProvider.selectedPost != null) {
-        await blogProvider.fetchPostById(blogProvider.selectedPost!.uuid);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final currentUser = userProvider.currentUser;
+      if (currentUser != null && currentUser.uuid.isNotEmpty) {
+        await userProvider
+            .fetchUserById(currentUser.uuid)
+            .timeout(const Duration(seconds: 10));
+        _logger.d('MyApp: UserProvider refreshed successfully');
       }
-      await blogProvider.fetchPosts(refresh: true);
-    } catch (e) {
-      _logger.e('Error refreshing BlogProvider: $e');
-    }
-
-    // --- ProductProvider ---
-    try {
-      final productProvider = Provider.of<ProductProvider>(
-        context,
-        listen: false,
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing UserProvider: $e',
+        error: e,
+        stackTrace: st,
       );
-      await productProvider.fetchFeaturedProducts();
-      await productProvider.fetchProducts(refresh: true);
-    } catch (e) {
-      _logger.e('Error refreshing ProductProvider: $e');
     }
+  }
 
-    // --- CategoryProvider ---
-    try {
-      final categoryProvider = Provider.of<CategoryProvider>(
-        context,
-        listen: false,
-      );
-      await categoryProvider.fetchCategories();
-    } catch (e) {
-      _logger.e('Error refreshing CategoryProvider: $e');
-    }
-
-    // --- MessageProvider ---
+  Future<void> _refreshMessageProviderSafe() async {
+    if (!mounted) return;
     try {
       final messageProvider = Provider.of<MessageProvider>(
         context,
         listen: false,
       );
-      await messageProvider.fetchConversations();
-    } catch (e) {
-      _logger.e('Error refreshing MessageProvider: $e');
+      await messageProvider.fetchConversations().timeout(
+        const Duration(seconds: 15),
+      );
+      _logger.d('MyApp: MessageProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing MessageProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
     }
+  }
 
-    // --- UserProvider ---
+  Future<void> _refreshCategoryProviderSafe() async {
+    if (!mounted) return;
     try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final currentUser = userProvider.currentUser;
-      if (currentUser != null && currentUser.uuid.isNotEmpty) {
-        await userProvider.fetchUserById(currentUser.uuid);
-      }
-    } catch (e) {
-      _logger.e('Error refreshing UserProvider: $e');
+      final categoryProvider = Provider.of<CategoryProvider>(
+        context,
+        listen: false,
+      );
+      await categoryProvider.fetchCategories().timeout(
+        const Duration(seconds: 10),
+      );
+      _logger.d('MyApp: CategoryProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing CategoryProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
     }
+  }
 
-    // --- PlanProvider ---
+  Future<void> _refreshBlogProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final blogProvider = Provider.of<BlogProvider>(context, listen: false);
+      await blogProvider
+          .fetchPosts(refresh: true)
+          .timeout(const Duration(seconds: 15));
+      _logger.d('MyApp: BlogProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing BlogProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _refreshProductProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final productProvider = Provider.of<ProductProvider>(
+        context,
+        listen: false,
+      );
+      // Using Future.wait here is okay if these two are highly dependent or very fast.
+      // If they are slow, consider making them separate `task()` calls in the main refresh loop.
+      await Future.wait([
+        productProvider.fetchFeaturedProducts().timeout(
+          const Duration(seconds: 10),
+        ),
+        productProvider
+            .fetchProducts(refresh: true)
+            .timeout(const Duration(seconds: 15)),
+      ], eagerError: false);
+      _logger.d('MyApp: ProductProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing ProductProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _refreshPlanProviderSafe() async {
+    if (!mounted) return;
     try {
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
-      await planProvider.fetchAllPlans();
-    } catch (e) {
-      _logger.e('Error refreshing PlanProvider: $e');
+      await planProvider.fetchAllPlans().timeout(const Duration(seconds: 10));
+      _logger.d('MyApp: PlanProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing PlanProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
     }
+  }
 
-    // --- DropdownDataProvider ---
+  Future<void> _refreshDropdownProviderSafe() async {
+    if (!mounted) return;
     try {
       final dropdownProvider = Provider.of<DropdownDataProvider>(
         context,
         listen: false,
       );
-      await dropdownProvider.fetchDropdownData();
-    } catch (e) {
-      _logger.e('Error refreshing DropdownDataProvider: $e');
+      await dropdownProvider.fetchDropdownData().timeout(
+        const Duration(seconds: 10),
+      );
+      _logger.d('MyApp: DropdownDataProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing DropdownDataProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _refreshGigProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final gigProvider = Provider.of<GigProvider>(context, listen: false);
+      await gigProvider.fetchGigs().timeout(const Duration(seconds: 15));
+      _logger.d('MyApp: GigProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing GigProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _refreshAdProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final adProvider = Provider.of<AdProvider>(context, listen: false);
+      await adProvider.refresh().timeout(const Duration(seconds: 10));
+      _logger.d('MyApp: AdProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing AdProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _refreshNotificationProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final notificationProvider = Provider.of<NotificationProvider>(
+        context,
+        listen: false,
+      );
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final currentUser = userProvider.currentUser;
+      if (currentUser != null && currentUser.uuid.isNotEmpty) {
+        await notificationProvider.refreshNotifications().timeout(
+          const Duration(seconds: 10),
+        );
+        _logger.d('MyApp: NotificationProvider refreshed successfully');
+      }
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing NotificationProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -490,6 +675,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     _logger.d('MyApp: Disposing of WidgetsBindingObserver.');
     WidgetsBinding.instance.removeObserver(this);
+    _reconnectionDebouncer?.cancel();
+    _refreshDataDebouncer?.cancel(); // Cancel the renamed debouncer
     super.dispose();
   }
 
@@ -497,8 +684,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _logger.d('MyApp: App lifecycle state changed to: $state');
     if (state == AppLifecycleState.resumed) {
-      _logger.i('MyApp: App resumed. Checking for network changes.');
-      // Let the NetworkStatusProvider handle connectivity checks
+      _logger.i('MyApp: App resumed.');
+      // The NetworkStatusProvider will automatically handle connectivity checks
+      // and trigger the reconnection logic via the Consumer if needed.
     }
   }
 
@@ -517,9 +705,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       home: Consumer<NetworkStatusProvider>(
         builder: (context, networkStatus, child) {
-          // Handle reconnection when network comes back online
-          if (networkStatus.hasInitialized && networkStatus.wasOffline) {
-            _logger.d('MyApp: Network status indicates reconnection');
+          if (networkStatus.hasInitialized &&
+              networkStatus.wasOffline &&
+              networkStatus.isOnline) {
+            _logger.d(
+              'MyApp: Network status indicates reconnection (was offline, now online).',
+            );
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _handleNetworkReconnection();
             });
@@ -527,12 +718,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
           return Stack(
             children: [
-              // Main app content
               _isInitialized && _currentScreen != null
                   ? _currentScreen!
                   : const SplashScreen(),
-
-              // Offline indicator
               if (networkStatus.hasInitialized && !networkStatus.isOnline)
                 Positioned(
                   top: 0,
@@ -548,12 +736,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                           vertical: 12,
                           horizontal: 16,
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(Icons.wifi_off, color: Colors.white, size: 20),
-                            const SizedBox(width: 8),
-                            const Text(
+                            SizedBox(width: 8),
+                            Text(
                               'No internet connection',
                               style: TextStyle(
                                 color: Colors.white,
@@ -574,29 +762,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 }
 
-// Your custom SplashScreen widget
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: wawuColors.white, // Or any color you prefer
+      backgroundColor: wawuColors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Translate the image down by 80-100 pixels (40-50% of typical screen center)
             Transform.translate(
-              offset: const Offset(0, 10), // Adjust this value as needed
+              offset: const Offset(0, 10),
               child: Image.asset(
-                'assets/logo2.png', // Replace with your actual logo path
+                'assets/logo2.png',
                 width: 200,
-                cacheWidth: 800,
-                height: 200,
+                cacheWidth: 400,
               ),
             ),
-            // const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: SizedBox(

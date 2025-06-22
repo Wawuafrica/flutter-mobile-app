@@ -10,13 +10,32 @@ class OnboardingKeys {
   static const String onboardingCategory = 'onboarding_category';
   static const String onboardingSubCategory = 'onboarding_subcategory';
   static const String onboardingPlan = 'onboarding_plan';
+  static const String onboardingInitiated = 'onboarding_initiated';
 }
 
 /// Service for managing onboarding progress persistence
 class OnboardingStateService {
+  /// Check if onboarding has been initiated by the user
+  static Future<bool> isOnboardingInitiated() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(OnboardingKeys.onboardingInitiated) ?? false;
+  }
+
+  /// Mark onboarding as initiated (call this when user starts onboarding)
+  static Future<void> setOnboardingInitiated() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(OnboardingKeys.onboardingInitiated, true);
+  }
+
   /// Save the current onboarding step (e.g., as an int or string)
   static Future<void> saveStep(dynamic step) async {
     final prefs = await SharedPreferences.getInstance();
+
+    // Mark onboarding as initiated when first step is saved
+    if (!await isOnboardingInitiated()) {
+      await setOnboardingInitiated();
+    }
+
     if (step is int) {
       await prefs.setInt(OnboardingKeys.onboardingStep, step);
     } else if (step is String) {
@@ -62,13 +81,15 @@ class OnboardingStateService {
     return prefs.getString(OnboardingKeys.onboardingSubCategory);
   }
 
-  /// Mark onboarding as complete
+  /// Mark onboarding as complete and clear all temporary data
   static Future<void> setComplete() async {
     final prefs = await SharedPreferences.getInstance();
-    // ONLY set the completion flag to true - DO NOT clear it
+
+    // Set completion flag to true
     await prefs.setBool(OnboardingKeys.onboardingComplete, true);
 
-    // Clear temporary onboarding progress keys but KEEP onboardingComplete
+    // Clear ALL onboarding related data including the initiated flag
+    await prefs.remove(OnboardingKeys.onboardingInitiated);
     await prefs.remove(OnboardingKeys.onboardingStep);
     await prefs.remove(OnboardingKeys.onboardingRole);
     await prefs.remove(OnboardingKeys.onboardingCategory);
@@ -79,9 +100,20 @@ class OnboardingStateService {
   /// Check if onboarding is complete
   static Future<bool> isComplete() async {
     final prefs = await SharedPreferences.getInstance();
-    final isComplete =
-        prefs.getBool(OnboardingKeys.onboardingComplete) ?? false;
-    return isComplete;
+    return prefs.getBool(OnboardingKeys.onboardingComplete) ?? false;
+  }
+
+  /// Check if user should go through onboarding
+  /// Returns true only if:
+  /// 1. Onboarding has been initiated by user
+  /// 2. Onboarding is not complete
+  /// 3. There's a current step saved
+  static Future<bool> shouldShowOnboarding() async {
+    final isInitiated = await isOnboardingInitiated();
+    final onboardingComplete = await isComplete();
+    final currentStep = await getStep();
+
+    return isInitiated && !onboardingComplete && currentStep != null;
   }
 
   /// Clear onboarding state (for testing or logout)
@@ -93,6 +125,7 @@ class OnboardingStateService {
     await prefs.remove(OnboardingKeys.onboardingCategory);
     await prefs.remove(OnboardingKeys.onboardingSubCategory);
     await prefs.remove(OnboardingKeys.onboardingPlan);
+    await prefs.remove(OnboardingKeys.onboardingInitiated);
   }
 
   /// Reset onboarding (for cases where user needs to go through onboarding again)
@@ -104,6 +137,7 @@ class OnboardingStateService {
     await prefs.remove(OnboardingKeys.onboardingCategory);
     await prefs.remove(OnboardingKeys.onboardingSubCategory);
     await prefs.remove(OnboardingKeys.onboardingPlan);
+    await prefs.remove(OnboardingKeys.onboardingInitiated);
   }
 
   /// Save the selected plan as JSON string
@@ -137,11 +171,13 @@ class OnboardingStateService {
     final prefs = await SharedPreferences.getInstance();
     return {
       'isComplete': prefs.getBool(OnboardingKeys.onboardingComplete) ?? false,
+      'isInitiated': prefs.getBool(OnboardingKeys.onboardingInitiated) ?? false,
       'step': prefs.get(OnboardingKeys.onboardingStep),
       'role': prefs.getString(OnboardingKeys.onboardingRole),
       'category': prefs.getString(OnboardingKeys.onboardingCategory),
       'subCategory': prefs.getString(OnboardingKeys.onboardingSubCategory),
       'hasPlan': prefs.getString(OnboardingKeys.onboardingPlan) != null,
+      'shouldShowOnboarding': await shouldShowOnboarding(),
     };
   }
 }
