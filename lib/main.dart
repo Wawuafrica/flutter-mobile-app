@@ -773,14 +773,7 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Transform.translate(
-              offset: const Offset(0, 10),
-              child: Image.asset(
-                'assets/logo2.png',
-                width: 200,
-                cacheWidth: 400,
-              ),
-            ),
+            Image.asset('assets/logo2.png', width: 200, cacheWidth: 400),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: SizedBox(
