@@ -9,7 +9,7 @@ import 'dart:async';
 import 'package:logger/logger.dart';
 import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-import 'package:flutter/foundation.dart'; // Import for compute
+// import 'package:flutter/foundation.dart'; // Import for compute
 
 // Services
 import 'services/api_service.dart';
