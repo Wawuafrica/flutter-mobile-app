@@ -592,7 +592,7 @@ class SplashScreen extends StatelessWidget {
               child: Image.asset(
                 'assets/logo2.png', // Replace with your actual logo path
                 width: 200,
-                cacheWidth: 500,
+                cacheWidth: 800,
                 height: 200,
               ),
             ),
@@ -612,10 +612,6 @@ class SplashScreen extends StatelessWidget {
             const Text(
               'Matthew 11:28 MSG',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            const SizedBox(height: 30),
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
             ),
           ],
         ),
