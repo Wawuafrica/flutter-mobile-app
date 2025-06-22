@@ -216,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  height: 200,
+                  height: 180,
                   child:
                       productProvider.isLoading
                           ? Center(child: CircularProgressIndicator())
@@ -275,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return const Padding(
                         padding: EdgeInsets.symmetric(vertical: 16.0),
                         child: Text(
-                          'No recently viewed gigs',
+                          'No recently viewed gigs yet',
                           style: TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       );

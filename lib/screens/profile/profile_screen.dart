@@ -1090,49 +1090,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
                 if (user?.additionalInfo?.meansOfIdentification?.file?.link !=
                     null)
-                  Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Means of Identification',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            'Document: ${user!.additionalInfo!.meansOfIdentification!.file!.link}',
-                          ),
-                          const SizedBox(height: 10),
-                          // Display existing means of identification image if available
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            height: 100,
-                            width: 100,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(5),
-                              image: DecorationImage(
-                                image: NetworkImage(
-                                  user
-                                      .additionalInfo!
-                                      .meansOfIdentification!
-                                      .file!
-                                      .link!,
-                                ),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
+                  SizedBox()
                 else
                   UploadImage(
                     labelText: 'Upload Means of ID',

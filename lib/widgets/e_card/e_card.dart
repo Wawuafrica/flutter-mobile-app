@@ -28,7 +28,7 @@ class ECard extends StatelessWidget {
       },
       child: Container(
         width: isMargin ? 140 : double.infinity,
-        height: 170,
+        height: 150,
         margin: EdgeInsets.only(right: isMargin ? 10.0 : 0.0),
         child: Column(
           spacing: 5.0,
@@ -44,12 +44,12 @@ class ECard extends StatelessWidget {
                     product.primaryImageUrl.isNotEmpty
                         ? Image.network(
                           product.primaryImageUrl,
-                          height: 160,
+                          height: 150,
                           width: isMargin ? 140 : double.infinity,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
-                              height: 160,
+                              height: 150,
                               width: isMargin ? 140 : double.infinity,
                               color: Colors.grey[200],
                               child: Icon(
@@ -62,7 +62,7 @@ class ECard extends StatelessWidget {
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
                             return Container(
-                              height: 160,
+                              height: 150,
                               width: isMargin ? 140 : double.infinity,
                               color: Colors.grey[200],
                               child: Center(
@@ -80,7 +80,7 @@ class ECard extends StatelessWidget {
                           },
                         )
                         : Container(
-                          height: 160,
+                          height: 150,
                           width: isMargin ? 140 : double.infinity,
                           color: Colors.grey[200],
                           child: Icon(
@@ -102,7 +102,7 @@ class ECard extends StatelessWidget {
                       child: Text(
                         '${product.currency}${product.getDiscountedPrice().toStringAsFixed(2)}',
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -113,7 +113,7 @@ class ECard extends StatelessWidget {
                         child: Text(
                           '${product.currency}${product.price.toStringAsFixed(2)}',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w300,
                             decoration: TextDecoration.lineThrough,
                           ),

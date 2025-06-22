@@ -183,7 +183,13 @@ class _PlanState extends State<Plan> {
                                       plan.features
                                           ?.map(
                                             (feature) => {
-                                              'check': feature.value == 'yes',
+                                              'check':
+                                                  feature.value == 'yes' ||
+                                                  (double.tryParse(
+                                                        feature.value
+                                                            .toString(),
+                                                      ) !=
+                                                      null),
                                               'text':
                                                   feature.description ??
                                                   feature.name,

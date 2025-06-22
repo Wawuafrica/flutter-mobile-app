@@ -52,7 +52,11 @@ class Disclaimer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
-                child: Image.asset('assets/images/other/book.webp'),
+                child: Image.asset(
+                  'assets/images/other/book.webp',
+                  // width: 200,
+                  cacheWidth: 500,
+                ),
               ),
             ),
             SizedBox(height: 30),
