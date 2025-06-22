@@ -50,7 +50,7 @@ class SellerProfileScreen extends StatelessWidget {
               height: 120,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFF9333EA),
+                color: wawuColors.primary,
                 image:
                     user?.coverImage != null && user!.coverImage!.isNotEmpty
                         ? DecorationImage(
@@ -124,7 +124,7 @@ class SellerProfileScreen extends StatelessWidget {
                           width: 16,
                           height: 16,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF9333EA),
+                            color: wawuColors.primary,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -133,11 +133,12 @@ class SellerProfileScreen extends StatelessWidget {
                             size: 12,
                           ),
                         ),
+                        const SizedBox(width: 4),
                         const Text(
                           'Verified Seller',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Color(0xFF9333EA),
+                            color: wawuColors.primary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -195,7 +196,7 @@ class SellerProfileScreen extends StatelessWidget {
                                 ),
                                 child: _buildSocialIcon(
                                   icon,
-                                  const Color(0xFF9333EA),
+                                  wawuColors.primary,
                                 ),
                               );
                             }).toList(),
@@ -437,7 +438,7 @@ class SellerProfileScreen extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6B46C1), Color(0xFF9333EA)],
+          colors: [Color(0xFF6B46C1), wawuColors.primary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -551,7 +552,7 @@ class BuyerProfileScreen extends StatelessWidget {
               height: 120,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFF9333EA),
+                color: wawuColors.primary,
                 image:
                     user?.coverImage != null && user!.coverImage!.isNotEmpty
                         ? DecorationImage(
@@ -635,6 +636,7 @@ class BuyerProfileScreen extends StatelessWidget {
                             size: 12,
                           ),
                         ),
+                        const SizedBox(width: 4),
                         const Text(
                           'Verified Buyer',
                           style: TextStyle(
@@ -648,61 +650,61 @@ class BuyerProfileScreen extends StatelessWidget {
                     ),
                   const SizedBox(height: 12),
                   // Star Rating
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (index) {
-                      // Assuming a rating field in user model; otherwise, this can be adjusted
-                      final rating =
-                          user?.profileCompletionRate != null
-                              ? (user!.profileCompletionRate! / 20).floor()
-                              : 4;
-                      return Icon(
-                        index < rating ? Icons.star : Icons.star_border,
-                        color: wawuColors.primary,
-                        size: 20,
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 16),
-                  // Social Media Icons
-                  if (user?.additionalInfo?.socialHandles != null &&
-                      user!.additionalInfo!.socialHandles!.isNotEmpty)
-                    Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children:
-                            user.additionalInfo!.socialHandles!.entries.map((
-                              entry,
-                            ) {
-                              IconData icon;
-                              switch (entry.key.toLowerCase()) {
-                                case 'twitter':
-                                  icon = FontAwesomeIcons.twitter;
-                                  break;
-                                case 'facebook':
-                                  icon = FontAwesomeIcons.facebook;
-                                  break;
-                                case 'linkedin':
-                                  icon = FontAwesomeIcons.linkedin;
-                                  break;
-                                case 'instagram':
-                                  icon = FontAwesomeIcons.instagram;
-                                  break;
-                                default:
-                                  icon = FontAwesomeIcons.link;
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                ),
-                                child: _buildSocialIcon(
-                                  icon,
-                                  const Color(0xFF9333EA),
-                                ),
-                              );
-                            }).toList(),
-                      ),
-                    ),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.center,
+                  //   children: List.generate(5, (index) {
+                  //     // Assuming a rating field in user model; otherwise, this can be adjusted
+                  //     final rating =
+                  //         user?.profileCompletionRate != null
+                  //             ? (user!.profileCompletionRate! / 20).floor()
+                  //             : 4;
+                  //     return Icon(
+                  //       index < rating ? Icons.star : Icons.star_border,
+                  //       color: wawuColors.primary,
+                  //       size: 20,
+                  //     );
+                  //   }),
+                  // ),
+                  // const SizedBox(height: 16),
+                  // // Social Media Icons
+                  // if (user?.additionalInfo?.socialHandles != null &&
+                  //     user!.additionalInfo!.socialHandles!.isNotEmpty)
+                  //   Center(
+                  //     child: Row(
+                  //       mainAxisAlignment: MainAxisAlignment.center,
+                  //       children:
+                  //           user.additionalInfo!.socialHandles!.entries.map((
+                  //             entry,
+                  //           ) {
+                  //             IconData icon;
+                  //             switch (entry.key.toLowerCase()) {
+                  //               case 'twitter':
+                  //                 icon = FontAwesomeIcons.twitter;
+                  //                 break;
+                  //               case 'facebook':
+                  //                 icon = FontAwesomeIcons.facebook;
+                  //                 break;
+                  //               case 'linkedin':
+                  //                 icon = FontAwesomeIcons.linkedin;
+                  //                 break;
+                  //               case 'instagram':
+                  //                 icon = FontAwesomeIcons.instagram;
+                  //                 break;
+                  //               default:
+                  //                 icon = FontAwesomeIcons.link;
+                  //             }
+                  //             return Padding(
+                  //               padding: const EdgeInsets.symmetric(
+                  //                 horizontal: 6,
+                  //               ),
+                  //               child: _buildSocialIcon(
+                  //                 icon,
+                  //                 const wawuColors.primary,
+                  //               ),
+                  //             );
+                  //           }).toList(),
+                  //     ),
+                  //   ),
                 ],
               ),
             ),
@@ -806,14 +808,14 @@ class BuyerProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSocialIcon(IconData icon, Color color) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      child: Center(child: FaIcon(icon, color: Colors.white, size: 20)),
-    );
-  }
+  // Widget _buildSocialIcon(IconData icon, Color color) {
+  //   return Container(
+  //     width: 40,
+  //     height: 40,
+  //     decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  //     child: Center(child: FaIcon(icon, color: Colors.white, size: 20)),
+  //   );
+  // }
 
   Widget _buildContactField(String label, String value) {
     return Column(

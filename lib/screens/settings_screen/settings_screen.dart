@@ -20,6 +20,7 @@ import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -477,6 +478,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   // Clear states of providers that have a clearAll or reset method
                   userProvider.logout();
+                  // Clear onboarding state on logout to avoid onboarding bugs
+                  await OnboardingStateService.clear();
                   adProvider.reset();
                   blogProvider.refresh();
                   categoryProvider.clearSelectedCategory();

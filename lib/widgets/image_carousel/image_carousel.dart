@@ -17,7 +17,7 @@ final List<Map<String, String>> carouselItems = [
   },
   {
     'image': 'assets/images/onboarding_images/oi2.webp',
-    'text': 'Get started now!',
+    'text': 'Get started with Wawu',
   },
 ];
 
@@ -47,14 +47,21 @@ class _ImageTextCarouselState extends State<ImageTextCarousel> {
                           left: 0,
                           right: 0,
                           child: Container(
-                            height: 60,
+                            height: 100,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  Theme.of(context).colorScheme.background.withOpacity(0.2),
-                                  Theme.of(context).colorScheme.background.withOpacity(0.8),
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.surface.withValues(alpha: 0),
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.surface.withValues(alpha: 0.8),
+                                  Theme.of(
+                                    context,
+                                  ).colorScheme.surface.withValues(alpha: 1),
                                 ],
                               ),
                             ),

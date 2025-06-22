@@ -31,6 +31,7 @@ import 'providers/user_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // Import your new screens
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart'; // Assuming this path
+import 'package:wawu_mobile/widgets/in_app_notifications.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/account_type/account_type.dart';
 import 'package:wawu_mobile/screens/category_selection/category_selection.dart';
@@ -233,8 +234,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   List<ConnectivityResult> _connectionStatus = [ConnectivityResult.none];
 
-  // Future that completes when all initial data is loaded
-  late Future<void> _initialization;
+  // Track initialization state to prevent splash screen from showing again
+  bool _isInitialized = false;
+  Widget? _currentScreen;
+  bool _hasShownReconnectNotification = false;
 
   @override
   void initState() {
@@ -245,27 +248,107 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       _updateConnectionStatus,
     );
-
-    // Initialize the future that will determine the initial screen
-    _initialization = _initializeAppDependencies();
+    
+    // Initialize the app and determine the initial screen
+    _initializeApp();
   }
 
-  Future<void> _initializeAppDependencies() async {
-    // We already initialized services in main(), so here we just
-    // ensure `AuthService.currentUser` is fully populated.
-    // If you had other long-running setup tasks specific to UI here, you'd add them.
-    // For now, we mainly rely on what's done in main().
-    // You can add a small delay here if you want the splash screen to show for a minimum duration.
-    await Future.delayed(
-      const Duration(milliseconds: 5000),
-    ); // Minimum 5 seconds splash
-
-    // You might want to refresh user data here if it's crucial for the initial render
-    // For example, if userProvider's currentUser isn't yet fully synchronized with what's
-    // needed for the role check, you could do:
-    // await Provider.of<UserProvider>(context, listen: false).fetchCurrentUser();
-    // However, since AuthService.init() was already called in main(), currentUser
-    // should be available from authService.
+  Future<void> _initializeApp() async {
+    try {
+      // Show splash for minimum duration
+      await Future.delayed(const Duration(milliseconds: 2000));
+      
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUser = authService.currentUser;
+      
+      Widget initialScreen;
+      
+      if (!authService.isAuthenticated ||
+          currentUser == null ||
+          currentUser.uuid.isEmpty) {
+        _logger.i(
+          'MyApp: User not authenticated or missing UUID. Showing Wawu screen.',
+        );
+        initialScreen = const Wawu();
+      } else {
+        final userRole = currentUser.role?.toUpperCase();
+        final onboardingComplete = await OnboardingStateService.isComplete();
+        
+        if (!onboardingComplete) {
+          final onboardingStep = await OnboardingStateService.getStep();
+          
+          if (onboardingStep == null) {
+            _logger.i(
+              'MyApp: Onboarding step is null, treating as new onboarding.',
+            );
+            initialScreen = const AccountType();
+          } else {
+            switch (onboardingStep) {
+              case 'account_type':
+                initialScreen = const AccountType();
+                break;
+              case 'category_selection':
+                initialScreen = const CategorySelection();
+                break;
+              case 'subcategory_selection':
+                final categoryId = await OnboardingStateService.getCategory();
+                if (categoryId != null && categoryId.isNotEmpty) {
+                  initialScreen = SubCategorySelection(categoryId: categoryId);
+                } else {
+                  initialScreen = const AccountType();
+                }
+                break;
+              case 'update_profile':
+                initialScreen = const UpdateProfile();
+                break;
+              case 'profile_update':
+                initialScreen = const ProfileUpdate();
+                break;
+              case 'plan':
+                initialScreen = const Plan();
+                break;
+              case 'payment':
+              case 'payment_processing':
+              case 'verify_payment':
+                initialScreen = AccountPayment(userId: currentUser.uuid);
+                break;
+              case 'disclaimer':
+                initialScreen = const Disclaimer();
+                break;
+              default:
+                initialScreen = const AccountType();
+            }
+            _logger.i(
+              'MyApp: User onboarding in progress. Step: $onboardingStep',
+            );
+          }
+        } else if (userRole == 'SELLER' ||
+            userRole == 'BUYER' ||
+            userRole == 'PROFESSIONAL' ||
+            userRole == 'ARTISAN') {
+          _logger.i(
+            'MyApp: User is authenticated with role $userRole. Navigating to MainScreen.',
+          );
+          initialScreen = const MainScreen();
+        } else {
+          _logger.i(
+            'MyApp: User is authenticated with role $userRole. Navigating to WawuEcommerce.',
+          );
+          initialScreen = const WawuMerchMain();
+        }
+      }
+      
+      setState(() {
+        _currentScreen = initialScreen;
+        _isInitialized = true;
+      });
+    } catch (e) {
+      _logger.e('MyApp: Error during app initialization: $e');
+      setState(() {
+        _currentScreen = const Wawu();
+        _isInitialized = true;
+      });
+    }
   }
 
   Future<void> _initConnectivity() async {
@@ -299,10 +382,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       'MyApp: Connectivity status updated. Current: $_connectionStatus',
     );
 
-    if (!hadConnection && hasConnectionNow) {
+    // Only handle reconnection logic if app is initialized and we actually reconnected
+    if (_isInitialized && !hadConnection && hasConnectionNow && !_hasShownReconnectNotification) {
+      _hasShownReconnectNotification = true;
+      
+      // Reset the flag after a delay to allow future notifications
+      Timer(const Duration(seconds: 5), () {
+        _hasShownReconnectNotification = false;
+      });
+      
       _logger.i(
         'MyApp: Network just became available. Attempting to re-engage services...',
       );
+      
       if (widget.pusherService.isInitialized) {
         _logger.d(
           'MyApp: PusherService is initialized, calling resubscribeToChannels.',
@@ -323,8 +415,100 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           );
         }
       }
+      
+      // Refresh data from providers
+      _refreshProvidersData();
     } else if (hadConnection && !hasConnectionNow) {
       _logger.w('MyApp: Network just went offline.');
+    }
+  }
+
+  void _refreshProvidersData() {
+    if (!mounted || !_isInitialized) return;
+
+    // Show reconnection notification
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        showNotification(
+          "✨ You're back online! Wawu is syncing your world. ✨",
+          context,
+          backgroundColor: wawuColors.primary,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        );
+      }
+    });
+
+    // Refresh all providers data
+    _refreshProvidersSafely();
+  }
+
+  Future<void> _refreshProvidersSafely() async {
+    if (!mounted) return;
+
+    // --- BlogProvider ---
+    try {
+      final blogProvider = Provider.of<BlogProvider>(context, listen: false);
+      if (blogProvider.selectedPost != null) {
+        await blogProvider.fetchPostById(blogProvider.selectedPost!.uuid);
+      }
+      await blogProvider.fetchPosts(refresh: true);
+    } catch (e) {
+      _logger.e('Error refreshing BlogProvider: $e');
+    }
+
+    // --- ProductProvider ---
+    try {
+      final productProvider = Provider.of<ProductProvider>(context, listen: false);
+      await productProvider.fetchFeaturedProducts();
+      await productProvider.fetchProducts(refresh: true);
+    } catch (e) {
+      _logger.e('Error refreshing ProductProvider: $e');
+    }
+
+    // --- CategoryProvider ---
+    try {
+      final categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
+      await categoryProvider.fetchCategories();
+    } catch (e) {
+      _logger.e('Error refreshing CategoryProvider: $e');
+    }
+
+    // --- MessageProvider ---
+    try {
+      final messageProvider = Provider.of<MessageProvider>(context, listen: false);
+      await messageProvider.fetchConversations();
+    } catch (e) {
+      _logger.e('Error refreshing MessageProvider: $e');
+    }
+
+    // --- UserProvider ---
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final currentUser = userProvider.currentUser;
+      if (currentUser != null && currentUser.uuid.isNotEmpty) {
+        await userProvider.fetchUserById(currentUser.uuid);
+      }
+    } catch (e) {
+      _logger.e('Error refreshing UserProvider: $e');
+    }
+
+    // --- PlanProvider ---
+    try {
+      final planProvider = Provider.of<PlanProvider>(context, listen: false);
+      await planProvider.fetchAllPlans();
+    } catch (e) {
+      _logger.e('Error refreshing PlanProvider: $e');
+    }
+
+    // --- DropdownDataProvider ---
+    try {
+      final dropdownProvider = Provider.of<DropdownDataProvider>(context, listen: false);
+      await dropdownProvider.fetchDropdownData();
+    } catch (e) {
+      _logger.e('Error refreshing DropdownDataProvider: $e');
     }
   }
 
@@ -362,197 +546,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       home: Consumer<NetworkStatusProvider>(
         builder: (context, networkStatus, child) {
-          WidgetsBinding.instance.addPostFrameCallback((_) async {
-            if (networkStatus.wasOffline && networkStatus.isOnline) {
-              final messenger = ScaffoldMessenger.maybeOf(context);
-              if (messenger != null) {
-                messenger.clearSnackBars();
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: const Text('Connection restored!'),
-                    backgroundColor: wawuColors.primary,
-                    duration: const Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              }
-
-              // --- BlogProvider ---
-              try {
-                final blogProvider = Provider.of<BlogProvider>(
-                  context,
-                  listen: false,
-                );
-                if (blogProvider.selectedPost != null) {
-                  await blogProvider.fetchPostById(
-                    blogProvider.selectedPost!.uuid,
-                  );
-                }
-                await blogProvider.fetchPosts(refresh: true);
-              } catch (_) {}
-
-              // --- ProductProvider ---
-              try {
-                final productProvider = Provider.of<ProductProvider>(
-                  context,
-                  listen: false,
-                );
-                await productProvider.fetchFeaturedProducts();
-                await productProvider.fetchProducts(refresh: true);
-              } catch (_) {}
-
-              // --- CategoryProvider ---
-              try {
-                final categoryProvider = Provider.of<CategoryProvider>(
-                  context,
-                  listen: false,
-                );
-                await categoryProvider.fetchCategories();
-              } catch (_) {}
-
-              // --- MessageProvider ---
-              try {
-                final messageProvider = Provider.of<MessageProvider>(
-                  context,
-                  listen: false,
-                );
-                await messageProvider.fetchConversations();
-              } catch (_) {}
-
-              // --- UserProvider ---
-              try {
-                final userProvider = Provider.of<UserProvider>(
-                  context,
-                  listen: false,
-                );
-                final currentUser = userProvider.currentUser;
-                if (currentUser != null && currentUser.uuid.isNotEmpty) {
-                  await userProvider.fetchUserById(currentUser.uuid);
-                }
-              } catch (_) {}
-
-              // --- PlanProvider ---
-              try {
-                final planProvider = Provider.of<PlanProvider>(
-                  context,
-                  listen: false,
-                );
-                await planProvider.fetchAllPlans();
-              } catch (_) {}
-
-              // --- GigProvider ---
-              // try {
-              //   final gigProvider = Provider.of<GigProvider>(
-              //     context,
-              //     listen: false,
-              //   );
-              //   // If you want to refresh by subcategory, you may want to store last used subcategoryId
-              //   // await gigProvider.fetchGigsBySubCategory(lastUsedSubCategoryId);
-              // } catch (_) {}
-
-              // --- DropdownDataProvider ---
-              try {
-                final dropdownProvider = Provider.of<DropdownDataProvider>(
-                  context,
-                  listen: false,
-                );
-                await dropdownProvider.fetchDropdownData();
-              } catch (_) {}
-            }
-          });
           return Stack(
             children: [
-              FutureBuilder<Widget>(
-                future: _initialization.then((_) async {
-                  final authService = Provider.of<AuthService>(
-                    context,
-                    listen: false,
-                  );
-                  final currentUser = authService.currentUser;
-                  if (!authService.isAuthenticated ||
-                      currentUser == null ||
-                      currentUser.uuid.isEmpty) {
-                    _logger.i(
-                      'MyApp: User not authenticated or missing UUID. Showing Wawu screen.',
-                    );
-                    return const Wawu();
-                  } else {
-                    final userRole = currentUser.role?.toUpperCase();
-                    final onboardingComplete =
-                        await OnboardingStateService.isComplete();
-                    if (!onboardingComplete) {
-                      final onboardingStep =
-                          await OnboardingStateService.getStep();
-                      Widget onboardingScreen;
-                      switch (onboardingStep) {
-                        case 'account_type':
-                          onboardingScreen = const AccountType();
-                          break;
-                        case 'category_selection':
-                          onboardingScreen = const CategorySelection();
-                          break;
-                        case 'subcategory_selection':
-                          final categoryId =
-                              await OnboardingStateService.getCategory();
-                          if (categoryId != null && categoryId.isNotEmpty) {
-                            onboardingScreen = SubCategorySelection(
-                              categoryId: categoryId,
-                            );
-                          } else {
-                            onboardingScreen = const AccountType();
-                          }
-                          break;
-                        case 'update_profile':
-                          onboardingScreen = const UpdateProfile();
-                          break;
-                        case 'profile_update':
-                          onboardingScreen = const ProfileUpdate();
-                          break;
-                        case 'plan':
-                          onboardingScreen = const Plan();
-                          break;
-                        case 'payment':
-                        case 'payment_processing':
-                        case 'verify_payment':
-                          onboardingScreen = AccountPayment(
-                            userId: currentUser.uuid,
-                          );
-                          break;
-                        case 'disclaimer':
-                          onboardingScreen = const Disclaimer();
-                          break;
-                        default:
-                          onboardingScreen = const AccountType();
-                      }
-                      _logger.i(
-                        'MyApp: User onboarding in progress. Step: $onboardingStep',
-                      );
-                      return onboardingScreen;
-                    } else if (userRole == 'SELLER' ||
-                        userRole == 'BUYER' ||
-                        userRole == 'PROFESSIONAL' ||
-                        userRole == 'ARTISAN') {
-                      _logger.i(
-                        'MyApp: User is authenticated with role $userRole. Navigating to MainScreen.',
-                      );
-                      return const MainScreen();
-                    } else {
-                      _logger.i(
-                        'MyApp: User is authenticated with role $userRole. Navigating to WawuEcommerce.',
-                      );
-                      return const WawuMerchMain();
-                    }
-                  }
-                }),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.done &&
-                      snapshot.hasData) {
-                    return snapshot.data!;
-                  } else {
-                    return const SplashScreen();
-                  }
-                },
-              ),
+              // Main app content
+              _isInitialized && _currentScreen != null
+                  ? _currentScreen!
+                  : const SplashScreen(),
+              
+              // Offline indicator
               if (!networkStatus.isOnline)
                 Positioned(
                   top: 0,
@@ -596,30 +597,36 @@ class SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // You can replace this with your logo or any other splash content
-            Image.asset(
-              'assets/logo2.png', // Replace with your actual logo path
-              width: 200,
-              cacheWidth: 1100,
-              height: 200,
+            // Translate the image down by 80-100 pixels (40-50% of typical screen center)
+            Transform.translate(
+              offset: const Offset(0, 10), // Adjust this value as needed
+              child: Image.asset(
+                'assets/logo2.png', // Replace with your actual logo path
+                width: 200,
+                cacheWidth: 500,
+                height: 200,
+              ),
             ),
             // const SizedBox(height: 10),
-            SizedBox(
-              width: 300,
-              child: Text(
-                "Are you tired? Worn out? Burned out on getting the world to see you and pay you? Come to me. Get away with me and you'll recover your life. I'll show you how to take a real rest. Walk with me and work with me watch how I do it",
-                style: GoogleFonts.sora(fontSize: 12),
-                textAlign: TextAlign.center,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: SizedBox(
+                width: 300,
+                child: Text(
+                  "Are you tired? Worn out? Burned out on getting the world to see you and pay you? Come to me. Get away with me and you'll recover your life. I'll show you how to take a real rest. Walk with me and work with me watch how I do it",
+                  style: GoogleFonts.sora(fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
             const SizedBox(height: 10),
             const Text(
               'Matthew 11:28 MSG',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 30),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
             ),
           ],
         ),

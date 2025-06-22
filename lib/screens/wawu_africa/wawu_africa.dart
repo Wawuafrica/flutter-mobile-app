@@ -15,7 +15,7 @@ class WawuAfrica extends StatelessWidget {
         children: [
           SizedBox(height: 20),
           Text(
-            'WAWU',
+            'WAWUAfrica',
             style: TextStyle(
               color: Colors.black,
               fontWeight: FontWeight.w900,
