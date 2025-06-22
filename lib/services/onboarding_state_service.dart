@@ -65,18 +65,23 @@ class OnboardingStateService {
   /// Mark onboarding as complete
   static Future<void> setComplete() async {
     final prefs = await SharedPreferences.getInstance();
+    // ONLY set the completion flag to true - DO NOT clear it
     await prefs.setBool(OnboardingKeys.onboardingComplete, true);
-    // Clear all onboarding progress keys except onboardingComplete
+
+    // Clear temporary onboarding progress keys but KEEP onboardingComplete
     await prefs.remove(OnboardingKeys.onboardingStep);
     await prefs.remove(OnboardingKeys.onboardingRole);
     await prefs.remove(OnboardingKeys.onboardingCategory);
     await prefs.remove(OnboardingKeys.onboardingSubCategory);
+    await prefs.remove(OnboardingKeys.onboardingPlan);
   }
 
   /// Check if onboarding is complete
   static Future<bool> isComplete() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(OnboardingKeys.onboardingComplete) ?? false;
+    final isComplete =
+        prefs.getBool(OnboardingKeys.onboardingComplete) ?? false;
+    return isComplete;
   }
 
   /// Clear onboarding state (for testing or logout)
@@ -87,6 +92,18 @@ class OnboardingStateService {
     await prefs.remove(OnboardingKeys.onboardingRole);
     await prefs.remove(OnboardingKeys.onboardingCategory);
     await prefs.remove(OnboardingKeys.onboardingSubCategory);
+    await prefs.remove(OnboardingKeys.onboardingPlan);
+  }
+
+  /// Reset onboarding (for cases where user needs to go through onboarding again)
+  static Future<void> reset() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(OnboardingKeys.onboardingComplete, false);
+    await prefs.remove(OnboardingKeys.onboardingStep);
+    await prefs.remove(OnboardingKeys.onboardingRole);
+    await prefs.remove(OnboardingKeys.onboardingCategory);
+    await prefs.remove(OnboardingKeys.onboardingSubCategory);
+    await prefs.remove(OnboardingKeys.onboardingPlan);
   }
 
   /// Save the selected plan as JSON string
@@ -113,5 +130,18 @@ class OnboardingStateService {
   static Future<void> clearPlan() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(OnboardingKeys.onboardingPlan);
+  }
+
+  /// Debug method to check current onboarding state
+  static Future<Map<String, dynamic>> getDebugState() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {
+      'isComplete': prefs.getBool(OnboardingKeys.onboardingComplete) ?? false,
+      'step': prefs.get(OnboardingKeys.onboardingStep),
+      'role': prefs.getString(OnboardingKeys.onboardingRole),
+      'category': prefs.getString(OnboardingKeys.onboardingCategory),
+      'subCategory': prefs.getString(OnboardingKeys.onboardingSubCategory),
+      'hasPlan': prefs.getString(OnboardingKeys.onboardingPlan) != null,
+    };
   }
 }
