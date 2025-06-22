@@ -267,6 +267,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         final userRole = currentUser.role?.toUpperCase();
         final onboardingComplete = await OnboardingStateService.isComplete();
 
+        // Debug logging to help troubleshoot onboarding state
+        final debugState = await OnboardingStateService.getDebugState();
+        _logger.i('MyApp: Onboarding debug state: $debugState');
+        _logger.i(
+          'MyApp: User role: $userRole, Onboarding complete: $onboardingComplete',
+        );
+
         if (!onboardingComplete) {
           final onboardingStep = await OnboardingStateService.getStep();
 
@@ -309,6 +316,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 initialScreen = const Disclaimer();
                 break;
               default:
+                _logger.w('MyApp: Unknown onboarding step: $onboardingStep');
                 initialScreen = const AccountType();
             }
             _logger.i(
