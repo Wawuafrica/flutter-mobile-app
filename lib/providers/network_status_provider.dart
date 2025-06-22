@@ -90,8 +90,8 @@ class NetworkStatusProvider extends ChangeNotifier {
         );
 
         // Reset _wasOffline after a short delay using microtask
-        Timer(const Duration(seconds: 3), () {
-          // Changed from 100 milliseconds to 3 seconds
+        Timer(const Duration(seconds: 5), () {
+          // Changed from 3 seconds to 5 seconds
           if (!_hasDisposed) {
             _wasOffline = false;
             scheduleMicrotask(() {
