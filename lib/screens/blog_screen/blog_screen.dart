@@ -8,6 +8,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
@@ -101,17 +102,36 @@ class _BlogScreenState extends State<BlogScreen> {
 
                   final List<Widget> carouselItems =
                       adProvider.ads.map((ad) {
-                        return Image.network(
-                          ad.media.link,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: wawuColors.borderPrimary.withAlpha(50),
-                              child: Center(
-                                child: Text('Failed to load image'),
-                              ),
-                            );
+                        return GestureDetector(
+                          onTap: () async {
+                            final url = ad.link;
+                            if (url.isNotEmpty) {
+                              if (await canLaunchUrl(Uri.parse(url))) {
+                                await launchUrl(
+                                  Uri.parse(url),
+                                  mode: LaunchMode.externalApplication,
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Could not open the ad link'),
+                                  ),
+                                );
+                              }
+                            }
                           },
+                          child: Image.network(
+                            ad.media.link,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                color: wawuColors.borderPrimary.withAlpha(50),
+                                child: Center(
+                                  child: Text('Failed to load image'),
+                                ),
+                              );
+                            },
+                          ),
                         );
                       }).toList();
                   return FadingCarousel(height: 220, children: carouselItems);

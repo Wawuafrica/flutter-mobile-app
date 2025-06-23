@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/user.dart'; // Ensure .dart is present
@@ -144,14 +145,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       _countryController.text = user.country ?? '';
       _stateController.text = user.state ?? '';
+
+      // Extract just the username/ID from the stored full URL for display
       _facebookController.text =
-          user.additionalInfo?.socialHandles?['facebook'] ?? '';
+          user.additionalInfo?.socialHandles?['facebook']?.split('/').last ??
+          '';
       _linkedInController.text =
-          user.additionalInfo?.socialHandles?['linkedIn'] ?? '';
+          user.additionalInfo?.socialHandles?['linkedIn']?.split('/').last ??
+          '';
       _instagramController.text =
-          user.additionalInfo?.socialHandles?['instagram'] ?? '';
+          user.additionalInfo?.socialHandles?['instagram']
+              ?.replaceAll('https://www.instagram.com/', '')
+              .replaceAll('/', '') ??
+          '';
       _twitterController.text =
-          user.additionalInfo?.socialHandles?['twitter'] ?? '';
+          user.additionalInfo?.socialHandles?['twitter']?.split('/').last ?? '';
+
       _phoneController.text = user.phoneNumber ?? '';
       _emailController.text = user.email ?? '';
     }
@@ -324,16 +333,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     Map<String, String> socialHandles = {};
     if (_facebookController.text.isNotEmpty) {
-      socialHandles['facebook'] = _facebookController.text;
+      socialHandles['facebook'] =
+          'https://www.facebook.com/${_facebookController.text.trim()}';
     }
     if (_linkedInController.text.isNotEmpty) {
-      socialHandles['linkedIn'] = _linkedInController.text;
+      socialHandles['linkedIn'] =
+          'https://www.linkedin.com/in/${_linkedInController.text.trim()}';
     }
     if (_instagramController.text.isNotEmpty) {
-      socialHandles['instagram'] = _instagramController.text;
+      socialHandles['instagram'] =
+          'https://www.instagram.com/${_instagramController.text.trim()}';
     }
     if (_twitterController.text.isNotEmpty) {
-      socialHandles['twitter'] = _twitterController.text;
+      socialHandles['twitter'] =
+          'https://twitter.com/${_twitterController.text.trim()}';
     }
     if (socialHandles.isNotEmpty) payload['socialHandles'] = socialHandles;
     if (categoryProvider.selectedSubCategory?.uuid != null) {
@@ -453,7 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check, color: Colors.white, size: 16),
@@ -510,7 +523,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check, color: Colors.white, size: 16),
@@ -539,7 +552,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final user = userProvider.currentUser;
         final fullName =
             '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
-        print(user?.toJson());
         // final selectedSubCategory = categoryProvider.selectedSubCategory;
 
         return Scaffold(
@@ -556,7 +568,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     clipBehavior: Clip.none,
                     children: [
                       // Cover Image with Edit Button
-                      Container(
+                      SizedBox(
                         width: double.infinity,
                         height: 100,
                         child: Stack(
@@ -871,7 +883,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: wawuColors.primary.withOpacity(0.2),
+                              color: wawuColors.primary.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Row(
@@ -1008,7 +1020,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       CustomTextfield(
                         controller:
                             _professionalCertificationOrganizationController,
-                        hintText: 'Enter Organization Name',
+                        hintText: 'Your Registered Company Name',
                         labelText: 'Organization',
                         labelTextStyle2: true,
                       ),
@@ -1056,8 +1068,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               null)
                         Container(
                           margin: const EdgeInsets.only(bottom: 10),
-                          height: 100,
-                          width: 100,
+                          height: 150,
+                          width: double.infinity,
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey),
                             borderRadius: BorderRadius.circular(5),
@@ -1090,7 +1102,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
                 if (user?.additionalInfo?.meansOfIdentification?.file?.link !=
                     null)
-                  SizedBox()
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(5),
+                      image: DecorationImage(
+                        image: NetworkImage(
+                          user!
+                              .additionalInfo!
+                              .meansOfIdentification!
+                              .file!
+                              .link!,
+                        ),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
                 else
                   UploadImage(
                     labelText: 'Upload Means of ID',
@@ -1134,30 +1164,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _facebookController,
-                    hintText: 'Enter your social media handle',
+                    hintText: 'Enter your Facebook username (e.g., yourname)',
                     labelText: 'Facebook',
                     labelTextStyle2: true,
+                    suffixIcon: FontAwesomeIcons.facebook, // Facebook icon
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _linkedInController,
-                    hintText: 'Enter your social media handle',
+                    hintText:
+                        'Enter your LinkedIn profile ID (e.g., in/yourname)',
                     labelText: 'LinkedIn',
                     labelTextStyle2: true,
+                    suffixIcon:
+                        FontAwesomeIcons
+                            .linkedin, // LinkedIn icon - typically requires a custom font icon or an image
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _instagramController,
-                    hintText: 'Enter your social media handle',
+                    hintText: 'Enter your Instagram username (e.g., @yourname)',
                     labelText: 'Instagram',
                     labelTextStyle2: true,
+                    suffixIcon: FontAwesomeIcons.instagram, // Instagram icon
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _twitterController,
-                    hintText: 'Enter your social media handle',
-                    labelText: 'X fka Twitter',
+                    hintText:
+                        'Enter your X (Twitter) username (e.g., @yourname)',
+                    labelText: 'Twitter',
                     labelTextStyle2: true,
+                    suffixIcon:
+                        FontAwesomeIcons
+                            .twitter, // Twitter (X) icon - typically requires a custom font icon or an image
                   ),
                   const SizedBox(height: 40),
                 ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:image_picker/image_picker.dart'; // Keep ImagePicker import as XFile is from here
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class UploadPdf extends StatefulWidget {
@@ -23,17 +23,13 @@ class _UploadPdfState extends State<UploadPdf> {
   XFile? _pdf;
   String? _fileName;
 
-  // IMPORTANT DEBUGGING FLAG:
-  // Set this to `true` to force Web behavior, `false` to force Mobile behavior.
-  // When deploying, you should typically remove this line or set it to `kIsWeb` directly.
-  final bool _forceIsWeb =
-      true; // Set to `true` for web debugging, `false` for mobile debugging
+  // Removed _forceIsWeb flag as this component is now mobile-only.
 
   @override
   void initState() {
     super.initState();
-    // Use the forced boolean for initial PDF path handling
-    if (widget.initialPdfPath != null && !_forceIsWeb) {
+    // For mobile, if an initial PDF path is provided, set the XFile and file name.
+    if (widget.initialPdfPath != null) {
       _pdf = XFile(widget.initialPdfPath!);
       _fileName = widget.initialPdfPath!.split('/').last;
     }
@@ -48,6 +44,8 @@ class _UploadPdfState extends State<UploadPdf> {
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.single;
+        // FilePicker.platform.pickFiles returns PlatformFile.
+        // On mobile, file.path is directly available.
         final xFile = XFile(file.path!);
 
         setState(() {
@@ -57,10 +55,12 @@ class _UploadPdfState extends State<UploadPdf> {
 
         widget.onPdfChanged(xFile);
       } else {
+        // If user cancelled picking, send null to parent
         widget.onPdfChanged(null);
       }
     } catch (e) {
       debugPrint('Error picking PDF: $e');
+      // On error, send null to parent
       widget.onPdfChanged(null);
     }
   }
@@ -73,18 +73,10 @@ class _UploadPdfState extends State<UploadPdf> {
     widget.onPdfChanged(null);
   }
 
-  // String _formatFileSize(int bytes) {
-  //   if (bytes <= 0) return "0 B";
-  //   const suffixes = ["B", "KB", "MB", "GB"];
-  //   int i = (bytes.bitLength - 1) ~/ 10;
-  //   return '${(bytes / (1 << (i * 10))).toStringAsFixed(1)} ${suffixes[i]}';
-  // }
+  // _formatFileSize is commented out, keep it that way if not used
 
   @override
   Widget build(BuildContext context) {
-    // Use the forced boolean for rendering logic
-    // final bool currentIsWeb = _forceIsWeb;
-
     return InkWell(
       onTap: _pickPdf,
       child: Container(
@@ -92,7 +84,7 @@ class _UploadPdfState extends State<UploadPdf> {
         clipBehavior: Clip.hardEdge,
         height: 250,
         decoration: BoxDecoration(
-          color: wawuColors.primary.withOpacity(0.2),
+          color: wawuColors.primary.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(10),
         ),
         child:
@@ -114,7 +106,7 @@ class _UploadPdfState extends State<UploadPdf> {
                       width: double.infinity,
                       height: 250,
                       decoration: BoxDecoration(
-                        color: wawuColors.primary.withOpacity(0.1),
+                        color: wawuColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(

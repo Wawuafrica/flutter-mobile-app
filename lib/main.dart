@@ -40,6 +40,7 @@ import 'package:wawu_mobile/screens/update_profile/profile_update/profile_update
 import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/account_payment/account_payment.dart';
 import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/otp_screen.dart';
 
 // Initialize Logger
 final _logger = Logger(
@@ -282,6 +283,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
           switch (onboardingStep) {
             case 'otp':
+              if (currentUser.email != null) {
+                initialScreen = OtpScreen(
+                  authService: authService,
+                  email: currentUser.email!,
+                );
+              } else {
+                initialScreen = const AccountType();
+              }
+              break;
             case 'account_type':
               initialScreen = const AccountType();
               break;
@@ -433,7 +443,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void _showReconnectionNotification() {
     if (_hasShownReconnectionNotification) return;
 
-    _hasShownReconnectionNotification = true;
+    // _hasShownReconnectionNotification = true;
 
     if (mounted) {
       showNotification(

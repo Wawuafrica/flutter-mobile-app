@@ -25,7 +25,7 @@ class ContactUsScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => _makePhoneCall('07050622222'),
+                    onTap: () => _openWhatsApp('2347050622222'),
                     child: Column(
                       spacing: 10.0,
                       children: [
@@ -38,14 +38,14 @@ class ContactUsScreen extends StatelessWidget {
                           ),
                           child: Center(
                             child: FaIcon(
-                              FontAwesomeIcons.phone,
+                              FontAwesomeIcons.whatsapp,
                               color: Colors.white,
                               size: 15,
                             ),
                           ),
                         ),
                         Text(
-                          'Call Us',
+                          'WhatsApp Us',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         Text(
@@ -78,7 +78,7 @@ class ContactUsScreen extends StatelessWidget {
                           ),
                           child: Center(
                             child: FaIcon(
-                              FontAwesomeIcons.message,
+                              FontAwesomeIcons.envelope,
                               color: Colors.white,
                               size: 15,
                             ),
@@ -180,10 +180,22 @@ class ContactUsScreen extends StatelessWidget {
     );
   }
 
-  void _makePhoneCall(String phoneNumber) async {
-    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
-    if (await canLaunchUrl(phoneUri)) {
-      await launchUrl(phoneUri);
+  void _openWhatsApp(String phoneNumber) async {
+    // WhatsApp URL scheme that opens the app directly if installed, otherwise web
+    final Uri whatsappUri = Uri.parse('https://wa.me/$phoneNumber');
+
+    try {
+      if (await canLaunchUrl(whatsappUri)) {
+        await launchUrl(whatsappUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      // Fallback to web version if app launch fails
+      final Uri webWhatsappUri = Uri.parse(
+        'https://web.whatsapp.com/send?phone=$phoneNumber',
+      );
+      if (await canLaunchUrl(webWhatsappUri)) {
+        await launchUrl(webWhatsappUri);
+      }
     }
   }
 

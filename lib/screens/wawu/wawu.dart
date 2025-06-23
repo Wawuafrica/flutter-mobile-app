@@ -92,7 +92,7 @@ class Wawu extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'You either want GIVE a Wow Experience, or GET a Wow Experience.',
+                        'You either want to GIVE a Wow Experience, or GET a Wow Experience.',
                         style: TextStyle(color: Colors.black, fontSize: 13),
                         textAlign: TextAlign.center,
                       ),
