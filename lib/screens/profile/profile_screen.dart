@@ -17,6 +17,7 @@ import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/countries.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -65,11 +66,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _twitterController = TextEditingController();
 
   // New controllers for country and state (replacing dropdown)
-  final TextEditingController _countryController = TextEditingController();
   final TextEditingController _stateController = TextEditingController();
 
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
+  String? _selectedCountry;
 
   bool _isDirty = false; // Track if any field has been changed
   bool _isLoading = true; // Start with loading state
@@ -143,7 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _graduationDateController.text = education.graduationDate ?? '';
       }
 
-      _countryController.text = user.country ?? '';
+      _selectedCountry = user.country ?? '';
       _stateController.text = user.state ?? '';
 
       // Extract just the username/ID from the stored full URL for display
@@ -190,7 +191,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _linkedInController,
       _instagramController,
       _twitterController,
-      _countryController,
       _stateController,
       _customInstitutionController,
       _phoneController,
@@ -325,9 +325,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       payload['professionalCertificationEndDate'] =
           _professionalCertificationEndDateController.text;
     }
-    if (_countryController.text.isNotEmpty) {
-      payload['country'] = _countryController.text;
-    }
+    // if (_selectedCountry != null) {
+    //   payload['country'] = _selectedCountry;
+    // }
     if (_stateController.text.isNotEmpty) {
       payload['state'] = _stateController.text;
     }
@@ -413,7 +413,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     _professionalCertificationNameController
         .dispose(); // Dispose new controllers
-    _countryController.dispose(); // Dispose new country controller
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -665,6 +664,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                     )
                                                     : Image.asset(
                                                       'assets/images/other/avatar.webp',
+                                                      cacheWidth: 200,
                                                     )),
                                       ),
                                     ),
@@ -1143,11 +1143,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 25),
-                    CustomTextfield(
-                      controller: _countryController,
-                      hintText: 'Enter Country',
-                      labelText: 'Country',
-                      labelTextStyle2: true,
+                    const Text(
+                      'Country',
+                      style: TextStyle(fontWeight: FontWeight.w400),
+                    ),
+                    const SizedBox(height: 5),
+                    CustomDropdown(
+                      options: Countries.all,
+                      label: 'Select Country',
+                      selectedValue: _selectedCountry,
+                      isDisabled: true,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedCountry = value;
+                        });
+                      },
                     ),
                     const SizedBox(height: 20),
                     CustomTextfield(
