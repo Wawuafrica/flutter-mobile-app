@@ -57,14 +57,17 @@ class UpdateProfile extends StatelessWidget {
                 final accountType = user?.role ?? 'Loading...'; // Use user.role
 
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       padding: EdgeInsets.all(10.0),
                       width: double.infinity,
-                      height: 350,
+                      height: 250,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        color: wawuColors.primaryBackground.withOpacity(0.2),
+                        color: wawuColors.primaryBackground.withValues(
+                          alpha: 0.2,
+                        ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -158,9 +161,9 @@ class UpdateProfile extends StatelessWidget {
                     Text(
                       "Hi $fullName",
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         color: const Color.fromARGB(255, 125, 125, 125),
-                        fontWeight: FontWeight.w200,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
 

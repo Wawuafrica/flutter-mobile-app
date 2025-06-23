@@ -10,14 +10,14 @@ class ImageTextCarousel extends StatefulWidget {
 }
 
 final List<Map<String, String>> carouselItems = [
-  {'image': 'assets/c1.png', 'text': 'Welcome to Wawu Mobile!'},
+  {'image': 'assets/c1.png', 'text': 'Welcome to WAWUAfrica!'},
   {
     'image': 'assets/images/section/programming.png',
     'text': 'Explore amazing features.',
   },
   {
     'image': 'assets/images/onboarding_images/oi2.webp',
-    'text': 'Get started with Wawu',
+    'text': 'Get started with WAWUAfrica',
   },
 ];
 
@@ -73,9 +73,10 @@ class _ImageTextCarouselState extends State<ImageTextCarousel> {
                     Text(
                       item['text']!,
                       style: const TextStyle(
-                        fontSize: 20,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 );

@@ -139,7 +139,7 @@ class _CategorySelectionState extends State<CategorySelection> {
                         text:
                             'Hi ${userProvider.currentUser?.firstName ?? 'there'}',
                         desc:
-                            'So, wanna tell us more about your superpower? What makes you tick, basically. This is your initial proposal outlining the value proposition of your expertise to prospective clients.',
+                            'So how about you tell us more? What makes you tick, basically. This is your initial proposal outlining the value proposition of your expertise to prospective clients.',
                       ),
                       const Text(
                         'Select Your Role',

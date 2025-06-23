@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart'; // Assuming wawuColors is defined here
 
 class UploadVideo extends StatefulWidget {
   final String labelText;
@@ -20,17 +20,13 @@ class UploadVideo extends StatefulWidget {
 
 class _UploadVideoState extends State<UploadVideo> {
   XFile? _video;
-
-  // IMPORTANT DEBUGGING FLAG:
-  // Set this to `true` to force Web behavior, `false` to force Mobile behavior.
-  // When deploying, you should typically remove this line or set it to `kIsWeb` directly.
-  final bool _forceIsWeb = true; // Set to `true` for web debugging, `false` for mobile debugging
+  static const int _maxVideoSizeBytes = 50 * 1024 * 1024; // 50 MB
 
   @override
   void initState() {
     super.initState();
-    // Use the forced boolean for initial video path handling
-    if (widget.initialVideoPath != null && !_forceIsWeb) {
+    // For mobile, if an initial video path is provided, set the XFile.
+    if (widget.initialVideoPath != null) {
       _video = XFile(widget.initialVideoPath!);
     }
   }
@@ -39,15 +35,39 @@ class _UploadVideoState extends State<UploadVideo> {
     try {
       final picker = ImagePicker();
       final video = await picker.pickVideo(source: ImageSource.gallery);
-      
+
       if (video != null) {
+        // Get the file size
+        final int videoBytes = await video.length();
+
+        // Implement logic for max size of what to upload
+        if (videoBytes > _maxVideoSizeBytes) {
+          // Show an error to the user using a SnackBar
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Video exceeds maximum size of 50MB.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          // Do not set the video and inform the parent that no video was selected
+          widget.onVideoChanged(null);
+          return; // Exit the function if the file is too large
+        }
+
+        // If the video is within size limits, update state and notify parent
         setState(() {
           _video = video;
         });
         widget.onVideoChanged(video);
+      } else {
+        // If user cancelled picking, send null to parent
+        widget.onVideoChanged(null);
       }
     } catch (e) {
       debugPrint('Error picking video: $e');
+      // On error, send null to parent
       widget.onVideoChanged(null);
     }
   }
@@ -61,8 +81,6 @@ class _UploadVideoState extends State<UploadVideo> {
 
   @override
   Widget build(BuildContext context) {
-    // Use the forced boolean for rendering logic
-
     return InkWell(
       onTap: _pickVideo,
       child: Container(
@@ -73,117 +91,120 @@ class _UploadVideoState extends State<UploadVideo> {
           color: wawuColors.primary.withAlpha(50),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: _video == null
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        child:
+            _video == null
+                ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.video_library_rounded, size: 50),
+                      const SizedBox(height: 10),
+                      Text(widget.labelText),
+                      const Text('Max 50MB'), // Retained the max size text
+                    ],
+                  ),
+                )
+                : Stack(
                   children: [
-                    const Icon(Icons.video_library_rounded, size: 50),
-                    const SizedBox(height: 10),
-                    Text(widget.labelText),
-                    const Text('Max 50MB'),
-                  ],
-                ),
-              )
-            : Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    height: 250,
-                    decoration: BoxDecoration(
-                      color: wawuColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.video_file_rounded,
-                          size: 80,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          _video!.name,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 5),
-                        const Text(
-                          'Video Selected',
-                          style: TextStyle(
-                            fontSize: 12,
+                    Container(
+                      width: double.infinity,
+                      height: 250,
+                      decoration: BoxDecoration(
+                        color: wawuColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.video_file_rounded,
+                            size: 80,
                             color: Colors.grey,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: double.infinity,
-                    height: 250,
-                    color: wawuColors.primary.withAlpha(30),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: _pickVideo,
-                          child: ClipOval(
-                            child: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1,
-                                ),
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                            ),
+                            child: Text(
+                              _video!.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.add,
-                                  size: 20,
-                                  color: Colors.white,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          const Text(
+                            'Video Selected',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      width: double.infinity,
+                      height: 250,
+                      color: wawuColors.primary.withAlpha(30),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: _pickVideo,
+                            child: ClipOval(
+                              child: Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.add,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: _clearVideo,
-                          child: ClipOval(
-                            child: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 1,
+                          const SizedBox(height: 10),
+                          GestureDetector(
+                            onTap: _clearVideo,
+                            child: ClipOval(
+                              child: Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 1,
+                                  ),
                                 ),
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.delete,
-                                  size: 20,
-                                  color: Colors.white,
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.delete,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
       ),
     );
   }

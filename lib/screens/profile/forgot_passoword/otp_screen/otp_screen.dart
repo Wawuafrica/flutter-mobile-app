@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wawu_mobile/screens/profile/forgot_passoword/new_password_screen/new_password_screen.dart';
@@ -10,7 +11,15 @@ class OtpScreen extends StatefulWidget {
   final AuthService authService;
   final String email;
 
-  const OtpScreen({super.key, required this.authService, required this.email});
+  /// Optional: countdown duration in seconds before resend becomes available
+  final int resendCountdownSeconds;
+
+  const OtpScreen({
+    super.key,
+    required this.authService,
+    required this.email,
+    this.resendCountdownSeconds = 60, // Default to 60 seconds
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -22,10 +31,43 @@ class _OtpScreenState extends State<OtpScreen> {
   bool _isLoading = false;
   bool _isResending = false;
 
+  // Countdown timer variables
+  Timer? _countdownTimer;
+  int _countdownSeconds = 0;
+  bool _canResend = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
   @override
   void dispose() {
     _otpController.dispose();
+    _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startCountdown() {
+    setState(() {
+      _countdownSeconds = widget.resendCountdownSeconds;
+      _canResend = false;
+    });
+
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdownSeconds > 0) {
+        setState(() {
+          _countdownSeconds--;
+        });
+      } else {
+        setState(() {
+          _canResend = true;
+        });
+        timer.cancel();
+      }
+    });
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -33,7 +75,7 @@ class _OtpScreenState extends State<OtpScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? Colors.red : Colors.green,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -92,6 +134,10 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> _handleResendOtp() async {
+    if (!_canResend || _isResending) {
+      return;
+    }
+
     setState(() {
       _isResending = true;
     });
@@ -101,6 +147,9 @@ class _OtpScreenState extends State<OtpScreen> {
 
       _showSnackBar('New OTP sent to your email!');
       _otpController.clear();
+
+      // Restart countdown after successful resend
+      _startCountdown();
     } catch (e) {
       _showSnackBar(e.toString(), isError: true);
     } finally {
@@ -112,10 +161,42 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
+  String _formatCountdown(int seconds) {
+    int minutes = seconds ~/ 60;
+    int remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildResendButton() {
+    if (_isResending) {
+      return const SizedBox(
+        height: 16,
+        width: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+
+    if (!_canResend) {
+      return Text(
+        'Resend OTP in ${_formatCountdown(_countdownSeconds)}',
+        style: TextStyle(color: Colors.grey[600], fontSize: 14),
+      );
+    }
+
+    return Text(
+      'Resend OTP',
+      style: TextStyle(
+        color: wawuColors.primary,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Verification')),
+      appBar: AppBar(title: const Text('Verification')),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0),
         child: Form(
@@ -123,14 +204,14 @@ class _OtpScreenState extends State<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 5),
-              Text('Enter OTP', style: TextStyle(fontSize: 22)),
-              SizedBox(height: 10),
+              const SizedBox(height: 20),
+              const Text('Enter OTP', style: TextStyle(fontSize: 22)),
+              const SizedBox(height: 10),
               Text(
                 'We sent a verification code to ${widget.email}',
                 style: TextStyle(color: Colors.grey[600]),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 5),
               CustomTextfield(
                 controller: _otpController,
                 hintText: '******',
@@ -142,32 +223,23 @@ class _OtpScreenState extends State<OtpScreen> {
                   LengthLimitingTextInputFormatter(6),
                 ],
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _isResending ? null : _handleResendOtp,
-                    child:
-                        _isResending
-                            ? SizedBox(
-                              height: 16,
-                              width: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                            : Text(
-                              'Resend OTP',
-                              style: TextStyle(color: wawuColors.primary),
-                            ),
+                    onPressed:
+                        (_canResend && !_isResending) ? _handleResendOtp : null,
+                    child: _buildResendButton(),
                   ),
                 ],
               ),
-              SizedBox(height: 5),
+              const SizedBox(height: 5),
               CustomButton(
                 function: _isLoading ? null : _handleVerifyOtp,
                 widget:
                     _isLoading
-                        ? SizedBox(
+                        ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
@@ -175,7 +247,7 @@ class _OtpScreenState extends State<OtpScreen> {
                             strokeWidth: 2,
                           ),
                         )
-                        : Text(
+                        : const Text(
                           'Verify OTP',
                           style: TextStyle(color: Colors.white),
                         ),

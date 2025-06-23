@@ -29,7 +29,7 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-
+  final TextEditingController phoneController = TextEditingController();
   // Replace countryController with selectedCountry string
   String? selectedCountry;
 
@@ -121,6 +121,21 @@ class _SignUpState extends State<SignUp> {
                         // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Last name cannot be empty';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 20),
+                    CustomTextfield(
+                      labelText: 'Phone Number',
+                      hintText: 'Enter your phone number',
+                      labelTextStyle2: true,
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        // Add validation
+                        if (value == null || value.isEmpty) {
+                          return 'Phone number cannot be empty';
                         }
                         return null;
                       },
@@ -273,6 +288,7 @@ class _SignUpState extends State<SignUp> {
                             'firstName': firstNameController.text,
                             'lastName': lastNameController.text,
                             'password': passwordController.text,
+                            'phoneNumber': phoneController.text,
                             'country':
                                 selectedCountry!, // Use selected country name
                             'termsAccepted': isChecked,

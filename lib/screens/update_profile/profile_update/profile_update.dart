@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
@@ -83,6 +84,17 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     _loadInitialData();
   }
 
+  // Helper function to extract the social media handle from a full URL
+  String _extractSocialHandle(String? url, String baseUrl) {
+    if (url != null && url.startsWith(baseUrl)) {
+      return url
+          .substring(baseUrl.length)
+          .split('/')
+          .first; // Get part before first '/' after base
+    }
+    return url ?? ''; // Return as is if not a recognized URL or null
+  }
+
   Future<void> _loadInitialData() async {
     final dropdownProvider = Provider.of<DropdownDataProvider>(
       context,
@@ -93,23 +105,26 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
     final user = Provider.of<UserProvider>(context, listen: false).currentUser;
     if (user != null) {
-      if (user.additionalInfo?.education != null &&
-          user.additionalInfo!.education!.isNotEmpty) {
-        _selectedCertification =
-            user.additionalInfo!.education!.last.certification;
-        final latestEducation = user.additionalInfo!.education!.last;
-        _selectedCertification = latestEducation.certification;
-        if (latestEducation.certification == 'School-Level Qualifications') {
-          _customInstitutionController.text = latestEducation.institution ?? '';
-        } else {
-          _selectedInstitution = latestEducation.institution;
-        }
+      if (user.country != null) {
+        _selectedCountry = user.country;
       }
-      if (user.additionalInfo?.professionalCertification != null &&
-          user.additionalInfo!.professionalCertification!.isNotEmpty) {
-        _professionalCertificationNameController.text =
-            user.additionalInfo!.professionalCertification!.last.name ?? '';
-      }
+      // Populate social media controllers with extracted handles
+      _facebookController.text = _extractSocialHandle(
+        user.additionalInfo?.socialHandles?['facebook'],
+        'https://www.facebook.com/',
+      );
+      _linkedInController.text = _extractSocialHandle(
+        user.additionalInfo?.socialHandles?['linkedIn'],
+        'https://www.linkedin.com/in/',
+      );
+      _instagramController.text = _extractSocialHandle(
+        user.additionalInfo?.socialHandles?['instagram'],
+        'https://www.instagram.com/',
+      );
+      _twitterController.text = _extractSocialHandle(
+        user.additionalInfo?.socialHandles?['twitter'],
+        'https://x.com/',
+      ); // Use x.com for Twitter/X
     }
 
     _addListeners();
@@ -269,17 +284,23 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     }
 
     Map<String, String> socialHandles = {};
-    if (_facebookController.text.isNotEmpty) {
-      socialHandles['facebook'] = _facebookController.text;
+    // Construct full URLs before sending
+    String facebookHandle = _facebookController.text.trim();
+    if (facebookHandle.isNotEmpty) {
+      socialHandles['facebook'] = 'https://www.facebook.com/$facebookHandle';
     }
-    if (_linkedInController.text.isNotEmpty) {
-      socialHandles['linkedIn'] = _linkedInController.text;
+    String linkedInHandle = _linkedInController.text.trim();
+    if (linkedInHandle.isNotEmpty) {
+      socialHandles['linkedIn'] = 'https://www.linkedin.com/in/$linkedInHandle';
     }
-    if (_instagramController.text.isNotEmpty) {
-      socialHandles['instagram'] = _instagramController.text;
+    String instagramHandle = _instagramController.text.trim();
+    if (instagramHandle.isNotEmpty) {
+      socialHandles['instagram'] = 'https://www.instagram.com/$instagramHandle';
     }
-    if (_twitterController.text.isNotEmpty) {
-      socialHandles['twitter'] = _twitterController.text;
+    String twitterHandle = _twitterController.text.trim();
+    if (twitterHandle.isNotEmpty) {
+      socialHandles['twitter'] =
+          'https://x.com/$twitterHandle'; // Use x.com for Twitter/X
     }
     if (socialHandles.isNotEmpty) payload['socialHandles'] = socialHandles;
 
@@ -694,7 +715,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: wawuColors.primary.withOpacity(0.2),
+                              color: wawuColors.primary.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Row(
@@ -938,6 +959,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     hintText: 'Enter your social media handle',
                     labelText: 'Facebook',
                     labelTextStyle2: true,
+                    suffixIcon:
+                        FontAwesomeIcons
+                            .facebook, // Font Awesome icon for Facebook
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
@@ -945,6 +969,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     hintText: 'Enter your social media handle',
                     labelText: 'LinkedIn',
                     labelTextStyle2: true,
+                    suffixIcon:
+                        FontAwesomeIcons
+                            .linkedinIn, // Font Awesome icon for LinkedIn
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
@@ -952,6 +979,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     hintText: 'Enter your social media handle',
                     labelText: 'Instagram',
                     labelTextStyle2: true,
+                    suffixIcon:
+                        FontAwesomeIcons
+                            .instagram, // Font Awesome icon for Instagram
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
@@ -959,6 +989,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     hintText: 'Enter your social media handle',
                     labelText: 'X fka Twitter',
                     labelTextStyle2: true,
+                    suffixIcon:
+                        FontAwesomeIcons
+                            .xTwitter, // Font Awesome icon for X (Twitter)
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -968,8 +1001,12 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       _isSavingProfile
                           ? null
                           : () {
-                            final userProvider = Provider.of<UserProvider>(context, listen: false);
-                            final role = userProvider.currentUser?.role?.toLowerCase();
+                            final userProvider = Provider.of<UserProvider>(
+                              context,
+                              listen: false,
+                            );
+                            final role =
+                                userProvider.currentUser?.role?.toLowerCase();
                             if (!_isDirty) {
                               // Skip: Navigate to the next screen or back
                               if (role == 'buyer') {
