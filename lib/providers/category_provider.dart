@@ -8,7 +8,7 @@ class CategoryProvider extends BaseProvider {
   List<CategoryModel> _categories = [];
   List<SubCategory> _subCategories = [];
   List<Service> _services = [];
-  
+
   CategoryModel? _selectedCategory;
   SubCategory? _selectedSubCategory;
   Service? _selectedService;
@@ -16,24 +16,31 @@ class CategoryProvider extends BaseProvider {
   List<CategoryModel> get categories => _categories;
   List<SubCategory> get subCategories => _subCategories;
   List<Service> get services => _services;
-  
+
   CategoryModel? get selectedCategory => _selectedCategory;
   SubCategory? get selectedSubCategory => _selectedSubCategory;
   Service? get selectedService => _selectedService;
 
   CategoryProvider({required ApiService apiService})
-      : _apiService = apiService,super();
+    : _apiService = apiService,
+      super();
 
   Future<List<CategoryModel>> fetchCategories() async {
     setLoading();
     try {
-      final response = await _apiService.get<Map<String, dynamic>>('/categories');
-      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/categories',
+      );
+
       if (response.containsKey('data') && response['data'] is List) {
         final categoriesJson = response['data'] as List;
-        _categories = categoriesJson
-            .map((json) => CategoryModel.fromJson(json as Map<String, dynamic>))
-            .toList();
+        _categories =
+            categoriesJson
+                .map(
+                  (json) =>
+                      CategoryModel.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
         setSuccess();
         return _categories;
       } else {
@@ -79,12 +86,17 @@ class CategoryProvider extends BaseProvider {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/categories/$categoryId/subcategories',
       );
-      
+
+      print('sub_cat data with id $categoryId and response is $response');
+
       if (response.containsKey('data') && response['data'] is List) {
         final subCategoriesJson = response['data'] as List;
-        _subCategories = subCategoriesJson
-            .map((json) => SubCategory.fromJson(json as Map<String, dynamic>))
-            .toList();
+        _subCategories =
+            subCategoriesJson
+                .map(
+                  (json) => SubCategory.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
         setSuccess();
         return _subCategories;
       } else {
@@ -110,15 +122,17 @@ class CategoryProvider extends BaseProvider {
         final response = await _apiService.get<Map<String, dynamic>>(
           '/subcategories/$subCategoryId/services?page=$currentPage',
         );
-        
+
         if (response.containsKey('data') && response['data'] is List) {
           final servicesJson = response['data'] as List;
-          final services = servicesJson
-              .map((json) => Service.fromJson(json as Map<String, dynamic>))
-              .toList();
+          final services =
+              servicesJson
+                  .map((json) => Service.fromJson(json as Map<String, dynamic>))
+                  .toList();
           allServices.addAll(services);
 
-          if (response.containsKey('pagination') && response['pagination'] is Map) {
+          if (response.containsKey('pagination') &&
+              response['pagination'] is Map) {
             final pagination = response['pagination'] as Map<String, dynamic>;
             final nextPage = pagination['next_page'];
             if (nextPage != null && nextPage is int) {
@@ -149,27 +163,27 @@ class CategoryProvider extends BaseProvider {
     _selectedCategory = null;
     setSuccess();
   }
-  
+
   void clearSelectedSubCategory() {
     _selectedSubCategory = null;
     setSuccess();
   }
-  
+
   void clearSelectedService() {
     _selectedService = null;
     setSuccess();
   }
-  
+
   void selectCategory(CategoryModel category) {
     _selectedCategory = category;
     setSuccess();
   }
-  
+
   void selectSubCategory(SubCategory subCategory) {
     _selectedSubCategory = subCategory;
     setSuccess();
   }
-  
+
   void selectService(Service service) {
     _selectedService = service;
     setSuccess();

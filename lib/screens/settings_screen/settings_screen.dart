@@ -136,6 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         return Image.asset(
                                           'assets/images/other/avatar.webp',
                                           fit: BoxFit.cover,
+                                          cacheWidth: 200,
                                         );
                                       },
                                       loadingBuilder: (
@@ -157,6 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     : Image.asset(
                                       'assets/images/other/avatar.webp',
                                       fit: BoxFit.cover,
+                                      cacheWidth: 200,
                                     ),
                           );
                         },

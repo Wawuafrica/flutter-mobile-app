@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 import 'providers/network_status_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
@@ -733,67 +734,85 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Wawu Mobile',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        textTheme: GoogleFonts.soraTextTheme(Theme.of(context).textTheme),
-        primaryTextTheme: GoogleFonts.soraTextTheme(
-          Theme.of(context).primaryTextTheme,
-        ),
-        colorScheme: ColorScheme.fromSeed(seedColor: wawuColors.primary),
-        useMaterial3: true,
-      ),
-      home: Consumer<NetworkStatusProvider>(
-        builder: (context, networkStatus, child) {
-          // Trigger network status handling logic
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _handleNetworkStatusChange(networkStatus);
-          });
+    return ResponsiveWrapper.builder(
+      // Wrap with ResponsiveWrapper.builder
+      BouncingScrollWrapper.builder(
+        context,
+        MaterialApp(
+          title: 'Wawu Mobile',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            textTheme: GoogleFonts.soraTextTheme(Theme.of(context).textTheme),
+            primaryTextTheme: GoogleFonts.soraTextTheme(
+              Theme.of(context).primaryTextTheme,
+            ),
+            colorScheme: ColorScheme.fromSeed(seedColor: wawuColors.primary),
+            useMaterial3: true,
+          ),
+          home: Consumer<NetworkStatusProvider>(
+            builder: (context, networkStatus, child) {
+              // Trigger network status handling logic
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _handleNetworkStatusChange(networkStatus);
+              });
 
-          return Stack(
-            children: [
-              _isInitialized && _currentScreen != null
-                  ? _currentScreen!
-                  : const SplashScreen(),
-              // Only show the "No internet connection" banner if it's explicitly marked to be shown
-              if (_isOfflineNotificationShown)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Material(
-                    color: Colors.red,
-                    elevation: 4,
-                    child: SafeArea(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.wifi_off, color: Colors.white, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'No internet connection',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+              return Stack(
+                children: [
+                  _isInitialized && _currentScreen != null
+                      ? _currentScreen!
+                      : const SplashScreen(),
+                  // Only show the "No internet connection" banner if it's explicitly marked to be shown
+                  if (_isOfflineNotificationShown)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: Material(
+                        color: Colors.red,
+                        elevation: 4,
+                        child: SafeArea(
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
                             ),
-                          ],
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.wifi_off,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'No internet connection',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          );
-        },
+                ],
+              );
+            },
+          ),
+        ),
       ),
+      breakpoints: [
+        // Define breakpoints for different screen sizes
+        const ResponsiveBreakpoint.resize(350, name: MOBILE),
+        const ResponsiveBreakpoint.autoScale(600, name: TABLET),
+        const ResponsiveBreakpoint.resize(800, name: DESKTOP),
+        const ResponsiveBreakpoint.autoScale(1700, name: 'XL'),
+      ],
+      defaultScale: true, // Apply defaultScale as requested
     );
   }
 }
