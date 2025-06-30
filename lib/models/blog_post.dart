@@ -33,20 +33,24 @@ class BlogPost {
     // Defensive parsing and error logging
     try {
       if (json['user'] is! Map<String, dynamic>) {
-        print('[BlogPost.fromJson] ERROR: user field is not a Map. Value: \\${json['user']}');
-        throw Exception('Expected user to be Map<String, dynamic>, got: \\${json['user'].runtimeType}');
+        throw Exception(
+          'Expected user to be Map<String, dynamic>, got: \\${json['user'].runtimeType}',
+        );
       }
       if (json['coverImage'] is! Map<String, dynamic>) {
-        print('[BlogPost.fromJson] ERROR: coverImage field is not a Map. Value: \\${json['coverImage']}');
-        throw Exception('Expected coverImage to be Map<String, dynamic>, got: \\${json['coverImage'].runtimeType}');
+        throw Exception(
+          'Expected coverImage to be Map<String, dynamic>, got: \\${json['coverImage'].runtimeType}',
+        );
       }
       if (json['comments'] != null && json['comments'] is! List) {
-        print('[BlogPost.fromJson] ERROR: comments field is not a List. Value: \\${json['comments']}');
-        throw Exception('Expected comments to be List, got: \\${json['comments'].runtimeType}');
+        throw Exception(
+          'Expected comments to be List, got: \\${json['comments'].runtimeType}',
+        );
       }
       if (json['likers'] != null && json['likers'] is! List) {
-        print('[BlogPost.fromJson] ERROR: likers field is not a List. Value: \\${json['likers']}');
-        throw Exception('Expected likers to be List, got: \\${json['likers'].runtimeType}');
+        throw Exception(
+          'Expected likers to be List, got: \\${json['likers'].runtimeType}',
+        );
       }
       return BlogPost(
         uuid: json['uuid'] as String,
@@ -63,22 +67,26 @@ class BlogPost {
         likers: () {
           final likersRaw = json['likers'];
           if (likersRaw is List) {
-            return likersRaw.map((e) => BlogLiker.fromJson(e)).where((liker) => liker.uuid.isNotEmpty).toList();
+            return likersRaw
+                .map((e) => BlogLiker.fromJson(e))
+                .where((liker) => liker.uuid.isNotEmpty)
+                .toList();
           }
           return <BlogLiker>[];
         }(),
         comments: () {
           final commentsRaw = json['comments'];
           if (commentsRaw is List) {
-            return commentsRaw.map((e) => BlogComment.fromJson(e as Map<String, dynamic>, '')).toList();
+            return commentsRaw
+                .map((e) => BlogComment.fromJson(e as Map<String, dynamic>, ''))
+                .toList();
           }
           return <BlogComment>[];
         }(),
         createdAt: DateTime.parse(json['created_at'] as String),
         updatedAt: DateTime.parse(json['updated_at'] as String),
       );
-    } catch (e, stack) {
-      print('[BlogPost.fromJson] Parsing error: $e\nStack: $stack\nInput: $json');
+    } catch (e) {
       rethrow;
     }
   }
@@ -134,7 +142,6 @@ class BlogPost {
   }
 
   bool get isLikedByCurrentUser {
-    // TODO: Implement current user check
     return false;
   }
 
@@ -238,10 +245,8 @@ class BlogLiker {
       );
     } else if (json is String) {
       // If backend returns just a user ID string
-      print('[BlogLiker.fromJson] WARNING: Got String instead of Map. Value: $json');
       return BlogLiker(name: '', uuid: json, email: '', profilePicture: null);
     } else {
-      print('[BlogLiker.fromJson] ERROR: Unexpected type: ${json.runtimeType}, value: $json');
       return BlogLiker(name: '', uuid: '', email: '', profilePicture: null);
     }
   }
@@ -284,14 +289,26 @@ class BlogComment {
       final likersRaw = json['likers'];
       List<BlogLiker> likers = [];
       if (likersRaw is List) {
-        likers = likersRaw.map((e) => BlogLiker.fromJson(e)).where((l) => l.uuid.isNotEmpty).toList();
+        likers =
+            likersRaw
+                .map((e) => BlogLiker.fromJson(e))
+                .where((l) => l.uuid.isNotEmpty)
+                .toList();
       }
 
       // Defensive: subComments can be null, missing, or a list
       final subCommentsRaw = json['subComments'];
       List<BlogComment> subComments = [];
       if (subCommentsRaw is List) {
-        subComments = subCommentsRaw.map((e) => BlogComment.fromJson(e as Map<String, dynamic>, currentUserId)).toList();
+        subComments =
+            subCommentsRaw
+                .map(
+                  (e) => BlogComment.fromJson(
+                    e as Map<String, dynamic>,
+                    currentUserId,
+                  ),
+                )
+                .toList();
       }
 
       // isLiked may be provided by backend, otherwise fallback to likers
@@ -305,13 +322,14 @@ class BlogComment {
         id: json['id'] as int,
         content: json['content'] as String,
         createdAt: DateTime.parse(json['createdAt'] as String),
-        commentedBy: BlogUser.fromJson(json['commentedBy'] as Map<String, dynamic>),
+        commentedBy: BlogUser.fromJson(
+          json['commentedBy'] as Map<String, dynamic>,
+        ),
         isLiked: isLiked,
         likers: likers,
         subComments: subComments,
       );
-    } catch (e, stack) {
-      print('[BlogComment.fromJson] Parsing error: $e\nStack: $stack\nInput: $json');
+    } catch (e) {
       rethrow;
     }
   }
