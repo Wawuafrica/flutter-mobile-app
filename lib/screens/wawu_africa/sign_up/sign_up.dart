@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 // import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -204,38 +205,111 @@ class _SignUpState extends State<SignUp> {
                     SizedBox(height: 8),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
+                        // If not loading, not error, and no data, trigger fetch
+                        if (!locationProvider.isLoadingCountries &&
+                            locationProvider.errorCountries == null &&
+                            locationProvider.countries.isEmpty) {
+                          Future.microtask(
+                            () => locationProvider.fetchCountries(),
+                          );
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 32,
+                                  height: 32,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: wawuColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Text('Loading countries...'),
+                              ],
+                            ),
+                          );
+                        }
                         if (locationProvider.isLoadingCountries) {
-                          return const CircularProgressIndicator();
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 32,
+                                  height: 32,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: wawuColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Text('Loading countries...'),
+                              ],
+                            ),
+                          );
                         } else if (locationProvider.errorCountries != null) {
                           return Text(
                             'Error: ${locationProvider.errorCountries}',
+                            style: const TextStyle(color: Colors.red),
                           );
                         }
-                        return CustomDropdown(
+                        final countryOptions = locationProvider.countries;
+                        if (countryOptions.isEmpty) {
+                          return Text(
+                            'No countries available',
+                            style: TextStyle(color: Colors.red),
+                          );
+                        }
+                        return CustomDropdown<Country>(
                           label: 'Select your country',
-                          options:
-                              locationProvider.countries
-                                  .map((c) => c.name)
-                                  .toList(),
-                          selectedValue: selectedCountry,
-                          onChanged: (value) {
-                            setState(() {
-                              selectedCountry = value;
-                              selectedState = null;
-                            });
-                            final countries = locationProvider.countries;
-                            final selected = countries.firstWhere(
-                              (c) => c.name == value,
-                              orElse:
-                                  () =>
-                                      countries.isNotEmpty
-                                          ? countries.first
-                                          : Country(id: 0, name: ''),
+                          options: countryOptions,
+                          selectedValue: countryOptions.firstWhereOrNull(
+                            (c) => c.name == selectedCountry,
+                          ),
+                          getLabel: (c) => c.name,
+                          itemBuilder: (
+                            context,
+                            Country country, // CHANGE 'dynamic' TO 'Country'
+                            bool isSelected,
+                          ) {
+                            // No need for 'final c = country as Country;' now
+                            // You can directly use 'country' here.
+                            return Row(
+                              children: [
+                                if (country.flag != null &&
+                                    country.flag!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 8.0),
+                                    child: Image.network(
+                                      country.flag!,
+                                      width: 24,
+                                      height: 18,
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Container(
+                                                width: 24,
+                                                height: 18,
+                                                color: Colors.grey,
+                                              ),
+                                    ),
+                                  ),
+                                Text(country.name),
+                              ],
                             );
-                            if (selected.id != 0) {
-                              locationProvider.fetchStates(selected.id);
-                            }
                           },
+                          onChanged:
+                              userProvider.isLoading
+                                  ? null
+                                  : (Country? country) {
+                                    setState(() {
+                                      selectedCountry = country?.name;
+                                      selectedState = null;
+                                    });
+                                    if (country != null && country.id != 0) {
+                                      locationProvider.fetchStates(country.id);
+                                    }
+                                  },
                           isDisabled: userProvider.isLoading,
                         );
                       },
@@ -296,7 +370,7 @@ class _SignUpState extends State<SignUp> {
                                 ?.link ??
                             '';
                         return Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Checkbox(
                               value: isChecked,
@@ -309,46 +383,56 @@ class _SignUpState extends State<SignUp> {
                                         });
                                       },
                             ),
-                            Text('I agree to the '),
-                            GestureDetector(
-                              onTap: () async {
-                                if (termsLink.isNotEmpty) {
-                                  final uri = Uri.parse(termsLink);
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  }
-                                }
-                              },
-                              child: Text(
-                                'Terms of Use',
-                                style: TextStyle(
-                                  color: wawuColors.primary,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                            Text(' and '),
-                            GestureDetector(
-                              onTap: () async {
-                                if (privacyLink.isNotEmpty) {
-                                  final uri = Uri.parse(privacyLink);
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(
-                                      uri,
-                                      mode: LaunchMode.externalApplication,
-                                    );
-                                  }
-                                }
-                              },
-                              child: Text(
-                                'Privacy Policy',
-                                style: TextStyle(
-                                  color: wawuColors.primary,
-                                  decoration: TextDecoration.underline,
-                                ),
+                            Expanded(
+                              child: Wrap(
+                                alignment: WrapAlignment.start,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  const Text('I agree to the '),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      if (termsLink.isNotEmpty) {
+                                        final uri = Uri.parse(termsLink);
+                                        if (await canLaunchUrl(uri)) {
+                                          await launchUrl(
+                                            uri,
+                                            mode:
+                                                LaunchMode.externalApplication,
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: Text(
+                                      'Terms of Use',
+                                      style: const TextStyle(
+                                        color: wawuColors.primary,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                  const Text(' and '),
+                                  GestureDetector(
+                                    onTap: () async {
+                                      if (privacyLink.isNotEmpty) {
+                                        final uri = Uri.parse(privacyLink);
+                                        if (await canLaunchUrl(uri)) {
+                                          await launchUrl(
+                                            uri,
+                                            mode:
+                                                LaunchMode.externalApplication,
+                                          );
+                                        }
+                                      }
+                                    },
+                                    child: Text(
+                                      'Privacy Policy',
+                                      style: const TextStyle(
+                                        color: wawuColors.primary,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
