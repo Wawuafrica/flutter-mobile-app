@@ -7,6 +7,7 @@ import 'package:wawu_mobile/models/user.dart'; // Ensure .dart is present
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/dropdown_data_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart'; // Ensure .dart is present
+import 'package:wawu_mobile/providers/skill_provider.dart'; // Add this import
 import 'package:wawu_mobile/screens/profile/change_password_screen/change_password_screen.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
@@ -17,7 +18,8 @@ import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
-import 'package:wawu_mobile/screens/wawu_africa/sign_up/countries.dart';
+import 'package:wawu_mobile/models/country.dart';
+import 'package:wawu_mobile/providers/location_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -32,6 +34,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _skillController = TextEditingController();
   List<String> _skills = [];
   final int _maxAboutLength = 200;
+
+  // Add dropdown state for skills
+  String? _selectedSkill;
 
   // New controllers for education fields (replacing dropdowns)
   String? _selectedCertification;
@@ -48,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       TextEditingController();
   final TextEditingController _professionalCertificationOrganizationController =
       TextEditingController();
-  final TextEditingController _professionalCertificationEndDateController =
+  final TextEditingController _educationEndDateController =
       TextEditingController();
   final TextEditingController _courseOfStudyController =
       TextEditingController();
@@ -70,7 +75,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
-  String? _selectedCountry;
+  Country? _selectedCountry;
 
   bool _isDirty = false; // Track if any field has been changed
   bool _isLoading = true; // Start with loading state
@@ -78,12 +83,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Declare services without initialization
   late final ApiService apiService;
   late final AuthService authService;
-
-  // @override
-  // void initState() {
-  //   super.initState();
-
-  // }
 
   @override
   void initState() {
@@ -100,8 +99,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       listen: false,
     );
 
-    // Fetch all dropdown data concurrently
-    await dropdownProvider.fetchDropdownData();
+    final skillProvider = Provider.of<SkillProvider>(context, listen: false);
+
+    // Fetch all dropdown data and skills concurrently
+    await Future.wait([
+      dropdownProvider.fetchDropdownData(),
+      skillProvider.fetchSkills(),
+    ]);
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final user = userProvider.currentUser;
@@ -133,8 +137,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             latestProfCert.name ?? '';
         _professionalCertificationOrganizationController.text =
             latestProfCert.organization ?? '';
-        _professionalCertificationEndDateController.text =
-            user.additionalInfo?.professionalCertification?.last.endDate ?? '';
       }
 
       if (user.additionalInfo?.education != null &&
@@ -142,9 +144,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final education = user.additionalInfo!.education!.last;
         _courseOfStudyController.text = education.courseOfStudy ?? '';
         _graduationDateController.text = education.graduationDate ?? '';
+        _educationEndDateController.text = education.endDate ?? '';
       }
 
-      _selectedCountry = user.country ?? '';
+      final locationProvider = Provider.of<LocationProvider>(
+        context,
+        listen: false,
+      );
+      if (user.country != null && locationProvider.countries.isNotEmpty) {
+        _selectedCountry = locationProvider.countries.firstWhere(
+          (c) => c.name == user.country,
+          orElse: () => Country(id: 0, name: user.country!, flag: ''),
+        );
+      }
       _stateController.text = user.state ?? '';
 
       // Extract just the username/ID from the stored full URL for display
@@ -179,12 +191,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final controllers = [
       _aboutController,
       _skillController,
-
       _educationCourseOfStudyController,
       _educationGraduationDateController,
       _professionalCertificationNameController,
       _professionalCertificationOrganizationController,
-      _professionalCertificationEndDateController,
+      _educationEndDateController,
       _courseOfStudyController,
       _graduationDateController,
       _facebookController,
@@ -226,37 +237,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Future<void> _pickProfessionalCertificationImage() async {
-  //   final ImagePicker picker = ImagePicker();
-  //   final XFile? pickedFile = await picker.pickImage(
-  //     source: ImageSource.gallery,
-  //   );
-
-  //   if (pickedFile != null) {
-  //     setState(() {
-  //       _professionalCertificationImage = pickedFile;
-  //     });
-  //   }
-  // }
-
-  // Future<void> _pickMeansOfIdentificationImage() async {
-  //   final ImagePicker picker = ImagePicker();
-  //   final XFile? pickedFile = await picker.pickImage(
-  //     source: ImageSource.gallery,
-  //   );
-
-  //   if (pickedFile != null) {
-  //     setState(() {
-  //       _meansOfIdentificationImage = pickedFile;
-  //     });
-  //   }
-  // }
-
+  // Modified skill addition method to support both dropdown and manual input
   void _addSkill() {
-    if (_skillController.text.trim().isNotEmpty) {
+    String skillToAdd = '';
+
+    if (_selectedSkill != null && _selectedSkill!.isNotEmpty) {
+      skillToAdd = _selectedSkill!;
+    } else if (_skillController.text.trim().isNotEmpty) {
+      skillToAdd = _skillController.text.trim();
+    }
+
+    if (skillToAdd.isNotEmpty && !_skills.contains(skillToAdd)) {
       setState(() {
-        _skills.add(_skillController.text.trim());
+        _skills.add(skillToAdd);
         _skillController.clear();
+        _selectedSkill = null;
+        _isDirty = true;
       });
     }
   }
@@ -321,13 +317,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       payload['professionalCertificationOrganization'] =
           _professionalCertificationOrganizationController.text;
     }
-    if (_professionalCertificationEndDateController.text.isNotEmpty) {
-      payload['professionalCertificationEndDate'] =
-          _professionalCertificationEndDateController.text;
+    if (_educationEndDateController.text.isNotEmpty) {
+      payload['educationEndDate'] = _educationEndDateController.text;
     }
-    // if (_selectedCountry != null) {
-    //   payload['country'] = _selectedCountry;
-    // }
     if (_stateController.text.isNotEmpty) {
       payload['state'] = _stateController.text;
     }
@@ -401,7 +393,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _educationCourseOfStudyController.dispose();
     _educationGraduationDateController.dispose();
     _professionalCertificationOrganizationController.dispose();
-    _professionalCertificationEndDateController.dispose();
+    _educationEndDateController.dispose();
     _courseOfStudyController.dispose();
     _graduationDateController.dispose();
     _facebookController.dispose();
@@ -468,7 +460,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check, color: Colors.white, size: 16),
+            child: const Icon(Icons.check, color: Colors.white, size: 12),
           ),
         ],
       ),
@@ -506,15 +498,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   cert.organization ?? 'N/A',
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  cert.endDate ?? 'N/A',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
               ],
             ),
           ),
@@ -525,7 +508,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check, color: Colors.white, size: 16),
+            child: const Icon(Icons.check, color: Colors.white, size: 12),
           ),
         ],
       ),
@@ -540,18 +523,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    return Consumer3<CategoryProvider, UserProvider, DropdownDataProvider>(
+    return Consumer4<
+      CategoryProvider,
+      UserProvider,
+      DropdownDataProvider,
+      SkillProvider
+    >(
       builder: (
         context,
         categoryProvider,
         userProvider,
         dropdownProvider,
+        skillProvider,
         child,
       ) {
         final user = userProvider.currentUser;
         final fullName =
             '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
-        // final selectedSubCategory = categoryProvider.selectedSubCategory;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Profile'), centerTitle: true),
@@ -726,17 +714,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-                // const SizedBox(height: 10),
-                // Center(
-                //   child: Text(
-                //     user?.additionalInfo?.subCategories?. ?? 'No Specialty Selected',
-                //     style: TextStyle(
-                //       fontSize: 13,
-                //       fontWeight: FontWeight.w600,
-                //       color: wawuColors.primary,
-                //     ),
-                //   ),
-                // ),
                 const SizedBox(height: 10),
                 if (user?.status ==
                     'VERIFIED') // Assuming status or another field indicates verification
@@ -747,7 +724,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Container(
                         width: 16,
                         height: 16,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: wawuColors.primary,
                           shape: BoxShape.circle,
                         ),
@@ -855,16 +832,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   const CustomIntroText(text: 'Skills'),
                   const SizedBox(height: 10),
-                  CustomTextfield(
-                    controller: _skillController,
-                    hintText: 'Add a skill...',
+
+                  // Skills Dropdown Section
+                  CustomDropdown(
+                    options:
+                        skillProvider.skills
+                            .map((skill) => skill.name)
+                            .toList(),
+                    label: 'Select Skill',
+                    selectedValue: _selectedSkill,
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedSkill = value;
+                        _skillController
+                            .clear(); // Clear manual input when dropdown is used
+                      });
+                    },
                   ),
                   const SizedBox(height: 10),
                   InkWell(
                     onTap: _addSkill,
                     child: CustomButton(
                       widget: const Text(
-                        'Add',
+                        'Add Skill',
                         style: TextStyle(color: Colors.white),
                       ),
                       color: wawuColors.buttonPrimary,
@@ -988,6 +978,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return null;
                         },
                       ),
+                      CustomTextfield(
+                        controller: _educationEndDateController,
+                        hintText: 'YYYY-MM-DD',
+                        labelText: 'End Date',
+                        labelTextStyle2: true,
+                        suffixIcon: Icons.calendar_today,
+                        readOnly: true,
+                        onTap:
+                            () => _selectGraduationDate(
+                              _educationEndDateController,
+                            ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'End Date is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
                     ],
                   ),
                   const SizedBox(height: 30),
@@ -1025,25 +1034,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         labelTextStyle2: true,
                       ),
                       const SizedBox(height: 20),
-                      CustomTextfield(
-                        controller: _professionalCertificationEndDateController,
-                        hintText: 'YYYY-MM-DD',
-                        labelText: 'End Date',
-                        labelTextStyle2: true,
-                        suffixIcon: Icons.calendar_today,
-                        readOnly: true,
-                        onTap:
-                            () => _selectGraduationDate(
-                              _professionalCertificationEndDateController,
-                            ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'End Date is required';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 20),
+
                       const Text(
                         'Upload Certification Document',
                         style: TextStyle(
@@ -1148,15 +1139,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: TextStyle(fontWeight: FontWeight.w400),
                     ),
                     const SizedBox(height: 5),
-                    CustomDropdown(
-                      options: Countries.all,
-                      label: 'Select Country',
-                      selectedValue: _selectedCountry,
-                      isDisabled: true,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCountry = value;
-                        });
+                    Consumer<LocationProvider>(
+                      builder: (context, locationProvider, child) {
+                        return CustomDropdown<Country>(
+                          options: locationProvider.countries,
+                          label: 'Select Country',
+                          selectedValue: _selectedCountry,
+                          isDisabled: true,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedCountry = value;
+                            });
+                          },
+                          itemBuilder:
+                              (context, country, isSelected) => Row(
+                                children: [
+                                  if (country.flag != null &&
+                                      country.flag!.isNotEmpty)
+                                    Image.network(
+                                      country.flag!,
+                                      width: 24,
+                                      height: 24,
+                                      errorBuilder:
+                                          (_, __, ___) =>
+                                              SizedBox(width: 24, height: 24),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Text(country.name),
+                                ],
+                              ),
+                          getLabel: (country) => country.name,
+                        );
                       },
                     ),
                     const SizedBox(height: 20),

@@ -283,6 +283,7 @@ class UserProvider extends ChangeNotifier {
                       true) ||
                   (data['educationGraduationDate']?.toString().isNotEmpty ==
                       true) ||
+                  (data['educationEndDate']?.toString().isNotEmpty == true) ||
                   (data['professionalCertificationName']
                           ?.toString()
                           .isNotEmpty ==
@@ -325,7 +326,8 @@ class UserProvider extends ChangeNotifier {
             (data?['educationCertification']?.toString().isNotEmpty == true) ||
             (data?['educationInstitution']?.toString().isNotEmpty == true) ||
             (data?['educationCourseOfStudy']?.toString().isNotEmpty == true) ||
-            (data?['educationGraduationDate']?.toString().isNotEmpty == true);
+            (data?['educationGraduationDate']?.toString().isNotEmpty == true) ||
+            (data?['educationEndDate']?.toString().isNotEmpty == true);
         if (hasEducationData) {
           if (data?['educationCertification'] != null) {
             profileFormDataMap['education[0][certification]'] =
@@ -342,6 +344,10 @@ class UserProvider extends ChangeNotifier {
           if (data?['educationGraduationDate'] != null) {
             profileFormDataMap['education[0][graduationDate]'] =
                 data!['educationGraduationDate'].toString();
+          }
+          if (data?['educationEndDate'] != null) {
+            profileFormDataMap['education[0][endDate]'] =
+                data!['educationEndDate'].toString();
           }
         }
 
@@ -492,6 +498,31 @@ class UserProvider extends ChangeNotifier {
       }
     }
     print('Profile update completed');
+  }
+
+  /// Deletes the current user's account by calling the /user/delete endpoint.
+  Future<bool> deleteUserAccount() async {
+    setLoading();
+    try {
+      final response = await _apiService.post(
+        '/user/delete',
+        data: {},
+      );
+      if (response['statusCode'] == 200) {
+        // Clear all user state and log out
+        await logout();
+        setSuccess();
+        return true;
+      } else {
+        final message =
+            response['message'] as String? ?? 'Failed to delete account.';
+        setError(message);
+        return false;
+      }
+    } catch (e) {
+      setError('Failed to delete account: $e');
+      return false;
+    }
   }
 
   Future<void> fetchUserById(String userId) async {

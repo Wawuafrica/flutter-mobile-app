@@ -4,7 +4,9 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/wawu_merch/merch_auth/sign_in.dart';
 import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/providers/links_provider.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
@@ -154,29 +156,75 @@ class _SignUpMerchState extends State<SignUpMerch> {
                     ),
 
                     SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Checkbox(
-                          value: isChecked,
-                          onChanged:
-                              userProvider.isLoading
-                                  ? null
-                                  : (value) {
-                                    // Disable checkbox when loading
-                                    setState(() {
-                                      isChecked = value!;
-                                    });
-                                  },
-                        ),
-                        Flexible(
-                          child: Text(
-                            'Hi superwomen by continuing, you agree to these easy rules to keep us both safe and get you better service',
-                            style: TextStyle(fontSize: 13),
-                            softWrap: true,
-                          ),
-                        ),
-                      ],
+                    Consumer<LinksProvider>(
+                      builder: (context, linksProvider, _) {
+                        final termsLink =
+                            linksProvider.getLinkByName('terms of use')?.link ??
+                            '';
+                        final privacyLink =
+                            linksProvider
+                                .getLinkByName('privacy policy')
+                                ?.link ??
+                            '';
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Checkbox(
+                              value: isChecked,
+                              onChanged:
+                                  userProvider.isLoading
+                                      ? null
+                                      : (value) {
+                                        setState(() {
+                                          isChecked = value ?? false;
+                                        });
+                                      },
+                            ),
+                            Text('I agree to the '),
+                            GestureDetector(
+                              onTap: () async {
+                                if (termsLink.isNotEmpty) {
+                                  final uri = Uri.parse(termsLink);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                }
+                              },
+                              child: Text(
+                                'Terms of Use',
+                                style: TextStyle(
+                                  color: wawuColors.primary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                            Text(' and '),
+                            GestureDetector(
+                              onTap: () async {
+                                if (privacyLink.isNotEmpty) {
+                                  final uri = Uri.parse(privacyLink);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                }
+                              },
+                              child: Text(
+                                'Privacy Policy',
+                                style: TextStyle(
+                                  color: wawuColors.primary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     SizedBox(height: 20),
 

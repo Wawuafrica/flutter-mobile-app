@@ -11,14 +11,15 @@ class User {
   final DateTime? emailVerifiedAt;
   final String? jobType;
   final String? type;
-  final String? location; // Assuming 'address' in JSON maps to 'location' in your model
+  final String?
+  location; // Assuming 'address' in JSON maps to 'location' in your model
   final String? professionalRole;
   final String? country;
   final String? state;
   final DateTime? createdAt;
   final String? status;
   final String? profileImage; // REVERTED to String? - will store the 'link'
-  final String? coverImage;   // REVERTED to String? - will store the 'link'
+  final String? coverImage; // REVERTED to String? - will store the 'link'
   final String? role;
   final int? profileCompletionRate;
   final String? referralCode;
@@ -46,7 +47,7 @@ class User {
     required this.createdAt,
     this.status,
     this.profileImage, // Now String?
-    this.coverImage,   // Now String?
+    this.coverImage, // Now String?
     this.role,
     this.profileCompletionRate,
     this.referralCode,
@@ -85,39 +86,50 @@ class User {
       lastName: json['lastName'] as String?,
       email: email as String,
       phoneNumber: json['phoneNumber'] as String?,
-      emailVerifiedAt: json['emailVerifiedAt'] != null
-          ? DateTime.tryParse(json['emailVerifiedAt'])
-          : null,
+      emailVerifiedAt:
+          json['emailVerifiedAt'] != null
+              ? DateTime.tryParse(json['emailVerifiedAt'])
+              : null,
       jobType: json['jobType'] as String?,
       type: json['type'] as String?,
-      location: json['address'] as String?, // Mapping 'address' from JSON to 'location'
+      location:
+          json['address']
+              as String?, // Mapping 'address' from JSON to 'location'
       professionalRole: json['professionalRole'] as String?,
       country: json['country'] as String?,
       state: json['state'] as String?,
       createdAt: createdAt,
       status: json['status'] as String?,
       // CORRECTED: Extracting only the 'link' for profileImage
-      profileImage: (json['profileImage'] is Map<String, dynamic>)
-          ? (json['profileImage'] as Map<String, dynamic>)['link'] as String?
-          : null,
+      profileImage:
+          (json['profileImage'] is Map<String, dynamic>)
+              ? (json['profileImage'] as Map<String, dynamic>)['link']
+                  as String?
+              : null,
       // CORRECTED: Extracting only the 'link' for coverImage
-      coverImage: (json['coverImage'] is Map<String, dynamic>)
-          ? (json['coverImage'] as Map<String, dynamic>)['link'] as String?
-          : null,
+      coverImage:
+          (json['coverImage'] is Map<String, dynamic>)
+              ? (json['coverImage'] as Map<String, dynamic>)['link'] as String?
+              : null,
       role: json['role'] as String?,
       profileCompletionRate: json['profileCompletionRate'] as int?,
       referralCode: json['referralCode'] as String?,
       referredBy: json['referredBy'] as String?,
       isSubscribed: json['isSubscribed'] as bool?,
       termsAccepted: json['termsAccepted'] as bool?,
-      additionalInfo: json['additionalInfo'] != null && json['additionalInfo'] is Map
-          ? AdditionalInfo.fromJson(json['additionalInfo'] as Map<String, dynamic>)
-          : null,
-      portfolios: (json['portfolios'] as List<dynamic>?)
+      additionalInfo:
+          json['additionalInfo'] != null && json['additionalInfo'] is Map
+              ? AdditionalInfo.fromJson(
+                json['additionalInfo'] as Map<String, dynamic>,
+              )
+              : null,
+      portfolios:
+          (json['portfolios'] as List<dynamic>?)
               ?.map((e) => Portfolio.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      deliveryAddresses: (json['deliveryAddresses'] as List<dynamic>?)
+      deliveryAddresses:
+          (json['deliveryAddresses'] as List<dynamic>?)
               ?.map((e) => DeliveryAddress.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -126,37 +138,37 @@ class User {
   }
 
   Map<String, dynamic> toJson() => {
-        'uuid': uuid,
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'phoneNumber': phoneNumber,
-        'emailVerifiedAt': emailVerifiedAt?.toIso8601String(),
-        'jobType': jobType,
-        'type': type,
-        'address': location, // Mapping 'location' back to 'address' for JSON
-        'professionalRole': professionalRole,
-        'country': country,
-        'state': state,
-        'createdAt': createdAt?.toIso8601String(),
-        'status': status,
-        // When converting to JSON, if you expect the backend to receive the full object,
-        // you'd need to convert the String link back into an ImageInfo object.
-        // However, if the backend just needs the link, this is sufficient.
-        // For now, assuming you just send the string link back if that's what's stored.
-        'profileImage': profileImage, // Now String
-        'coverImage': coverImage,     // Now String
-        'role': role,
-        'profileCompletionRate': profileCompletionRate,
-        'referralCode': referralCode,
-        'referredBy': referredBy,
-        'isSubscribed': isSubscribed,
-        'termsAccepted': termsAccepted,
-        'additionalInfo': additionalInfo?.toJson(),
-        'portfolios': portfolios?.map((e) => e.toJson()).toList(),
-        'deliveryAddresses': deliveryAddresses?.map((e) => e.toJson()).toList(),
-        'token': token,
-      };
+    'uuid': uuid,
+    'firstName': firstName,
+    'lastName': lastName,
+    'email': email,
+    'phoneNumber': phoneNumber,
+    'emailVerifiedAt': emailVerifiedAt?.toIso8601String(),
+    'jobType': jobType,
+    'type': type,
+    'address': location, // Mapping 'location' back to 'address' for JSON
+    'professionalRole': professionalRole,
+    'country': country,
+    'state': state,
+    'createdAt': createdAt?.toIso8601String(),
+    'status': status,
+    // When converting to JSON, if you expect the backend to receive the full object,
+    // you'd need to convert the String link back into an ImageInfo object.
+    // However, if the backend just needs the link, this is sufficient.
+    // For now, assuming you just send the string link back if that's what's stored.
+    'profileImage': profileImage, // Now String
+    'coverImage': coverImage, // Now String
+    'role': role,
+    'profileCompletionRate': profileCompletionRate,
+    'referralCode': referralCode,
+    'referredBy': referredBy,
+    'isSubscribed': isSubscribed,
+    'termsAccepted': termsAccepted,
+    'additionalInfo': additionalInfo?.toJson(),
+    'portfolios': portfolios?.map((e) => e.toJson()).toList(),
+    'deliveryAddresses': deliveryAddresses?.map((e) => e.toJson()).toList(),
+    'token': token,
+  };
 
   User copyWith({
     String? uuid,
@@ -174,7 +186,7 @@ class User {
     DateTime? createdAt,
     String? status,
     String? profileImage, // REVERTED type in copyWith
-    String? coverImage,   // REVERTED type in copyWith
+    String? coverImage, // REVERTED type in copyWith
     String? role,
     int? profileCompletionRate,
     String? referralCode,
@@ -202,9 +214,10 @@ class User {
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
       profileImage: profileImage ?? this.profileImage, // Use original type
-      coverImage: coverImage ?? this.coverImage,     // Use original type
+      coverImage: coverImage ?? this.coverImage, // Use original type
       role: role ?? this.role,
-      profileCompletionRate: profileCompletionRate ?? this.profileCompletionRate,
+      profileCompletionRate:
+          profileCompletionRate ?? this.profileCompletionRate,
       referralCode: referralCode ?? this.referralCode,
       referredBy: referredBy ?? this.referredBy,
       isSubscribed: isSubscribed ?? this.isSubscribed,
@@ -234,43 +247,33 @@ class ImageInfo {
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'name': name,
-        'link': link,
-      };
+  Map<String, dynamic> toJson() => {'name': name, 'link': link};
 }
 
 // Represents the professionalCertification object structure
 class ProfessionalCertification {
   final String? name;
   final String? organization;
-  final String? endDate;
   final ImageInfo? file; // This 'file' IS the {name: ..., link: ...} structure
 
-  ProfessionalCertification({
-    this.name,
-    this.organization,
-    this.endDate,
-    this.file,
-  });
+  ProfessionalCertification({this.name, this.organization, this.file});
 
   factory ProfessionalCertification.fromJson(Map<String, dynamic> json) {
     return ProfessionalCertification(
       name: json['name'] as String?,
       organization: json['organization'] as String?,
-      endDate: json['endDate'] as String?,
-      file: json['file'] != null && json['file'] is Map
-          ? ImageInfo.fromJson(json['file'] as Map<String, dynamic>)
-          : null,
+      file:
+          json['file'] != null && json['file'] is Map
+              ? ImageInfo.fromJson(json['file'] as Map<String, dynamic>)
+              : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'organization': organization,
-        'endDate': endDate,
-        'file': file?.toJson(),
-      };
+    'name': name,
+    'organization': organization,
+    'file': file?.toJson(),
+  };
 }
 
 // Represents the meansOfIdentification object structure
@@ -281,15 +284,14 @@ class MeansOfIdentification {
 
   factory MeansOfIdentification.fromJson(Map<String, dynamic> json) {
     return MeansOfIdentification(
-      file: json['file'] != null && json['file'] is Map
-          ? ImageInfo.fromJson(json['file'] as Map<String, dynamic>)
-          : null,
+      file:
+          json['file'] != null && json['file'] is Map
+              ? ImageInfo.fromJson(json['file'] as Map<String, dynamic>)
+              : null,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'file': file?.toJson(),
-      };
+  Map<String, dynamic> toJson() => {'file': file?.toJson()};
 }
 
 // Represents the subCategories structure inside AdditionalInfo
@@ -299,7 +301,8 @@ class ServiceSubCategory {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final Map<String, dynamic>? pivot; // Generic map for pivot table data
-  final String? serviceCategory; // Assuming this is a simple string, adjust if it's an object
+  final String?
+  serviceCategory; // Assuming this is a simple string, adjust if it's an object
 
   ServiceSubCategory({
     this.uuid,
@@ -314,25 +317,27 @@ class ServiceSubCategory {
     return ServiceSubCategory(
       uuid: json['uuid'] as String?,
       name: json['name'] as String?,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'])
-          : null,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.tryParse(json['updatedAt'])
-          : null,
+      createdAt:
+          json['createdAt'] != null
+              ? DateTime.tryParse(json['createdAt'])
+              : null,
+      updatedAt:
+          json['updatedAt'] != null
+              ? DateTime.tryParse(json['updatedAt'])
+              : null,
       pivot: json['pivot'] as Map<String, dynamic>?,
       serviceCategory: json['serviceCategory'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'uuid': uuid,
-        'name': name,
-        'createdAt': createdAt?.toIso8601String(),
-        'updatedAt': updatedAt?.toIso8601String(),
-        'pivot': pivot,
-        'serviceCategory': serviceCategory,
-      };
+    'uuid': uuid,
+    'name': name,
+    'createdAt': createdAt?.toIso8601String(),
+    'updatedAt': updatedAt?.toIso8601String(),
+    'pivot': pivot,
+    'serviceCategory': serviceCategory,
+  };
 }
 
 class AdditionalInfo {
@@ -342,7 +347,8 @@ class AdditionalInfo {
   final List<ServiceSubCategory>? subCategories;
   final String? preferredLanguage;
   final List<Education>? education;
-  final List<ProfessionalCertification>? professionalCertification; // List of objects
+  final List<ProfessionalCertification>?
+  professionalCertification; // List of objects
   final MeansOfIdentification? meansOfIdentification; // Object
   final Map<String, String>? socialHandles; // Map of social media links
   final String? language; // If language comes outside preferredLanguage
@@ -362,43 +368,94 @@ class AdditionalInfo {
     this.website,
   });
 
-  factory AdditionalInfo.fromJson(Map<String, dynamic>? json) {  // Changed to Map<String, dynamic>? to handle null input
+  factory AdditionalInfo.fromJson(Map<String, dynamic>? json) {
+    // Changed to Map<String, dynamic>? to handle null input
     if (json == null) {
-      return AdditionalInfo();  // Return a default instance if json is null
+      return AdditionalInfo(); // Return a default instance if json is null
     }
     Map<String, String>? parseSocialHandles(Map<String, dynamic>? socialJson) {
       if (socialJson == null) return null;
       return socialJson.map((key, value) => MapEntry(key, value.toString()));
     }
+
     return AdditionalInfo(
       about: json['about'] as String?,
       bio: json['bio'] as String?,
-      skills: (json['skills'] is List) ? (json['skills'] as List<dynamic>?)?.map((e) => e?.toString()).whereType<String>().toList() : null,
-      subCategories: (json['subCategories'] is List) ? (json['subCategories'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? ServiceSubCategory.fromJson(e) : null).whereType<ServiceSubCategory>().toList() : null,
+      skills:
+          (json['skills'] is List)
+              ? (json['skills'] as List<dynamic>?)
+                  ?.map((e) => e?.toString())
+                  .whereType<String>()
+                  .toList()
+              : null,
+      subCategories:
+          (json['subCategories'] is List)
+              ? (json['subCategories'] as List<dynamic>?)
+                  ?.map(
+                    (e) =>
+                        e is Map<String, dynamic>
+                            ? ServiceSubCategory.fromJson(e)
+                            : null,
+                  )
+                  .whereType<ServiceSubCategory>()
+                  .toList()
+              : null,
       preferredLanguage: json['preferredLanguage'] as String?,
-      education: (json['education'] is List) ? (json['education'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? Education.fromJson(e) : null).whereType<Education>().toList() : null,
-      professionalCertification: (json['professionalCertification'] is List) ? (json['professionalCertification'] as List<dynamic>?)?.map((e) => e is Map<String, dynamic> ? ProfessionalCertification.fromJson(e) : null).whereType<ProfessionalCertification>().toList() : null,
-      meansOfIdentification: (json['meansOfIdentification'] is Map<String, dynamic>) ? MeansOfIdentification.fromJson(json['meansOfIdentification'] as Map<String, dynamic>) : null,
-      socialHandles: (json['socialHandles'] is Map) ? parseSocialHandles(json['socialHandles'] as Map<String, dynamic>) : null,
+      education:
+          (json['education'] is List)
+              ? (json['education'] as List<dynamic>?)
+                  ?.map(
+                    (e) =>
+                        e is Map<String, dynamic>
+                            ? Education.fromJson(e)
+                            : null,
+                  )
+                  .whereType<Education>()
+                  .toList()
+              : null,
+      professionalCertification:
+          (json['professionalCertification'] is List)
+              ? (json['professionalCertification'] as List<dynamic>?)
+                  ?.map(
+                    (e) =>
+                        e is Map<String, dynamic>
+                            ? ProfessionalCertification.fromJson(e)
+                            : null,
+                  )
+                  .whereType<ProfessionalCertification>()
+                  .toList()
+              : null,
+      meansOfIdentification:
+          (json['meansOfIdentification'] is Map<String, dynamic>)
+              ? MeansOfIdentification.fromJson(
+                json['meansOfIdentification'] as Map<String, dynamic>,
+              )
+              : null,
+      socialHandles:
+          (json['socialHandles'] is Map)
+              ? parseSocialHandles(
+                json['socialHandles'] as Map<String, dynamic>,
+              )
+              : null,
       language: json['language'] as String?,
       website: json['website'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'about': about,
-        'bio': bio,
-        'skills': skills,
-        'subCategories': subCategories?.map((e) => e.toJson()).toList(),
-        'preferredLanguage': preferredLanguage,
-        'education': education?.map((e) => e.toJson()).toList(),
-        'professionalCertification':
-            professionalCertification?.map((e) => e.toJson()).toList(),
-        'meansOfIdentification': meansOfIdentification?.toJson(),
-        'socialHandles': socialHandles,
-        'language': language,
-        'website': website,
-      };
+    'about': about,
+    'bio': bio,
+    'skills': skills,
+    'subCategories': subCategories?.map((e) => e.toJson()).toList(),
+    'preferredLanguage': preferredLanguage,
+    'education': education?.map((e) => e.toJson()).toList(),
+    'professionalCertification':
+        professionalCertification?.map((e) => e.toJson()).toList(),
+    'meansOfIdentification': meansOfIdentification?.toJson(),
+    'socialHandles': socialHandles,
+    'language': language,
+    'website': website,
+  };
 }
 
 class Education {
@@ -406,12 +463,14 @@ class Education {
   final String? certification; // Changed from 'degree'
   final String? courseOfStudy; // Changed from 'fieldOfStudy'
   final String? graduationDate; // Changed from 'endYear' and type
+  final String? endDate;
 
   Education({
     this.institution,
     this.certification,
     this.courseOfStudy,
     this.graduationDate,
+    this.endDate,
   });
 
   factory Education.fromJson(Map<String, dynamic> json) {
@@ -420,15 +479,17 @@ class Education {
       certification: json['certification'] as String?,
       courseOfStudy: json['courseOfStudy'] as String?,
       graduationDate: json['graduationDate']?.toString(), // Ensure it's String
+      endDate: json['endDate']?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'institution': institution,
-        'certification': certification,
-        'courseOfStudy': courseOfStudy,
-        'graduationDate': graduationDate,
-      };
+    'institution': institution,
+    'certification': certification,
+    'courseOfStudy': courseOfStudy,
+    'graduationDate': graduationDate,
+    'endDate': endDate,
+  };
 }
 
 class Portfolio {
@@ -442,21 +503,24 @@ class Portfolio {
 
   factory Portfolio.fromJson(Map<String, dynamic> json) {
     return Portfolio(
-      id: json['id']?.toString(), // Ensure ID is parsed as string if it's int in JSON
+      id:
+          json['id']
+              ?.toString(), // Ensure ID is parsed as string if it's int in JSON
       title: json['title'] as String?,
       description: json['description'] as String?,
       link: json['link'] as String?,
-      images: (json['images'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+      images:
+          (json['images'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'description': description,
-        'link': link,
-        'images': images,
-      };
+    'id': id,
+    'title': title,
+    'description': description,
+    'link': link,
+    'images': images,
+  };
 }
 
 class DeliveryAddress {
@@ -480,7 +544,9 @@ class DeliveryAddress {
 
   factory DeliveryAddress.fromJson(Map<String, dynamic> json) {
     return DeliveryAddress(
-      id: json['id']?.toString(), // Ensure ID is parsed as string if it's int in JSON
+      id:
+          json['id']
+              ?.toString(), // Ensure ID is parsed as string if it's int in JSON
       label: json['label'] as String?,
       address: json['address'] as String?,
       city: json['city'] as String?,
@@ -491,12 +557,12 @@ class DeliveryAddress {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'address': address,
-        'city': city,
-        'state': state,
-        'country': country,
-        'isDefault': isDefault,
-      };
+    'id': id,
+    'label': label,
+    'address': address,
+    'city': city,
+    'state': state,
+    'country': country,
+    'isDefault': isDefault,
+  };
 }

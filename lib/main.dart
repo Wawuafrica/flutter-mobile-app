@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'providers/network_status_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
+import 'package:wawu_mobile/providers/skill_provider.dart';
 import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:async';
@@ -19,6 +20,8 @@ import 'services/pusher_service.dart';
 
 // Providers
 import 'providers/blog_provider.dart';
+import 'providers/links_provider.dart';
+import 'providers/location_provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/gig_provider.dart';
 import 'providers/message_provider.dart';
@@ -192,6 +195,20 @@ void main() async {
           ),
           ChangeNotifierProvider(
             create: (context) => DropdownDataProvider(apiService: apiService),
+          ),
+          ChangeNotifierProvider(
+            create: (context) => LocationProvider(apiService: apiService),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) =>
+                    LinksProvider(apiService: apiService)..fetchLinks(),
+          ),
+          ChangeNotifierProvider(
+            create:
+                (context) => SkillProvider(
+                  apiService: Provider.of<ApiService>(context, listen: false),
+                ),
           ),
         ],
         child: MyApp(pusherService: pusherService),
@@ -512,6 +529,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       () => _refreshGigProviderSafe(),
       () => _refreshAdProviderSafe(),
       () => _refreshNotificationProviderSafe(),
+      () => _refreshLocationProviderSafe(),
+      () => _refreshSkillProviderSafe(),
+      () => _refreshLinksProviderSafe(),
     ];
 
     for (var task in refreshTasks) {
@@ -521,6 +541,54 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
 
     _logger.i('MyApp: Optimized provider refresh completed successfully');
+  }
+
+  Future<void> _refreshLocationProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final locationProvider = Provider.of<LocationProvider>(
+        context,
+        listen: false,
+      );
+      await locationProvider.fetchCountries();
+      _logger.d('MyApp: LocationProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing LocationProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _refreshSkillProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final skillProvider = Provider.of<SkillProvider>(context, listen: false);
+      await skillProvider.fetchSkills();
+      _logger.d('MyApp: SkillProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing SkillProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _refreshLinksProviderSafe() async {
+    if (!mounted) return;
+    try {
+      final linksProvider = Provider.of<LinksProvider>(context, listen: false);
+      await linksProvider.fetchLinks();
+      _logger.d('MyApp: LinksProvider refreshed successfully');
+    } catch (e, st) {
+      _logger.e(
+        'MyApp: Error refreshing LinksProvider: $e',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   Future<void> _refreshUserProviderSafe() async {
