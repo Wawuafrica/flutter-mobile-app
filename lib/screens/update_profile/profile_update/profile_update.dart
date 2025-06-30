@@ -8,9 +8,11 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/dropdown_data_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/providers/location_provider.dart';
+import 'package:wawu_mobile/providers/skill_provider.dart'; // Add this import
+import 'package:wawu_mobile/models/country.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
-import 'package:wawu_mobile/screens/wawu_africa/sign_up/countries.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
@@ -31,9 +33,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       GlobalKey<FormState>(); // Added GlobalKey for form validation
 
   final TextEditingController _aboutController = TextEditingController();
-  final TextEditingController _skillController = TextEditingController();
   final List<String> _skills = [];
   final int _maxAboutLength = 200;
+  String? _selectedSkill; // Add this for dropdown selection
 
   String? _selectedCertification;
   String? _selectedInstitution;
@@ -48,7 +50,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       TextEditingController();
   final TextEditingController _professionalCertificationOrganizationController =
       TextEditingController();
-  final TextEditingController _professionalCertificationEndDateController =
+  final TextEditingController _educationEndDateController =
       TextEditingController(); // New field
 
   XFile? _profileImage;
@@ -63,7 +65,8 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   final TextEditingController _instagramController = TextEditingController();
   final TextEditingController _twitterController = TextEditingController();
 
-  String? _selectedCountry;
+  Country? _selectedCountry;
+  String? _selectedState;
   final TextEditingController _stateController = TextEditingController();
 
   bool _isSavingProfile = false;
@@ -101,12 +104,39 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       listen: false,
     );
 
-    await dropdownProvider.fetchDropdownData();
+    final skillProvider = Provider.of<SkillProvider>(context, listen: false);
+
+    await Future.wait([
+      dropdownProvider.fetchDropdownData(),
+      skillProvider.fetchSkills(), // Fetch skills
+    ]);
 
     final user = Provider.of<UserProvider>(context, listen: false).currentUser;
     if (user != null) {
       if (user.country != null) {
-        _selectedCountry = user.country;
+        final locationProvider = Provider.of<LocationProvider>(
+          context,
+          listen: false,
+        );
+        if (locationProvider.countries.isNotEmpty) {
+          _selectedCountry = locationProvider.countries.firstWhere(
+            (c) => c.name == user.country,
+            orElse: () => Country(id: 0, name: user.country!, flag: ''),
+          );
+        }
+
+        final countries = locationProvider.countries;
+        final selected = countries.firstWhere(
+          (c) => c.name == user.country,
+          orElse:
+              () =>
+                  countries.isNotEmpty
+                      ? countries.first
+                      : Country(id: 0, name: ''),
+        );
+        setState(() {
+          _selectedCountry = selected;
+        });
       }
       // Populate social media controllers with extracted handles
       _facebookController.text = _extractSocialHandle(
@@ -139,12 +169,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   void _addListeners() {
     final controllers = [
       _aboutController,
-      _skillController,
       _educationCourseOfStudyController,
       _educationGraduationDateController,
       _professionalCertificationNameController,
       _professionalCertificationOrganizationController,
-      _professionalCertificationEndDateController,
+      _educationEndDateController,
       _facebookController,
       _linkedInController,
       _instagramController,
@@ -202,12 +231,23 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   }
 
   void _addSkill() {
-    if (_skillController.text.trim().isNotEmpty) {
+    if (_selectedSkill != null &&
+        _selectedSkill!.trim().isNotEmpty &&
+        !_skills.contains(_selectedSkill!.trim())) {
       setState(() {
-        _skills.add(_skillController.text.trim());
-        _skillController.clear();
+        _skills.add(_selectedSkill!.trim());
+        _selectedSkill = null; // Reset dropdown selection
+        _onFieldChanged(); // Mark as dirty
       });
     }
+  }
+
+  // Get available skills (excluding already selected ones)
+  List<String> _getAvailableSkills(SkillProvider skillProvider) {
+    return skillProvider.skills
+        .map((skill) => skill.name)
+        .where((skillName) => !_skills.contains(skillName))
+        .toList();
   }
 
   Future<void> _selectGraduationDate(TextEditingController controller) async {
@@ -274,11 +314,10 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       payload['professionalCertificationOrganization'] =
           _professionalCertificationOrganizationController.text;
     }
-    if (_professionalCertificationEndDateController.text.isNotEmpty) {
-      payload['professionalCertificationEndDate'] =
-          _professionalCertificationEndDateController.text;
+    if (_educationEndDateController.text.isNotEmpty) {
+      payload['educationEndDate'] = _educationEndDateController.text;
     }
-    if (_selectedCountry != null) payload['country'] = _selectedCountry;
+    if (_selectedCountry != null) payload['country'] = _selectedCountry?.name;
     if (_stateController.text.isNotEmpty) {
       payload['state'] = _stateController.text;
     }
@@ -358,12 +397,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     // Remove listeners to prevent memory leaks
     final controllers = [
       _aboutController,
-      _skillController,
       _educationCourseOfStudyController,
       _educationGraduationDateController,
       _professionalCertificationNameController,
       _professionalCertificationOrganizationController,
-      _professionalCertificationEndDateController,
+      _educationEndDateController,
       _facebookController,
       _linkedInController,
       _instagramController,
@@ -391,12 +429,18 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     // Use the forced boolean for rendering logic
     final bool currentIsWeb = _forceIsWeb;
 
-    return Consumer3<CategoryProvider, UserProvider, DropdownDataProvider>(
+    return Consumer4<
+      CategoryProvider,
+      UserProvider,
+      DropdownDataProvider,
+      SkillProvider
+    >(
       builder: (
         context,
         categoryProvider,
         userProvider,
         dropdownProvider,
+        skillProvider,
         child,
       ) {
         final selectedSubCategory = categoryProvider.selectedSubCategory;
@@ -687,22 +731,47 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                 if (!isBuyer) ...[
                   const CustomIntroText(text: 'Skills'),
                   const SizedBox(height: 10),
-                  CustomTextfield(
-                    controller: _skillController,
-                    hintText: 'Add a skill...',
-                  ),
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: _addSkill,
-                    child: CustomButton(
-                      widget: const Text(
-                        'Add',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      color: wawuColors.buttonPrimary,
-                      textColor: Colors.white,
+
+                  // Skills dropdown and loading/error handling
+                  if (skillProvider.isLoading)
+                    const Center(child: CircularProgressIndicator())
+                  else if (skillProvider.error != null)
+                    Text(
+                      'Error loading skills: ${skillProvider.error}',
+                      style: const TextStyle(color: Colors.red),
+                    )
+                  else ...[
+                    CustomDropdown(
+                      options: _getAvailableSkills(skillProvider),
+                      label: 'Select a skill',
+                      selectedValue: _selectedSkill,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSkill = value;
+                        });
+                      },
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    InkWell(
+                      onTap:
+                          _selectedSkill != null && _selectedSkill!.isNotEmpty
+                              ? _addSkill
+                              : null,
+                      child: CustomButton(
+                        widget: const Text(
+                          'Add',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        color:
+                            (_selectedSkill != null &&
+                                    _selectedSkill!.isNotEmpty)
+                                ? wawuColors.buttonPrimary
+                                : Colors.grey,
+                        textColor: Colors.white,
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 20),
                   Wrap(
                     spacing: 10,
@@ -727,6 +796,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                                   onTap: () {
                                     setState(() {
                                       _skills.remove(skill);
+                                      _onFieldChanged(); // Mark as dirty when removing skill
                                     });
                                   },
                                   child: const Icon(Icons.close, size: 16),
@@ -826,6 +896,25 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                           return null;
                         },
                       ),
+                      CustomTextfield(
+                        controller: _educationEndDateController,
+                        hintText: 'YYYY-MM-DD',
+                        labelText: 'End Date',
+                        labelTextStyle2: true,
+                        suffixIcon: Icons.calendar_today,
+                        readOnly: true, // Make it read-only
+                        onTap:
+                            () => _selectGraduationDate(
+                              _educationEndDateController,
+                            ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'End Date is required';
+                          }
+                          return null;
+                        },
+                      ),
+                      // const SizedBox(height: 20),
                     ],
                   ),
                   const SizedBox(height: 30),
@@ -856,30 +945,12 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       CustomTextfield(
                         controller:
                             _professionalCertificationOrganizationController,
-                        hintText: 'Enter Organization Name',
+                        hintText: 'Your Registered Company Name',
                         labelTextStyle2: true,
                         labelText: 'Organization',
                       ),
                       const SizedBox(height: 20),
-                      CustomTextfield(
-                        controller: _professionalCertificationEndDateController,
-                        hintText: 'YYYY-MM-DD',
-                        labelText: 'End Date',
-                        labelTextStyle2: true,
-                        suffixIcon: Icons.calendar_today,
-                        readOnly: true, // Make it read-only
-                        onTap:
-                            () => _selectGraduationDate(
-                              _professionalCertificationEndDateController,
-                            ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'End Date is required';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 20),
+
                       const Text(
                         'Upload Certification Document',
                         style: TextStyle(
@@ -929,22 +1000,100 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       style: TextStyle(fontWeight: FontWeight.w400),
                     ),
                     const SizedBox(height: 5),
-                    CustomDropdown(
-                      options: Countries.all,
-                      label: 'Select Country',
-                      selectedValue: _selectedCountry,
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCountry = value;
-                        });
+                    Consumer<LocationProvider>(
+                      builder: (context, locationProvider, _) {
+                        if (locationProvider.isLoadingCountries) {
+                          return const CircularProgressIndicator();
+                        } else if (locationProvider.errorCountries != null) {
+                          return Text(
+                            'Error: \\${locationProvider.errorCountries}',
+                          );
+                        }
+                        return CustomDropdown<Country>(
+                          options: locationProvider.countries,
+                          label: 'Select Country',
+                          selectedValue: _selectedCountry,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedCountry = value;
+                              _selectedState = null;
+                            });
+                            final countries = locationProvider.countries;
+                            final selected = countries.firstWhere(
+                              (c) => c.name == value?.name,
+                              orElse:
+                                  () =>
+                                      countries.isNotEmpty
+                                          ? countries.first
+                                          : Country(id: 0, name: ''),
+                            );
+                            if (selected.id != 0) {
+                              locationProvider.fetchStates(selected.id);
+                            }
+                          },
+                          isDisabled: true,
+                          itemBuilder:
+                              (context, country, isSelected) => Row(
+                                children: [
+                                  if (country.flag != null &&
+                                      country.flag!.isNotEmpty)
+                                    Image.network(
+                                      country.flag!,
+                                      width: 24,
+                                      height: 24,
+                                      errorBuilder:
+                                          (_, __, ___) =>
+                                              SizedBox(width: 24, height: 24),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  Text(country.name),
+                                ],
+                              ),
+                          getLabel: (country) => country.name,
+                        );
                       },
                     ),
                     const SizedBox(height: 20),
-                    CustomTextfield(
-                      controller: _stateController,
-                      hintText: 'Enter State',
-                      labelTextStyle2: true,
-                      labelText: 'State',
+                    const Text(
+                      'State/Province',
+                      style: TextStyle(fontWeight: FontWeight.w400),
+                    ),
+                    const SizedBox(height: 5),
+                    Consumer<LocationProvider>(
+                      builder: (context, locationProvider, _) {
+                        if (_selectedCountry == null) {
+                          return AbsorbPointer(
+                            child: CustomDropdown(
+                              label: 'Select State',
+                              options: const [],
+                              selectedValue: null,
+                              onChanged: (_) {},
+                              isDisabled: true,
+                            ),
+                          );
+                        }
+                        if (locationProvider.isLoadingStates) {
+                          return const CircularProgressIndicator();
+                        } else if (locationProvider.errorStates != null) {
+                          return Text(
+                            'Error: \\${locationProvider.errorStates}',
+                          );
+                        }
+                        return CustomDropdown(
+                          label: 'Select State',
+                          options:
+                              locationProvider.states
+                                  .map((s) => s.name)
+                                  .toList(),
+                          selectedValue: _selectedState,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedState = value;
+                            });
+                          },
+                          isDisabled: locationProvider.states.isEmpty,
+                        );
+                      },
                     ),
                   ],
                 ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 // import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:wawu_mobile/providers/links_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'otp_screen.dart';
 // import 'package:wawu_mobile/screens/account_type/account_type.dart';
@@ -14,7 +16,9 @@ import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 
-import 'countries.dart';
+import 'package:wawu_mobile/models/country.dart';
+
+import 'package:wawu_mobile/providers/location_provider.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -32,6 +36,8 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController phoneController = TextEditingController();
   // Replace countryController with selectedCountry string
   String? selectedCountry;
+  String? selectedState;
+  String? selectedGender;
 
   // Declare services without initialization
   late final ApiService apiService;
@@ -163,7 +169,7 @@ class _SignUpState extends State<SignUp> {
 
                     // Add label for the country dropdown
                     Text(
-                      'Country',
+                      'Gender',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -174,41 +180,180 @@ class _SignUpState extends State<SignUp> {
 
                     // Replace CustomTextfield with CustomDropdown for country
                     CustomDropdown(
-                      options: Countries.all,
-                      label: 'Select your country',
-                      selectedValue: selectedCountry,
+                      options: ['male', 'female'],
+                      label: 'Select your gender',
+                      selectedValue: selectedGender,
                       onChanged: (String? value) {
                         setState(() {
-                          selectedCountry = value;
+                          selectedGender = value;
                         });
                       },
                       isDisabled: userProvider.isLoading,
                     ),
-
                     SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        Checkbox(
-                          value: isChecked,
-                          onChanged:
-                              userProvider.isLoading
-                                  ? null
-                                  : (value) {
-                                    // Disable checkbox when loading
-                                    setState(() {
-                                      isChecked = value!;
-                                    });
-                                  },
-                        ),
-                        Flexible(
-                          child: Text(
-                            'Hi superwomen by continuing, you agree to these easy rules to keep us both safe and get you better service',
-                            style: TextStyle(fontSize: 13),
-                            softWrap: true,
-                          ),
-                        ),
-                      ],
+
+                    // Country Dropdown
+                    Text(
+                      'Country',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Consumer<LocationProvider>(
+                      builder: (context, locationProvider, _) {
+                        if (locationProvider.isLoadingCountries) {
+                          return const CircularProgressIndicator();
+                        } else if (locationProvider.errorCountries != null) {
+                          return Text(
+                            'Error: ${locationProvider.errorCountries}',
+                          );
+                        }
+                        return CustomDropdown(
+                          label: 'Select your country',
+                          options:
+                              locationProvider.countries
+                                  .map((c) => c.name)
+                                  .toList(),
+                          selectedValue: selectedCountry,
+                          onChanged: (value) {
+                            setState(() {
+                              selectedCountry = value;
+                              selectedState = null;
+                            });
+                            final countries = locationProvider.countries;
+                            final selected = countries.firstWhere(
+                              (c) => c.name == value,
+                              orElse:
+                                  () =>
+                                      countries.isNotEmpty
+                                          ? countries.first
+                                          : Country(id: 0, name: ''),
+                            );
+                            if (selected.id != 0) {
+                              locationProvider.fetchStates(selected.id);
+                            }
+                          },
+                          isDisabled: userProvider.isLoading,
+                        );
+                      },
+                    ),
+                    SizedBox(height: 20),
+                    // State Dropdown
+                    // Text(
+                    //   'State/Province',
+                    //   style: TextStyle(
+                    //     fontSize: 14,
+                    //     fontWeight: FontWeight.w500,
+                    //     color: Colors.black87,
+                    //   ),
+                    // ),
+                    // SizedBox(height: 8),
+                    // Consumer<LocationProvider>(
+                    //   builder: (context, locationProvider, _) {
+                    //     if (selectedCountry == null) {
+                    //       return AbsorbPointer(
+                    //         child: CustomDropdown(
+                    //           label: 'Select your state',
+                    //           options: const [],
+                    //           selectedValue: null,
+                    //           onChanged: (_) {},
+                    //           isDisabled: true,
+                    //         ),
+                    //       );
+                    //     }
+                    //     if (locationProvider.isLoadingStates) {
+                    //       return const CircularProgressIndicator();
+                    //     } else if (locationProvider.errorStates != null) {
+                    //       return Text('Error: ${locationProvider.errorStates}');
+                    //     }
+                    //     return CustomDropdown(
+                    //       label: 'Select your state',
+                    //       options: locationProvider.states.map((s) => s.name).toList(),
+                    //       selectedValue: selectedState,
+                    //       onChanged: (value) {
+                    //         setState(() {
+                    //           selectedState = value;
+                    //         });
+                    //       },
+                    //       isDisabled: userProvider.isLoading || locationProvider.states.isEmpty,
+                    //     );
+                    //   },
+                    // ),
+
+                    // SizedBox(height: 20),
+                    SizedBox(height: 20),
+                    Consumer<LinksProvider>(
+                      builder: (context, linksProvider, _) {
+                        final termsLink =
+                            linksProvider.getLinkByName('terms of use')?.link ??
+                            '';
+                        final privacyLink =
+                            linksProvider
+                                .getLinkByName('privacy policy')
+                                ?.link ??
+                            '';
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Checkbox(
+                              value: isChecked,
+                              onChanged:
+                                  userProvider.isLoading
+                                      ? null
+                                      : (value) {
+                                        setState(() {
+                                          isChecked = value ?? false;
+                                        });
+                                      },
+                            ),
+                            Text('I agree to the '),
+                            GestureDetector(
+                              onTap: () async {
+                                if (termsLink.isNotEmpty) {
+                                  final uri = Uri.parse(termsLink);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                }
+                              },
+                              child: Text(
+                                'Terms of Use',
+                                style: TextStyle(
+                                  color: wawuColors.primary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                            Text(' and '),
+                            GestureDetector(
+                              onTap: () async {
+                                if (privacyLink.isNotEmpty) {
+                                  final uri = Uri.parse(privacyLink);
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(
+                                      uri,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  }
+                                }
+                              },
+                              child: Text(
+                                'Privacy Policy',
+                                style: TextStyle(
+                                  color: wawuColors.primary,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     SizedBox(height: 20),
 
@@ -282,6 +427,17 @@ class _SignUpState extends State<SignUp> {
                             return;
                           }
 
+                          if (selectedGender == null ||
+                              selectedGender!.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Please select your gender.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
                           // Prepare user data for registration
                           final userData = {
                             'email': emailController.text,
@@ -289,6 +445,7 @@ class _SignUpState extends State<SignUp> {
                             'lastName': lastNameController.text,
                             'password': passwordController.text,
                             'phoneNumber': phoneController.text,
+                            'gender': selectedGender!,
                             'country':
                                 selectedCountry!, // Use selected country name
                             'termsAccepted': isChecked,

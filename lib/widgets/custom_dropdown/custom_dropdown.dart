@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
-class CustomDropdown extends StatefulWidget {
-  final List<String> options;
+typedef DropdownItemBuilder<T> =
+    Widget Function(BuildContext context, T item, bool isSelected);
+
+class CustomDropdown<T> extends StatefulWidget {
+  final List<T> options;
   final String label;
-  final String? selectedValue;
-  final ValueChanged<String?>? onChanged;
+  final T? selectedValue;
+  final ValueChanged<T?>? onChanged;
   final Color overlayColor;
   final Color modalBackgroundColor;
   final double borderRadius;
   final EdgeInsetsGeometry padding;
   final bool isDisabled;
-  final bool enableSearch; // New parameter to enable/disable search
-  final String searchHint; // Customizable search hint text
+  final bool enableSearch;
+  final String searchHint;
+  final DropdownItemBuilder<T>? itemBuilder;
+  final String Function(T)? getLabel;
 
   const CustomDropdown({
     super.key,
@@ -25,18 +30,20 @@ class CustomDropdown extends StatefulWidget {
     this.borderRadius = 20.0,
     this.padding = const EdgeInsets.all(16),
     this.isDisabled = false,
-    this.enableSearch = true, // Default to true for search functionality
-    this.searchHint = 'Search options...', // Default search hint
+    this.enableSearch = true,
+    this.searchHint = 'Search options...',
+    this.itemBuilder,
+    this.getLabel,
   });
 
   @override
   State<CustomDropdown> createState() => _CustomDropdownState();
 }
 
-class _CustomDropdownState extends State<CustomDropdown> {
-  String? _internalSelectedValue;
+class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
+  T? _internalSelectedValue;
   final TextEditingController _searchController = TextEditingController();
-  List<String> _filteredOptions = [];
+  List<T> _filteredOptions = [];
 
   @override
   void initState() {
@@ -46,13 +53,11 @@ class _CustomDropdownState extends State<CustomDropdown> {
   }
 
   @override
-  void didUpdateWidget(covariant CustomDropdown oldWidget) {
+  void didUpdateWidget(covariant CustomDropdown<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update internal selected value if parent's selectedValue changes
     if (widget.selectedValue != oldWidget.selectedValue) {
       _internalSelectedValue = widget.selectedValue;
     }
-    // Update filtered options if options list changes
     if (widget.options != oldWidget.options) {
       _filteredOptions = widget.options;
       _searchController.clear();
@@ -70,31 +75,40 @@ class _CustomDropdownState extends State<CustomDropdown> {
       if (query.isEmpty) {
         _filteredOptions = widget.options;
       } else {
-        _filteredOptions =
-            widget.options
-                .where(
-                  (option) =>
-                      option.toLowerCase().contains(query.toLowerCase()),
-                )
-                .toList();
+        if (widget.getLabel != null) {
+          _filteredOptions =
+              widget.options
+                  .where(
+                    (option) => widget.getLabel!(option).toLowerCase().contains(
+                      query.toLowerCase(),
+                    ),
+                  )
+                  .toList();
+        } else {
+          _filteredOptions =
+              widget.options
+                  .where(
+                    (option) => option.toString().toLowerCase().contains(
+                      query.toLowerCase(),
+                    ),
+                  )
+                  .toList();
+        }
       }
     });
   }
 
   void _showCustomDropdown() {
-    // Prevent opening if disabled
     if (widget.isDisabled) {
       return;
     }
-
-    // Reset search when opening dropdown
     _searchController.clear();
     _filteredOptions = widget.options;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true, // Allow the modal to take more space if needed
+      isScrollControlled: true,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
@@ -190,9 +204,8 @@ class _CustomDropdownState extends State<CustomDropdown> {
                                     shrinkWrap: true,
                                     itemCount: _filteredOptions.length,
                                     itemBuilder: (context, index) {
-                                      return _buildOption(
-                                        _filteredOptions[index],
-                                      );
+                                      final option = _filteredOptions[index];
+                                      return _buildOption(option);
                                     },
                                   ),
                         ),
@@ -208,7 +221,8 @@ class _CustomDropdownState extends State<CustomDropdown> {
     );
   }
 
-  Widget _buildOption(String option) {
+  Widget _buildOption(T option) {
+    final isSelected = _internalSelectedValue == option;
     return InkWell(
       onTap: () {
         setState(() {
@@ -222,20 +236,20 @@ class _CustomDropdownState extends State<CustomDropdown> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Text(
-          option,
-          style: TextStyle(
-            fontSize: 16,
-            color:
-                _internalSelectedValue == option
-                    ? wawuColors.buttonPrimary
-                    : Colors.black,
-            fontWeight:
-                _internalSelectedValue == option
-                    ? FontWeight.w600
-                    : FontWeight.normal,
-          ),
-        ),
+        child:
+            widget.itemBuilder != null
+                ? widget.itemBuilder!(context, option, isSelected)
+                : Text(
+                  widget.getLabel != null
+                      ? widget.getLabel!(option)
+                      : option.toString(),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: isSelected ? wawuColors.buttonPrimary : Colors.black,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
       ),
     );
   }
@@ -258,22 +272,33 @@ class _CustomDropdownState extends State<CustomDropdown> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Expanded(
-              child: Text(
-                _internalSelectedValue ?? widget.label,
-                style: TextStyle(
-                  fontSize: 16,
-                  color:
-                      widget.isDisabled
-                          ? Colors.grey[600]
-                          : (_internalSelectedValue != null
-                              ? Colors.black
-                              : Colors.grey[700]),
-                  fontWeight:
-                      _internalSelectedValue != null
-                          ? FontWeight.w500
-                          : FontWeight.normal,
-                ),
-              ),
+              child:
+                  widget.itemBuilder != null && _internalSelectedValue != null
+                      ? widget.itemBuilder!(
+                        context,
+                        _internalSelectedValue as T,
+                        true,
+                      )
+                      : Text(
+                        _internalSelectedValue != null
+                            ? (widget.getLabel != null
+                                ? widget.getLabel!(_internalSelectedValue as T)
+                                : _internalSelectedValue.toString())
+                            : widget.label,
+                        style: TextStyle(
+                          fontSize: 16,
+                          color:
+                              widget.isDisabled
+                                  ? Colors.grey[600]
+                                  : (_internalSelectedValue != null
+                                      ? Colors.black
+                                      : Colors.grey[700]),
+                          fontWeight:
+                              _internalSelectedValue != null
+                                  ? FontWeight.w500
+                                  : FontWeight.normal,
+                        ),
+                      ),
             ),
             Icon(
               widget.isDisabled

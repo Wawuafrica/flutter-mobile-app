@@ -463,15 +463,6 @@ class SellerProfileScreen extends StatelessWidget {
                   cert?.organization ?? 'Not available',
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  cert?.endDate ?? 'Not available',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
               ],
             ),
           ),
