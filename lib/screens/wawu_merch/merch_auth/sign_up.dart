@@ -29,6 +29,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   String? selectedCountry;
+  String? selectedGender;
 
   // Add a GlobalKey for the form to manage validation state
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -143,6 +144,38 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         }
                         return null;
                       },
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Gender',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+
+                    // Replace CustomTextfield with CustomDropdown for country
+                    CustomDropdown(
+                      options: ['Male', 'Female'],
+                      label: 'Select your gender',
+                      selectedValue: selectedGender,
+                      onChanged: (String? value) {
+                        setState(() {
+                          selectedGender = value;
+                        });
+                      },
+                      isDisabled: userProvider.isLoading,
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Country',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
                     ),
                     SizedBox(height: 8),
                     Consumer<LocationProvider>(
@@ -409,6 +442,17 @@ class _SignUpMerchState extends State<SignUpMerch> {
                             return;
                           }
 
+                          if (selectedGender == null ||
+                              selectedGender!.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Please select your gender.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
                           // Prepare user data for registration
                           final userData = {
                             'email': emailController.text,
@@ -416,6 +460,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                             'lastName': lastNameController.text,
                             'password': passwordController.text,
                             'phoneNumber': phoneController.text,
+                            'gender': selectedGender,
                             'country': selectedCountry,
                             'termsAccepted': isChecked,
                             'role':
