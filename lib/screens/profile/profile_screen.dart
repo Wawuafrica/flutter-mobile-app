@@ -77,6 +77,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   Country? _selectedCountry;
+  String? _selectedState;
 
   bool _isDirty = false; // Track if any field has been changed
   bool _isLoading = true; // Start with loading state
@@ -158,7 +159,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           orElse: () => Country(id: 0, name: user.country!, flag: ''),
         );
       }
-      _stateController.text = user.state ?? '';
+      _selectedState = user.state ?? '';
 
       // Extract just the username/ID from the stored full URL for display
       _facebookController.text =
@@ -321,8 +322,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_educationEndDateController.text.isNotEmpty) {
       payload['educationEndDate'] = _educationEndDateController.text;
     }
-    if (_stateController.text.isNotEmpty) {
-      payload['state'] = _stateController.text;
+    if (_selectedState != null) {
+      payload['state'] = _selectedState;
     }
     Map<String, String> socialHandles = {};
     if (_facebookController.text.isNotEmpty) {
@@ -344,6 +345,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (socialHandles.isNotEmpty) payload['socialHandles'] = socialHandles;
     if (categoryProvider.selectedSubCategory?.uuid != null) {
       payload['subCategoryUuid'] = categoryProvider.selectedSubCategory!.uuid;
+    }
+    if (_phoneController.text.isNotEmpty) {
+      payload['phoneNumber'] = _phoneController.text;
     }
 
     try {
@@ -789,7 +793,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: 'Phone Number',
                   hintText: 'Phone Number',
                   labelTextStyle2: true,
-                  // readOnly: true,
+                  readOnly: _phoneController.text.isNotEmpty,
                 ),
                 const SizedBox(height: 10),
                 CustomTextfield(
@@ -1123,7 +1127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       });
                     },
                   ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 8),
                 const Text(
                   'Acceptable proof of address documents',
                   style: TextStyle(
@@ -1174,12 +1178,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    CustomTextfield(
-                      controller: _stateController,
-                      hintText: 'Enter State',
-                      labelText: 'State',
-                      labelTextStyle2: true,
+                    // State Dropdown
+                    Text(
+                      'State/Province',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
                     ),
+                    SizedBox(height: 8),
+                    Consumer<LocationProvider>(
+                      builder: (context, locationProvider, _) {
+                        if (_selectedCountry == null) {
+                          return AbsorbPointer(
+                            child: CustomDropdown(
+                              label: 'Select your state',
+                              options: const [],
+                              selectedValue: null,
+                              onChanged: (_) {},
+                              isDisabled: true,
+                            ),
+                          );
+                        }
+                        if (locationProvider.isLoadingStates) {
+                          return const CircularProgressIndicator();
+                        } else if (locationProvider.errorStates != null) {
+                          return Text('Error: ${locationProvider.errorStates}');
+                        }
+                        return CustomDropdown(
+                          label: 'Select your state',
+                          options:
+                              locationProvider.states
+                                  .map((s) => s.name)
+                                  .toList(),
+                          selectedValue: _selectedState,
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedState = value;
+                            });
+                          },
+                          isDisabled:
+                              userProvider.isLoading ||
+                              locationProvider.states.isEmpty ||
+                              _selectedState != null,
+                        );
+                      },
+                    ),
+
+                    // const SizedBox(height: 20),
+                    // CustomTextfield(
+                    //   controller: _stateController,
+                    //   hintText: 'Enter State',
+                    //   labelText: 'State',
+                    //   labelTextStyle2: true,
+                    // ),
                   ],
                 ),
                 const SizedBox(height: 30),

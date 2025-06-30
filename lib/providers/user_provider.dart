@@ -423,6 +423,11 @@ class UserProvider extends ChangeNotifier {
             data!['state'].toString().trim().isNotEmpty) {
           profileFormDataMap['state'] = data['state'].toString().trim();
         }
+        if (data?['phoneNumber'] != null &&
+            data!['phoneNumber'].toString().trim().isNotEmpty) {
+          profileFormDataMap['phoneNumber'] =
+              data['phoneNumber'].toString().trim();
+        }
 
         // Add social handles only if not empty and data contains it
         if (data?['social'] != null && data!['social'] is Map) {
@@ -504,8 +509,8 @@ class UserProvider extends ChangeNotifier {
   Future<bool> deleteUserAccount() async {
     setLoading();
     try {
-      final response = await _apiService.get(
-        '/user/delete',
+      final response = await _apiService.post(
+        '/user/account/delete',
         // data: {},
       );
       if (response['statusCode'] == 200) {

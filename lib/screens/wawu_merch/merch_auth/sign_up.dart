@@ -161,6 +161,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       options: ['Male', 'Female'],
                       label: 'Select your gender',
                       selectedValue: selectedGender,
+                      enableSearch: false,
                       onChanged: (String? value) {
                         setState(() {
                           selectedGender = value;
