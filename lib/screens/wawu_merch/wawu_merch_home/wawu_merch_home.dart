@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/screens/wawu_ecommerce_screen/wawu_ecommerce_screen.dart';
@@ -112,17 +113,38 @@ class _WawuMerchHomeState extends State<WawuMerchHome> {
 
                     final List<Widget> carouselItems =
                         adProvider.ads.map((ad) {
-                          return Image.network(
-                            ad.media.link,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                color: wawuColors.borderPrimary.withAlpha(50),
-                                child: Center(
-                                  child: Text('Failed to load image'),
-                                ),
-                              );
+                          return GestureDetector(
+                            onTap: () async {
+                              final url = ad.link;
+                              if (url.isNotEmpty) {
+                                if (await canLaunchUrl(Uri.parse(url))) {
+                                  await launchUrl(
+                                    Uri.parse(url),
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Could not open the ad link',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
                             },
+                            child: Image.network(
+                              ad.media.link,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: wawuColors.borderPrimary.withAlpha(50),
+                                  child: Center(
+                                    child: Text('Failed to load image'),
+                                  ),
+                                );
+                              },
+                            ),
                           );
                         }).toList();
                     return FadingCarousel(height: 250, children: carouselItems);
