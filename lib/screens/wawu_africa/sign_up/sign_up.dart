@@ -181,7 +181,7 @@ class _SignUpState extends State<SignUp> {
 
                     // Replace CustomTextfield with CustomDropdown for country
                     CustomDropdown(
-                      options: ['male', 'female'],
+                      options: ['Male', 'Female'],
                       label: 'Select your gender',
                       selectedValue: selectedGender,
                       onChanged: (String? value) {
