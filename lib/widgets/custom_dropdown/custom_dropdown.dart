@@ -37,7 +37,7 @@ class CustomDropdown<T> extends StatefulWidget {
   });
 
   @override
-  State<CustomDropdown> createState() => _CustomDropdownState();
+  State<CustomDropdown<T>> createState() => _CustomDropdownState<T>();
 }
 
 class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
@@ -276,13 +276,13 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
                   widget.itemBuilder != null && _internalSelectedValue != null
                       ? widget.itemBuilder!(
                         context,
-                        _internalSelectedValue as T,
+                        _internalSelectedValue!,
                         true,
                       )
                       : Text(
                         _internalSelectedValue != null
                             ? (widget.getLabel != null
-                                ? widget.getLabel!(_internalSelectedValue as T)
+                                ? widget.getLabel!(_internalSelectedValue!)
                                 : _internalSelectedValue.toString())
                             : widget.label,
                         style: TextStyle(
