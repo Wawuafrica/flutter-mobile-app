@@ -504,9 +504,9 @@ class UserProvider extends ChangeNotifier {
   Future<bool> deleteUserAccount() async {
     setLoading();
     try {
-      final response = await _apiService.post(
+      final response = await _apiService.get(
         '/user/delete',
-        data: {},
+        // data: {},
       );
       if (response['statusCode'] == 200) {
         // Clear all user state and log out

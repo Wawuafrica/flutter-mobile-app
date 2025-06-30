@@ -16,7 +16,7 @@ import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
-
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wawu_mobile/models/country.dart';
 
 import 'package:wawu_mobile/providers/location_provider.dart';
@@ -217,15 +217,14 @@ class _SignUpState extends State<SignUp> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 SizedBox(
-                                  width: 32,
-                                  height: 32,
+                                  width: 28,
+                                  height: 28,
                                   child: CircularProgressIndicator(
-                                    strokeWidth: 3,
+                                    strokeWidth: 2,
                                     color: wawuColors.primary,
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                const Text('Loading countries...'),
                               ],
                             ),
                           );
@@ -281,7 +280,7 @@ class _SignUpState extends State<SignUp> {
                                     country.flag!.isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(right: 8.0),
-                                    child: Image.network(
+                                    child: SvgPicture.network(
                                       country.flag!,
                                       width: 24,
                                       height: 18,

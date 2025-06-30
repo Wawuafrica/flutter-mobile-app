@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart'; // Import Font Awesome
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -1037,7 +1038,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                                 children: [
                                   if (country.flag != null &&
                                       country.flag!.isNotEmpty)
-                                    Image.network(
+                                    SvgPicture.network(
                                       country.flag!,
                                       width: 24,
                                       height: 24,
@@ -1068,7 +1069,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                               options: const [],
                               selectedValue: null,
                               onChanged: (_) {},
-                              isDisabled: true,
+                              isDisabled: false,
                             ),
                           );
                         }
@@ -1136,7 +1137,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   CustomTextfield(
                     controller: _twitterController,
                     hintText: 'Enter your social media handle',
-                    labelText: 'X fka Twitter',
+                    labelText: 'Twitter',
                     labelTextStyle2: true,
                     suffixIcon:
                         FontAwesomeIcons
