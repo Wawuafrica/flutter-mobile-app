@@ -43,14 +43,24 @@ jobs:
       run: |
         # Create keychain first
         security create-keychain -p "" build.keychain
-        security default-keychain -s build.keychain
+        security default-keychain -s build.keychain  
         security unlock-keychain -p "" build.keychain
         
-        # Decode certificate
+        # Decode certificate with explicit output
         echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
         
-        # Import certificate with -A flag
-        security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign -T /usr/bin/security -A
+        # Debug certificate
+        ls -la certificate.p12
+        file certificate.p12
+        
+        # Try alternative import methods
+        if ! security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign -T /usr/bin/security -A; then
+          echo "First import failed, trying without -A flag"
+          if ! security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign -T /usr/bin/security; then
+            echo "Second import failed, trying with different flags"
+            security import certificate.p12 -k build.keychain -P "" -A
+          fi
+        fi
         
         # Set partition list
         security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
