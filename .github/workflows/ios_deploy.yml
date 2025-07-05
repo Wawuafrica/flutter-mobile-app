@@ -41,29 +41,29 @@ jobs:
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       run: |
-        # Decode certificate from hex instead of base64
+        # Decode certificate from hex
         echo "$APPLE_CERTIFICATE" | xxd -r -p > certificate.p12
         
-        # Verify file was created correctly
-        ls -la certificate.p12
-        file certificate.p12
-        
-        # Delete any existing keychain
+        # Try creating keychain with login keychain as template
         security delete-keychain build.keychain 2>/dev/null || true
         
-        # Create keychain
+        # Create keychain and make it the default
         security create-keychain -p "temppassword" build.keychain
-        security set-keychain-settings -lut 21600 build.keychain
+        security default-keychain -s build.keychain
         security unlock-keychain -p "temppassword" build.keychain
+        security set-keychain-settings -t 3600 -l build.keychain
         
-        # Import certificate
-        security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign -T /usr/bin/security
+        # Import with different approach - no specific applications
+        security import certificate.p12 -k build.keychain -P "" -A
         
-        # Add to search list
-        security list-keychains -d user -s build.keychain
+        # Make sure it's in the search list
+        security list-keychains -d user -s build.keychain $(security list-keychains -d user | sed s/\"//g)
         
-        # Set partition list
-        security set-key-partition-list -S apple-tool:,apple: -s -k "temppassword" build.keychain
+        # Set partition list with different approach
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "temppassword" build.keychain
+        
+        # Verify import worked
+        security find-identity -v -p codesigning build.keychain
         
         # Clean up
         rm certificate.p12
