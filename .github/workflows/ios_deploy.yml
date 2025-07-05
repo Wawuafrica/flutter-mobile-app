@@ -18,8 +18,8 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        channel: 'master'
-        cache: true
+        flutter-version: '3.16.0'
+        channel: 'stable'
     
     - name: Create .env file
       run: |
@@ -29,8 +29,8 @@ jobs:
     - name: Install dependencies
       run: flutter pub get
     
-    # - name: Run tests
-    #   run: flutter test
+    - name: Run tests
+      run: flutter test
     
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
@@ -40,20 +40,20 @@ jobs:
     - name: Install Apple Certificate
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-        APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       run: |
         echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
         security create-keychain -p "" build.keychain
         security default-keychain -s build.keychain
         security unlock-keychain -p "" build.keychain
-        security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign
         security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
     
     - name: Install Provisioning Profile
       env:
         APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
       run: |
-        echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > profile.mobileprovision
+        # Remove header/footer and decode
+        echo "$APPLE_PROVISIONING_PROFILE" | sed '/-----BEGIN CERTIFICATE-----/d' | sed '/-----END CERTIFICATE-----/d' | base64 --decode > profile.mobileprovision
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
     
@@ -98,7 +98,7 @@ jobs:
         cd ios
         echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > AuthKey.p8
         fastlane beta
-# fastlane release
+        # fastlane release
     
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4
