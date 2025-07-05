@@ -41,19 +41,29 @@ jobs:
       env:
         APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       run: |
-        echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+        # Create keychain first
         security create-keychain -p "" build.keychain
         security default-keychain -s build.keychain
         security unlock-keychain -p "" build.keychain
-        security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign
+        
+        # Decode certificate
+        echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+        
+        # Import certificate with -A flag
+        security import certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign -T /usr/bin/security -A
+        
+        # Set partition list
         security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+        
+        # Clean up
+        rm certificate.p12
     
     - name: Install Provisioning Profile
       env:
         APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
       run: |
         # Remove header/footer and decode
-        echo "$APPLE_PROVISIONING_PROFILE" | sed '/-----BEGIN CERTIFICATE-----/d' | sed '/-----END CERTIFICATE-----/d' | base64 --decode > profile.mobileprovision
+        echo "$APPLE_PROVISIONING_PROFILE" | base64 --decode > profile.mobileprovision
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
     
