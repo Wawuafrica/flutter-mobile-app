@@ -1,0 +1,53 @@
+default_platform(:ios)
+
+platform :ios do
+  
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    setup_ci
+    
+    app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
+      key_filepath: './AuthKey.p8'
+    )
+    
+    build_app(
+      workspace: "Runner.xcworkspace",
+      scheme: "Runner",
+      configuration: "Release",
+      export_options: {
+        method: "app-store",
+        provisioningProfiles: {
+          "com.wawuafrica.wawu" => "Wawu Distribution"
+        }
+      }
+    )
+    
+    upload_to_testflight(
+      skip_waiting_for_build_processing: false
+    )
+  end
+  
+  desc "Deploy to App Store"
+  lane :release do
+    setup_ci
+    
+    app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
+      key_filepath: './AuthKey.p8'
+    )
+    
+    # Upload metadata, screenshots, etc.
+    deliver(
+      submit_for_review: true,
+      automatic_release: true,
+      force: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      skip_binary_upload: true
+    )
+  end
+  
+end
