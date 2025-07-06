@@ -51,15 +51,6 @@ jobs:
         git config --global user.email "ci@github.com"
         git config --global user.name "GitHub Actions"
         
-    # Add SSH key setup for Match repository access
-    # - name: Setup SSH for Match
-    #   run: |
-    #     mkdir -p ~/.ssh
-    #     echo "${{ secrets.MATCH_DEPLOY_KEY }}" > ~/.ssh/id_rsa
-    #     chmod 600 ~/.ssh/id_rsa
-    #     ssh-keyscan github.com >> ~/.ssh/known_hosts
-    #   if: ${{ secrets.MATCH_DEPLOY_KEY != '' }}
-      
     - name: Deploy to TestFlight
       env:
         APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
@@ -74,10 +65,9 @@ jobs:
         MATCH_KEYCHAIN_NAME: signing_keychain
         MATCH_KEYCHAIN_PASSWORD: temp_password
         FL_UNLOCK_KEYCHAIN_PASSWORD: temp_password
-        # Updated environment variables for appstore type
+        # Match configuration
         MATCH_TYPE: appstore
-        MATCH_READONLY: false
-        MATCH_FORCE_FOR_NEW_CERTIFICATES: true
+        MATCH_READONLY: true
       run: |
         cd ios
         echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > AuthKey.p8
@@ -95,6 +85,5 @@ jobs:
       if: always()
       run: |
         rm -f ios/AuthKey.p8
-        rm -f ~/.ssh/id_rsa
         # Clean up any remaining keychains
         security delete-keychain signing_keychain || true

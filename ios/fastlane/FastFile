@@ -22,48 +22,23 @@ platform :ios do
       key_filepath: './AuthKey.p8'
     )
     
-    # Clear any existing certificates if corrupted
-    begin
-      # Try to get certificates first - CHANGED FROM "distribution" TO "appstore"
-      match(
-        type: "appstore",
-        keychain_name: "signing_keychain",
-        keychain_password: "temp_password",
-        readonly: true,
-        app_identifier: "com.wawuafrica.wawu",
-        git_url: ENV['MATCH_GIT_URL'],
-        git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
-        storage_mode: "git",
-        api_key: api_key,
-        force_for_new_devices: true
-      )
-    rescue => e
-      UI.error("Match failed, attempting to regenerate certificates: #{e.message}")
-      
-      # If match fails, try to nuke and regenerate - CHANGED FROM "distribution" TO "appstore"
-      match(
-        type: "appstore",
-        keychain_name: "signing_keychain",
-        keychain_password: "temp_password",
-        readonly: false,
-        app_identifier: "com.wawuafrica.wawu",
-        git_url: ENV['MATCH_GIT_URL'],
-        git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
-        storage_mode: "git",
-        api_key: api_key,
-        force_for_new_devices: true,
-        generate_apple_certs: true,
-        force_for_new_certificates: true
-      )
-    end
+    # Get certificates and provisioning profiles with Match
+    match(
+      type: "appstore",
+      keychain_name: "signing_keychain",
+      keychain_password: "temp_password",
+      readonly: true,
+      app_identifier: "com.wawuafrica.wawu",
+      git_url: ENV['MATCH_GIT_URL'],
+      git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
+      storage_mode: "git",
+      api_key: api_key
+    )
     
     # Build the Flutter app
     Dir.chdir("..") do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
-    
-    # Get provisioning profile name - UPDATED FOR APPSTORE
-    provisioning_profile_name = ENV["sigh_com.wawuafrica.wawu_appstore_profile-name"]
     
     # Build and sign the iOS app
     build_app(
@@ -73,7 +48,7 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.wawuafrica.wawu" => provisioning_profile_name || "match AppStore com.wawuafrica.wawu"
+          "com.wawuafrica.wawu" => ENV["sigh_com.wawuafrica.wawu_appstore_profile-name"]
         },
         signingStyle: "manual",
         uploadBitcode: false,
@@ -119,7 +94,7 @@ platform :ios do
       key_filepath: './AuthKey.p8'
     )
     
-    # Get certificates and provisioning profiles with Match - CHANGED FROM "distribution" TO "appstore"
+    # Get certificates and provisioning profiles with Match
     match(
       type: "appstore",
       keychain_name: "signing_keychain",
