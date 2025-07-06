@@ -53,27 +53,12 @@ class BlogProvider extends BaseProvider {
 
     _logger.i('BlogProvider: Initializing Pusher events for blog posts');
 
-    // Listen for new posts created
+    // Subscribe to the general posts channel
+    _pusherService.subscribeToChannel('posts');
+
+    // Listen for general events on the posts channel
     _pusherService.bindToEvent('posts', 'post.created', _handlePostCreated);
-
-    // Listen for post updates
-    _pusherService.bindToEvent('posts', 'post.updated', _handlePostUpdated);
-
-    // Listen for post deletions
     _pusherService.bindToEvent('posts', 'post.deleted', _handlePostDeleted);
-
-    // Listen for post likes
-    _pusherService.bindToEvent('posts', 'post.liked', _handlePostLiked);
-
-    // Listen for post comments
-    _pusherService.bindToEvent('posts', 'post.comment', _handlePostComment);
-
-    // Listen for comment likes
-    _pusherService.bindToEvent(
-      'posts',
-      'post.comment.like',
-      _handleCommentLike,
-    );
 
     _pusherEventsInitialized = true;
     _logger.d('BlogProvider: Pusher events initialized successfully');
@@ -249,27 +234,27 @@ class BlogProvider extends BaseProvider {
 
     _logger.i('BlogProvider: Subscribing to events for post: $postUuid');
 
-    // Subscribe to post-specific channels for real-time updates
+    // Subscribe to post-specific channels according to the event mapping
     _pusherService.subscribeToChannel('post.updated.$postUuid');
-    _pusherService.subscribeToChannel('post.comment.$postUuid');
     _pusherService.subscribeToChannel('post.liked.$postUuid');
+    _pusherService.subscribeToChannel('post.comment.$postUuid');
     _pusherService.subscribeToChannel('post.comment.like.$postUuid');
 
-    // Bind to post-specific events
+    // Bind to post-specific events with correct channel names
     _pusherService.bindToEvent(
       'post.updated.$postUuid',
       'post.updated',
       _handlePostUpdated,
     );
     _pusherService.bindToEvent(
-      'post.comment.$postUuid',
-      'post.comment',
-      _handlePostComment,
-    );
-    _pusherService.bindToEvent(
       'post.liked.$postUuid',
       'post.liked',
       _handlePostLiked,
+    );
+    _pusherService.bindToEvent(
+      'post.comment.$postUuid',
+      'post.comment',
+      _handlePostComment,
     );
     _pusherService.bindToEvent(
       'post.comment.like.$postUuid',
@@ -287,8 +272,8 @@ class BlogProvider extends BaseProvider {
     _logger.i('BlogProvider: Unsubscribing from events for post: $postUuid');
 
     _pusherService.unsubscribeFromChannel('post.updated.$postUuid');
-    _pusherService.unsubscribeFromChannel('post.comment.$postUuid');
     _pusherService.unsubscribeFromChannel('post.liked.$postUuid');
+    _pusherService.unsubscribeFromChannel('post.comment.$postUuid');
     _pusherService.unsubscribeFromChannel('post.comment.like.$postUuid');
   }
 

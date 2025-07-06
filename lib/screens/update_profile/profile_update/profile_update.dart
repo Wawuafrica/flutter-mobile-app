@@ -882,7 +882,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       CustomTextfield(
                         controller: _educationGraduationDateController,
                         hintText: 'YYYY-MM-DD',
-                        labelText: 'Graduation Date',
+                        labelText: 'Start Date',
                         labelTextStyle2: true,
                         suffixIcon: Icons.calendar_today,
                         readOnly: true, // Make it read-only
@@ -892,7 +892,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                             ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Graduation Date is required';
+                            return 'Start Date is required';
                           }
                           return null;
                         },

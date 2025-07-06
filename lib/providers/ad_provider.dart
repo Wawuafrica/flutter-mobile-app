@@ -18,6 +18,7 @@ class AdProvider extends BaseProvider {
 
   List<Ad> _ads = [];
   bool _pusherEventsInitialized = false;
+  final Set<String> _subscribedAdChannels = {}; // Track ad-specific channels
 
   // Getters
   List<Ad> get ads => _ads;
@@ -38,13 +39,10 @@ class AdProvider extends BaseProvider {
 
     _logger.i('AdProvider: Initializing Pusher events for ads');
 
-    // Listen for new ads created
+    // Listen for new ads created on 'ads' channel
     _pusherService.bindToEvent('ads', 'ad.created', _handleAdCreated);
 
-    // Listen for ad updates
-    _pusherService.bindToEvent('ads', 'ad.updated', _handleAdUpdated);
-
-    // Listen for ad deletions
+    // Listen for ad deletions on 'ads' channel
     _pusherService.bindToEvent('ads', 'ad.deleted', _handleAdDeleted);
 
     _pusherEventsInitialized = true;
@@ -114,7 +112,8 @@ class AdProvider extends BaseProvider {
   }
 
   /// Subscribe to ad-specific events when viewing/managing a specific ad
-  void subscribeToAdEvents(String adUuid) {
+  /// This subscribes to the ad.updated.{ad_uuid} channel for real-time updates
+  Future<void> subscribeToAdEvents(String adUuid) async {
     if (!_pusherService.isInitialized) {
       _logger.w(
         'AdProvider: PusherService not initialized, cannot subscribe to ad events',
@@ -122,28 +121,69 @@ class AdProvider extends BaseProvider {
       return;
     }
 
+    final adChannel = 'ad.updated.$adUuid';
+
+    if (_subscribedAdChannels.contains(adChannel)) {
+      _logger.d('AdProvider: Already subscribed to channel: $adChannel');
+      return;
+    }
+
     _logger.i('AdProvider: Subscribing to events for ad: $adUuid');
 
     // Subscribe to ad-specific channel for real-time updates
-    _pusherService.subscribeToChannel('ad.updated.$adUuid');
+    final success = await _pusherService.subscribeToChannel(adChannel);
 
-    // Bind to ad-specific events
-    _pusherService.bindToEvent(
-      'ad.updated.$adUuid',
-      'ad.updated',
-      _handleAdUpdated,
-    );
+    if (success) {
+      _subscribedAdChannels.add(adChannel);
+
+      // Bind to ad-specific update events
+      _pusherService.bindToEvent(adChannel, 'ad.updated', _handleAdUpdated);
+
+      _logger.d(
+        'AdProvider: Successfully subscribed to ad channel: $adChannel',
+      );
+    } else {
+      _logger.e('AdProvider: Failed to subscribe to ad channel: $adChannel');
+    }
   }
 
   /// Unsubscribe from ad-specific events
-  void unsubscribeFromAdEvents(String adUuid) {
+  Future<void> unsubscribeFromAdEvents(String adUuid) async {
     if (!_pusherService.isInitialized) {
+      return;
+    }
+
+    final adChannel = 'ad.updated.$adUuid';
+
+    if (!_subscribedAdChannels.contains(adChannel)) {
+      _logger.d('AdProvider: Not subscribed to channel: $adChannel');
       return;
     }
 
     _logger.i('AdProvider: Unsubscribing from events for ad: $adUuid');
 
-    _pusherService.unsubscribeFromChannel('ad.updated.$adUuid');
+    await _pusherService.unsubscribeFromChannel(adChannel);
+    _subscribedAdChannels.remove(adChannel);
+
+    _logger.d(
+      'AdProvider: Successfully unsubscribed from ad channel: $adChannel',
+    );
+  }
+
+  /// Unsubscribe from all ad-specific channels
+  Future<void> unsubscribeFromAllAdEvents() async {
+    if (!_pusherService.isInitialized) {
+      return;
+    }
+
+    _logger.i('AdProvider: Unsubscribing from all ad-specific channels');
+
+    for (final channel in _subscribedAdChannels.toList()) {
+      await _pusherService.unsubscribeFromChannel(channel);
+    }
+
+    _subscribedAdChannels.clear();
+    _logger.d('AdProvider: Unsubscribed from all ad-specific channels');
   }
 
   /// Fetch ads from the API
@@ -222,7 +262,8 @@ class AdProvider extends BaseProvider {
 
   @override
   void dispose() {
-    // Clean up any resources if needed
+    // Clean up ad-specific channel subscriptions
+    unsubscribeFromAllAdEvents();
     super.dispose();
   }
 }

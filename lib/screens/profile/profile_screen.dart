@@ -968,7 +968,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       CustomTextfield(
                         controller: _educationGraduationDateController,
                         hintText: 'YYYY-MM-DD',
-                        labelText: 'Graduation Date',
+                        labelText: 'Start Date',
                         labelTextStyle2: true,
                         suffixIcon: Icons.calendar_today,
                         readOnly: true,
@@ -978,7 +978,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Graduation Date is required';
+                            return 'Start Date is required';
                           }
                           return null;
                         },
@@ -1241,7 +1241,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _facebookController,
-                    hintText: 'Enter your Facebook username (e.g., yourname)',
+                    hintText: 'Enter your social media handle',
                     labelText: 'Facebook',
                     labelTextStyle2: true,
                     suffixIcon: FontAwesomeIcons.facebook, // Facebook icon
@@ -1249,8 +1249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _linkedInController,
-                    hintText:
-                        'Enter your LinkedIn profile ID (e.g., in/yourname)',
+                    hintText: 'Enter your social media handle',
                     labelText: 'LinkedIn',
                     labelTextStyle2: true,
                     suffixIcon:
@@ -1260,7 +1259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _instagramController,
-                    hintText: 'Enter your Instagram username (e.g., @yourname)',
+                    hintText: 'Enter your social media handle',
                     labelText: 'Instagram',
                     labelTextStyle2: true,
                     suffixIcon: FontAwesomeIcons.instagram, // Instagram icon
@@ -1268,13 +1267,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _twitterController,
-                    hintText:
-                        'Enter your X (Twitter) username (e.g., @yourname)',
+                    hintText: 'Enter your social media handle',
                     labelText: 'Twitter',
                     labelTextStyle2: true,
                     suffixIcon:
                         FontAwesomeIcons
-                            .twitter, // Twitter (X) icon - typically requires a custom font icon or an image
+                            .xTwitter, // Twitter (X) icon - typically requires a custom font icon or an image
                   ),
                   const SizedBox(height: 40),
                 ],

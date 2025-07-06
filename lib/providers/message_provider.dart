@@ -8,6 +8,7 @@ import 'package:wawu_mobile/services/pusher_service.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:logger/logger.dart';
 import 'package:path/path.dart' as path;
+import 'dart:convert';
 
 class MessageProvider extends ChangeNotifier {
   final ApiService _apiService;
@@ -22,8 +23,8 @@ class MessageProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _hasError = false;
   String? _errorMessage;
-  final Set<String> _subscribedChatChannels =
-      {}; // Track subscribed chat channels
+  final Set<String> _subscribedChatChannels = {};
+  final Map<String, bool> _boundEvents = {}; // Track bound events
 
   // Cache for user profiles
   final Map<String, ChatUser> _userProfileCache = {};
@@ -299,6 +300,9 @@ class MessageProvider extends ChangeNotifier {
         targetConversationId = newConversation.id;
         _currentConversationId = newConversation.id;
         _currentRecipientId = receiverId;
+        
+        // Subscribe to the new conversation
+        await _subscribeToMessages(newConversation.id);
         notifyListeners();
       } else {
         setError(response['message'] ?? 'Failed to create conversation');
@@ -440,6 +444,9 @@ class MessageProvider extends ChangeNotifier {
       final success = await _pusherService.subscribeToChannel(channelName);
       if (success) {
         _subscribedChatChannels.add(channelName);
+        
+        // Bind to message events for real-time updates
+        await _bindToMessageEvents(channelName, conversationId);
 
         _logger.i(
           'MessageProvider: Successfully subscribed to chat channel: $channelName',
@@ -453,6 +460,183 @@ class MessageProvider extends ChangeNotifier {
       _logger.e(
         'MessageProvider: Error subscribing to chat channel $channelName: $e',
       );
+    }
+  }
+
+  Future<void> _bindToMessageEvents(String channelName, String conversationId) async {
+    final eventKey = '$channelName.message.sent';
+    
+    // Check if already bound to avoid duplicate bindings
+    if (_boundEvents.containsKey(eventKey) && _boundEvents[eventKey] == true) {
+      _logger.d('MessageProvider: Already bound to event: $eventKey');
+      return;
+    }
+
+    try {
+      // Bind to new message events
+      _pusherService.bindToEvent(channelName, 'message.sent', (event) {
+        _handleNewMessageEvent(event, conversationId);
+      });
+
+      // Bind to message status update events (delivered, read, etc.)
+      _pusherService.bindToEvent(channelName, 'message.status.updated', (event) {
+        _handleMessageStatusUpdateEvent(event, conversationId);
+      });
+
+      // Bind to message read events
+      _pusherService.bindToEvent(channelName, 'message.read', (event) {
+        _handleMessageReadEvent(event, conversationId);
+      });
+
+      _boundEvents[eventKey] = true;
+      _logger.i('MessageProvider: Successfully bound to events for channel: $channelName');
+    } catch (e) {
+      _logger.e('MessageProvider: Error binding to events for channel $channelName: $e');
+    }
+  }
+
+  void _handleNewMessageEvent(dynamic event, String conversationId) {
+    try {
+      if (event.data == null || event.data.isEmpty) {
+        _logger.w('MessageProvider: Received empty event data for message.sent');
+        return;
+      }
+
+      final Map<String, dynamic> eventData = jsonDecode(event.data) as Map<String, dynamic>;
+      final newMessage = Message.fromJson(eventData);
+
+      // Check if this message is for the current conversation
+      if (conversationId == _currentConversationId) {
+        // Check if message already exists (to avoid duplicates)
+        final existingMessageIndex = _currentMessages.indexWhere((m) => m.id == newMessage.id);
+        
+        if (existingMessageIndex == -1) {
+          // Add new message to current messages
+          _currentMessages.add(newMessage);
+          _currentMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+          
+          _logger.i('MessageProvider: New message received via Pusher: ${newMessage.id}');
+          notifyListeners();
+        } else {
+          _logger.d('MessageProvider: Message already exists, skipping: ${newMessage.id}');
+        }
+      }
+
+      // Update the conversation's last message
+      final convIndex = _allConversations.indexWhere((conv) => conv.id == conversationId);
+      if (convIndex != -1) {
+        final updatedMessages = [newMessage, ..._allConversations[convIndex].messages];
+        _allConversations[convIndex] = Conversation(
+          id: _allConversations[convIndex].id,
+          participants: _allConversations[convIndex].participants,
+          messages: updatedMessages,
+          lastMessage: newMessage,
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      _logger.e('MessageProvider: Error processing message.sent event: $e. Data: ${event.data}');
+    }
+  }
+
+  void _handleMessageStatusUpdateEvent(dynamic event, String conversationId) {
+    try {
+      if (event.data == null || event.data.isEmpty) {
+        _logger.w('MessageProvider: Received empty event data for message.status.updated');
+        return;
+      }
+
+      final Map<String, dynamic> eventData = jsonDecode(event.data) as Map<String, dynamic>;
+      final messageId = eventData['message_id'] as String?;
+      final newStatus = eventData['status'] as String?;
+
+      if (messageId == null || newStatus == null) {
+        _logger.w('MessageProvider: Invalid message status update event data');
+        return;
+      }
+
+      // Update message status in current messages if it's the active conversation
+      if (conversationId == _currentConversationId) {
+        final messageIndex = _currentMessages.indexWhere((m) => m.id == messageId);
+        if (messageIndex != -1) {
+          _currentMessages[messageIndex] = _currentMessages[messageIndex].copyWith(status: newStatus);
+          _logger.i('MessageProvider: Updated message status via Pusher: $messageId -> $newStatus');
+          notifyListeners();
+        }
+      }
+
+      // Update in conversations list
+      final convIndex = _allConversations.indexWhere((conv) => conv.id == conversationId);
+      if (convIndex != -1) {
+        final updatedMessages = _allConversations[convIndex].messages.map((msg) {
+          if (msg.id == messageId) {
+            return msg.copyWith(status: newStatus);
+          }
+          return msg;
+        }).toList();
+        
+        _allConversations[convIndex] = Conversation(
+          id: _allConversations[convIndex].id,
+          participants: _allConversations[convIndex].participants,
+          messages: updatedMessages,
+          lastMessage: _allConversations[convIndex].lastMessage?.id == messageId
+              ? _allConversations[convIndex].lastMessage?.copyWith(status: newStatus)
+              : _allConversations[convIndex].lastMessage,
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      _logger.e('MessageProvider: Error processing message.status.updated event: $e. Data: ${event.data}');
+    }
+  }
+
+  void _handleMessageReadEvent(dynamic event, String conversationId) {
+    try {
+      if (event.data == null || event.data.isEmpty) {
+        _logger.w('MessageProvider: Received empty event data for message.read');
+        return;
+      }
+
+      final Map<String, dynamic> eventData = jsonDecode(event.data) as Map<String, dynamic>;
+      final messageId = eventData['message_id'] as String?;
+
+      if (messageId == null) {
+        _logger.w('MessageProvider: Invalid message read event data');
+        return;
+      }
+
+      // Update message read status in current messages if it's the active conversation
+      if (conversationId == _currentConversationId) {
+        final messageIndex = _currentMessages.indexWhere((m) => m.id == messageId);
+        if (messageIndex != -1) {
+          _currentMessages[messageIndex] = _currentMessages[messageIndex].copyWith(isRead: true);
+          _logger.i('MessageProvider: Updated message read status via Pusher: $messageId');
+          notifyListeners();
+        }
+      }
+
+      // Update in conversations list
+      final convIndex = _allConversations.indexWhere((conv) => conv.id == conversationId);
+      if (convIndex != -1) {
+        final updatedMessages = _allConversations[convIndex].messages.map((msg) {
+          if (msg.id == messageId) {
+            return msg.copyWith(isRead: true);
+          }
+          return msg;
+        }).toList();
+        
+        _allConversations[convIndex] = Conversation(
+          id: _allConversations[convIndex].id,
+          participants: _allConversations[convIndex].participants,
+          messages: updatedMessages,
+          lastMessage: _allConversations[convIndex].lastMessage?.id == messageId
+              ? _allConversations[convIndex].lastMessage?.copyWith(isRead: true)
+              : _allConversations[convIndex].lastMessage,
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      _logger.e('MessageProvider: Error processing message.read event: $e. Data: ${event.data}');
     }
   }
 
@@ -491,6 +675,10 @@ class MessageProvider extends ChangeNotifier {
     if (_subscribedChatChannels.contains(channelName)) {
       await _pusherService.unsubscribeFromChannel(channelName);
       _subscribedChatChannels.remove(channelName);
+      
+      // Remove bound events tracking
+      _boundEvents.removeWhere((key, value) => key.startsWith(channelName));
+      
       _logger.i(
         'MessageProvider: Unsubscribed from chat channel: $channelName',
       );
@@ -503,6 +691,7 @@ class MessageProvider extends ChangeNotifier {
       await _pusherService.unsubscribeFromChannel(channelName);
     }
     _subscribedChatChannels.clear();
+    _boundEvents.clear();
     _logger.i('MessageProvider: Unsubscribed from all chat channels');
   }
 

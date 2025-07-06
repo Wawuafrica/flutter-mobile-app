@@ -319,6 +319,10 @@ class GigProvider extends ChangeNotifier {
       if (response['statusCode'] == 200 && response['data'] != null) {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         selectGig(gig);
+
+        // Subscribe to this specific gig's channel for real-time updates
+        await subscribeToSpecificGigChannel(gig.uuid);
+
         _setLoading(false);
         return gig;
       } else {
@@ -332,6 +336,7 @@ class GigProvider extends ChangeNotifier {
       return null;
     }
   }
+
   Future<List<Gig>> fetchGigs({String? status}) async {
     if (_isDisposed) return [];
 
@@ -432,8 +437,22 @@ class GigProvider extends ChangeNotifier {
         '/seller/gig/review/$gigId',
         data: reviewData,
       );
+
+      if (response['statusCode'] == 200) {
+        // If the review was posted successfully, refresh the gig data
+        // to ensure we have the latest reviews
+        final updatedGig = await fetchGigById(gigId);
+        if (updatedGig != null) {
+          // Update the gig in all lists
+          _updateGigInAllLists(gigId, updatedGig);
+        }
+
+        _setLoading(false);
+        return true;
+      }
+
       _setLoading(false);
-      return response['statusCode'] == 200;
+      return false;
     } catch (e) {
       debugPrint('Failed to post review: $e');
       _setLoading(false);
@@ -495,41 +514,58 @@ class GigProvider extends ChangeNotifier {
       }
 
       _isGeneralChannelSubscribed = true;
+      debugPrint('Successfully subscribed to general gigs channel');
 
+      // Bind to gig created event
       _pusherService.bindToEvent(channelName, 'gig.created', (event) {
         if (_isDisposed) return;
+        debugPrint('Received gig.created event: ${event.data}');
 
         try {
           if (event.data is String) {
             final gigData = jsonDecode(event.data) as Map<String, dynamic>;
-            final newGig = Gig.fromJson({...gigData, 'status': 'PENDING'});
+            final newGig = Gig.fromJson(gigData);
+
+            // Add to appropriate lists
             _gigsByStatus['all']!.insert(0, newGig);
-            _gigsByStatus['PENDING']!.insert(0, newGig);
+            if (_gigsByStatus.containsKey(newGig.status)) {
+              _gigsByStatus[newGig.status]!.insert(0, newGig);
+            }
+
             _safeNotifyListeners();
+            debugPrint('Successfully added new gig: ${newGig.uuid}');
           }
         } catch (e) {
           debugPrint('GigProvider: Error processing gig.created event: $e');
         }
       });
 
+      // Bind to gig deleted event
       _pusherService.bindToEvent(channelName, 'gig.deleted', (event) {
         if (_isDisposed) return;
+        debugPrint('Received gig.deleted event: ${event.data}');
 
         try {
           if (event.data is String) {
             final deletedGigData =
                 jsonDecode(event.data) as Map<String, dynamic>;
             final gigUuid = deletedGigData['gig_uuid'] as String?;
+
             if (gigUuid != null) {
+              // Remove from all lists
               for (final status in _gigsByStatus.keys) {
                 _gigsByStatus[status]!.removeWhere(
                   (gig) => gig.uuid == gigUuid,
                 );
               }
+
+              // Clear selected gig if it's the deleted one
               if (_selectedGig?.uuid == gigUuid) {
                 _selectedGig = null;
               }
+
               _safeNotifyListeners();
+              debugPrint('Successfully removed gig: $gigUuid');
             }
           }
         } catch (e) {
@@ -546,54 +582,84 @@ class GigProvider extends ChangeNotifier {
   Future<void> subscribeToSpecificGigChannel(String gigUuid) async {
     if (_isDisposed) return;
 
-    final channelName = 'gig.$gigUuid';
-
-    if (_specificGigChannels.contains(channelName)) {
-      return;
-    }
+    final channelName = 'gig.approved.$gigUuid';
+    final rejectedChannelName = 'gig.rejected.$gigUuid';
+    final reviewChannelName = 'gig.review.$gigUuid';
 
     try {
-      final success = await _pusherService.subscribeToChannel(channelName);
-      if (!success) {
-        return;
+      // Subscribe to gig approved channel
+      if (!_specificGigChannels.contains(channelName)) {
+        final success = await _pusherService.subscribeToChannel(channelName);
+        if (success) {
+          _specificGigChannels.add(channelName);
+          debugPrint('Successfully subscribed to channel: $channelName');
+
+          _pusherService.bindToEvent(channelName, 'gig.approved', (event) {
+            if (_isDisposed) return;
+            debugPrint('Received gig.approved event: ${event.data}');
+            _handleGigApprovedEvent(event, gigUuid);
+          });
+        }
       }
 
-      _specificGigChannels.add(channelName);
+      // Subscribe to gig rejected channel
+      if (!_specificGigChannels.contains(rejectedChannelName)) {
+        final success = await _pusherService.subscribeToChannel(
+          rejectedChannelName,
+        );
+        if (success) {
+          _specificGigChannels.add(rejectedChannelName);
+          debugPrint(
+            'Successfully subscribed to channel: $rejectedChannelName',
+          );
 
-      _pusherService.bindToEvent(
-        channelName,
-        'gig.approved',
-        _handleGigApprovedEvent,
-      );
-      _pusherService.bindToEvent(
-        channelName,
-        'gig.rejected',
-        _handleGigRejectedEvent,
-      );
-      _pusherService.bindToEvent(
-        channelName,
-        'gig.review',
-        _handleGigReviewEvent,
-      );
+          _pusherService.bindToEvent(rejectedChannelName, 'gig.rejected', (
+            event,
+          ) {
+            if (_isDisposed) return;
+            debugPrint('Received gig.rejected event: ${event.data}');
+            _handleGigRejectedEvent(event, gigUuid);
+          });
+        }
+      }
+
+      // Subscribe to gig review channel
+      if (!_specificGigChannels.contains(reviewChannelName)) {
+        final success = await _pusherService.subscribeToChannel(
+          reviewChannelName,
+        );
+        if (success) {
+          _specificGigChannels.add(reviewChannelName);
+          debugPrint('Successfully subscribed to channel: $reviewChannelName');
+
+          _pusherService.bindToEvent(reviewChannelName, 'gig.review', (event) {
+            if (_isDisposed) return;
+            debugPrint('Received gig.review event: ${event.data}');
+            _handleGigReviewEvent(event, gigUuid);
+          });
+        }
+      }
     } catch (e) {
       debugPrint(
-        'Failed to subscribe to specific gig channel $channelName: $e',
+        'Failed to subscribe to specific gig channels for $gigUuid: $e',
       );
     }
   }
 
-  void _handleGigApprovedEvent(PusherEvent event) {
+  void _handleGigApprovedEvent(PusherEvent event, String gigUuid) {
     if (_isDisposed) return;
 
     try {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
-        final gigUuid = eventData['gig_uuid'] as String?;
-        if (gigUuid != null && eventData['gig'] is Map<String, dynamic>) {
+
+        // Extract the gig data from the event
+        if (eventData['gig'] is Map<String, dynamic>) {
           final updatedGig = Gig.fromJson(
             eventData['gig'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
+          debugPrint('Successfully updated gig status to VERIFIED: $gigUuid');
         }
       }
     } catch (e) {
@@ -601,18 +667,20 @@ class GigProvider extends ChangeNotifier {
     }
   }
 
-  void _handleGigRejectedEvent(PusherEvent event) {
+  void _handleGigRejectedEvent(PusherEvent event, String gigUuid) {
     if (_isDisposed) return;
 
     try {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
-        final gigUuid = eventData['gig_uuid'] as String?;
-        if (gigUuid != null && eventData['gig'] is Map<String, dynamic>) {
+
+        // Extract the gig data from the event
+        if (eventData['gig'] is Map<String, dynamic>) {
           final updatedGig = Gig.fromJson(
             eventData['gig'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
+          debugPrint('Successfully updated gig status to REJECTED: $gigUuid');
         }
       }
     } catch (e) {
@@ -620,18 +688,20 @@ class GigProvider extends ChangeNotifier {
     }
   }
 
-  void _handleGigReviewEvent(PusherEvent event) {
+  void _handleGigReviewEvent(PusherEvent event, String gigUuid) {
     if (_isDisposed) return;
 
     try {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
-        final gigUuid = eventData['gig_uuid'] as String?;
-        if (gigUuid != null && eventData['review'] is Map<String, dynamic>) {
+
+        // Extract the review data from the event
+        if (eventData['review'] is Map<String, dynamic>) {
           final newReview = Review.fromJson(
             eventData['review'] as Map<String, dynamic>,
           );
           _addReviewToGig(gigUuid, newReview);
+          debugPrint('Successfully added new review to gig: $gigUuid');
         }
       }
     } catch (e) {
@@ -643,6 +713,8 @@ class GigProvider extends ChangeNotifier {
     if (_isDisposed) return;
 
     bool gigUpdated = false;
+
+    // Update gig in all status lists
     for (final status in _gigsByStatus.keys) {
       final index = _gigsByStatus[status]!.indexWhere(
         (gig) => gig.uuid == gigUuid,
@@ -653,6 +725,7 @@ class GigProvider extends ChangeNotifier {
       }
     }
 
+    // If gig wasn't found in any list, add it
     if (!gigUpdated) {
       _gigsByStatus['all']!.insert(0, updatedGig);
       if (_gigsByStatus.containsKey(updatedGig.status)) {
@@ -660,16 +733,19 @@ class GigProvider extends ChangeNotifier {
       }
     }
 
+    // Remove gig from inappropriate status lists
     for (final status in _gigsByStatus.keys) {
       if (status != 'all' && status != updatedGig.status) {
         _gigsByStatus[status]!.removeWhere((gig) => gig.uuid == gigUuid);
       }
     }
 
+    // Re-sort all lists
     for (final status in _gigsByStatus.keys) {
       _gigsByStatus[status]!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
 
+    // Update selected gig if it's the same one
     if (_selectedGig?.uuid == gigUuid) {
       _selectedGig = updatedGig;
     }
@@ -680,6 +756,7 @@ class GigProvider extends ChangeNotifier {
   void _addReviewToGig(String gigUuid, Review newReview) {
     if (_isDisposed) return;
 
+    // Update gig in all status lists
     for (final status in _gigsByStatus.keys) {
       final index = _gigsByStatus[status]!.indexWhere(
         (gig) => gig.uuid == gigUuid,
@@ -687,6 +764,7 @@ class GigProvider extends ChangeNotifier {
       if (index != -1) {
         final currentGig = _gigsByStatus[status]![index];
         final updatedReviews = [...currentGig.reviews, newReview];
+
         final updatedGig = Gig(
           uuid: currentGig.uuid,
           title: currentGig.title,
@@ -701,13 +779,16 @@ class GigProvider extends ChangeNotifier {
           status: currentGig.status,
           reviews: updatedReviews,
         );
+
         _gigsByStatus[status]![index] = updatedGig;
       }
     }
 
+    // Update selected gig if it's the same one
     if (_selectedGig?.uuid == gigUuid) {
       final g = _selectedGig!;
       final updatedReviews = [...g.reviews, newReview];
+
       _selectedGig = Gig(
         uuid: g.uuid,
         title: g.title,
@@ -730,10 +811,18 @@ class GigProvider extends ChangeNotifier {
   void unsubscribeFromSpecificGigChannel(String gigUuid) {
     if (_isDisposed) return;
 
-    final channelName = 'gig.$gigUuid';
-    if (_specificGigChannels.contains(channelName)) {
-      _pusherService.unsubscribeFromChannel(channelName);
-      _specificGigChannels.remove(channelName);
+    final channelNames = [
+      'gig.approved.$gigUuid',
+      'gig.rejected.$gigUuid',
+      'gig.review.$gigUuid',
+    ];
+
+    for (final channelName in channelNames) {
+      if (_specificGigChannels.contains(channelName)) {
+        _pusherService.unsubscribeFromChannel(channelName);
+        _specificGigChannels.remove(channelName);
+        debugPrint('Unsubscribed from channel: $channelName');
+      }
     }
   }
 

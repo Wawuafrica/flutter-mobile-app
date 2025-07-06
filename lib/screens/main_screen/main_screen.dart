@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Add this import
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/blog_screen/blog_screen.dart';
 import 'package:wawu_mobile/screens/gigs_screen/gigs_screen.dart';
@@ -8,9 +9,7 @@ import 'package:wawu_mobile/screens/messages_screen/messages_screen.dart';
 import 'package:wawu_mobile/screens/notifications/notifications.dart';
 import 'package:wawu_mobile/screens/settings_screen/settings_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-// Import the updated CustomBottomNavigationBar and CustomNavItem
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
-// Import the User model
 
 class MainScreen extends StatefulWidget {
   final bool isAdmin;
@@ -35,7 +34,7 @@ class MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeScreensAndNavItems(); // Combined initialization
+      _initializeScreensAndNavItems();
     });
   }
 
@@ -49,11 +48,10 @@ class MainScreenState extends State<MainScreen> {
         const HomeScreen(),
         BlogScreen(),
         const MessagesScreen(),
-        if (!isBuyer) const GigsScreen(), // Conditionally add GigsScreen
+        if (!isBuyer) const GigsScreen(),
         const SettingsScreen(),
       ];
 
-      // Now create the CustomNavItem list
       _customNavItems = [
         CustomNavItem(iconPath: 'assets/images/svg/home.svg', label: 'Home'),
         CustomNavItem(iconPath: 'assets/images/svg/blog.svg', label: 'Blog'),
@@ -61,7 +59,7 @@ class MainScreenState extends State<MainScreen> {
           iconPath: 'assets/images/svg/message.svg',
           label: 'Messages',
         ),
-        if (!isBuyer) // Conditionally add Gig item
+        if (!isBuyer)
           CustomNavItem(iconPath: 'assets/images/svg/gigs.svg', label: 'Gigs'),
         CustomNavItem(
           iconPath: 'assets/images/svg/settings.svg',
@@ -69,12 +67,68 @@ class MainScreenState extends State<MainScreen> {
         ),
       ];
 
-      // Ensure _selectedIndex doesn't go out of bounds if tabs are removed
       if (_selectedIndex >= _screens.length) {
-        _selectedIndex =
-            0; // Reset to the first tab if the current one is removed
+        _selectedIndex = 0;
       }
     });
+  }
+
+  // Extract profile image widget to a separate method for better reusability
+  Widget _buildProfileImage(String? profileImageUrl) {
+    if (profileImageUrl != null && profileImageUrl.startsWith('http')) {
+      return CachedNetworkImage(
+        imageUrl: profileImageUrl,
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover,
+        placeholder:
+            (context, url) => Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[200],
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+        errorWidget:
+            (context, url, error) => Image.asset(
+              'assets/images/other/avatar.webp',
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+            ),
+        imageBuilder:
+            (context, imageProvider) => Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+              ),
+            ),
+      );
+    } else {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(
+            image: AssetImage(
+              profileImageUrl ?? 'assets/images/other/avatar.webp',
+            ),
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
   }
 
   List<Widget> _getAppBarTitles() {
@@ -84,40 +138,16 @@ class MainScreenState extends State<MainScreen> {
       Row(
         spacing: 10.0,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            clipBehavior: Clip.hardEdge,
-            decoration: BoxDecoration(shape: BoxShape.circle),
-            child:
-                userProvider.currentUser?.profileImage != null &&
-                        userProvider.currentUser!.profileImage!.startsWith(
-                          'http',
-                        )
-                    ? Image.network(
-                      userProvider.currentUser!.profileImage!,
-                      cacheWidth: 70,
-                      fit: BoxFit.cover,
-                      errorBuilder:
-                          (context, error, stackTrace) => Image.asset(
-                            'assets/images/other/avatar.webp',
-                            cacheWidth: 250,
-                            fit: BoxFit.cover,
-                          ),
-                    )
-                    : Image.asset(
-                      userProvider.currentUser?.profileImage ??
-                          'assets/images/other/avatar.webp',
-                      cacheWidth: 250,
-                      fit: BoxFit.cover,
-                    ),
-          ),
+          _buildProfileImage(userProvider.currentUser?.profileImage),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 "Hello ${userProvider.currentUser?.firstName}",
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
               Text(
                 "Find Your Gig Today",
@@ -136,7 +166,6 @@ class MainScreenState extends State<MainScreen> {
         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
       ),
       const Text(
-        // This will only be reached if GigsScreen is included
         'Gigs',
         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
       ),
@@ -146,7 +175,6 @@ class MainScreenState extends State<MainScreen> {
       ),
     ];
 
-    // Filter titles based on the actual screens present
     final currentUser = userProvider.currentUser;
     final isBuyer = currentUser?.role?.toUpperCase() == 'BUYER';
 
@@ -155,7 +183,7 @@ class MainScreenState extends State<MainScreen> {
     actualTitles.add(titles[1]); // Blog
     actualTitles.add(titles[2]); // Messages
     if (!isBuyer) {
-      actualTitles.add(titles[3]); // Gigs (if not buyer)
+      actualTitles.add(titles[3]); // Gigs
     }
     actualTitles.add(titles[4]); // Settings
 
@@ -173,57 +201,32 @@ class MainScreenState extends State<MainScreen> {
     final currentUser = userProvider.currentUser;
 
     if (currentUser?.role?.toUpperCase() == 'BUYER') {
-      // If the user is a BUYER, don't show the search bar
-      return [
-        _buildNotificationsButton(),
-        // Add any other actions that buyers should have
-      ];
+      return [_buildNotificationsButton()];
     } else {
-      // For other roles, show the search bar and notifications
-      return [
-        // _buildSearchButton(),
-        _buildNotificationsButton(),
-      ];
+      return [_buildNotificationsButton()];
     }
   }
 
-  // Widget _buildSearchButton() {
-  //   return Container(
-  //     decoration: BoxDecoration(
-  //       color: wawuColors.primary.withAlpha(30),
-  //       shape: BoxShape.circle,
-  //     ),
-  //     margin: EdgeInsets.only(right: 10),
-  //     height: 36,
-  //     width: 36,
-  //     child: IconButton(
-  //       icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
-  //       onPressed: () {
-  //         setState(() {
-  //           _isSearchOpen = !_isSearchOpen;
-  //         });
-  //       },
-  //     ),
-  //   );
-  // }
-
   Widget _buildInPageSearchBar() {
     return AnimatedContainer(
-      duration: Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 200),
       curve: Curves.ease,
       height: _isSearchOpen ? 65 : 0,
       child: ClipRRect(
         child: SizedBox(
           height: _isSearchOpen ? 65 : 0,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 15.0, vertical: 15.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 15.0,
+              vertical: 15.0,
+            ),
             child:
                 _isSearchOpen
                     ? TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
                         hintText: "Search...",
-                        hintStyle: TextStyle(fontSize: 12),
+                        hintStyle: const TextStyle(fontSize: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -271,8 +274,7 @@ class MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> appBarTitles =
-        _getAppBarTitles(); // Get titles dynamically
+    final List<Widget> appBarTitles = _getAppBarTitles();
 
     return Scaffold(
       appBar: AppBar(
@@ -292,8 +294,7 @@ class MainScreenState extends State<MainScreen> {
       bottomNavigationBar: CustomBottomNavigationBar(
         selectedIndex: _selectedIndex,
         onItemTapped: _onItemTapped,
-        items:
-            _customNavItems, // Pass the dynamically generated CustomNavItem list
+        items: _customNavItems,
       ),
     );
   }

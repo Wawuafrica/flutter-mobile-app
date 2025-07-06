@@ -23,7 +23,8 @@ class ProductProvider extends BaseProvider {
   bool _hasMoreProducts = true;
   int _currentPage = 1;
   bool _isGeneralChannelSubscribed = false;
-  String? _currentSpecificProductChannel;
+  final Set<String> _subscribedProductChannels =
+      {}; // Track subscribed product channels
 
   // Getters
   List<Product> get products => _products;
@@ -182,14 +183,6 @@ class ProductProvider extends BaseProvider {
     try {
       setLoading();
 
-      // Unsubscribe from previous specific product channels if any
-      if (_currentSpecificProductChannel != null) {
-        await _pusherService.unsubscribeFromChannel(
-          _currentSpecificProductChannel!,
-        );
-        _currentSpecificProductChannel = null;
-      }
-
       final response = await _apiService.get<Map<String, dynamic>>(
         '/e-commerce/products/$productId',
       );
@@ -235,10 +228,15 @@ class ProductProvider extends BaseProvider {
       _products.insert(0, updatedProduct);
     }
 
+    // Remove from products if it's no longer available
+    if (foundInProducts && !updatedProduct.isAvailable) {
+      _products.removeWhere((p) => p.id == productId);
+    }
+
     bool foundInFeatured = false;
     for (int i = 0; i < _featuredProducts.length; i++) {
       if (_featuredProducts[i].id == productId) {
-        if (updatedProduct.isFeatured) {
+        if (updatedProduct.isFeatured && updatedProduct.isAvailable) {
           _featuredProducts[i] = updatedProduct;
         } else {
           _featuredProducts.removeAt(i);
@@ -249,7 +247,9 @@ class ProductProvider extends BaseProvider {
     }
 
     // Add to featured if it's now featured but wasn't before
-    if (!foundInFeatured && updatedProduct.isFeatured) {
+    if (!foundInFeatured &&
+        updatedProduct.isFeatured &&
+        updatedProduct.isAvailable) {
       _featuredProducts.insert(0, updatedProduct);
     }
 
@@ -270,12 +270,6 @@ class ProductProvider extends BaseProvider {
   /// Sets the selected product and subscribes to its channel
   void selectProduct(String productId) {
     try {
-      // Unsubscribe from previous specific product channels if any
-      if (_currentSpecificProductChannel != null) {
-        _pusherService.unsubscribeFromChannel(_currentSpecificProductChannel!);
-        _currentSpecificProductChannel = null;
-      }
-
       _selectedProduct = _products.firstWhere(
         (product) => product.id == productId,
         orElse:
@@ -301,9 +295,8 @@ class ProductProvider extends BaseProvider {
 
   /// Clears the selected product and unsubscribes from its channel
   void clearSelectedProduct() {
-    if (_currentSpecificProductChannel != null) {
-      _pusherService.unsubscribeFromChannel(_currentSpecificProductChannel!);
-      _currentSpecificProductChannel = null;
+    if (_selectedProduct != null) {
+      _unsubscribeFromSpecificProductChannels(_selectedProduct!.id);
     }
     _selectedProduct = null;
     notifyListeners();
@@ -432,20 +425,25 @@ class ProductProvider extends BaseProvider {
         'product.created',
         _handleProductCreated,
       );
+
+      print('✅ Subscribed to general products channel');
     } catch (e) {
-      print('Failed to subscribe to general products channel: $e');
+      print('❌ Failed to subscribe to general products channel: $e');
     }
   }
 
   /// Subscribes to specific product channels for updates, deletes, and reviews
   Future<void> _subscribeToSpecificProductChannels(String productId) async {
+    // Avoid duplicate subscriptions
+    if (_subscribedProductChannels.contains(productId)) {
+      return;
+    }
+
     final updatedChannelName = 'product.updated.$productId';
     final deletedChannelName = 'product.deleted.$productId';
     final reviewChannelName = 'product.review.created.$productId';
 
     try {
-      _currentSpecificProductChannel = updatedChannelName;
-
       // Subscribe to updated channel
       await _pusherService.subscribeToChannel(updatedChannelName);
       _pusherService.bindToEvent(
@@ -469,152 +467,280 @@ class ProductProvider extends BaseProvider {
         'product.review.created',
         _handleProductReviewCreated,
       );
+
+      _subscribedProductChannels.add(productId);
+      print('✅ Subscribed to specific product channels for $productId');
     } catch (e) {
       print(
-        'Failed to subscribe to specific product channels for $productId: $e',
+        '❌ Failed to subscribe to specific product channels for $productId: $e',
       );
-      _currentSpecificProductChannel = null;
     }
   }
 
-  // Handlers for Pusher events
+  /// Unsubscribes from specific product channels
+  Future<void> _unsubscribeFromSpecificProductChannels(String productId) async {
+    if (!_subscribedProductChannels.contains(productId)) {
+      return;
+    }
+
+    final updatedChannelName = 'product.updated.$productId';
+    final deletedChannelName = 'product.deleted.$productId';
+    final reviewChannelName = 'product.review.created.$productId';
+
+    try {
+      await _pusherService.unsubscribeFromChannel(updatedChannelName);
+      await _pusherService.unsubscribeFromChannel(deletedChannelName);
+      await _pusherService.unsubscribeFromChannel(reviewChannelName);
+
+      _subscribedProductChannels.remove(productId);
+      print('✅ Unsubscribed from specific product channels for $productId');
+    } catch (e) {
+      print(
+        '❌ Failed to unsubscribe from specific product channels for $productId: $e',
+      );
+    }
+  }
+
+  // Enhanced Pusher event handlers with better error handling and logging
   void _handleProductCreated(dynamic data) {
     try {
-      if (data is! String) {
-        print('Invalid product.created event data');
+      print('📦 Received product.created event');
+
+      Map<String, dynamic> productData;
+      if (data is String) {
+        productData = jsonDecode(data) as Map<String, dynamic>;
+      } else if (data is Map<String, dynamic>) {
+        productData = data;
+      } else {
+        print('❌ Invalid product.created event data type: ${data.runtimeType}');
         return;
       }
-      final productData = jsonDecode(data) as Map<String, dynamic>;
-      final newProduct = Product.fromJson(productData);
 
-      if (newProduct.isAvailable) {
+      final newProduct = Product.fromJson(productData);
+      print(
+        '📦 New product created: ${newProduct.name} (ID: ${newProduct.id})',
+      );
+
+      // Only add if product is available and not already in list
+      if (newProduct.isAvailable &&
+          !_products.any((p) => p.id == newProduct.id)) {
         _products.insert(0, newProduct);
+
         if (newProduct.isFeatured) {
           _featuredProducts.insert(0, newProduct);
         }
+
         notifyListeners();
+        print('✅ Product added to local lists');
       }
     } catch (e) {
-      print('Failed to handle product.created event: $e');
+      print('❌ Failed to handle product.created event: $e');
     }
   }
 
   void _handleProductUpdated(dynamic data) {
     try {
-      if (data is! String) {
-        print('Invalid product.updated event data');
+      print('📦 Received product.updated event');
+
+      Map<String, dynamic> productData;
+      if (data is String) {
+        productData = jsonDecode(data) as Map<String, dynamic>;
+      } else if (data is Map<String, dynamic>) {
+        productData = data;
+      } else {
+        print('❌ Invalid product.updated event data type: ${data.runtimeType}');
         return;
       }
-      final productData = jsonDecode(data) as Map<String, dynamic>;
+
       final updatedProduct = Product.fromJson(productData);
       final String productId = updatedProduct.id;
 
+      print('📦 Product updated: ${updatedProduct.name} (ID: $productId)');
+
       _updateProductInLists(productId, updatedProduct);
 
-      if (_selectedProduct != null && _selectedProduct!.id == productId) {
+      // Update selected product if it's the same one
+      if (_selectedProduct?.id == productId) {
         _selectedProduct = updatedProduct;
+        print('✅ Selected product updated');
       }
 
-      // Check if product in cart is affected
-      if (_cartItems.containsKey(productId) && !updatedProduct.isAvailable) {
-        _cartItems.remove(productId);
-        print(
-          'Product "${updatedProduct.name}" has been removed from your cart because it is no longer available.',
-        );
+      // Handle cart item availability changes
+      if (_cartItems.containsKey(productId)) {
+        if (!updatedProduct.isAvailable) {
+          _cartItems.remove(productId);
+          print('🛒 Product removed from cart - no longer available');
+          // You might want to show a user notification here
+        } else {
+          print('🛒 Product in cart updated');
+        }
       }
 
       notifyListeners();
     } catch (e) {
-      print('Failed to handle product.updated event: $e');
+      print('❌ Failed to handle product.updated event: $e');
     }
   }
 
   void _handleProductDeleted(dynamic data) {
     try {
-      if (data is! String) {
-        print('Invalid product.deleted event data');
+      print('📦 Received product.deleted event');
+
+      Map<String, dynamic> deletedData;
+      if (data is String) {
+        deletedData = jsonDecode(data) as Map<String, dynamic>;
+      } else if (data is Map<String, dynamic>) {
+        deletedData = data;
+      } else {
+        print('❌ Invalid product.deleted event data type: ${data.runtimeType}');
         return;
       }
-      final deletedProductData = jsonDecode(data) as Map<String, dynamic>;
-      final String? deletedProductId = deletedProductData['product_uuid'];
+
+      final String? deletedProductId = deletedData['product_uuid'] as String?;
 
       if (deletedProductId != null) {
+        print('📦 Product deleted: $deletedProductId');
+
+        // Find the product name before removing (for logging)
+        final productName =
+            _products
+                .firstWhere(
+                  (p) => p.id == deletedProductId,
+                  orElse:
+                      () => Product(
+                        id: '',
+                        name: 'Unknown Product',
+                        description: '',
+                        category: '',
+                        tags: [],
+                        shortDescription: '',
+                        status: '',
+                        type: '',
+                        visibility: '',
+                        publishAt: '',
+                        manufacturerName: '',
+                        manufacturerBrand: '',
+                        price: 0.0,
+                        currency: '',
+                        discount: 0.0,
+                        images: [],
+                        variants: [],
+                      ),
+                )
+                .name;
+
         _removeProduct(deletedProductId);
+        _unsubscribeFromSpecificProductChannels(deletedProductId);
+
+        print('✅ Product "$productName" removed from local lists and cart');
+        // You might want to show a user notification here
       } else {
-        print('product.deleted event data missing product_uuid');
+        print('❌ product.deleted event data missing product_uuid');
       }
     } catch (e) {
-      print('Failed to handle product.deleted event: $e');
+      print('❌ Failed to handle product.deleted event: $e');
     }
   }
 
   void _handleProductReviewCreated(dynamic data) {
     try {
-      if (data is! String) {
-        print('Invalid product.review.created event data');
+      print('📦 Received product.review.created event');
+
+      Map<String, dynamic> reviewData;
+      if (data is String) {
+        reviewData = jsonDecode(data) as Map<String, dynamic>;
+      } else if (data is Map<String, dynamic>) {
+        reviewData = data;
+      } else {
+        print(
+          '❌ Invalid product.review.created event data type: ${data.runtimeType}',
+        );
         return;
       }
-      final reviewData = jsonDecode(data) as Map<String, dynamic>;
-      final String? reviewedProductId = reviewData['product_uuid'];
 
-      if (reviewedProductId != null &&
-          _selectedProduct?.id == reviewedProductId) {
-        if (reviewData.containsKey('product') &&
-            reviewData['product'] is Map<String, dynamic>) {
-          final updatedProduct = Product.fromJson(reviewData['product']);
-          _updateProductInLists(reviewedProductId, updatedProduct);
-          if (_selectedProduct?.id == reviewedProductId) {
-            _selectedProduct = updatedProduct;
-            notifyListeners();
-          }
-        } else {
-          print('product.review.created event data missing product object.');
+      final String? reviewedProductId = reviewData['product_uuid'] as String?;
+
+      if (reviewedProductId == null) {
+        print('❌ product.review.created event data missing product_uuid');
+        return;
+      }
+
+      print('📦 Review created for product: $reviewedProductId');
+
+      // Check if the product object is included in the event data
+      if (reviewData.containsKey('product') &&
+          reviewData['product'] is Map<String, dynamic>) {
+        final updatedProduct = Product.fromJson(
+          reviewData['product'] as Map<String, dynamic>,
+        );
+        _updateProductInLists(reviewedProductId, updatedProduct);
+
+        // Update selected product if it's the same one
+        if (_selectedProduct?.id == reviewedProductId) {
+          _selectedProduct = updatedProduct;
+          print('✅ Selected product updated with new review data');
         }
-      } else if (reviewedProductId == null) {
-        print('product.review.created event data missing product_uuid');
+
+        notifyListeners();
+      } else {
+        // If product data is not included, we might need to refetch the product
+        print(
+          '⚠️ Product data not included in review event, consider refetching product details',
+        );
+
+        // Optionally refetch the product if it's currently selected
+        if (_selectedProduct?.id == reviewedProductId) {
+          fetchProductDetails(reviewedProductId);
+        }
       }
     } catch (e) {
-      print('Failed to handle product.review.created event: $e');
+      print('❌ Failed to handle product.review.created event: $e');
     }
   }
 
-  /// Clears all product data except cart and unsubscribes from specific channel
+  /// Clears all product data except cart
   void clearProductData() {
+    // Unsubscribe from all specific product channels
+    final productIds = List<String>.from(_subscribedProductChannels);
+    for (final productId in productIds) {
+      _unsubscribeFromSpecificProductChannels(productId);
+    }
+
     _products = [];
     _featuredProducts = [];
-    clearSelectedProduct();
+    _selectedProduct = null;
     _hasMoreProducts = true;
     _currentPage = 1;
     resetState();
+    notifyListeners();
   }
 
   /// Clears all data including cart and unsubscribes from all channels
   void clearAll() {
     clearProductData();
     _cartItems.clear();
+
     if (_isGeneralChannelSubscribed) {
       _pusherService.unsubscribeFromChannel('products');
       _isGeneralChannelSubscribed = false;
     }
+
+    notifyListeners();
   }
 
   @override
   void dispose() {
+    // Unsubscribe from general channel
     if (_isGeneralChannelSubscribed) {
       _pusherService.unsubscribeFromChannel('products');
     }
-    if (_currentSpecificProductChannel != null) {
-      final productId = _currentSpecificProductChannel!.split('.').last;
-      final updatedChannelName = 'product.updated.$productId';
-      final deletedChannelName = 'product.deleted.$productId';
-      final reviewChannelName = 'product.review.created.$productId';
 
-      _pusherService.unsubscribeFromChannel(updatedChannelName);
-      _pusherService.unsubscribeFromChannel(deletedChannelName);
-      _pusherService.unsubscribeFromChannel(reviewChannelName);
-
-      _currentSpecificProductChannel = null;
+    // Unsubscribe from all specific product channels
+    final productIds = List<String>.from(_subscribedProductChannels);
+    for (final productId in productIds) {
+      _unsubscribeFromSpecificProductChannels(productId);
     }
+
     super.dispose();
   }
 }

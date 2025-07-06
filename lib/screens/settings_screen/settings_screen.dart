@@ -1,16 +1,15 @@
 // settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Add this import
 import 'package:wawu_mobile/providers/ad_provider.dart';
-// import 'package:wawu_mobile/providers/application_provider.dart';
 import 'package:wawu_mobile/providers/blog_provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
-import 'package:wawu_mobile/providers/plan_provider.dart'; // Import PlanProvider
+import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-// import 'package:wawu_mobile/screens/about_us_screen/about_us_screen.dart';
 import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
 import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
 import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
@@ -34,22 +33,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch subscription data when the screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final userId = userProvider.currentUser?.uuid;
       final userType = userProvider.currentUser?.role?.toLowerCase();
-      int role = 0; // Default role, assuming it's not artisan or professional
+      int role = 0;
 
       if (userType == 'artisan') {
         role = 3;
       } else if (userType == 'professional') {
         role = 2;
       } else {
-        role = 1; // Assuming 'user' or default role is 1
+        role = 1;
       }
 
-      // Only call fetchUserSubscriptionDetails if userId is not null
       if (userId != null) {
         Provider.of<PlanProvider>(
           context,
@@ -57,6 +54,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ).fetchUserSubscriptionDetails(userId, role);
       }
     });
+  }
+
+  // Build cached cover image widget
+  Widget _buildCoverImage(String? coverImageUrl) {
+    if (coverImageUrl != null && coverImageUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: coverImageUrl,
+        width: double.infinity,
+        height: 100,
+        fit: BoxFit.cover,
+        placeholder:
+            (context, url) => Container(
+              width: double.infinity,
+              height: 100,
+              color: Colors.grey[300],
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+        errorWidget:
+            (context, url, error) => Container(
+              width: double.infinity,
+              height: 100,
+              color: Colors.black,
+            ),
+      );
+    } else {
+      return Container(
+        width: double.infinity,
+        height: 100,
+        color: Colors.black,
+      );
+    }
+  }
+
+  // Build cached profile image widget
+  Widget _buildProfileImage(String? profileImageUrl) {
+    if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: profileImageUrl,
+        width: 100,
+        height: 100,
+        fit: BoxFit.cover,
+        placeholder:
+            (context, url) => Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[300],
+              ),
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+        errorWidget:
+            (context, url, error) => Container(
+              width: 100,
+              height: 100,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(
+                  image: AssetImage('assets/images/other/avatar.webp'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+        imageBuilder:
+            (context, imageProvider) => Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+              ),
+            ),
+      );
+    } else {
+      return Container(
+        width: 100,
+        height: 100,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          image: DecorationImage(
+            image: AssetImage('assets/images/other/avatar.webp'),
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _handleLogoutAsync(BuildContext context) async {
@@ -77,7 +160,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context,
       listen: false,
     );
-    // final reviewProvider = Provider.of<ReviewProvider>(context, listen: false);
 
     userProvider.logout();
     await OnboardingStateService.clear();
@@ -90,7 +172,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     notificationProvider.clearAll();
     planProvider.reset();
     productProvider.clearAll();
-    // reviewProvider.clearAll();
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -107,39 +188,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           children: [
             const SizedBox(height: 20),
+            // Cover Image Section
             Consumer<UserProvider>(
               builder: (context, userProvider, child) {
                 final user = userProvider.currentUser;
                 final coverImageUrl = user?.coverImage;
-                return Container(
-                  width: double.infinity,
-                  height: 100,
-                  color: Colors.black,
-                  child:
-                      coverImageUrl != null && coverImageUrl.isNotEmpty
-                          ? Image.network(
-                            coverImageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              // Fallback to default avatar if network image fails
-                              return Container();
-                            },
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) {
-                                return child;
-                              }
-                              return Container(
-                                color: Colors.grey[300],
-                                child: const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            },
-                          )
-                          : Container(),
-                );
+                return _buildCoverImage(coverImageUrl);
               },
             ),
+            // Profile Image Section
             SizedBox(
               height: 50,
               child: Stack(
@@ -154,54 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         builder: (context, userProvider, child) {
                           final user = userProvider.currentUser;
                           final profileImageUrl = user?.profileImage;
-
-                          return Container(
-                            width: 100,
-                            height: 100,
-                            clipBehavior: Clip.hardEdge,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                            ),
-                            child:
-                                profileImageUrl != null &&
-                                        profileImageUrl.isNotEmpty
-                                    ? Image.network(
-                                      profileImageUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (
-                                        context,
-                                        error,
-                                        stackTrace,
-                                      ) {
-                                        // Fallback to default avatar if network image fails
-                                        return Image.asset(
-                                          'assets/images/other/avatar.webp',
-                                          fit: BoxFit.cover,
-                                          cacheWidth: 200,
-                                        );
-                                      },
-                                      loadingBuilder: (
-                                        context,
-                                        child,
-                                        loadingProgress,
-                                      ) {
-                                        if (loadingProgress == null) {
-                                          return child;
-                                        }
-                                        return Container(
-                                          color: Colors.grey[300],
-                                          child: const Center(
-                                            child: CircularProgressIndicator(),
-                                          ),
-                                        );
-                                      },
-                                    )
-                                    : Image.asset(
-                                      'assets/images/other/avatar.webp',
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 200,
-                                    ),
-                          );
+                          return _buildProfileImage(profileImageUrl);
                         },
                       ),
                     ),
@@ -210,6 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 10),
+            // User Name Section
             Consumer<UserProvider>(
               builder: (context, userProvider, child) {
                 final user = userProvider.currentUser;
@@ -228,6 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             const SizedBox(height: 20),
+            // Subscription Section
             Consumer<PlanProvider>(
               builder: (context, planProvider, child) {
                 final userType =
@@ -235,9 +247,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       context,
                     ).currentUser?.role?.toLowerCase();
 
-                // Conditional rendering: Only show subscription if userType is 'artisan' or 'professional'
                 if (userType != 'artisan' && userType != 'professional') {
-                  return const SizedBox.shrink(); // Hide the subscription component
+                  return const SizedBox.shrink();
                 }
 
                 final subscriptionData = planProvider.subscription;
@@ -250,7 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 160,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      color: Colors.grey[200], // Placeholder color
+                      color: Colors.grey[200],
                     ),
                     padding: const EdgeInsets.all(30.0),
                     child: const Center(child: CircularProgressIndicator()),
@@ -263,9 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 160,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      color:
-                          wawuColors
-                              .primary, // Or a different color for fallback
+                      color: wawuColors.primary,
                     ),
                     padding: const EdgeInsets.all(30.0),
                     child: Column(
@@ -283,7 +292,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () {
-                            // Retry fetching only if userId is available
                             final currentUserId =
                                 Provider.of<UserProvider>(
                                   context,
@@ -307,7 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               planProvider.fetchUserSubscriptionDetails(
                                 currentUserId,
                                 currentRole,
-                              ); // Retry fetching
+                              );
                             }
                           },
                           child: Text(
@@ -327,7 +335,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 }
 
-                // Display actual subscription data
                 final planName = subscriptionData.plan?.name;
                 final expiresAt = subscriptionData.expiresAt;
                 String daysLeftText = '';
@@ -380,35 +387,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       Expanded(
                         child: CustomRowSingleColumn(
-                          leftText: 'Expires On', // Changed text
+                          leftText: 'Expires On',
                           leftTextStyle: TextStyle(
                             color: wawuColors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
-                          rightText:
-                              '$expiresAt ($daysLeftText)', // Display expiry date and days left
+                          rightText: '$expiresAt ($daysLeftText)',
                           rightTextStyle: TextStyle(
                             color: wawuColors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 25),
-                      Expanded(
-                        child: CustomRowSingleColumn(
-                          leftText: 'Upgrade Plan',
-                          leftTextStyle: TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          rightText: '',
-                          rightTextStyle: TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -418,7 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             const SizedBox(height: 20),
-            // ... rest of your settings screen widgets ...
+            // Settings Options
             SettingsButtonCard(
               title: 'My Profile',
               navigate: () {
@@ -461,17 +450,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            // SettingsButtonCard(
-            //   title: 'About Us',
-            //   navigate: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(
-            //         builder: (context) => const AboutUsScreen(),
-            //       ),
-            //     );
-            //   },
-            // ),
             Consumer<LinksProvider>(
               builder: (context, linksProvider, _) {
                 final termsLink =
@@ -513,6 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             const SizedBox(height: 40),
+            // Action Buttons
             Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

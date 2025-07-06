@@ -1,42 +1,86 @@
 default_platform(:ios)
 
 platform :ios do
-  
   desc "Build and upload to TestFlight"
   lane :beta do
     setup_ci
     
+    # Setup keychain for CI
+    create_keychain(
+      name: "signing_keychain",
+      password: "temp_password",
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false
+    )
+    
+    # Load App Store Connect API key
     app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
       issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
       key_filepath: './AuthKey.p8'
     )
     
+    # Get certificates and provisioning profiles with Match
+    match(
+      type: "appstore",
+      keychain_name: "signing_keychain",
+      keychain_password: "temp_password",
+      readonly: true,
+      app_identifier: "com.wawuafrica.wawu"
+    )
+    
+    # Build the app
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
       configuration: "Release",
+      export_method: "app-store",
       export_options: {
-        method: "app-store",
         provisioningProfiles: {
-          "com.wawuafrica.wawu" => "Wawu Distribution"
+          "com.wawuafrica.wawu" => "match AppStore com.wawuafrica.wawu"
         }
       }
     )
     
+    # Upload to TestFlight
     upload_to_testflight(
       skip_waiting_for_build_processing: false
     )
+    
+    # Clean up
+    delete_keychain(name: "signing_keychain")
   end
-  
+
   desc "Deploy to App Store"
   lane :release do
     setup_ci
     
+    # Setup keychain for CI
+    create_keychain(
+      name: "signing_keychain",
+      password: "temp_password",
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false
+    )
+    
+    # Load App Store Connect API key
     app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
       issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
       key_filepath: './AuthKey.p8'
+    )
+    
+    # Get certificates and provisioning profiles with Match
+    match(
+      type: "appstore",
+      keychain_name: "signing_keychain",
+      keychain_password: "temp_password",
+      readonly: true,
+      app_identifier: "com.wawuafrica.wawu"
     )
     
     # Upload metadata, screenshots, etc.
@@ -48,6 +92,13 @@ platform :ios do
       skip_screenshots: true,
       skip_binary_upload: true
     )
+    
+    # Clean up
+    delete_keychain(name: "signing_keychain")
   end
-  
+
+  error do |lane, exception|
+    # Clean up keychain if there's an error
+    delete_keychain(name: "signing_keychain") if File.exist?(File.expand_path("~/Library/Keychains/signing_keychain-db"))
+  end
 end

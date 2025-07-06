@@ -16,6 +16,7 @@ dependencies:
   # responsive_framework: ^1.5.1
   responsive_framework: ^0.2.0
   flutter_native_splash: ^2.4.0
+  cached_network_image: ^3.4.1
   path: ^1.9.1
   webview_flutter: ^4.13.0
   timeago: ^3.7.1

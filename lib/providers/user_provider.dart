@@ -342,7 +342,7 @@ class UserProvider extends ChangeNotifier {
                 data!['educationCourseOfStudy'].toString();
           }
           if (data?['educationGraduationDate'] != null) {
-            profileFormDataMap['education[0][graduationDate]'] =
+            profileFormDataMap['education[0][startDate]'] =
                 data!['educationGraduationDate'].toString();
           }
           if (data?['educationEndDate'] != null) {
