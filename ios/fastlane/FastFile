@@ -24,9 +24,9 @@ platform :ios do
     
     # Clear any existing certificates if corrupted
     begin
-      # Try to get certificates first
+      # Try to get certificates first - CHANGED FROM "appstore" TO "distribution"
       match(
-        type: "appstore",
+        type: "distribution",
         keychain_name: "signing_keychain",
         keychain_password: "temp_password",
         readonly: true,
@@ -40,9 +40,9 @@ platform :ios do
     rescue => e
       UI.error("Match failed, attempting to regenerate certificates: #{e.message}")
       
-      # If match fails, try to nuke and regenerate
+      # If match fails, try to nuke and regenerate - CHANGED FROM "appstore" TO "distribution"
       match(
-        type: "appstore",
+        type: "distribution",
         keychain_name: "signing_keychain",
         keychain_password: "temp_password",
         readonly: false,
@@ -52,7 +52,8 @@ platform :ios do
         storage_mode: "git",
         api_key: api_key,
         force_for_new_devices: true,
-        generate_apple_certs: true
+        generate_apple_certs: true,
+        force_for_new_certificates: true
       )
     end
     
@@ -61,7 +62,7 @@ platform :ios do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
     
-    # Get provisioning profile name
+    # Get provisioning profile name - UPDATED FOR DISTRIBUTION
     provisioning_profile_name = ENV["sigh_com.wawuafrica.wawu_appstore_profile-name"]
     
     # Build and sign the iOS app
@@ -118,9 +119,9 @@ platform :ios do
       key_filepath: './AuthKey.p8'
     )
     
-    # Get certificates and provisioning profiles with Match
+    # Get certificates and provisioning profiles with Match - CHANGED FROM "appstore" TO "distribution"
     match(
-      type: "appstore",
+      type: "distribution",
       keychain_name: "signing_keychain",
       keychain_password: "temp_password",
       readonly: true,

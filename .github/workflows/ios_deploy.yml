@@ -40,7 +40,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: 3.0
+        ruby-version: '3.1'
         bundler-cache: true
         
     - name: Install Fastlane
@@ -52,13 +52,13 @@ jobs:
         git config --global user.name "GitHub Actions"
         
     # Add SSH key setup for Match repository access
-    - name: Setup SSH for Match
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.MATCH_DEPLOY_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan github.com >> ~/.ssh/known_hosts
-      # if: secrets.MATCH_DEPLOY_KEY != ''
+    # - name: Setup SSH for Match
+    #   run: |
+    #     mkdir -p ~/.ssh
+    #     echo "${{ secrets.MATCH_DEPLOY_KEY }}" > ~/.ssh/id_rsa
+    #     chmod 600 ~/.ssh/id_rsa
+    #     ssh-keyscan github.com >> ~/.ssh/known_hosts
+    #   if: ${{ secrets.MATCH_DEPLOY_KEY != '' }}
       
     - name: Deploy to TestFlight
       env:
@@ -74,6 +74,10 @@ jobs:
         MATCH_KEYCHAIN_NAME: signing_keychain
         MATCH_KEYCHAIN_PASSWORD: temp_password
         FL_UNLOCK_KEYCHAIN_PASSWORD: temp_password
+        # Add these for better certificate handling
+        MATCH_TYPE: distribution
+        MATCH_READONLY: false
+        MATCH_FORCE_FOR_NEW_CERTIFICATES: true
       run: |
         cd ios
         echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > AuthKey.p8
@@ -92,3 +96,5 @@ jobs:
       run: |
         rm -f ios/AuthKey.p8
         rm -f ~/.ssh/id_rsa
+        # Clean up any remaining keychains
+        security delete-keychain signing_keychain || true
