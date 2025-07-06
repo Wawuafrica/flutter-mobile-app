@@ -46,14 +46,10 @@ jobs:
     - name: Install Fastlane
       run: gem install fastlane
       
-    - name: Setup Match SSH Key
+    - name: Setup Git credentials for Match
       run: |
-        mkdir -p ~/.ssh
-        echo '${{ secrets.MATCH_SSH_PRIVATE_KEY }}' > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan github.com >> ~/.ssh/known_hosts
-        eval "$(ssh-agent -s)"
-        ssh-add ~/.ssh/id_rsa
+        git config --global user.email "ci@github.com"
+        git config --global user.name "GitHub Actions"
         
     - name: Deploy to TestFlight
       env:
@@ -62,6 +58,7 @@ jobs:
         APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
         MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
         FASTLANE_SKIP_UPDATE_CHECK: true
         FASTLANE_HIDE_GITHUB_ISSUES: true
         FASTLANE_DISABLE_ANIMATION: true
@@ -82,4 +79,3 @@ jobs:
       if: always()
       run: |
         rm -f ios/AuthKey.p8
-        ssh-add -D 2>/dev/null || true

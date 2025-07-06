@@ -30,7 +30,7 @@ platform :ios do
       readonly: true,
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
-      git_basic_authorization: nil,  # We're using SSH key instead
+      git_basic_authorization: Base64.strict_encode64(ENV['MATCH_GIT_TOKEN']),
       storage_mode: "git"
     )
     
@@ -94,7 +94,7 @@ platform :ios do
       readonly: true,
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
-      git_basic_authorization: nil,
+      git_basic_authorization: Base64.strict_encode64(ENV['MATCH_GIT_TOKEN']),
       storage_mode: "git"
     )
     
