@@ -22,23 +22,47 @@ platform :ios do
       key_filepath: './AuthKey.p8'
     )
     
-    # Get certificates and provisioning profiles with Match
-    match(
-      type: "appstore",
-      keychain_name: "signing_keychain",
-      keychain_password: "temp_password",
-      readonly: true,
-      app_identifier: "com.wawuafrica.wawu",
-      git_url: ENV['MATCH_GIT_URL'],
-      git_basic_authorization: Base64.strict_encode64(ENV['MATCH_GIT_TOKEN']),
-      storage_mode: "git",
-      api_key: api_key
-    )
+    # Clear any existing certificates if corrupted
+    begin
+      # Try to get certificates first
+      match(
+        type: "appstore",
+        keychain_name: "signing_keychain",
+        keychain_password: "temp_password",
+        readonly: true,
+        app_identifier: "com.wawuafrica.wawu",
+        git_url: ENV['MATCH_GIT_URL'],
+        git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
+        storage_mode: "git",
+        api_key: api_key,
+        force_for_new_devices: true
+      )
+    rescue => e
+      UI.error("Match failed, attempting to regenerate certificates: #{e.message}")
+      
+      # If match fails, try to nuke and regenerate
+      match(
+        type: "appstore",
+        keychain_name: "signing_keychain",
+        keychain_password: "temp_password",
+        readonly: false,
+        app_identifier: "com.wawuafrica.wawu",
+        git_url: ENV['MATCH_GIT_URL'],
+        git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
+        storage_mode: "git",
+        api_key: api_key,
+        force_for_new_devices: true,
+        generate_apple_certs: true
+      )
+    end
     
     # Build the Flutter app
     Dir.chdir("..") do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
+    
+    # Get provisioning profile name
+    provisioning_profile_name = ENV["sigh_com.wawuafrica.wawu_appstore_profile-name"]
     
     # Build and sign the iOS app
     build_app(
@@ -48,24 +72,31 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.wawuafrica.wawu" => "match AppStore com.wawuafrica.wawu"
-        }
+          "com.wawuafrica.wawu" => provisioning_profile_name || "match AppStore com.wawuafrica.wawu"
+        },
+        signingStyle: "manual",
+        uploadBitcode: false,
+        uploadSymbols: true,
+        compileBitcode: false
       },
-      output_directory: "./build/ios/ipa/"
+      output_directory: "./build/ios/ipa/",
+      silent: true
     )
     
     # Upload to TestFlight
     upload_to_testflight(
+      api_key: api_key,
       skip_waiting_for_build_processing: false,
       skip_submission: false,
       distribute_external: false,
-      notify_external_testers: false
+      notify_external_testers: false,
+      changelog: "Automated build from GitHub Actions"
     )
     
     # Clean up
     delete_keychain(name: "signing_keychain")
   end
-
+  
   desc "Deploy to App Store"
   lane :release do
     setup_ci
@@ -81,7 +112,7 @@ platform :ios do
     )
     
     # Load App Store Connect API key
-    app_store_connect_api_key(
+    api_key = app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
       issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
       key_filepath: './AuthKey.p8'
@@ -95,12 +126,14 @@ platform :ios do
       readonly: true,
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
-      git_basic_authorization: Base64.strict_encode64(ENV['MATCH_GIT_TOKEN']),
-      storage_mode: "git"
+      git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
+      storage_mode: "git",
+      api_key: api_key
     )
     
     # Upload metadata, screenshots, etc.
     deliver(
+      api_key: api_key,
       submit_for_review: true,
       automatic_release: true,
       force: true,
@@ -112,7 +145,7 @@ platform :ios do
     # Clean up
     delete_keychain(name: "signing_keychain")
   end
-
+  
   error do |lane, exception|
     # Clean up keychain if there's an error
     delete_keychain(name: "signing_keychain") if File.exist?(File.expand_path("~/Library/Keychains/signing_keychain-db"))
