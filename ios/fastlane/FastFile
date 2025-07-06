@@ -28,10 +28,18 @@ platform :ios do
       keychain_name: "signing_keychain",
       keychain_password: "temp_password",
       readonly: true,
-      app_identifier: "com.wawuafrica.wawu"
+      app_identifier: "com.wawuafrica.wawu",
+      git_url: ENV['MATCH_GIT_URL'],
+      git_basic_authorization: nil,  # We're using SSH key instead
+      storage_mode: "git"
     )
     
-    # Build the app
+    # Build the Flutter app
+    Dir.chdir("..") do
+      sh("flutter", "build", "ios", "--release", "--no-codesign")
+    end
+    
+    # Build and sign the iOS app
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
@@ -41,12 +49,16 @@ platform :ios do
         provisioningProfiles: {
           "com.wawuafrica.wawu" => "match AppStore com.wawuafrica.wawu"
         }
-      }
+      },
+      output_directory: "./build/ios/ipa/"
     )
     
     # Upload to TestFlight
     upload_to_testflight(
-      skip_waiting_for_build_processing: false
+      skip_waiting_for_build_processing: false,
+      skip_submission: false,
+      distribute_external: false,
+      notify_external_testers: false
     )
     
     # Clean up
@@ -80,7 +92,10 @@ platform :ios do
       keychain_name: "signing_keychain",
       keychain_password: "temp_password",
       readonly: true,
-      app_identifier: "com.wawuafrica.wawu"
+      app_identifier: "com.wawuafrica.wawu",
+      git_url: ENV['MATCH_GIT_URL'],
+      git_basic_authorization: nil,
+      storage_mode: "git"
     )
     
     # Upload metadata, screenshots, etc.
