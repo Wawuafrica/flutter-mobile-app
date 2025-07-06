@@ -1241,7 +1241,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _facebookController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'Facebook',
                     labelTextStyle2: true,
                     suffixIcon: FontAwesomeIcons.facebook, // Facebook icon
@@ -1249,7 +1249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _linkedInController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'LinkedIn',
                     labelTextStyle2: true,
                     suffixIcon:
@@ -1259,7 +1259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _instagramController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'Instagram',
                     labelTextStyle2: true,
                     suffixIcon: FontAwesomeIcons.instagram, // Instagram icon
@@ -1267,7 +1267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _twitterController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'Twitter',
                     labelTextStyle2: true,
                     suffixIcon:

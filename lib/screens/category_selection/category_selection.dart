@@ -238,23 +238,42 @@ class _CategorySelectionState extends State<CategorySelection> {
                           selectedCategoryId,
                         );
 
-                        // Navigate to the SubCategorySelection screen
-                        Navigator.push(
+                        // Navigate to the SubCategorySelection screen and wait for result
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder:
                                 (context) => SubCategorySelection(
-                                  categoryId:
-                                      selectedCategoryId, // Pass the non-null ID
+                                  categoryId: selectedCategoryId,
                                 ),
                           ),
                         );
 
-                        // Reset _selectedCategoryId AFTER successful navigation initiation
-                        // This ensures the button becomes invisible immediately after tapping 'Continue'
-                        setState(() {
-                          _selectedCategoryId = null;
-                        });
+                        // Refresh the categories when returning from subcategory selection
+                        if (mounted) {
+                          await categoryProvider.fetchCategories();
+                          // Re-select the category if needed
+                          if (selectedCategoryId != null) {
+                            final refreshedCategory = categoryProvider
+                                .categories
+                                .firstWhereOrNull(
+                                  (category) =>
+                                      category.uuid == selectedCategoryId,
+                                );
+                            if (refreshedCategory != null) {
+                              categoryProvider.selectCategory(
+                                refreshedCategory,
+                              );
+                            }
+                          }
+                        }
+
+                        // Reset _selectedCategoryId
+                        if (mounted) {
+                          setState(() {
+                            _selectedCategoryId = null;
+                          });
+                        }
                       },
                       widget: const Text(
                         'Continue',

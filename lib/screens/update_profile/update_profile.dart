@@ -161,18 +161,51 @@ class UpdateProfile extends StatelessWidget {
                     Text(
                       "Hi $fullName",
                       style: TextStyle(
-                        fontSize: 14,
-                        color: const Color.fromARGB(255, 125, 125, 125),
-                        fontWeight: FontWeight.w400,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: const Color.fromARGB(255, 84, 84, 84),
                       ),
                     ),
-
+                    SizedBox(height: 10),
                     Text(
-                      "Your expertise on WAWUAfrica is truly remarkable, bringing both excellence and joy to the platform. Your skills and wisdom are making a real difference! To help clients connect with you more easily, remember to keep your profile updated. We’re thrilled to have you here and celebrate your success. As you glorify God, enjoy the journey, and prosper, remember His promise: Commit your work to the Lord, and your plans will be established. Keep shining for His glory! (Proverbs 16:3).",
+                      "Your expertise on WAWUAfrica will be truly remarkable, Your skills and wisdom will be making a real difference. ",
                       style: TextStyle(
                         fontSize: 13,
                         color: const Color.fromARGB(255, 125, 125, 125),
                         fontWeight: FontWeight.w200,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      "To help clients connect with you more easily, remember to keep your profile updated. We’re thrilled to have you here and celebrate your success. As you glorify God, enjoy the journey, and prosper, remember His promise:",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: const Color.fromARGB(255, 125, 125, 125),
+                        fontWeight: FontWeight.w200,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text:
+                                "Commit your work to the Lord, and your plans will be established. Keep shining for His glory! ",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: const Color.fromARGB(255, 125, 125, 125),
+                              fontWeight: FontWeight.w200,
+                            ),
+                          ),
+                          TextSpan(
+                            text: "(Proverbs 16:3).",
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: const Color.fromARGB(255, 125, 125, 125),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 

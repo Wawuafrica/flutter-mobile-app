@@ -1106,7 +1106,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _facebookController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'Facebook',
                     labelTextStyle2: true,
                     suffixIcon:
@@ -1116,7 +1116,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _linkedInController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'LinkedIn',
                     labelTextStyle2: true,
                     suffixIcon:
@@ -1126,7 +1126,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _instagramController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'Instagram',
                     labelTextStyle2: true,
                     suffixIcon:
@@ -1136,7 +1136,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   const SizedBox(height: 20),
                   CustomTextfield(
                     controller: _twitterController,
-                    hintText: 'Enter your social media handle',
+                    hintText: '@wawu.africa',
                     labelText: 'Twitter',
                     labelTextStyle2: true,
                     suffixIcon:

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/update_profile/update_profile.dart'; // Import the ProfileUpdate screen
+import 'package:wawu_mobile/screens/update_profile/update_profile.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/utils/error_utils.dart';
@@ -31,10 +31,10 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
         context,
         listen: false,
       );
-      if (categoryProvider.subCategories.isEmpty &&
-          !categoryProvider.isLoading) {
-        categoryProvider.fetchSubCategories(widget.categoryId);
-      }
+      // Clear existing subcategories to ensure fresh data
+      categoryProvider.subCategories.clear();
+      // Fetch subcategories for the provided categoryId
+      categoryProvider.fetchSubCategories(widget.categoryId);
     });
   }
 
@@ -137,13 +137,10 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomIntroBar(
-                        // Ensure the text is safe from null selectedCategory
                         text:
                             categoryProvider.selectedCategory != null
                                 ? categoryProvider.selectedCategory!.name
                                 : 'Select Subcategory',
-                        // If desc is ever needed here, handle it similarly
-                        // desc: 'This is the description for ${categoryProvider.selectedCategory?.name ?? 'your selected category'}.',
                       ),
                       const Text(
                         'Select Your Specialty',
@@ -179,7 +176,6 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                                     subCategory.name == subCategoryName,
                               );
                           _toggleSelection(selectedSubCategory.uuid);
-                          // Also store the selected SubCategory object in the CategoryProvider
                           categoryProvider.selectSubCategory(
                             selectedSubCategory,
                           );
@@ -213,17 +209,10 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                           return;
                         }
 
-                        // Remove the API call here as requested
-                        // await userProvider.updateCurrentUserProfile({
-                        //   'subcategories': [_selectedSubCategoryId!],
-                        // });
-
-                        // Persist onboarding step and subcategory
                         await OnboardingStateService.saveStep('profile_update');
                         await OnboardingStateService.saveSubCategory(
                           _selectedSubCategoryId!,
                         );
-                        // Navigate to ProfileUpdate screen
                         Navigator.push(
                           context,
                           MaterialPageRoute(

@@ -41,6 +41,9 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   // Store scaffold messenger reference safely
   ScaffoldMessengerState? _scaffoldMessenger;
 
+  // Track previous message count for scroll optimization
+  int _previousMessageCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -62,16 +65,21 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       _initializeConversation();
       _isInitialized = true;
     }
-    _scrollToBottom();
 
     // Add listener using stored reference
     _messageProvider?.addListener(_onMessageProviderChange);
   }
 
   void _onMessageProviderChange() {
-    if (mounted) {
+    if (!mounted) return;
+
+    // Check if new messages were added
+    final currentMessageCount = _messageProvider?.currentMessages.length ?? 0;
+    if (currentMessageCount > _previousMessageCount) {
+      // New message(s) received, scroll to bottom
       _scrollToBottom();
     }
+    _previousMessageCount = currentMessageCount;
   }
 
   void _showErrorSnackbar(String message) {
@@ -113,9 +121,22 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           recipientId,
           initialMessage,
         );
+        // Initialize message count after loading conversation
+        _previousMessageCount = _messageProvider!.currentMessages.length;
+        // Scroll to bottom after initialization
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToBottom();
+        });
       } catch (e) {
         _showErrorSnackbar('Error initializing conversation: $e');
       }
+    } else {
+      // For existing conversations, initialize message count
+      _previousMessageCount = _messageProvider?.currentMessages.length ?? 0;
+      // Scroll to bottom after initialization
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottom();
+      });
     }
   }
 
@@ -171,13 +192,12 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
         );
         if (mounted) {
           _messageController.clear();
+          // Scroll to bottom after sending message
+          _scrollToBottom();
         }
       } catch (e) {
         _showErrorSnackbar('Failed to send message: $e');
       }
-    }
-    if (mounted) {
-      _scrollToBottom();
     }
   }
 
@@ -245,6 +265,8 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
         );
         if (message != null && mounted) {
           _voiceMessageDurations[message.id] = _recordingDuration;
+          // Scroll to bottom after sending voice message
+          _scrollToBottom();
         }
       }
     } catch (e) {
@@ -259,9 +281,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
         });
       }
     }
-    if (mounted) {
-      _scrollToBottom();
-    }
   }
 
   String _getCurrentTime(DateTime timestamp) {
@@ -272,15 +291,27 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 
   void _scrollToBottom() {
-    if (!mounted) return;
+    if (!mounted || !_scrollController.hasClients) return;
 
+    // Use a more reliable scroll method
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        try {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        } catch (e) {
+          // Fallback to jump if animate fails
+          try {
+            _scrollController.jumpTo(
+              _scrollController.position.maxScrollExtent,
+            );
+          } catch (e2) {
+            print('Scroll error: $e2');
+          }
+        }
       }
     });
   }
@@ -288,7 +319,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUserId = _userProvider?.currentUser?.uuid ?? '';
-    final messageProvider = Provider.of<MessageProvider>(context);
 
     if (currentUserId.isEmpty) {
       return const Scaffold(
@@ -296,160 +326,173 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       );
     }
 
-    // Show loading while initializing conversation
-    if (messageProvider.isLoading &&
-        messageProvider.currentConversationId.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    return Consumer<MessageProvider>(
+      builder: (context, messageProvider, child) {
+        // Show loading while initializing conversation
+        if (messageProvider.isLoading &&
+            messageProvider.currentConversationId.isEmpty) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    // Show error if conversation failed to load
-    if (messageProvider.hasError &&
-        messageProvider.currentConversationId.isEmpty) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Error: ${messageProvider.errorMessage}'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Go Back'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Check if we have a valid conversation
-    if (messageProvider.currentConversationId.isEmpty) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('No conversation selected'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Go Back'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 1.0,
-        title: Consumer<MessageProvider>(
-          builder: (context, messageProvider, child) {
-            final conversation = messageProvider.allConversations.firstWhere(
-              (conv) => conv.id == messageProvider.currentConversationId,
-              orElse:
-                  () => Conversation(id: '', participants: [], messages: []),
-            );
-            final otherParticipantId =
-                conversation.participants
-                    .firstWhere(
-                      (user) => user.id != currentUserId,
-                      orElse:
-                          () => ChatUser(id: '', name: 'Unknown', avatar: null),
-                    )
-                    .id;
-            final recipient =
-                messageProvider.getCachedUserProfile(otherParticipantId) ??
-                ChatUser(id: otherParticipantId, name: 'Unknown', avatar: null);
-
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => UserProfileScreen(userId: recipient.id),
-                  ),
-                );
-              },
-              child: Row(
+        // Show error if conversation failed to load
+        if (messageProvider.hasError &&
+            messageProvider.currentConversationId.isEmpty) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    clipBehavior: Clip.hardEdge,
-                    decoration: const BoxDecoration(shape: BoxShape.circle),
-                    child:
-                        recipient.avatar != null && recipient.avatar!.isNotEmpty
-                            ? Image.network(
-                              recipient.avatar!,
-                              fit: BoxFit.cover,
-                              errorBuilder:
-                                  (context, error, stackTrace) => Image.asset(
-                                    'assets/images/other/avatar.webp',
-                                    fit: BoxFit.cover,
-                                  ),
-                            )
-                            : Image.asset(
-                              'assets/images/other/avatar.webp',
-                              fit: BoxFit.cover,
-                            ),
+                  Text('Error: ${messageProvider.errorMessage}'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Go Back'),
                   ),
-                  const SizedBox(width: 10),
-                  Text(recipient.name, style: TextStyle(fontSize: 16)),
                 ],
               ),
-            );
-          },
-        ),
-      ),
-      body: Container(
-        margin: const EdgeInsets.only(bottom: 80.0),
-        child: Consumer<MessageProvider>(
-          builder: (context, messageProvider, child) {
-            final messages = messageProvider.currentMessages;
+            ),
+          );
+        }
 
-            if (messages.isEmpty) {
-              return const Center(child: Text('No messages yet'));
-            }
+        // Check if we have a valid conversation
+        if (messageProvider.currentConversationId.isEmpty) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('No conversation selected'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Go Back'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
 
-            return ListView.builder(
-              reverse: false,
-              controller: _scrollController,
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                final isLeft = message.senderId != currentUserId;
-                final time = _getCurrentTime(message.timestamp);
+        return Scaffold(
+          appBar: AppBar(
+            elevation: 1.0,
+            title: _buildAppBarTitle(messageProvider, currentUserId),
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: _buildMessagesList(messageProvider, currentUserId),
+              ),
+              _buildBottomSheet(),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-                return ListTile(
-                  title:
-                      message.attachmentType == 'audio'
-                          ? VoiceMessageBubble(
-                            isLeft: isLeft,
-                            source: message.attachmentUrl ?? '',
-                            time: time,
-                            duration: _formatDuration(
-                              _voiceMessageDurations[message.id] ??
-                                  Duration.zero,
-                            ),
-                            status: message.status,
-                            onFailedTap: () => _showResendDialog(message),
-                          )
-                          : MessageBubbles(
-                            isLeft: isLeft,
-                            message: message.content,
-                            time: time,
-                            status: message.status,
-                            onFailedTap: () => _showResendDialog(message),
+  Widget _buildAppBarTitle(
+    MessageProvider messageProvider,
+    String currentUserId,
+  ) {
+    final conversation = messageProvider.allConversations.firstWhere(
+      (conv) => conv.id == messageProvider.currentConversationId,
+      orElse: () => Conversation(id: '', participants: [], messages: []),
+    );
+
+    final otherParticipantId =
+        conversation.participants
+            .firstWhere(
+              (user) => user.id != currentUserId,
+              orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
+            )
+            .id;
+
+    final recipient =
+        messageProvider.getCachedUserProfile(otherParticipantId) ??
+        ChatUser(id: otherParticipantId, name: 'Unknown', avatar: null);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UserProfileScreen(userId: recipient.id),
+          ),
+        );
+      },
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(shape: BoxShape.circle),
+            child:
+                recipient.avatar != null && recipient.avatar!.isNotEmpty
+                    ? Image.network(
+                      recipient.avatar!,
+                      fit: BoxFit.cover,
+                      errorBuilder:
+                          (context, error, stackTrace) => Image.asset(
+                            'assets/images/other/avatar.webp',
+                            fit: BoxFit.cover,
                           ),
-                );
-              },
-            );
-          },
-        ),
+                    )
+                    : Image.asset(
+                      'assets/images/other/avatar.webp',
+                      fit: BoxFit.cover,
+                    ),
+          ),
+          const SizedBox(width: 10),
+          Text(recipient.name, style: const TextStyle(fontSize: 16)),
+        ],
       ),
-      bottomSheet: _buildBottomSheet(),
+    );
+  }
+
+  Widget _buildMessagesList(
+    MessageProvider messageProvider,
+    String currentUserId,
+  ) {
+    final messages = messageProvider.currentMessages;
+
+    if (messages.isEmpty) {
+      return const Center(child: Text('No messages yet'));
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      itemCount: messages.length,
+      itemBuilder: (context, index) {
+        final message = messages[index];
+        final isLeft = message.senderId != currentUserId;
+        final time = _getCurrentTime(message.timestamp);
+
+        return ListTile(
+          title:
+              message.attachmentType == 'audio'
+                  ? VoiceMessageBubble(
+                    isLeft: isLeft,
+                    source: message.attachmentUrl ?? '',
+                    time: time,
+                    duration: _formatDuration(
+                      _voiceMessageDurations[message.id] ?? Duration.zero,
+                    ),
+                    status: message.status,
+                    onFailedTap: () => _showResendDialog(message),
+                  )
+                  : MessageBubbles(
+                    isLeft: isLeft,
+                    message: message.content,
+                    time: time,
+                    status: message.status,
+                    onFailedTap: () => _showResendDialog(message),
+                  ),
+        );
+      },
     );
   }
 
