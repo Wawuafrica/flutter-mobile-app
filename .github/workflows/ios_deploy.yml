@@ -74,8 +74,8 @@ jobs:
         MATCH_KEYCHAIN_NAME: signing_keychain
         MATCH_KEYCHAIN_PASSWORD: temp_password
         FL_UNLOCK_KEYCHAIN_PASSWORD: temp_password
-        # Add these for better certificate handling
-        MATCH_TYPE: distribution
+        # Updated environment variables for appstore type
+        MATCH_TYPE: appstore
         MATCH_READONLY: false
         MATCH_FORCE_FOR_NEW_CERTIFICATES: true
       run: |
