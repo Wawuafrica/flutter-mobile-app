@@ -130,8 +130,8 @@ jobs:
         FASTLANE_HIDE_GITHUB_ISSUES: true
         FASTLANE_DISABLE_ANIMATION: true
         MATCH_KEYCHAIN_NAME: signing_keychain
-        MATCH_KEYCHAIN_PASSWORD: temp_password
-        FL_UNLOCK_KEYCHAIN_PASSWORD: temp_password
+        MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_UNLOCK_PASSWORD }}
+        FL_UNLOCK_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_UNLOCK_PASSWORD }}
         MATCH_TYPE: appstore
         MATCH_READONLY: true
         MATCH_STORAGE_MODE: git
