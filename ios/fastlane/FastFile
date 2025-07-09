@@ -58,7 +58,7 @@ platform :ios do
 
     # Manually update only Runner target settings to avoid Pod conflicts
     require 'xcodeproj'
-    project = Xcodeproj::Project.open("Runner.xcodeproj")
+    project = Xcodeproj::Project.open("../Runner.xcodeproj")
     
     project.targets.each do |target|
       if target.name == "Runner"
