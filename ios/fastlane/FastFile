@@ -6,14 +6,22 @@ platform :ios do
     setup_ci
 
     # Setup keychain for CI
+    # The password here MUST match what's in KEYCHAIN_UNLOCK_PASSWORD GitHub Secret
     create_keychain(
       name: "signing_keychain",
-      password: ENV['MATCH_KEYCHAIN_PASSWORD'],
+      password: ENV['KEYCHAIN_UNLOCK_PASSWORD'], # Using the ENV variable from YAML
       default_keychain: true,
       unlock: true,
       timeout: 3600,
       lock_when_sleeps: false
     )
+    UI.message("Keychain 'signing_keychain' created and unlocked with password from ENV.")
+
+    # Diagnostic: List identities in the new keychain immediately after creation/unlock
+    # This helps confirm the keychain is active and accessible for Fastlane's actions.
+    UI.message("--- Listing identities in the newly created keychain (pre-match) ---")
+    sh("security find-identity -p codesigning -v #{Actions.lane_context[SharedValues::KEYCHAIN_PATH]}")
+    UI.message("--- End identities listing (pre-match) ---")
 
     # Load App Store Connect API key
     api_key = app_store_connect_api_key(
@@ -22,11 +30,13 @@ platform :ios do
       key_filepath: './AuthKey.p8'
     )
 
+    # Get certificates and provisioning profiles with Match
+    # `MATCH_PASSWORD` ENV is used by match to decrypt the .p12 from your git repo
     match(
       type: "appstore",
-      keychain_name: "signing_keychain",
-      keychain_password: ENV['MATCH_KEYCHAIN_PASSWORD'],
-      readonly: true,
+      keychain_name: "signing_keychain", # This ensures match uses the created keychain
+      keychain_password: ENV['KEYCHAIN_UNLOCK_PASSWORD'], # This ensures match can interact with the keychain
+      readonly: true, # Keep as true for now, assuming match repo is correct
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
       git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
@@ -35,38 +45,35 @@ platform :ios do
       force_for_new_devices: true,
       clone_branch_directly: true
     )
+    UI.message("Match completed. Certificates and profiles should now be in keychain.")
+
+    # Diagnostic: List identities again after match to confirm certificate presence
+    UI.message("--- Listing identities in the keychain (post-match) ---")
+    sh("security find-identity -p codesigning -v #{Actions.lane_context[SharedValues::KEYCHAIN_PATH]}")
+    UI.message("--- End identities listing (post-match) ---")
 
     UI.message("Available provisioning profiles:")
     UI.message(Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING])
     profile_name = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
     UI.message("Using profile: #{profile_name}")
 
-    # --- FIX STARTS HERE ---
-    # The `update_project_team` action often expects paths relative to the project root or the current Fastlane execution context.
-    # If your GitHub Actions workflow runs `fastlane ios beta` from the `ios/` directory,
-    # then the path to Runner.xcodeproj is simply "Runner.xcodeproj".
-    # If the workflow runs `fastlane ios beta` from the root of your repository (`wawu-mobile/`),
-    # then the path would be "ios/Runner.xcodeproj".
-
-    # Let's assume the Fastlane command is run from the `ios/` directory in your GitHub Actions workflow.
+    # Assuming fastlane command is executed from the `ios/` directory in your GitHub Actions workflow.
     update_project_team(
-      path: "Runner.xcodeproj", # Changed from "../Runner.xcodeproj"
+      path: "Runner.xcodeproj", # Path relative to `ios/` directory
       teamid: ENV['APPLE_TEAM_ID']
     )
-    # --- FIX ENDS HERE ---
+    UI.message("Updated project team settings.")
 
-    # Build the Flutter app - This Dir.chdir block changes the working directory temporarily
+    # Change into the parent directory for flutter build
     Dir.chdir("..") do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
+    UI.message("Flutter build completed (no-codesign).")
     # After Dir.chdir block, the working directory reverts to ios/fastlane/
 
-    # Manually update only Runner target settings to avoid Pod conflicts
+    # Manually update Runner target settings via Xcodeproj gem
     require 'xcodeproj'
-    # For Xcodeproj::Project.open, the path is relative to the current Ruby process's working directory.
-    # Since the Dir.chdir block is finished, we are back in ios/fastlane/.
-    # So "../Runner.xcodeproj" is correct here.
-    project = Xcodeproj::Project.open("../Runner.xcodeproj")
+    project = Xcodeproj::Project.open("../Runner.xcodeproj") # Path relative to ios/fastlane/
 
     project.targets.each do |target|
       if target.name == "Runner"
@@ -75,17 +82,18 @@ platform :ios do
             config.build_settings["CODE_SIGN_STYLE"] = "Manual"
             config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = profile_name
             config.build_settings["DEVELOPMENT_TEAM"] = ENV['APPLE_TEAM_ID']
-            config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "iPhone Distribution"
+            config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "iPhone Distribution" # Must match certificate name
           end
         end
       end
     end
 
-    project.save
-    UI.message("Updated Runner target code signing settings, leaving Pods untouched")
+    project.save # Crucial: Save the changes to the .xcodeproj file
+    UI.message("Updated Runner target code signing settings, leaving Pods untouched.")
 
+    # Build and sign the iOS app
     build_app(
-      workspace: "Runner.xcworkspace",
+      workspace: "Runner.xcworkspace", # Path relative to ios/fastlane/
       scheme: "Runner",
       configuration: "Release",
       export_method: "app-store",
@@ -95,16 +103,20 @@ platform :ios do
         },
         signingStyle: "manual",
         teamID: ENV['APPLE_TEAM_ID'],
-        signingCertificate: "iPhone Distribution",
+        signingCertificate: "iPhone Distribution", # Must exactly match the certificate name in the keychain
         uploadBitcode: false,
         uploadSymbols: true,
         compileBitcode: false
       },
-      xcargs: "-allowProvisioningUpdates",
-      output_directory: "./build/ios/ipa/",
-      silent: true
+      clean: true, # Clean build to avoid caching issues
+      verbose: true, # Provides more detailed xcodebuild output
+      xcargs: "-allowProvisioningUpdates", # Useful, but ensure it doesn't conflict
+      output_directory: "./build/ios/ipa/", # Relative to ios/fastlane/
+      silent: false # Set to false to see more xcodebuild output in Fastlane logs
     )
+    UI.message("iOS app built and signed.")
 
+    # Upload to TestFlight
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: false,
@@ -113,8 +125,11 @@ platform :ios do
       notify_external_testers: false,
       changelog: "Automated build from GitHub Actions"
     )
+    UI.message("Uploaded to TestFlight.")
 
+    # Clean up keychain
     delete_keychain(name: "signing_keychain")
+    UI.message("Keychain deleted.")
   end
 
   desc "Deploy to App Store"
@@ -124,7 +139,7 @@ platform :ios do
     # Setup keychain for CI
     create_keychain(
       name: "signing_keychain",
-      password: "temp_password",
+      password: ENV['KEYCHAIN_UNLOCK_PASSWORD'],
       default_keychain: true,
       unlock: true,
       timeout: 3600,
@@ -142,7 +157,7 @@ platform :ios do
     match(
       type: "appstore",
       keychain_name: "signing_keychain",
-      keychain_password: "temp_password",
+      keychain_password: ENV['KEYCHAIN_UNLOCK_PASSWORD'],
       readonly: true,
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
@@ -168,6 +183,7 @@ platform :ios do
 
   error do |lane, exception|
     # Clean up keychain if there's an error
+    # Check if the keychain file actually exists before trying to delete
     delete_keychain(name: "signing_keychain") if File.exist?(File.expand_path("~/Library/Keychains/signing_keychain-db"))
   end
 end
