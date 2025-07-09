@@ -9,7 +9,7 @@ platform :ios do
     # The password here MUST match what's in KEYCHAIN_UNLOCK_PASSWORD GitHub Secret
     create_keychain(
       name: "signing_keychain",
-      password: ENV['KEYCHAIN_UNLOCK_PASSWORD'], # Using the ENV variable from YAML
+      password: ENV['MATCH_KEYCHAIN_PASSWORD'], # Using the ENV variable from YAML
       default_keychain: true,
       unlock: true,
       timeout: 3600,
@@ -35,7 +35,7 @@ platform :ios do
     match(
       type: "appstore",
       keychain_name: "signing_keychain", # This ensures match uses the created keychain
-      keychain_password: ENV['KEYCHAIN_UNLOCK_PASSWORD'], # This ensures match can interact with the keychain
+      keychain_password: ENV['MATCH_KEYCHAIN_PASSWORD'], # This ensures match can interact with the keychain
       readonly: true, # Keep as true for now, assuming match repo is correct
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
