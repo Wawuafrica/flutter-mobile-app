@@ -46,10 +46,19 @@ platform :ios do
     profile_name = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
     UI.message("Using profile: #{profile_name}")
     
-    # Update project team settings
+    # Update project team settings AND signing style
     update_project_team(
       path: "Runner.xcodeproj",
       teamid: ENV['APPLE_TEAM_ID']
+    )
+    
+    # Configure code signing settings
+    update_code_signing_settings(
+      path: "Runner.xcodeproj",
+      team_id: ENV['APPLE_TEAM_ID'],
+      code_sign_identity: "iPhone Distribution",
+      provisioning_profile_specifier: profile_name,
+      targets: ["Runner"]
     )
     
     # Build the Flutter app
@@ -57,7 +66,7 @@ platform :ios do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
     
-    # Build and sign the iOS app
+    # Build and sign the iOS app (simplified)
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
@@ -75,7 +84,6 @@ platform :ios do
       output_directory: "./build/ios/ipa/",
       silent: true
     )
-    
     # Upload to TestFlight
     upload_to_testflight(
       api_key: api_key,
