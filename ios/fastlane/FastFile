@@ -42,12 +42,14 @@ platform :ios do
     UI.message("Available provisioning profiles:")
     UI.message(Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING])
     
-    # Update project provisioning to ensure proper application
-    update_project_provisioning(
-      xcodeproj: "Runner.xcodeproj",
-      target_filter: "Runner",
-      build_configuration: "Release",
-      profile: Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
+    # Get the profile name from match
+    profile_name = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
+    UI.message("Using profile: #{profile_name}")
+    
+    # Update project team settings
+    update_project_team(
+      path: "Runner.xcodeproj",
+      teamid: ENV['APPLE_TEAM_ID']
     )
     
     # Build the Flutter app
@@ -63,7 +65,7 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.wawuafrica.wawu" => "match AppStore com.wawuafrica.wawu"
+          "com.wawuafrica.wawu" => profile_name
         },
         signingStyle: "manual",
         uploadBitcode: false,
