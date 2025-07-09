@@ -27,6 +27,7 @@ jobs:
 
     - name: Create API key file
       run: |
+        cd ios/fastlane
         echo "${{ secrets.APP_STORE_CONNECT_API_KEY_JSON }}" | base64 --decode > apikey.json
         
     - name: Run Match to create certificates
@@ -40,12 +41,12 @@ jobs:
         MATCH_SKIP_CONFIRMATION: true
         MATCH_VERBOSE: true
       run: |
-        cd ios
+        cd ios/fastlane
         fastlane match appstore --verbose
         
     - name: Clean up
       if: always()
       run: |
-        rm -f apikey.json
+        rm -f ios/fastlane/apikey.json
         # Clean up any keychains created
         security delete-keychain match_keychain || true
