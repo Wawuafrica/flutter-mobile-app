@@ -8,7 +8,7 @@ platform :ios do
     # Setup keychain for CI
     create_keychain(
       name: "signing_keychain",
-      password: "temp_password",
+      password: "0810534",
       default_keychain: true,
       unlock: true,
       timeout: 3600,
@@ -26,7 +26,7 @@ platform :ios do
     match(
       type: "appstore",
       keychain_name: "signing_keychain",
-      keychain_password: "temp_password",
+      keychain_password: "0810534",
       readonly: true,
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
@@ -46,19 +46,10 @@ platform :ios do
     profile_name = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
     UI.message("Using profile: #{profile_name}")
     
-    # Update project team settings AND signing style
+    # Update project team settings
     update_project_team(
       path: "Runner.xcodeproj",
       teamid: ENV['APPLE_TEAM_ID']
-    )
-    
-    # Configure code signing settings
-    update_code_signing_settings(
-      path: "Runner.xcodeproj",
-      team_id: ENV['APPLE_TEAM_ID'],
-      code_sign_identity: "iPhone Distribution",
-      provisioning_profile_specifier: profile_name,
-      targets: ["Runner"]
     )
     
     # Build the Flutter app
@@ -66,7 +57,7 @@ platform :ios do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
     
-    # Build and sign the iOS app (simplified)
+    # Build and sign the iOS app
     build_app(
       workspace: "Runner.xcworkspace",
       scheme: "Runner",
@@ -81,9 +72,12 @@ platform :ios do
         uploadSymbols: true,
         compileBitcode: false
       },
+      # Add these xcargs to fix the signing issue
+      xcargs: "-allowProvisioningUpdates CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='#{profile_name}' DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']}",
       output_directory: "./build/ios/ipa/",
       silent: true
     )
+    
     # Upload to TestFlight
     upload_to_testflight(
       api_key: api_key,
