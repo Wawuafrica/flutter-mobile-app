@@ -1,6 +1,6 @@
 # Fastlane
-Matchfile
-Matchfile.lock
+# Matchfile
+# Matchfile.lock
 apikey.json
 certificate.p12
 distribution_certificate.p12
