@@ -8,7 +8,7 @@ platform :ios do
     # Setup keychain for CI
     create_keychain(
       name: "signing_keychain",
-      password: ENV['KEYCHAIN_UNLOCK_PASSWORD'],
+      password: ENV['MATCH_KEYCHAIN_PASSWORD'],
       default_keychain: true,
       unlock: true,
       timeout: 3600,
@@ -25,7 +25,7 @@ platform :ios do
     match(
       type: "appstore",
       keychain_name: "signing_keychain",
-      keychain_password: ENV['KEYCHAIN_UNLOCK_PASSWORD'],
+      keychain_password: ENV['MATCH_KEYCHAIN_PASSWORD'],
       readonly: true,
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
