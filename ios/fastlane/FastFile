@@ -9,7 +9,7 @@ platform :ios do
     create_keychain(
       name: "signing_keychain",
       password: "0810534",
-      default_keychain: true, # Make this the default keychain for the session
+      default_keychain: true,
       unlock: true,
       timeout: 3600,
       lock_when_sleeps: false
@@ -22,13 +22,11 @@ platform :ios do
       key_filepath: './AuthKey.p8'
     )
 
-    # Get certificates and provisioning profiles with Match
-    # It's crucial that `match` handles both certificate and profile
     match(
       type: "appstore",
       keychain_name: "signing_keychain",
       keychain_password: "0810534",
-      readonly: true, # Set to false if you want match to create/repair certificates/profiles
+      readonly: true,
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
       git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
@@ -38,34 +36,37 @@ platform :ios do
       clone_branch_directly: true
     )
 
-    # Debug: Show what profiles are available
     UI.message("Available provisioning profiles:")
     UI.message(Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING])
-
-    # Get the profile name from match
     profile_name = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
     UI.message("Using profile: #{profile_name}")
 
-    # You can remove update_project_team if build_app handles it, but keeping it
-    # for explicit control is also fine, just ensure paths are correct.
-    # Note: If `update_project_team` is modifying the .xcodeproj directly,
-    # the changes need to be saved *before* the `build_app` step.
+    # --- FIX STARTS HERE ---
+    # The `update_project_team` action often expects paths relative to the project root or the current Fastlane execution context.
+    # If your GitHub Actions workflow runs `fastlane ios beta` from the `ios/` directory,
+    # then the path to Runner.xcodeproj is simply "Runner.xcodeproj".
+    # If the workflow runs `fastlane ios beta` from the root of your repository (`wawu-mobile/`),
+    # then the path would be "ios/Runner.xcodeproj".
 
-    # Update project team settings - ensure this points to the correct project
+    # Let's assume the Fastlane command is run from the `ios/` directory in your GitHub Actions workflow.
     update_project_team(
-      path: "../Runner.xcodeproj", # Corrected path
+      path: "Runner.xcodeproj", # Changed from "../Runner.xcodeproj"
       teamid: ENV['APPLE_TEAM_ID']
     )
+    # --- FIX ENDS HERE ---
 
-    # Build the Flutter app
+    # Build the Flutter app - This Dir.chdir block changes the working directory temporarily
     Dir.chdir("..") do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
+    # After Dir.chdir block, the working directory reverts to ios/fastlane/
 
     # Manually update only Runner target settings to avoid Pod conflicts
-    # This step is critical for setting explicit signing settings.
     require 'xcodeproj'
-    project = Xcodeproj::Project.open("../Runner.xcodeproj") # Corrected path
+    # For Xcodeproj::Project.open, the path is relative to the current Ruby process's working directory.
+    # Since the Dir.chdir block is finished, we are back in ios/fastlane/.
+    # So "../Runner.xcodeproj" is correct here.
+    project = Xcodeproj::Project.open("../Runner.xcodeproj")
 
     project.targets.each do |target|
       if target.name == "Runner"
@@ -74,42 +75,36 @@ platform :ios do
             config.build_settings["CODE_SIGN_STYLE"] = "Manual"
             config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = profile_name
             config.build_settings["DEVELOPMENT_TEAM"] = ENV['APPLE_TEAM_ID']
-            config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "iPhone Distribution" # This should match the certificate type from match
+            config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "iPhone Distribution"
           end
         end
       end
     end
 
-    project.save # Crucial: Save the project changes before building
+    project.save
     UI.message("Updated Runner target code signing settings, leaving Pods untouched")
 
-
-    # Build and sign the iOS app
-    # `build_app` (gym) will pick up the settings from the .xcodeproj
     build_app(
-      workspace: "Runner.xcworkspace", # This path is relative to the current directory (ios/fastlane)
+      workspace: "Runner.xcworkspace",
       scheme: "Runner",
       configuration: "Release",
-      export_method: "app-store", # Match your `match` type
+      export_method: "app-store",
       export_options: {
-        # These export options should align with what you've set in the project and with match
         provisioningProfiles: {
           "com.wawuafrica.wawu" => profile_name
         },
         signingStyle: "manual",
-        teamID: ENV['APPLE_TEAM_ID'], # Explicitly pass the team ID here
-        # Make sure this matches your certificate type. It's usually "iPhone Distribution" for App Store
+        teamID: ENV['APPLE_TEAM_ID'],
         signingCertificate: "iPhone Distribution",
         uploadBitcode: false,
         uploadSymbols: true,
         compileBitcode: false
       },
-      xcargs: "-allowProvisioningUpdates", # Useful, but ensure it doesn't conflict with manual settings
+      xcargs: "-allowProvisioningUpdates",
       output_directory: "./build/ios/ipa/",
       silent: true
     )
 
-    # Upload to TestFlight
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: false,
@@ -119,7 +114,6 @@ platform :ios do
       changelog: "Automated build from GitHub Actions"
     )
 
-    # Clean up
     delete_keychain(name: "signing_keychain")
   end
 
