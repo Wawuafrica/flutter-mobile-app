@@ -57,29 +57,16 @@ platform :ios do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
 
-    # Build and sign the iOS app
-    # build_app(
-    #   workspace: "Runner.xcworkspace",
-    #   scheme: "Runner",
-    #   configuration: "Release",
-    #   export_method: "app-store",
-    #   export_options: {
-    #     method: "app-store",
-    #     provisioningProfiles: {
-    #       "com.wawuafrica.wawu" => profile_name
-    #     },
-    #     signingStyle: "manual",
-    #     signingCertificate: "iPhone Distribution",
-    #     teamID: ENV['APPLE_TEAM_ID'],
-    #     uploadBitcode: false,
-    #     uploadSymbols: true,
-    #     compileBitcode: false
-    #   },
-    #   # Use export options for signing instead of xcargs
-    #   # xcargs: "-allowProvisioningUpdates",
-    #   output_directory: "./build/ios/ipa/",
-    #   silent: true
-    # )
+    # Update project settings to handle Pod signing conflicts
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: ENV['APPLE_TEAM_ID'],
+      code_sign_identity: "iPhone Distribution",
+      profile_name: profile_name,
+      path: "Runner.xcodeproj",
+      targets: ["Runner"]  # Only apply manual signing to Runner target
+    )
+
     # Build and sign the iOS app
     build_app(
       workspace: "Runner.xcworkspace",
@@ -95,8 +82,8 @@ platform :ios do
         uploadSymbols: true,
         compileBitcode: false
       },
-      # Force the correct certificate and signing settings, but only for Runner target
-      xcargs: "-allowProvisioningUpdates CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='#{profile_name}' DEVELOPMENT_TEAM=#{ENV['APPLE_TEAM_ID']} CODE_SIGN_IDENTITY='iPhone Distribution' -target Runner",
+      # Simple xcargs without conflicting project/target specifications
+      xcargs: "-allowProvisioningUpdates",
       output_directory: "./build/ios/ipa/",
       silent: true
     )
