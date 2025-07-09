@@ -116,7 +116,7 @@ jobs:
         MATCH_SKIP_CONFIRMATION: true
         MATCH_VERBOSE: true
       run: |
-        cd ios
+        cd ios/fastlane
         echo "$APP_STORE_CONNECT_API_KEY_JSON" | base64 --decode > apikey.json
         fastlane beta
 
