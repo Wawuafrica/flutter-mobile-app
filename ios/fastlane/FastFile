@@ -4,30 +4,31 @@ platform :ios do
   desc "Build and upload to TestFlight"
   lane :beta do
     setup_ci
-    
+
     # Setup keychain for CI
     create_keychain(
       name: "signing_keychain",
       password: "0810534",
-      default_keychain: true,
+      default_keychain: true, # Make this the default keychain for the session
       unlock: true,
       timeout: 3600,
       lock_when_sleeps: false
     )
-    
+
     # Load App Store Connect API key
     api_key = app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
       issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
       key_filepath: './AuthKey.p8'
     )
-    
+
     # Get certificates and provisioning profiles with Match
+    # It's crucial that `match` handles both certificate and profile
     match(
       type: "appstore",
       keychain_name: "signing_keychain",
       keychain_password: "0810534",
-      readonly: true,
+      readonly: true, # Set to false if you want match to create/repair certificates/profiles
       app_identifier: "com.wawuafrica.wawu",
       git_url: ENV['MATCH_GIT_URL'],
       git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
@@ -36,30 +37,36 @@ platform :ios do
       force_for_new_devices: true,
       clone_branch_directly: true
     )
-    
+
     # Debug: Show what profiles are available
     UI.message("Available provisioning profiles:")
     UI.message(Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING])
-    
+
     # Get the profile name from match
     profile_name = Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
     UI.message("Using profile: #{profile_name}")
-    
-    # Update project team settings
+
+    # You can remove update_project_team if build_app handles it, but keeping it
+    # for explicit control is also fine, just ensure paths are correct.
+    # Note: If `update_project_team` is modifying the .xcodeproj directly,
+    # the changes need to be saved *before* the `build_app` step.
+
+    # Update project team settings - ensure this points to the correct project
     update_project_team(
-      path: "Runner.xcodeproj",
+      path: "../Runner.xcodeproj", # Corrected path
       teamid: ENV['APPLE_TEAM_ID']
     )
-    
+
     # Build the Flutter app
     Dir.chdir("..") do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
     end
 
     # Manually update only Runner target settings to avoid Pod conflicts
+    # This step is critical for setting explicit signing settings.
     require 'xcodeproj'
-    project = Xcodeproj::Project.open("../Runner.xcodeproj")
-    
+    project = Xcodeproj::Project.open("../Runner.xcodeproj") # Corrected path
+
     project.targets.each do |target|
       if target.name == "Runner"
         target.build_configurations.each do |config|
@@ -67,31 +74,37 @@ platform :ios do
             config.build_settings["CODE_SIGN_STYLE"] = "Manual"
             config.build_settings["PROVISIONING_PROFILE_SPECIFIER"] = profile_name
             config.build_settings["DEVELOPMENT_TEAM"] = ENV['APPLE_TEAM_ID']
-            config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "iPhone Distribution"
+            config.build_settings["CODE_SIGN_IDENTITY[sdk=iphoneos*]"] = "iPhone Distribution" # This should match the certificate type from match
           end
         end
       end
     end
-    
-    project.save
+
+    project.save # Crucial: Save the project changes before building
     UI.message("Updated Runner target code signing settings, leaving Pods untouched")
 
+
     # Build and sign the iOS app
+    # `build_app` (gym) will pick up the settings from the .xcodeproj
     build_app(
-      workspace: "Runner.xcworkspace",
+      workspace: "Runner.xcworkspace", # This path is relative to the current directory (ios/fastlane)
       scheme: "Runner",
       configuration: "Release",
-      export_method: "app-store",
+      export_method: "app-store", # Match your `match` type
       export_options: {
+        # These export options should align with what you've set in the project and with match
         provisioningProfiles: {
           "com.wawuafrica.wawu" => profile_name
         },
         signingStyle: "manual",
+        teamID: ENV['APPLE_TEAM_ID'], # Explicitly pass the team ID here
+        # Make sure this matches your certificate type. It's usually "iPhone Distribution" for App Store
+        signingCertificate: "iPhone Distribution",
         uploadBitcode: false,
         uploadSymbols: true,
         compileBitcode: false
       },
-      xcargs: "-allowProvisioningUpdates",
+      xcargs: "-allowProvisioningUpdates", # Useful, but ensure it doesn't conflict with manual settings
       output_directory: "./build/ios/ipa/",
       silent: true
     )
@@ -105,15 +118,15 @@ platform :ios do
       notify_external_testers: false,
       changelog: "Automated build from GitHub Actions"
     )
-    
+
     # Clean up
     delete_keychain(name: "signing_keychain")
   end
-  
+
   desc "Deploy to App Store"
   lane :release do
     setup_ci
-    
+
     # Setup keychain for CI
     create_keychain(
       name: "signing_keychain",
@@ -123,14 +136,14 @@ platform :ios do
       timeout: 3600,
       lock_when_sleeps: false
     )
-    
+
     # Load App Store Connect API key
     api_key = app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
       issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
       key_filepath: './AuthKey.p8'
     )
-    
+
     # Get certificates and provisioning profiles with Match
     match(
       type: "appstore",
@@ -143,7 +156,7 @@ platform :ios do
       storage_mode: "git",
       api_key: api_key
     )
-    
+
     # Upload metadata, screenshots, etc.
     deliver(
       api_key: api_key,
@@ -154,11 +167,11 @@ platform :ios do
       skip_screenshots: true,
       skip_binary_upload: true
     )
-    
+
     # Clean up
     delete_keychain(name: "signing_keychain")
   end
-  
+
   error do |lane, exception|
     # Clean up keychain if there's an error
     delete_keychain(name: "signing_keychain") if File.exist?(File.expand_path("~/Library/Keychains/signing_keychain-db"))
