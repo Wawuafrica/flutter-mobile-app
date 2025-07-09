@@ -2,3 +2,7 @@
 Matchfile
 Matchfile.lock
 apikey.json
+certificate.p12
+distribution_certificate.p12
+distribution.cer
+ios_distribution.key

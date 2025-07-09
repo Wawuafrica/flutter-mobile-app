@@ -51,6 +51,26 @@ jobs:
         git config --global user.email "ci@github.com"
         git config --global user.name "GitHub Actions"
         
+    # Fix iOS deployment target before building
+    - name: Fix iOS deployment target
+      run: |
+        # Update Podfile
+        sed -i '' 's/# platform :ios, '\''[0-9.]*'\''/platform :ios, '\''13.0'\''/g' ios/Podfile
+        sed -i '' 's/platform :ios, '\''[0-9.]*'\''/platform :ios, '\''13.0'\''/g' ios/Podfile
+        
+        # If no platform line exists, add it
+        if ! grep -q "platform :ios" ios/Podfile; then
+          sed -i '' '1i\
+        platform :ios, '\''13.0'\''
+        ' ios/Podfile
+                fi
+        
+        # Update Flutter framework info
+        /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" ios/Flutter/AppFrameworkInfo.plist || true
+        
+        # Update Runner Info.plist
+        /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" ios/Runner/Info.plist || true
+        
     - name: Deploy to TestFlight
       env:
         APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
@@ -65,7 +85,6 @@ jobs:
         MATCH_KEYCHAIN_NAME: signing_keychain
         MATCH_KEYCHAIN_PASSWORD: temp_password
         FL_UNLOCK_KEYCHAIN_PASSWORD: temp_password
-        # Critical: Ensure match can decrypt the certificates
         MATCH_TYPE: appstore
         MATCH_READONLY: true
         MATCH_STORAGE_MODE: git
