@@ -110,6 +110,24 @@ jobs:
         # Update Runner Info.plist
         /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" ios/Runner/Info.plist || true
         
+    # Fix signing configuration in Xcode project
+    - name: Fix Xcode signing configuration
+      run: |
+        # Set the development team and provisioning profile in the Xcode project
+        # This ensures the project knows which team and profile to use
+        cd ios
+        
+        # Update the project.pbxproj file to include proper signing configuration
+        # Get your team ID from Apple Developer Portal
+        TEAM_ID="${{ secrets.APPLE_TEAM_ID }}"
+        
+        # Update the project file with the correct team ID
+        sed -i '' "s/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = $TEAM_ID;/g" Runner.xcodeproj/project.pbxproj || true
+        
+        # Add provisioning profile specifier
+        sed -i '' "/DEVELOPMENT_TEAM = $TEAM_ID;/a\\
+        				PROVISIONING_PROFILE_SPECIFIER = \"match AppStore com.wawuafrica.wawu\";" Runner.xcodeproj/project.pbxproj || true
+        
     - name: Deploy to TestFlight
       env:
         APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
@@ -118,6 +136,7 @@ jobs:
         MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
         MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         FASTLANE_SKIP_UPDATE_CHECK: true
         FASTLANE_HIDE_GITHUB_ISSUES: true
         FASTLANE_DISABLE_ANIMATION: true

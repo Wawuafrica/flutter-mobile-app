@@ -6,3 +6,4 @@ certificate.p12
 distribution_certificate.p12
 distribution.cer
 ios_distribution.key
+distribution.mobileprovision

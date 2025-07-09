@@ -38,6 +38,18 @@ platform :ios do
       clone_branch_directly: true
     )
     
+    # Debug: Show what profiles are available
+    UI.message("Available provisioning profiles:")
+    UI.message(Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING])
+    
+    # Update project provisioning to ensure proper application
+    update_project_provisioning(
+      xcodeproj: "Runner.xcodeproj",
+      target_filter: "Runner",
+      build_configuration: "Release",
+      profile: Actions.lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING]["com.wawuafrica.wawu"]
+    )
+    
     # Build the Flutter app
     Dir.chdir("..") do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
@@ -51,7 +63,7 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.wawuafrica.wawu" => ENV["sigh_com.wawuafrica.wawu_appstore_profile-name"]
+          "com.wawuafrica.wawu" => "match AppStore com.wawuafrica.wawu"
         },
         signingStyle: "manual",
         uploadBitcode: false,
