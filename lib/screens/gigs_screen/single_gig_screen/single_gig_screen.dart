@@ -23,6 +23,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
   final _reviewController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   int _selectedRating = 0;
+  bool _isSubmittingReview = false;
 
   @override
   void dispose() {
@@ -551,45 +552,72 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                 ),
                 const SizedBox(height: 10),
                 CustomButton(
-                  widget: const Text(
-                    'Send',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  color: wawuColors.primary,
-                  function: () async {
-                    if (_formKey.currentState!.validate()) {
-                      if (_selectedRating == 0) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please select a rating'),
+                  widget: _isSubmittingReview
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
                           ),
-                        );
-                        return;
-                      }
-                      final gigProvider = Provider.of<GigProvider>(
-                        context,
-                        listen: false,
-                      );
-                      final result = await gigProvider.postReview(gig.uuid, {
-                        'rating': _selectedRating,
-                        'review': _reviewController.text,
-                        // 'user_id': userProvider.currentUser?.uuid ?? '',
-                      });
-                      if (result && context.mounted) {
-                        // Refresh gig details to get the new review instantly
-                        await gigProvider.fetchGigById(gig.uuid);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Review submitted successfully'),
-                            ),
-                          );
-                          _reviewController.clear();
-                          setState(() => _selectedRating = 0);
-                        }
-                      }
-                    }
-                  },
+                        )
+                      : const Text(
+                          'Send',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                  color: wawuColors.primary,
+                  function: _isSubmittingReview
+                      ? null
+                      : () async {
+                          if (_formKey.currentState!.validate()) {
+                            if (_selectedRating == 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please select a rating'),
+                                ),
+                              );
+                              return;
+                            }
+
+                            setState(() => _isSubmittingReview = true);
+
+                            final gigProvider = Provider.of<GigProvider>(
+                              context,
+                              listen: false,
+                            );
+                            final result = await gigProvider.postReview(
+                              gig.uuid,
+                              {
+                                'rating': _selectedRating,
+                                'review': _reviewController.text,
+                              },
+                            );
+
+                            if (context.mounted) {
+                              if (result) {
+                                await gigProvider.fetchGigById(gig.uuid);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('Review submitted successfully'),
+                                    ),
+                                  );
+                                  _reviewController.clear();
+                                  setState(() => _selectedRating = 0);
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(gigProvider.error ??
+                                        'Failed to submit review'),
+                                  ),
+                                );
+                              }
+                              setState(() => _isSubmittingReview = false);
+                            }
+                          }
+                        },
                 ),
               ],
             ),
