@@ -1,3 +1,5 @@
+// import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,6 +13,7 @@ import 'dart:async';
 import 'package:logger/logger.dart';
 import 'package:wawu_mobile/screens/wawu_merch/wawu_merch_main.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+// import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 // import 'package:flutter/foundation.dart'; // Import for compute
 
 // Services
@@ -77,6 +80,13 @@ void main() async {
     _logger.e(
       'Main: Error loading .env file: $e. Ensure .env file exists and is accessible.',
     );
+
+    // // Initialize WebView for iOS
+    // if (Platform.isIOS) {
+    //   // WebView.platform = SurfaceWebViewPlatform();
+    //   // WebView.platform = WebKitWebViewPlatform();
+    // }
+
     runApp(
       const MaterialApp(
         home: Scaffold(
@@ -876,9 +886,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       breakpoints: [
         // Define breakpoints for different screen sizes
         const ResponsiveBreakpoint.resize(350, name: MOBILE),
-        const ResponsiveBreakpoint.autoScale(600, name: TABLET),
+        const ResponsiveBreakpoint.resize(600, name: TABLET),
         const ResponsiveBreakpoint.resize(800, name: DESKTOP),
-        const ResponsiveBreakpoint.autoScale(1700, name: 'XL'),
+        const ResponsiveBreakpoint.resize(1700, name: 'XL'),
       ],
       defaultScale: true, // Apply defaultScale as requested
     );

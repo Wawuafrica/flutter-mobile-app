@@ -75,10 +75,10 @@ class FilterableWidgetListState extends State<FilterableWidgetList> {
     return GestureDetector(
       onTap: () => setState(() => _currentFilter = filter),
       child: SizedBox(
-        width: 70,
+        width: 100,
         child: Column(
           children: [
-            Text(filter),
+            Text(filter, overflow: TextOverflow.ellipsis),
             if (_currentFilter == filter)
               ClipOval(
                 child: Container(

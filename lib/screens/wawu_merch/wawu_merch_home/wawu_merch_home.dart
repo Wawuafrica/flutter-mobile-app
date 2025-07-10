@@ -152,7 +152,7 @@ class _WawuMerchHomeState extends State<WawuMerchHome> {
                 ),
                 SizedBox(height: 20),
                 CustomIntroText(
-                  text: 'Wawu-Merch',
+                  text: 'WAWUAfrica-Merch',
                   isRightText: true,
                   navFunction: () {
                     Navigator.push(

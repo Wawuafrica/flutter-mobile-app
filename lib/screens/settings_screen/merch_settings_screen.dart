@@ -21,6 +21,7 @@ import 'package:wawu_mobile/screens/wawu/wawu.dart';
 // import 'package:wawu_mobile/utils/constants/colors.dart';
 // import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 
 class MerchSettingsScreen extends StatelessWidget {
   const MerchSettingsScreen({super.key});
@@ -51,6 +52,7 @@ class MerchSettingsScreen extends StatelessWidget {
     // (if OnboardingStateService.clear() needed, add here)
     adProvider.reset();
     blogProvider.refresh();
+    await OnboardingStateService.clear();
     categoryProvider.clearSelectedCategory();
     categoryProvider.clearSelectedSubCategory();
     categoryProvider.clearSelectedService();

@@ -57,8 +57,6 @@ class _UploadImageState extends State<UploadImage> {
 
   @override
   Widget build(BuildContext context) {
-    // Removed currentIsWeb as it's no longer relevant for mobile-only
-
     return InkWell(
       onTap: _pickImage,
       child: Container(
@@ -86,29 +84,25 @@ class _UploadImageState extends State<UploadImage> {
                   children: [
                     SizedBox(
                       width: double.infinity,
-                      child:
-                          _image != null
-                              ? Image.file(
-                                File(_image!.path),
-                                key: ValueKey(_image!.path),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  // Optional: Add an error handler for image loading issues
-                                  return const Center(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.error, color: Colors.red),
-                                        Text('Error loading image'),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              )
-                              : const Center(
-                                child: CircularProgressIndicator(),
-                              ), // Fallback
+                      height: 250,
+                      child: Image.file(
+                        File(_image!.path),
+                        key: ValueKey(
+                          _image!.path,
+                        ), // Ensure unique key for image
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error, color: Colors.red),
+                                Text('Error loading image'),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
                     Container(
                       width: double.infinity,
@@ -141,6 +135,7 @@ class _UploadImageState extends State<UploadImage> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 10),
                           GestureDetector(
                             onTap: _clearImage,
                             child: ClipOval(

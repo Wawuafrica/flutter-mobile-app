@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:wawu_mobile/models/notification.dart';
 import 'package:wawu_mobile/services/api_service.dart';
@@ -34,11 +35,58 @@ class NotificationProvider extends BaseProvider {
 
   Future<void> _initializeNotifications() async {
     try {
+      if (Platform.isAndroid) {
+        final androidPlugin =
+            _notificationsPlugin
+                .resolvePlatformSpecificImplementation<
+                  AndroidFlutterLocalNotificationsPlugin
+                >();
+        await androidPlugin?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            'notification_channel',
+            'Notifications',
+            description: 'Channel for app notifications',
+            importance: Importance.high,
+          ),
+        );
+        final granted = await androidPlugin?.requestNotificationsPermission();
+        if (granted == null || !granted) {
+          _logger.w(
+            'NotificationProvider: Android notification permission not granted',
+          );
+          return;
+        }
+      } else if (Platform.isIOS) {
+        final iosPlugin =
+            _notificationsPlugin
+                .resolvePlatformSpecificImplementation<
+                  IOSFlutterLocalNotificationsPlugin
+                >();
+        await iosPlugin?.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+
       const initializationSettings = InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: DarwinInitializationSettings(),
+        iOS: DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        ),
       );
-      await _notificationsPlugin.initialize(initializationSettings);
+      await _notificationsPlugin.initialize(
+        initializationSettings,
+        onDidReceiveNotificationResponse: (
+          NotificationResponse response,
+        ) async {
+          _logger.i('Notification tapped: ${response.payload}');
+          // Handle notification tap (e.g., navigate to a specific screen)
+        },
+        onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+      );
       _logger.i(
         'NotificationProvider: Local notifications initialized successfully',
       );
@@ -47,6 +95,12 @@ class NotificationProvider extends BaseProvider {
         'NotificationProvider: Failed to initialize local notifications: $e',
       );
     }
+  }
+
+  @pragma('vm:entry-point')
+  void notificationTapBackground(NotificationResponse response) {
+    // Handle background notification tap
+    _logger.i('Background notification tapped: ${response.payload}');
   }
 
   Future<void> _showPushNotification(NotificationModel notification) async {

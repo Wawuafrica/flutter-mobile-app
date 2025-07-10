@@ -404,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 30),
                       CustomIntroText(
-                        text: 'Wawu E-commerce',
+                        text: 'WAWUAfrica E-commerce',
                         isRightText: true,
                         navFunction: () {
                           Navigator.push(

@@ -52,11 +52,11 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         TextEditingController(),
       ],
     },
-    {
-      'label': 'Responsive Design',
-      'isCheckbox': true,
-      'values': [true, true, true],
-    },
+    // {
+    //   'label': 'Responsive Design',
+    //   'isCheckbox': true,
+    //   'values': [true, true, true],
+    // },
     {
       'label': 'Price (NGN)',
       'isCheckbox': false,

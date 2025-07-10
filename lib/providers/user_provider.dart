@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart' as dio;
 import 'package:image_picker/image_picker.dart';
-import 'dart:convert';
+import 'package:logger/logger.dart';
 
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -13,6 +13,7 @@ class UserProvider extends ChangeNotifier {
   final ApiService _apiService;
   final AuthService _authService;
   final PusherService _pusherService;
+  final Logger _logger = Logger();
 
   User? _currentUser;
   User? _viewedUser;
@@ -87,14 +88,11 @@ class UserProvider extends ChangeNotifier {
       if (_currentUser != null) {
         await _subscribeToUserChannel();
         setSuccess();
-        print(
-          'Current User after login: ${jsonEncode(_currentUser?.toJson())}',
-        );
       } else {
         setError('Login failed: User object is null.');
       }
     } on AuthException catch (e) {
-      setError(e.message);
+      setError(e.toString());
     } catch (e) {
       setError('An unexpected error occurred during login: $e');
     }
@@ -111,7 +109,7 @@ class UserProvider extends ChangeNotifier {
         setError('Registration successful but failed to log in automatically.');
       }
     } on AuthException catch (e) {
-      setError(e.message);
+      setError(e.toString());
     } catch (e) {
       setError('An unexpected error occurred during registration: $e');
     }
@@ -121,6 +119,9 @@ class UserProvider extends ChangeNotifier {
     setLoading();
     try {
       if (_userChannelName != null && _isSubscribed) {
+        _logger.i(
+          'UserProvider: Unsubscribing from channel: $_userChannelName',
+        );
         await _pusherService.unsubscribeFromChannel(_userChannelName!);
         _userChannelName = null;
         _isSubscribed = false;
@@ -129,9 +130,9 @@ class UserProvider extends ChangeNotifier {
       _currentUser = null;
       _viewedUser = null;
       setSuccess();
-      print('User logged out successfully.');
-    } on AuthException catch (e) {
-      setError(e.message);
+    } on dio.DioException catch (e) {
+      final (message, _) = _authService.extractErrorMessage(e);
+      setError(message);
     } catch (e) {
       setError('Logout failed: $e');
     } finally {
@@ -145,7 +146,6 @@ class UserProvider extends ChangeNotifier {
     if (!_authService.isAuthenticated) {
       _currentUser = null;
       resetState();
-      print('Attempted to fetch current user when not authenticated.');
       return;
     }
     setLoading();
@@ -158,9 +158,10 @@ class UserProvider extends ChangeNotifier {
         setError('Failed to fetch user profile: User is null after fetch.');
       }
     } on AuthException catch (e) {
-      setError(e.message);
+      final (message, _) = _authService.extractErrorMessage(e);
+      setError(message);
     } catch (e) {
-      setError('An unexpected error occurred while fetching user profile: $e');
+      setError('Failed to fetch current user profile: $e');
     }
   }
 
@@ -188,8 +189,8 @@ class UserProvider extends ChangeNotifier {
         _currentUser = updatedUser;
         await _authService.saveUser(_currentUser!);
         setSuccess();
-        print(
-          'Account Type updated successfully for: ${_currentUser!.email} to role: ${_currentUser!.role}',
+        _logger.i(
+          'UserProvider: Account Type updated successfully for: ${_currentUser!.email} to role: ${_currentUser!.role}',
         );
       } else {
         final message =
@@ -198,7 +199,8 @@ class UserProvider extends ChangeNotifier {
         setError(message);
       }
     } on dio.DioException catch (e) {
-      setError(AuthService.extractErrorMessage(e));
+      final (message, _) = _authService.extractErrorMessage(e);
+      setError(message);
     } catch (e) {
       setError('Failed to update account type: $e');
     }
@@ -219,16 +221,12 @@ class UserProvider extends ChangeNotifier {
     }
     setLoading();
     try {
-      print(
-        'Starting profile update for user: ${_authService.currentUser?.uuid}',
-      );
-      // Handle profile and cover images separately if provided with logging
       if (profileImage != null || coverImage != null) {
         final imageFormDataMap = <String, dynamic>{};
         if (profileImage != null) {
           imageFormDataMap['profileImage[file]'] =
               kIsWeb
-                  ? await dio.MultipartFile.fromBytes(
+                  ? dio.MultipartFile.fromBytes(
                     await profileImage.readAsBytes(),
                     filename: 'profile_image.png',
                   )
@@ -242,7 +240,7 @@ class UserProvider extends ChangeNotifier {
         if (coverImage != null) {
           imageFormDataMap['coverImage[file]'] =
               kIsWeb
-                  ? await dio.MultipartFile.fromBytes(
+                  ? dio.MultipartFile.fromBytes(
                     await coverImage.readAsBytes(),
                     filename: 'cover_image.png',
                   )
@@ -253,13 +251,10 @@ class UserProvider extends ChangeNotifier {
           imageFormDataMap['coverImage[fileName]'] =
               kIsWeb ? 'cover_image.png' : coverImage.path.split('/').last;
         }
-        print('Payload for image update: $imageFormDataMap');
-        print('Sending POST request to /user/profile/image/update');
         final imageResponse = await _apiService.post(
           '/user/profile/image/update',
           data: dio.FormData.fromMap(imageFormDataMap),
         );
-        print('Received response from image update: $imageResponse');
         if (imageResponse['statusCode'] != 200) {
           final message =
               imageResponse['message'] as String? ??
@@ -330,23 +325,23 @@ class UserProvider extends ChangeNotifier {
             (data?['educationEndDate']?.toString().isNotEmpty == true);
         if (hasEducationData) {
           if (data?['educationCertification'] != null) {
-            profileFormDataMap['education[0][certification]'] =
+            profileFormDataMap['education[1][certification]'] =
                 data!['educationCertification'].toString();
           }
           if (data?['educationInstitution'] != null) {
-            profileFormDataMap['education[0][institution]'] =
+            profileFormDataMap['education[1][institution]'] =
                 data!['educationInstitution'].toString();
           }
           if (data?['educationCourseOfStudy'] != null) {
-            profileFormDataMap['education[0][courseOfStudy]'] =
+            profileFormDataMap['education[1][courseOfStudy]'] =
                 data!['educationCourseOfStudy'].toString();
           }
           if (data?['educationGraduationDate'] != null) {
-            profileFormDataMap['education[0][startDate]'] =
+            profileFormDataMap['education[1][startDate]'] =
                 data!['educationGraduationDate'].toString();
           }
           if (data?['educationEndDate'] != null) {
-            profileFormDataMap['education[0][endDate]'] =
+            profileFormDataMap['education[1][endDate]'] =
                 data!['educationEndDate'].toString();
           }
         }
@@ -382,21 +377,21 @@ class UserProvider extends ChangeNotifier {
             (professionalCertificationImage != null);
         if (hasProfessionalCertData) {
           if (data?['professionalCertificationName'] != null) {
-            profileFormDataMap['professionalCertification[0][name]'] =
+            profileFormDataMap['professionalCertification[1][name]'] =
                 data!['professionalCertificationName'].toString();
           }
           if (data?['professionalCertificationOrganization'] != null) {
-            profileFormDataMap['professionalCertification[0][organization]'] =
+            profileFormDataMap['professionalCertification[1][organization]'] =
                 data!['professionalCertificationOrganization']
                     .toString()
                     .trim();
           }
           if (data?['professionalCertificationEndDate'] != null) {
-            profileFormDataMap['professionalCertification[0][endDate]'] =
+            profileFormDataMap['professionalCertification[1][endDate]'] =
                 data!['professionalCertificationEndDate'].toString().trim();
           }
           if (professionalCertificationImage != null) {
-            profileFormDataMap['professionalCertification[0][file]'] =
+            profileFormDataMap['professionalCertification[1][file]'] =
                 kIsWeb
                     ? dio.MultipartFile.fromBytes(
                       await professionalCertificationImage.readAsBytes(),
@@ -407,7 +402,7 @@ class UserProvider extends ChangeNotifier {
                       filename:
                           professionalCertificationImage.path.split('/').last,
                     );
-            profileFormDataMap['professionalCertification[0][fileName]'] =
+            profileFormDataMap['professionalCertification[1][fileName]'] =
                 kIsWeb
                     ? 'cert_doc.png'
                     : professionalCertificationImage.path.split('/').last;
@@ -459,13 +454,12 @@ class UserProvider extends ChangeNotifier {
           profileFormDataMap['subCategoryUuid'] = data!['subCategoryUuid'];
         }
 
-        print('Payload for profile update: $profileFormDataMap');
-        print('Sending POST request to /user/profile/update');
+        _logger.d('Updating profile with data: $profileFormDataMap');
+
         final response = await _apiService.post(
           '/user/profile/update',
           data: dio.FormData.fromMap(profileFormDataMap),
         );
-        print('Received response from profile update: $response');
         if (response['statusCode'] != 200) {
           final message =
               response['message'] as String? ??
@@ -475,10 +469,7 @@ class UserProvider extends ChangeNotifier {
         }
       }
 
-      // Get updated user data after all updates with logging
-      print('Fetching updated user profile');
       final finalResponse = await _apiService.get('/user/profile');
-      print('Received response from user profile fetch: $finalResponse');
       if (finalResponse['statusCode'] == 200 &&
           finalResponse.containsKey('data')) {
         final updatedUser = User.fromJson(
@@ -492,17 +483,14 @@ class UserProvider extends ChangeNotifier {
       }
     } on dio.DioException catch (e) {
       setError('API error during profile update: ${e.message}');
-      print('DioException during profile update: $e');
     } catch (e) {
       setError('Unexpected error during profile update: $e');
-      print('Unexpected error during profile update: $e');
     } finally {
       if (isLoading) {
         isLoading = false;
         notifyListeners();
       }
     }
-    print('Profile update completed');
   }
 
   /// Deletes the current user's account by calling the /user/delete endpoint.
@@ -547,7 +535,8 @@ class UserProvider extends ChangeNotifier {
         _viewedUser = null;
       }
     } on dio.DioException catch (e) {
-      setError(AuthService.extractErrorMessage(e));
+      final (message, _) = _authService.extractErrorMessage(e);
+      setError(message);
       _viewedUser = null;
     } catch (e) {
       setError('Failed to fetch user profile: $e');
@@ -559,19 +548,22 @@ class UserProvider extends ChangeNotifier {
     if (!_authService.isAuthenticated ||
         _authService.currentUser == null ||
         _authService.currentUser!.uuid.isEmpty) {
-      print(
-        'Cannot subscribe to user channel: user not authenticated or UUID missing.',
+      _logger.w(
+        'UserProvider: Cannot subscribe, user not authenticated or UUID missing',
       );
       return;
     }
 
     if (!_pusherService.isInitialized) {
-      print('PusherService not initialized. Cannot subscribe to user channel.');
+      _logger.w(
+        'UserProvider: PusherService not initialized, cannot subscribe',
+      );
       return;
     }
 
     final channelName = 'user.profile.${_authService.currentUser!.uuid}';
     if (_userChannelName == channelName && _isSubscribed) {
+      _logger.d('UserProvider: Already subscribed to channel: $channelName');
       return;
     }
 
@@ -579,69 +571,74 @@ class UserProvider extends ChangeNotifier {
     if (_userChannelName != null &&
         _userChannelName!.isNotEmpty &&
         _isSubscribed) {
+      _logger.i(
+        'UserProvider: Unsubscribing from old channel: $_userChannelName',
+      );
       await _pusherService.unsubscribeFromChannel(_userChannelName!);
-      print('Unsubscribed from old Pusher channel: $_userChannelName');
       _userChannelName = null;
       _isSubscribed = false;
     }
 
     try {
+      _logger.i(
+        'UserProvider: Attempting to subscribe to channel: $channelName',
+      );
       final success = await _pusherService.subscribeToChannel(channelName);
       if (success) {
         _userChannelName = channelName;
         _isSubscribed = true;
-        print('Subscribed to Pusher channel: $channelName');
 
         // Bind to user profile updated event
         _pusherService.bindToEvent(channelName, 'user.profile.updated', (
           event,
         ) {
           try {
-            if (event.data == null || event.data.isEmpty) {
-              print(
-                'UserProvider: Received empty event data for user.profile.updated',
-              );
+            _logger.i(
+              'UserProvider: Received user.profile.updated event: ${event.data}',
+            );
+            if (event.data == null) {
+              _logger.w('UserProvider: Event data is null, skipping update');
               return;
             }
 
-            final Map<String, dynamic> eventData =
-                jsonDecode(event.data) as Map<String, dynamic>;
+            final eventData = event.data as Map<String, dynamic>;
+            final updatedUser = User.fromJson(eventData['user']);
 
-            _currentUser =
-                _currentUser?.copyWith(
-                  firstName: eventData['firstName'] as String?,
-                  lastName: eventData['lastName'] as String?,
-                  email: eventData['email'] as String?,
-                  phoneNumber: eventData['phoneNumber'] as String?,
-                  role: eventData['role'] as String?,
-                  profileImage: eventData['profileImage'] as String?,
-                  coverImage: eventData['coverImage'] as String?,
-                  profileCompletionRate:
-                      eventData['profileCompletionRate'] as int?,
-                  additionalInfo:
-                      eventData['additionalInfo'] != null &&
-                              eventData['additionalInfo'] is Map
-                          ? AdditionalInfo.fromJson(eventData['additionalInfo'])
-                          : _currentUser?.additionalInfo,
-                ) ??
-                User.fromJson(eventData);
-
+            _currentUser = updatedUser;
             _authService.saveUser(_currentUser!);
             notifyListeners();
-            print('User profile updated via Pusher: ${_currentUser!.email}');
+            _logger.i(
+              'UserProvider: User profile updated: ${_currentUser!.uuid}',
+            );
           } catch (e) {
-            print(
-              'Error processing user.profile.updated event: $e. Data: ${event.data}',
+            _logger.e(
+              'UserProvider: Error processing user.profile.updated event: $e. Data: ${event.data}',
+            );
+            setError(
+              'UserProvider: Error processing user.profile.updated event: $e',
             );
           }
         });
+        _logger.i(
+          'UserProvider: Successfully subscribed to channel: $channelName',
+        );
       } else {
-        print('Failed to subscribe to Pusher channel: $channelName');
+        _logger.e(
+          'UserProvider: Failed to subscribe to Pusher channel: $channelName',
+        );
+        setError(
+          'UserProvider: Failed to subscribe to Pusher channel: $channelName',
+        );
         _userChannelName = null;
         _isSubscribed = false;
       }
     } catch (e) {
-      print('Error subscribing to Pusher channel $channelName: $e');
+      _logger.e(
+        'UserProvider: Error subscribing to Pusher channel $channelName: $e',
+      );
+      setError(
+        'UserProvider: Error subscribing to Pusher channel $channelName: $e',
+      );
       _userChannelName = null;
       _isSubscribed = false;
     }
@@ -650,6 +647,9 @@ class UserProvider extends ChangeNotifier {
   @override
   void dispose() {
     if (_userChannelName != null && _isSubscribed) {
+      _logger.i(
+        'UserProvider: Disposing and unsubscribing from channel: $_userChannelName',
+      );
       _pusherService.unsubscribeFromChannel(_userChannelName!);
     }
     super.dispose();

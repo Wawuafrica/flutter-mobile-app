@@ -253,18 +253,13 @@ class _CategorySelectionState extends State<CategorySelection> {
                         if (mounted) {
                           await categoryProvider.fetchCategories();
                           // Re-select the category if needed
-                          if (selectedCategoryId != null) {
-                            final refreshedCategory = categoryProvider
-                                .categories
-                                .firstWhereOrNull(
-                                  (category) =>
-                                      category.uuid == selectedCategoryId,
-                                );
-                            if (refreshedCategory != null) {
-                              categoryProvider.selectCategory(
-                                refreshedCategory,
+                          final refreshedCategory = categoryProvider.categories
+                              .firstWhereOrNull(
+                                (category) =>
+                                    category.uuid == selectedCategoryId,
                               );
-                            }
+                          if (refreshedCategory != null) {
+                            categoryProvider.selectCategory(refreshedCategory);
                           }
                         }
 

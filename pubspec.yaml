@@ -14,6 +14,7 @@ dependencies:
 
 # Utility Packages
   # responsive_framework: ^1.5.1
+  webview_flutter_wkwebview: ^3.22.0
   responsive_framework: ^0.2.0
   flutter_native_splash: ^2.4.0
   cached_network_image: ^3.4.1

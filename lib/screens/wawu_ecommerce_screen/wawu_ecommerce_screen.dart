@@ -158,7 +158,7 @@ class _WawuEcommerceScreenState extends State<WawuEcommerceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Wawu E-commerce'),
+        title: Text('WAWUAfrica E-commerce'),
         actions: [
           Container(
             decoration: BoxDecoration(

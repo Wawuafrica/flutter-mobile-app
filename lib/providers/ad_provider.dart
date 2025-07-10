@@ -3,7 +3,6 @@ import '../models/ad.dart';
 import '../services/api_service.dart';
 import '../services/pusher_service.dart';
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
-import 'dart:convert';
 import 'package:logger/logger.dart';
 
 /// AdProvider manages the state of advertisements with real-time updates.
@@ -52,9 +51,10 @@ class AdProvider extends BaseProvider {
   /// Handle new ad created event
   void _handleAdCreated(PusherEvent event) {
     try {
-      _logger.i('AdProvider: Received ad.created event');
-      final eventData = jsonDecode(event.data) as Map<String, dynamic>;
-      final newAd = Ad.fromJson(eventData['ad'] as Map<String, dynamic>);
+      _logger.i('AdProvider: Received ad.created event: ${event.data}');
+      final adData = event.data as Map<String, dynamic>;
+
+      final newAd = Ad.fromJson(adData);
 
       // Add new ad to the beginning of the list
       _ads.insert(0, newAd);
@@ -69,9 +69,10 @@ class AdProvider extends BaseProvider {
   /// Handle ad updated event
   void _handleAdUpdated(PusherEvent event) {
     try {
-      _logger.i('AdProvider: Received ad.updated event');
-      final eventData = jsonDecode(event.data) as Map<String, dynamic>;
-      final updatedAd = Ad.fromJson(eventData['ad'] as Map<String, dynamic>);
+      _logger.i('AdProvider: Received ad.updated event: ${event.data}');
+      final adData = event.data as Map<String, dynamic>;
+
+      final updatedAd = Ad.fromJson(adData);
 
       // Update ad in the list
       final adIndex = _ads.indexWhere((ad) => ad.uuid == updatedAd.uuid);
@@ -92,9 +93,13 @@ class AdProvider extends BaseProvider {
   /// Handle ad deleted event
   void _handleAdDeleted(PusherEvent event) {
     try {
-      _logger.i('AdProvider: Received ad.deleted event');
-      final eventData = jsonDecode(event.data) as Map<String, dynamic>;
-      final deletedAdUuid = eventData['ad_uuid'] as String;
+      _logger.i('AdProvider: Received ad.deleted event: ${event.data}');
+      final eventData = event.data as Map<String, dynamic>;
+      final deletedAdUuid = eventData['uuid'] as String?;
+
+      if (deletedAdUuid == null) {
+        throw Exception('Could not extract ad UUID from deletion event');
+      }
 
       // Remove ad from the list
       final initialLength = _ads.length;
@@ -191,7 +196,7 @@ class AdProvider extends BaseProvider {
     setLoading();
 
     try {
-      print('AdProvider: Fetching from .../ads?paginate=1&pageNumber=1');
+      _logger.i('AdProvider: Fetching from .../ads?paginate=1&pageNumber=1');
       final response = await _apiService.get(
         '/ads?paginate=1&pageNumber=1',
         fromJson: (data) {
@@ -199,7 +204,7 @@ class AdProvider extends BaseProvider {
           return adsData.map((json) => Ad.fromJson(json)).toList();
         },
       );
-      print('AdProvider: Ads fetched successfully: ${response.length} ads');
+      _logger.i('AdProvider: Ads fetched successfully: ${response.length} ads');
       setSuccess();
       _ads = response;
 
@@ -208,7 +213,7 @@ class AdProvider extends BaseProvider {
         _initializePusherEvents();
       }
     } catch (e) {
-      print('AdProvider: Error fetching ads: $e');
+      _logger.e('AdProvider: Error fetching ads: $e');
       setError('error message: ${e.toString()}');
     }
   }

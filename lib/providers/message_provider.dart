@@ -105,7 +105,8 @@ class MessageProvider extends ChangeNotifier {
           }
         }
 
-        // Subscribe to all conversation channels
+        // Subscribe to all conversation channels AND global chat events
+        await _subscribeToGlobalChatEvents();
         for (final conversation in _allConversations) {
           _logger.i('Subscribing to conversation: ${conversation.id}');
           await _subscribeToMessages(conversation.id);
@@ -121,6 +122,149 @@ class MessageProvider extends ChangeNotifier {
     } catch (e) {
       _logger.e('Error fetching conversations: $e');
       setError('Error fetching conversations: $e');
+    }
+  }
+
+  /// Subscribe to global chat events to receive new conversation notifications
+  Future<void> _subscribeToGlobalChatEvents() async {
+    _logger.i('=== SUBSCRIBING TO GLOBAL CHAT EVENTS ===');
+
+    if (!_pusherService.isInitialized) {
+      _logger.e(
+        '❌ PusherService not initialized, cannot subscribe to global events',
+      );
+      return;
+    }
+
+    final currentUserId = _userProvider.currentUser?.uuid;
+    if (currentUserId == null) {
+      _logger.e('❌ Current user ID is null, cannot subscribe to global events');
+      return;
+    }
+
+    final globalChannelName = 'chat.created.$currentUserId';
+    _logger.i('Global channel name: $globalChannelName');
+
+    // Check if already subscribed
+    if (_subscribedChatChannels.contains(globalChannelName)) {
+      _logger.w('Already subscribed to global channel: $globalChannelName');
+      return;
+    }
+
+    try {
+      _logger.i(
+        'Attempting to subscribe to global channel: $globalChannelName',
+      );
+      final success = await _pusherService.subscribeToChannel(
+        globalChannelName,
+      );
+
+      if (success) {
+        _subscribedChatChannels.add(globalChannelName);
+        _logger.i(
+          '✅ Successfully subscribed to global chat channel: $globalChannelName',
+        );
+
+        // Bind to chat.created event
+        await _bindToGlobalChatEvents(globalChannelName);
+
+        _logger.i('=== GLOBAL SUBSCRIPTION COMPLETE ===');
+      } else {
+        _logger.e(
+          '❌ Failed to subscribe to global chat channel: $globalChannelName',
+        );
+      }
+    } catch (e) {
+      _logger.e(
+        '❌ Error subscribing to global chat channel $globalChannelName: $e',
+      );
+    }
+  }
+
+  /// Bind to global chat events like chat.created
+  Future<void> _bindToGlobalChatEvents(String channelName) async {
+    _logger.i('=== BINDING TO GLOBAL CHAT EVENTS ===');
+    _logger.i('Channel: $channelName');
+
+    final eventKey = '$channelName.chat.created';
+
+    if (_boundEvents.containsKey(eventKey) && _boundEvents[eventKey] == true) {
+      _logger.w('Already bound to event: $eventKey');
+      return;
+    }
+
+    try {
+      _logger.i('Binding to event: chat.created');
+      _pusherService.bindToEvent(channelName, 'chat.created', (event) {
+        _logger.i('🔥 RECEIVED CHAT.CREATED EVENT!');
+        _logger.i('Event data: ${event.data}');
+        _handleNewChatCreatedEvent(event);
+      });
+
+      _boundEvents[eventKey] = true;
+      _logger.i(
+        '✅ Successfully bound to chat.created event for channel: $channelName',
+      );
+      _logger.i('=== GLOBAL EVENT BINDING COMPLETE ===');
+    } catch (e) {
+      _logger.e(
+        '❌ Error binding to global events for channel $channelName: $e',
+      );
+    }
+  }
+
+  /// Handle new chat created event
+  void _handleNewChatCreatedEvent(dynamic event) {
+    _logger.i('🔥🔥🔥 HANDLING NEW CHAT CREATED EVENT 🔥🔥🔥');
+    _logger.i('Event data: ${event.data}');
+
+    try {
+      if (event.data == null || event.data.isEmpty) {
+        _logger.w('❌ Received empty event data for chat.created');
+        return;
+      }
+
+      final Map<String, dynamic> eventData =
+          jsonDecode(event.data) as Map<String, dynamic>;
+      _logger.i('Parsed event data: $eventData');
+
+      final newConversation = Conversation.fromJson(eventData);
+      _logger.i('New conversation parsed: ${newConversation.id}');
+
+      // Check if conversation already exists
+      final existingIndex = _allConversations.indexWhere(
+        (conv) => conv.id == newConversation.id,
+      );
+
+      if (existingIndex == -1) {
+        // Add new conversation to the list
+        _allConversations.insert(
+          0,
+          newConversation,
+        ); // Insert at top for recency
+        _logger.i('✅ Added new conversation to conversations list');
+
+        // Cache user profiles for participants
+        for (var participant in newConversation.participants) {
+          if (!_userProfileCache.containsKey(participant.id)) {
+            _fetchAndCacheUserProfile(participant.id);
+          }
+        }
+
+        // Subscribe to the new conversation's messages
+        _subscribeToMessages(newConversation.id);
+
+        _safeNotifyListeners();
+      } else {
+        _logger.w(
+          'Conversation already exists, skipping: ${newConversation.id}',
+        );
+      }
+
+      _logger.i('🔥🔥🔥 CHAT CREATED EVENT HANDLED SUCCESSFULLY 🔥🔥🔥');
+    } catch (e) {
+      _logger.e('❌ Error processing chat.created event: $e');
+      _logger.e('Event data was: ${event?.data}');
     }
   }
 
@@ -210,7 +354,8 @@ class MessageProvider extends ChangeNotifier {
             response['data'] as Map<String, dynamic>,
           );
 
-          _allConversations.add(newConversation);
+          // Add to conversations list at the top (most recent)
+          _allConversations.insert(0, newConversation);
           _currentConversationId = newConversation.id;
           _currentRecipientId = recipientId;
           _currentMessages = [];
@@ -336,7 +481,7 @@ class MessageProvider extends ChangeNotifier {
       _logger.i('Binding to event: message.sent');
       _pusherService.bindToEvent(channelName, 'message.sent', (event) {
         _logger.i('🔥 RECEIVED MESSAGE.SENT EVENT!');
-        _logger.i('Event data: ${event?.data}');
+        _logger.i('Event data: ${event.data}');
         _handleNewMessageEvent(event, conversationId);
       });
 
@@ -390,22 +535,23 @@ class MessageProvider extends ChangeNotifier {
         );
       }
 
-      // Update the conversation's last message
+      // Update the conversation's last message and move to top
       final convIndex = _allConversations.indexWhere(
         (conv) => conv.id == conversationId,
       );
       if (convIndex != -1) {
-        final updatedMessages = [
-          newMessage,
-          ..._allConversations[convIndex].messages,
-        ];
-        _allConversations[convIndex] = Conversation(
+        final updatedConversation = Conversation(
           id: _allConversations[convIndex].id,
           participants: _allConversations[convIndex].participants,
-          messages: updatedMessages,
+          messages: [newMessage, ..._allConversations[convIndex].messages],
           lastMessage: newMessage,
         );
-        _logger.i('✅ Updated conversation last message');
+
+        // Remove from current position and add to top
+        _allConversations.removeAt(convIndex);
+        _allConversations.insert(0, updatedConversation);
+
+        _logger.i('✅ Updated conversation last message and moved to top');
         _safeNotifyListeners();
       }
 
@@ -474,7 +620,7 @@ class MessageProvider extends ChangeNotifier {
         final newConversation = Conversation.fromJson(
           response['data'] as Map<String, dynamic>,
         );
-        _allConversations.add(newConversation);
+        _allConversations.insert(0, newConversation); // Add to top
         targetConversationId = newConversation.id;
         _currentConversationId = newConversation.id;
         _currentRecipientId = receiverId;
@@ -542,21 +688,24 @@ class MessageProvider extends ChangeNotifier {
         _currentMessages.add(sentMessageWithStatus);
         _currentMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-        // Update conversation
+        // Update conversation and move to top
         final convIndex = _allConversations.indexWhere(
           (conv) => conv.id == targetConversationId,
         );
         if (convIndex != -1) {
-          final updatedMessages = [
-            sentMessageWithStatus,
-            ..._allConversations[convIndex].messages,
-          ];
-          _allConversations[convIndex] = Conversation(
+          final updatedConversation = Conversation(
             id: _allConversations[convIndex].id,
             participants: _allConversations[convIndex].participants,
-            messages: updatedMessages,
+            messages: [
+              sentMessageWithStatus,
+              ..._allConversations[convIndex].messages,
+            ],
             lastMessage: sentMessageWithStatus,
           );
+
+          // Remove from current position and add to top
+          _allConversations.removeAt(convIndex);
+          _allConversations.insert(0, updatedConversation);
         }
 
         setSuccess();

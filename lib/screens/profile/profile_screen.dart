@@ -4,18 +4,17 @@ import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:wawu_mobile/models/user.dart'; // Ensure .dart is present
+import 'package:wawu_mobile/models/user.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/dropdown_data_provider.dart';
-import 'package:wawu_mobile/providers/user_provider.dart'; // Ensure .dart is present
-import 'package:wawu_mobile/providers/skill_provider.dart'; // Add this import
+import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/providers/skill_provider.dart';
 import 'package:wawu_mobile/screens/profile/change_password_screen/change_password_screen.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
-// import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart'; // Keep if still used elsewhere, otherwise remove
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
@@ -36,10 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<String> _skills = [];
   final int _maxAboutLength = 200;
 
-  // Add dropdown state for skills
   String? _selectedSkill;
-
-  // New controllers for education fields (replacing dropdowns)
   String? _selectedCertification;
   String? _selectedInstitution;
   final TextEditingController _educationCourseOfStudyController =
@@ -48,8 +44,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       TextEditingController();
   final TextEditingController _customInstitutionController =
       TextEditingController();
-
-  // New controllers for professional certification fields (replacing dropdown)
   final TextEditingController _professionalCertificationNameController =
       TextEditingController();
   final TextEditingController _professionalCertificationOrganizationController =
@@ -64,25 +58,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   XFile? _profileImage;
   XFile? _coverImage;
   XFile? _professionalCertificationImage;
-  XFile? _meansOfIdentificationImage; // Controller for Means of ID upload
+  XFile? _meansOfIdentificationImage;
 
   final TextEditingController _facebookController = TextEditingController();
   final TextEditingController _linkedInController = TextEditingController();
   final TextEditingController _instagramController = TextEditingController();
   final TextEditingController _twitterController = TextEditingController();
 
-  // New controllers for country and state (replacing dropdown)
   final TextEditingController _stateController = TextEditingController();
-
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   Country? _selectedCountry;
   String? _selectedState;
 
-  bool _isDirty = false; // Track if any field has been changed
-  bool _isLoading = true; // Start with loading state
+  bool _isDirty = false;
+  bool _isLoading = true;
 
-  // Declare services without initialization
   late final ApiService apiService;
   late final AuthService authService;
 
@@ -100,13 +91,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context,
       listen: false,
     );
-
     final skillProvider = Provider.of<SkillProvider>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(
+      context,
+      listen: false,
+    );
 
-    // Fetch all dropdown data and skills concurrently
     await Future.wait([
       dropdownProvider.fetchDropdownData(),
       skillProvider.fetchSkills(),
+      locationProvider.fetchCountries(), // Ensure countries are fetched
     ]);
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -149,19 +143,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _educationEndDateController.text = education.endDate ?? '';
       }
 
-      final locationProvider = Provider.of<LocationProvider>(
-        context,
-        listen: false,
-      );
       if (user.country != null && locationProvider.countries.isNotEmpty) {
         _selectedCountry = locationProvider.countries.firstWhere(
-          (c) => c.name == user.country,
+          (c) => c.name.toLowerCase() == user.country!.toLowerCase(),
           orElse: () => Country(id: 0, name: user.country!, flag: ''),
         );
+        // Fetch states for the selected country
+        if (_selectedCountry != null) {
+          await locationProvider.fetchStates(_selectedCountry!.id);
+        }
       }
-      _selectedState = user.state ?? '';
+      _selectedState = user.state?.isNotEmpty == true ? user.state : null;
 
-      // Extract just the username/ID from the stored full URL for display
       _facebookController.text =
           user.additionalInfo?.socialHandles?['facebook']?.split('/').last ??
           '';
@@ -239,7 +232,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Modified skill addition method to support both dropdown and manual input
   void _addSkill() {
     String skillToAdd = '';
 
@@ -292,7 +284,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_skills.isNotEmpty) payload['skills'] = _skills;
     if (_selectedCertification != null) {
       payload['educationCertification'] = _selectedCertification;
-      // Conditionally add institution based on the selected certification
       if (_selectedCertification == 'School-Level Qualifications') {
         if (_customInstitutionController.text.isNotEmpty) {
           payload['educationInstitution'] = _customInstitutionController.text;
@@ -385,7 +376,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          _isDirty = false; // Reset dirtiness after save
+          _isDirty = false;
         });
       }
     }
@@ -407,9 +398,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _twitterController.dispose();
     _stateController.dispose();
     _customInstitutionController.dispose();
-
-    _professionalCertificationNameController
-        .dispose(); // Dispose new controllers
+    _professionalCertificationNameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -559,7 +548,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      // Cover Image with Edit Button
                       SizedBox(
                         width: double.infinity,
                         height: 100,
@@ -619,7 +607,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ],
                         ),
                       ),
-                      // Profile Image with Edit Button
                       Positioned(
                         top: 50,
                         left: 0,
@@ -720,8 +707,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (user?.status ==
-                    'VERIFIED') // Assuming status or another field indicates verification
+                if (user?.status == 'VERIFIED')
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     spacing: 5.0,
@@ -837,8 +823,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   const CustomIntroText(text: 'Skills'),
                   const SizedBox(height: 10),
-
-                  // Skills Dropdown Section
                   CustomDropdown(
                     options:
                         skillProvider.skills
@@ -849,8 +833,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onChanged: (value) {
                       setState(() {
                         _selectedSkill = value;
-                        _skillController
-                            .clear(); // Clear manual input when dropdown is used
+                        _skillController.clear();
                       });
                     },
                   ),
@@ -924,7 +907,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           setState(() {
                             _isDirty = true;
                             _selectedCertification = value;
-                            // When the certificate type changes, clear the other institution field
                             if (value == 'School-Level Qualifications') {
                               _selectedInstitution = null;
                             } else {
@@ -1039,7 +1021,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         labelTextStyle2: true,
                       ),
                       const SizedBox(height: 20),
-
                       const Text(
                         'Upload Certification Document',
                         style: TextStyle(
@@ -1048,7 +1029,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      // Display existing professional certification image if available
                       if (user?.additionalInfo?.professionalCertification !=
                               null &&
                           user!
@@ -1121,7 +1101,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   UploadImage(
                     labelText: 'Upload Means of ID',
                     onImageChanged: (xfile) {
-                      // Enable upload for means of ID
                       setState(() {
                         _meansOfIdentificationImage = xfile;
                       });
@@ -1150,10 +1129,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           options: locationProvider.countries,
                           label: 'Select Country',
                           selectedValue: _selectedCountry,
-                          isDisabled: true,
+                          isDisabled:
+                              _selectedCountry !=
+                              null, // Disable if country is set
                           onChanged: (value) {
                             setState(() {
                               _selectedCountry = value;
+                              _selectedState =
+                                  null; // Reset state when country changes
+                              if (value != null) {
+                                locationProvider.fetchStates(
+                                  value.id,
+                                ); // Fetch states for new country
+                              }
+                              _isDirty = true;
                             });
                           },
                           itemBuilder:
@@ -1178,7 +1167,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    // State Dropdown
                     Text(
                       'State/Province',
                       style: TextStyle(
@@ -1190,19 +1178,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     SizedBox(height: 8),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
-                        if (_selectedCountry == null) {
-                          return AbsorbPointer(
-                            child: CustomDropdown(
-                              label: 'Select your state',
-                              options: const [],
-                              selectedValue: null,
-                              onChanged: (_) {},
-                              isDisabled: true,
-                            ),
+                        if (_selectedCountry == null ||
+                            locationProvider.countries.isEmpty) {
+                          return CustomDropdown(
+                            label: 'Select your state',
+                            options: const [],
+                            selectedValue: null,
+                            onChanged: (_) {},
+                            isDisabled: true,
                           );
                         }
                         if (locationProvider.isLoadingStates) {
-                          return const CircularProgressIndicator();
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         } else if (locationProvider.errorStates != null) {
                           return Text('Error: ${locationProvider.errorStates}');
                         }
@@ -1216,23 +1205,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           onChanged: (value) {
                             setState(() {
                               _selectedState = value;
+                              _isDirty = true;
                             });
                           },
                           isDisabled:
-                              userProvider.isLoading ||
-                              locationProvider.states.isEmpty ||
-                              _selectedState != null,
+                              _selectedState != null &&
+                              _selectedState!.isNotEmpty,
                         );
                       },
                     ),
-
-                    // const SizedBox(height: 20),
-                    // CustomTextfield(
-                    //   controller: _stateController,
-                    //   hintText: 'Enter State',
-                    //   labelText: 'State',
-                    //   labelTextStyle2: true,
-                    // ),
                   ],
                 ),
                 const SizedBox(height: 30),
@@ -1244,7 +1225,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     hintText: '@wawu.africa',
                     labelText: 'Facebook',
                     labelTextStyle2: true,
-                    suffixIcon: FontAwesomeIcons.facebook, // Facebook icon
+                    suffixIcon: FontAwesomeIcons.facebook,
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
@@ -1252,9 +1233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     hintText: '@wawu.africa',
                     labelText: 'LinkedIn',
                     labelTextStyle2: true,
-                    suffixIcon:
-                        FontAwesomeIcons
-                            .linkedin, // LinkedIn icon - typically requires a custom font icon or an image
+                    suffixIcon: FontAwesomeIcons.linkedin,
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
@@ -1262,7 +1241,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     hintText: '@wawu.africa',
                     labelText: 'Instagram',
                     labelTextStyle2: true,
-                    suffixIcon: FontAwesomeIcons.instagram, // Instagram icon
+                    suffixIcon: FontAwesomeIcons.instagram,
                   ),
                   const SizedBox(height: 20),
                   CustomTextfield(
@@ -1270,9 +1249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     hintText: '@wawu.africa',
                     labelText: 'Twitter',
                     labelTextStyle2: true,
-                    suffixIcon:
-                        FontAwesomeIcons
-                            .xTwitter, // Twitter (X) icon - typically requires a custom font icon or an image
+                    suffixIcon: FontAwesomeIcons.xTwitter,
                   ),
                   const SizedBox(height: 40),
                 ],

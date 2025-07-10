@@ -11,6 +11,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 
 class SignIn extends StatefulWidget {
   const SignIn({super.key});
@@ -168,7 +169,8 @@ class _SignInState extends State<SignIn> {
                         onTap:
                             userProvider.isLoading
                                 ? null
-                                : () {
+                                : () async {
+                                  await OnboardingStateService.clear();
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(

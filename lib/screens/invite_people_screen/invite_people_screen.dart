@@ -18,7 +18,9 @@ class InvitePeopleScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               height: 300,
-              child: Image.asset('assets/images/onboarding_images/oi3.webp'),
+              child: Image.asset('assets/images/onboarding_images/oi3.webp',
+              cacheWidth: 300,
+              ),
             ),
             SizedBox(height: 40),
             Text('Invite your people to our app and have fun together'),
@@ -38,8 +40,8 @@ class InvitePeopleScreen extends StatelessWidget {
   }
 
   void _shareContent() {
-    final String text = 'Download Wawu Now';
-    final String link = 'https://example.com'; // Replace with your link
+    final String text = 'Download WAWUAfrica Now';
+    final String link = 'http://www.wawuafrica.com'; // Replace with your link
 
     // Combine text and link
     final String shareText = '$text\n$link';
