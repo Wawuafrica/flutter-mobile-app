@@ -57,7 +57,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       );
 
       // Set current conversation before navigation
-      await _messageProvider!.setCurrentConversation(
+      _messageProvider!.setCurrentConversation(
         currentUserId,
         otherParticipant.id,
       );
@@ -128,15 +128,23 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 final conversation = conversations[index];
 
                 // Get the other participant's ID
-                final otherParticipantId = conversation.participants
-                    .firstWhere((user) => user.id != currentUserId,
-                        orElse: () =>
-                            ChatUser(id: '', name: 'Unknown', avatar: null))
-                    .id;
+                final otherParticipantId =
+                    conversation.participants
+                        .firstWhere(
+                          (user) => user.id != currentUserId,
+                          orElse:
+                              () => ChatUser(
+                                id: '',
+                                name: 'Unknown',
+                                avatar: null,
+                              ),
+                        )
+                        .id;
 
                 // Get cached profile if available
-                final cachedProfile =
-                    messageProvider.getCachedUserProfile(otherParticipantId);
+                final cachedProfile = messageProvider.getCachedUserProfile(
+                  otherParticipantId,
+                );
 
                 return MessageCard(
                   conversation: conversation,

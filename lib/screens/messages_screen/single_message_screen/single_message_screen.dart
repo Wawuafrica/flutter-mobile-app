@@ -511,7 +511,10 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                   if (mounted) {
                     Navigator.pop(context);
                     if (_messageProvider != null) {
-                      _messageProvider!.deleteMessage(message.id);
+                      _messageProvider!.deleteMessage(
+                        message.id,
+                        // message.senderId,
+                      );
                       _messageProvider!.sendMessage(
                         senderId: message.senderId,
                         receiverId: message.receiverId,
@@ -529,7 +532,10 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                   if (mounted) {
                     Navigator.pop(context);
                     if (_messageProvider != null) {
-                      _messageProvider!.deleteMessage(message.id);
+                      _messageProvider!.deleteMessage(
+                        message.id,
+                        // message.senderId,
+                      );
                     }
                   }
                 },

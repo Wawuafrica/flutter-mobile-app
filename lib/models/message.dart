@@ -24,19 +24,11 @@ class Message {
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
       id: json['uuid'] as String,
-      senderId:
-          json['user'] != null
-              ? json['user']['uuid'] as String
-              : '', // Handle case where user is null
-      receiverId:
-          json['chat'] != null
-              ? json['chat']['uuid'] as String
-              : '', // Handle case where chat is null - for lastMessage this might not exist
+      senderId: json['user'] != null ? json['user']['uuid'] as String : '',
+      receiverId: json['chat'] != null ? json['chat']['uuid'] as String : '',
       content: json['message'] as String,
       timestamp: DateTime.parse(json['created_at'] as String),
-      isRead:
-          json['sent_by_me'] as bool? ??
-          false, // Use sent_by_me or default to false
+      isRead: json['sent_by_me'] as bool? ?? false,
       attachmentUrl:
           json['media'] != null && (json['media'] as List).isNotEmpty
               ? json['media'][0]['link'] as String?
@@ -47,7 +39,7 @@ class Message {
                   ? 'image'
                   : 'audio'
               : null,
-      status: 'sent', // Default to 'sent' since status is not from API
+      status: 'sent',
     );
   }
 
