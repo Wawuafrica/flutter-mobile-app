@@ -62,7 +62,7 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
 
     if (newComment != null) {
       _commentController.clear();
-      _showSnackBar('Comment added successfully!', isError: false);
+      // _showSnackBar('Comment added successfully!', isError: false);
     } else {
       _showSnackBar('Failed to add comment. Please try again.');
     }
@@ -297,10 +297,10 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                             'Failed to add reply. Please try again.',
                           );
                         } else {
-                          _showSnackBar(
-                            'Reply added successfully!',
-                            isError: false,
-                          );
+                          // _showSnackBar(
+                          //   'Reply added successfully!',
+                          //   isError: false,
+                          // );
                         }
                         return newReply != null;
                       },
@@ -476,7 +476,10 @@ class _BlogCommentWidgetState extends State<BlogCommentWidget> {
         final selectedPost = blogProvider.selectedPost;
         BlogComment currentComment = widget.comment;
         if (selectedPost != null) {
-          final found = _findCommentById(selectedPost.comments, widget.comment.id);
+          final found = _findCommentById(
+            selectedPost.comments,
+            widget.comment.id,
+          );
           if (found != null) currentComment = found;
         }
         final userProvider = context.watch<UserProvider>();

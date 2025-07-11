@@ -896,6 +896,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 25),
+                      Text(
+                        'Certificate',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      SizedBox(height: 8),
                       CustomDropdown(
                         options:
                             dropdownProvider.certifications
@@ -925,20 +934,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           labelTextStyle2: true,
                         )
                       else
-                        CustomDropdown(
-                          options:
-                              dropdownProvider.institutions
-                                  .map((e) => e.name)
-                                  .toList(),
-                          label: 'Select Institution',
-                          selectedValue: _selectedInstitution,
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedInstitution = value;
-                              _isDirty = true;
-                            });
-                          },
+                        Text(
+                          'Institution',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
                         ),
+                      SizedBox(height: 8),
+                      CustomDropdown(
+                        options:
+                            dropdownProvider.institutions
+                                .map((e) => e.name)
+                                .toList(),
+                        label: 'Select Institution',
+                        selectedValue: _selectedInstitution,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedInstitution = value;
+                            _isDirty = true;
+                          });
+                        },
+                      ),
                       const SizedBox(height: 10),
                       CustomTextfield(
                         controller: _educationCourseOfStudyController,

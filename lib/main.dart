@@ -896,13 +896,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ),
       ),
       breakpoints: [
-        // Define breakpoints for different screen sizes
-        const ResponsiveBreakpoint.resize(350, name: MOBILE),
+        const ResponsiveBreakpoint.resize(320, name: MOBILE),
         const ResponsiveBreakpoint.resize(600, name: TABLET),
-        const ResponsiveBreakpoint.resize(800, name: DESKTOP),
-        const ResponsiveBreakpoint.resize(1700, name: 'XL'),
+        const ResponsiveBreakpoint.resize(1200, name: DESKTOP),
       ],
-      defaultScale: true, // Apply defaultScale as requested
+      defaultScale: false,
+      minWidth: 320,
+      defaultName: MOBILE,
     );
   }
 }
