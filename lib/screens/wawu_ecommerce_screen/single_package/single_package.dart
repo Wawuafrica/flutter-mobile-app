@@ -54,7 +54,7 @@ class _SinglePackageState extends State<SinglePackage> {
   }
 
   Future<void> _openWhatsApp(Product product) async {
-    const String phoneNumber = "2347050622222";
+    const String phoneNumber = "2347050722222";
     String message = _buildWhatsAppMessage(product);
     String encodedMessage = Uri.encodeComponent(message);
 
