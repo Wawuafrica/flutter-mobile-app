@@ -49,6 +49,7 @@ class _SignInState extends State<SignIn> {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         return Scaffold(
+          appBar: AppBar(),
           body: SingleChildScrollView(
             child: Container(
               width: double.infinity,

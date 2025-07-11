@@ -10,6 +10,7 @@ import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/package_grid_component/package_grid_component.dart';
+import 'package:wawu_mobile/models/gig.dart';
 import 'package:wawu_mobile/widgets/review_component/review_component.dart';
 
 class SingleGigScreen extends StatefulWidget {
@@ -27,9 +28,6 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
 
   @override
   void dispose() {
-    if (mounted) {
-      Provider.of<GigProvider>(context, listen: false).clearSelectedGig();
-    }
     _reviewController.dispose();
     super.dispose();
   }
@@ -55,7 +53,6 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
 
     try {
       await messageProvider.startConversation(currentUserId, sellerId);
-      // await messageProvider.
       if (context.mounted) {
         Navigator.push(
           context,
@@ -76,47 +73,40 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<GigProvider>(
-      builder: (context, gigProvider, child) {
-        final gig = gigProvider.selectedGig;
-        if (gig == null) {
-          debugPrint('selectedGig is null in SingleGigScreen');
-          return const Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading gig details...'),
-                ],
-              ),
-            ),
-          );
-        }
+    return Scaffold(
+      appBar: AppBar(
+        title: Consumer<GigProvider>(
+          builder: (context, gigProvider, child) {
+            final currentGig = gigProvider.selectedGig;
+            return Text(currentGig?.title ?? 'Gig Details');
+          },
+        ),
+      ),
+      body: Consumer<GigProvider>(
+        builder: (context, gigProvider, child) {
+          final currentGig = gigProvider.selectedGig;
 
-        return Scaffold(
-          appBar: AppBar(title: Text(gig.title)),
-          body: ListView(
+          if (currentGig == null) {
+            return const Center(child: Text('No gig selected'));
+          }
+
+          return ListView(
             children: [
-              _buildImageCarousel(context),
-              _buildProfileSection(context),
-              _buildGigDetails(context),
-              _buildPackagesSection(context),
+              _buildImageCarousel(context, currentGig),
+              _buildProfileSection(context, currentGig),
+              _buildGigDetails(context, currentGig),
+              _buildPackagesSection(context, currentGig),
               _buildPortfolioSection(context),
-              _buildFaqSection(context),
-              _buildReviewsSection(context),
+              _buildFaqSection(context, currentGig),
+              _buildReviewsSection(context, currentGig),
             ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildImageCarousel(BuildContext context) {
-    final gig = Provider.of<GigProvider>(context, listen: false).selectedGig;
-    if (gig == null) return const SizedBox.shrink();
-
+  Widget _buildImageCarousel(BuildContext context, Gig gig) {
     return Container(
       width: double.infinity,
       height: 200,
@@ -144,15 +134,10 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                             photo.link,
                             fit: BoxFit.cover,
                             errorBuilder:
-                                (context, error, stackTrace) => Image.asset(
-                                  'assets/images/section/graphics.png',
-                                  fit: BoxFit.cover,
-                                ),
+                                (context, error, stackTrace) =>
+                                    Container(color: Colors.black),
                           )
-                          : Image.asset(
-                            'assets/images/section/graphics.png',
-                            fit: BoxFit.cover,
-                          ),
+                          : Container(color: Colors.black),
                 ),
               );
             },
@@ -201,10 +186,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 
-  Widget _buildProfileSection(BuildContext context) {
-    final gig = Provider.of<GigProvider>(context, listen: false).selectedGig;
-    if (gig == null) return const SizedBox.shrink();
-
+  Widget _buildProfileSection(BuildContext context, Gig gig) {
     return Container(
       color: Colors.transparent,
       height: 80,
@@ -232,16 +214,20 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                     gig.seller.profileImage != null
                         ? Image.network(
                           gig.seller.profileImage!,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.fill,
                           errorBuilder:
                               (context, error, stackTrace) => Image.asset(
                                 'assets/images/other/avatar.webp',
-                                fit: BoxFit.cover,
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.fill,
                               ),
                         )
                         : Image.asset(
                           'assets/images/other/avatar.webp',
-                          fit: BoxFit.cover,
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.fill,
                         ),
               ),
             ),
@@ -273,10 +259,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 
-  Widget _buildGigDetails(BuildContext context) {
-    final gig = Provider.of<GigProvider>(context, listen: false).selectedGig;
-    if (gig == null) return const SizedBox.shrink();
-
+  Widget _buildGigDetails(BuildContext context, Gig gig) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -327,10 +310,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 
-  Widget _buildPackagesSection(BuildContext context) {
-    final gig = Provider.of<GigProvider>(context, listen: false).selectedGig;
-    if (gig == null) return const SizedBox.shrink();
-
+  Widget _buildPackagesSection(BuildContext context, Gig gig) {
     // Prepare package data for PackageGridComponent
     final List<Map<String, dynamic>> packageData = [
       {
@@ -345,13 +325,13 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
           ),
           TextEditingController(
             text:
-                gig.pricings.isNotEmpty
+                gig.pricings.length > 1
                     ? gig.pricings[1].package.name
                     : 'Standard',
           ),
           TextEditingController(
             text:
-                gig.pricings.isNotEmpty
+                gig.pricings.length > 2
                     ? gig.pricings[2].package.name
                     : 'Premium',
           ),
@@ -369,13 +349,13 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
           ),
           TextEditingController(
             text:
-                gig.pricings.isNotEmpty
+                gig.pricings.length > 1
                     ? '₦${gig.pricings[1].package.amount}'
                     : '₦0',
           ),
           TextEditingController(
             text:
-                gig.pricings.isNotEmpty
+                gig.pricings.length > 2
                     ? '₦${gig.pricings[2].package.amount}'
                     : '₦0',
           ),
@@ -404,14 +384,14 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                       .value ==
                   'yes'
               : false,
-          gig.pricings.isNotEmpty &&
+          gig.pricings.length > 1 &&
                   gig.pricings[1].features.any((f) => f.name == featureName)
               ? gig.pricings[1].features
                       .firstWhere((f) => f.name == featureName)
                       .value ==
                   'yes'
               : false,
-          gig.pricings.isNotEmpty &&
+          gig.pricings.length > 2 &&
                   gig.pricings[2].features.any((f) => f.name == featureName)
               ? gig.pricings[2].features
                       .firstWhere((f) => f.name == featureName)
@@ -450,10 +430,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 
-  Widget _buildFaqSection(BuildContext context) {
-    final gig = Provider.of<GigProvider>(context, listen: false).selectedGig;
-    if (gig == null) return const SizedBox.shrink();
-
+  Widget _buildFaqSection(BuildContext context, Gig gig) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -502,10 +479,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 
-  Widget _buildReviewsSection(BuildContext context) {
-    final gig = Provider.of<GigProvider>(context, listen: false).selectedGig;
-    if (gig == null) return const SizedBox.shrink();
-
+  Widget _buildReviewsSection(BuildContext context, Gig gig) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -513,7 +487,18 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
         children: [
           const CustomIntroText(text: 'Reviews'),
           const SizedBox(height: 10),
-          ...gig.reviews.map((review) => ReviewComponent(review: review)),
+          Consumer<GigProvider>(
+            builder: (context, gigProvider, child) {
+              final currentGig = gigProvider.selectedGig ?? gig;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children:
+                    currentGig.reviews
+                        .map((review) => ReviewComponent(review: review))
+                        .toList(),
+              );
+            },
+          ),
           const SizedBox(height: 40),
           const Center(child: Text('Rate This Gig')),
           const SizedBox(height: 10),
@@ -552,72 +537,79 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                 ),
                 const SizedBox(height: 10),
                 CustomButton(
-                  widget: _isSubmittingReview
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                  widget:
+                      _isSubmittingReview
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Text(
+                            'Send',
+                            style: TextStyle(color: Colors.white),
                           ),
-                        )
-                      : const Text(
-                          'Send',
-                          style: TextStyle(color: Colors.white),
-                        ),
                   color: wawuColors.primary,
-                  function: _isSubmittingReview
-                      ? null
-                      : () async {
-                          if (_formKey.currentState!.validate()) {
-                            if (_selectedRating == 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please select a rating'),
-                                ),
+                  function:
+                      _isSubmittingReview
+                          ? null
+                          : () async {
+                            if (_formKey.currentState!.validate()) {
+                              if (_selectedRating == 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please select a rating'),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setState(() => _isSubmittingReview = true);
+
+                              final gigProvider = Provider.of<GigProvider>(
+                                context,
+                                listen: false,
                               );
-                              return;
-                            }
 
-                            setState(() => _isSubmittingReview = true);
+                              // The postReview method now handles the local update.
+                              final result = await gigProvider
+                                  .postReview(gig.uuid, {
+                                    'rating': _selectedRating,
+                                    'review': _reviewController.text,
+                                  });
 
-                            final gigProvider = Provider.of<GigProvider>(
-                              context,
-                              listen: false,
-                            );
-                            final result = await gigProvider.postReview(
-                              gig.uuid,
-                              {
-                                'rating': _selectedRating,
-                                'review': _reviewController.text,
-                              },
-                            );
+                              if (context.mounted) {
+                                if (result) {
+                                  // SUCCESS! The UI will update automatically.
+                                  // WE DO NOT NEED THE LINE BELOW ANYMORE.
+                                  // await gigProvider.fetchGigById(gig.uuid); // <-- REMOVE THIS LINE
 
-                            if (context.mounted) {
-                              if (result) {
-                                await gigProvider.fetchGigById(gig.uuid);
-                                if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content:
-                                          Text('Review submitted successfully'),
+                                      content: Text(
+                                        'Review submitted successfully',
+                                      ),
                                     ),
                                   );
                                   _reviewController.clear();
                                   setState(() => _selectedRating = 0);
+                                } else {
+                                  // Failure case
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        gigProvider.error ??
+                                            'Failed to submit review',
+                                      ),
+                                    ),
+                                  );
                                 }
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(gigProvider.error ??
-                                        'Failed to submit review'),
-                                  ),
-                                );
+                                setState(() => _isSubmittingReview = false);
                               }
-                              setState(() => _isSubmittingReview = false);
                             }
-                          }
-                        },
+                          },
                 ),
               ],
             ),

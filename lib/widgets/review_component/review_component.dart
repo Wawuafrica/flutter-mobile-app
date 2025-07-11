@@ -12,10 +12,10 @@ class ReviewComponent extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: wawuColors.primary.withValues(alpha: 0.3),
         border: Border.all(
           width: 0.5,
-          color: const Color.fromARGB(255, 181, 181, 181),
+          color: wawuColors.primary.withValues(alpha: 0.2),
         ),
         borderRadius: BorderRadius.circular(10.0),
       ),

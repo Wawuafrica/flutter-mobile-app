@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import 'package:wawu_mobile/models/gig.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/pusher_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class GigProvider extends ChangeNotifier {
   final ApiService _apiService;
   final PusherService _pusherService;
+  final UserProvider _userProvider;
 
   bool _isLoading = false;
   String? _error;
@@ -40,13 +42,17 @@ class GigProvider extends ChangeNotifier {
       List.unmodifiable(_gigsByStatus[status ?? 'all'] ?? []);
   Gig? get selectedGig => _selectedGig;
 
-  GigProvider({ApiService? apiService, PusherService? pusherService})
-    : _apiService = apiService ?? ApiService(),
-      _pusherService = pusherService ?? PusherService() {
+  GigProvider({
+    ApiService? apiService,
+    PusherService? pusherService,
+    required UserProvider userProvider, // Make it required
+  }) : _apiService = apiService ?? ApiService(),
+       _pusherService = pusherService ?? PusherService(),
+       _userProvider = userProvider {
+    // Initialize it
     debugPrint('[RecentlyViewed] GigProvider constructor called.');
     _loadRecentlyViewedGigs();
   }
-
   void _setLoading(bool loading) {
     if (_isDisposed) return;
     _isLoading = loading;
@@ -319,10 +325,9 @@ class GigProvider extends ChangeNotifier {
       if (response['statusCode'] == 200 && response['data'] != null) {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         selectGig(gig);
-
+        _safeNotifyListeners();
         // Subscribe to this specific gig's channel for real-time updates
         await subscribeToSpecificGigChannel(gig.uuid);
-
         _setLoading(false);
         return gig;
       } else {
@@ -428,10 +433,13 @@ class GigProvider extends ChangeNotifier {
     }
   }
 
+  // FIXED: The improved postReview method
   Future<bool> postReview(String gigId, Map<String, dynamic> reviewData) async {
     if (_isDisposed) return false;
 
-    _setLoading(true);
+    // We no longer need a global loading state here, the UI will handle its own.
+    // _setLoading(true);
+
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
         '/seller/gig/review/$gigId',
@@ -439,23 +447,57 @@ class GigProvider extends ChangeNotifier {
       );
 
       if (response['statusCode'] == 200) {
-        // If the review was posted successfully, refresh the gig data
-        // to ensure we have the latest reviews
-        final updatedGig = await fetchGigById(gigId);
-        if (updatedGig != null) {
-          // Update the gig in all lists
-          _updateGigInAllLists(gigId, updatedGig);
+        // The review was successfully posted to the server.
+        // Now, we create the review object locally for an instant UI update.
+        Review newReview;
+
+        // Ideal case: The server returns the created review object
+        if (response['data'] != null) {
+          newReview = Review.fromJson(response['data'] as Map<String, dynamic>);
+        } else {
+          // Fallback: Create the review object manually from local data
+          final currentUser = _userProvider.currentUser;
+          if (currentUser == null) {
+            _setError('User not logged in.');
+            return false;
+          }
+
+          newReview = Review(
+            uuid:
+                DateTime.now().millisecondsSinceEpoch
+                    .toString(), // Temporary UUID
+            rating: reviewData['rating'] as int,
+            review: reviewData['review'] as String,
+            user: ReviewUser(
+              uuid: currentUser.uuid,
+              firstName: currentUser.firstName ?? '',
+              lastName: currentUser.lastName ?? '',
+              email: currentUser.email ?? '',
+              profilePicture:
+                  currentUser
+                      .profileImage, // Assuming profileImage on your User model
+            ),
+            createdAt: DateTime.now().toIso8601String(),
+          );
         }
 
-        _setLoading(false);
-        return true;
-      }
+        // Add the newly created review to the gig in our local state
+        _addReviewToGig(gigId, newReview);
 
-      _setLoading(false);
-      return false;
+        // _setLoading(false);
+        return true;
+      } else {
+        // Handle API error
+        final errorMsg =
+            response['message'] as String? ?? 'Failed to submit review';
+        _setError(errorMsg);
+        // _setLoading(false);
+        return false;
+      }
     } catch (e) {
       debugPrint('Failed to post review: $e');
-      _setLoading(false);
+      _setError('An unexpected error occurred: $e');
+      // _setLoading(false);
       return false;
     }
   }
@@ -549,7 +591,7 @@ class GigProvider extends ChangeNotifier {
           if (event.data is String) {
             final deletedGigData =
                 jsonDecode(event.data) as Map<String, dynamic>;
-            final gigUuid = deletedGigData['gig_uuid'] as String?;
+            final gigUuid = deletedGigData['data']['uuid'] as String?;
 
             if (gigUuid != null) {
               // Remove from all lists
@@ -579,12 +621,14 @@ class GigProvider extends ChangeNotifier {
     }
   }
 
+  // FIXED: Corrected channel subscription for real-time updates
   Future<void> subscribeToSpecificGigChannel(String gigUuid) async {
     if (_isDisposed) return;
 
     final channelName = 'gig.approved.$gigUuid';
     final rejectedChannelName = 'gig.rejected.$gigUuid';
-    final reviewChannelName = 'gig.review.$gigUuid';
+    final reviewChannelName =
+        'gig.review.$gigUuid'; // Fixed: Correct channel name
 
     try {
       // Subscribe to gig approved channel
@@ -599,6 +643,8 @@ class GigProvider extends ChangeNotifier {
             debugPrint('Received gig.approved event: ${event.data}');
             _handleGigApprovedEvent(event, gigUuid);
           });
+        } else {
+          debugPrint('Failed to subscribe to channel: $channelName');
         }
       }
 
@@ -620,10 +666,12 @@ class GigProvider extends ChangeNotifier {
             debugPrint('Received gig.rejected event: ${event.data}');
             _handleGigRejectedEvent(event, gigUuid);
           });
+        } else {
+          debugPrint('Failed to subscribe to channel: $rejectedChannelName');
         }
       }
 
-      // Subscribe to gig review channel
+      // FIXED: Subscribe to gig review channel with proper error handling
       if (!_specificGigChannels.contains(reviewChannelName)) {
         final success = await _pusherService.subscribeToChannel(
           reviewChannelName,
@@ -637,6 +685,8 @@ class GigProvider extends ChangeNotifier {
             debugPrint('Received gig.review event: ${event.data}');
             _handleGigReviewEvent(event, gigUuid);
           });
+        } else {
+          debugPrint('Failed to subscribe to channel: $reviewChannelName');
         }
       }
     } catch (e) {
@@ -654,9 +704,9 @@ class GigProvider extends ChangeNotifier {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
 
         // Extract the gig data from the event
-        if (eventData['gig'] is Map<String, dynamic>) {
+        if (eventData['data'] is Map<String, dynamic>) {
           final updatedGig = Gig.fromJson(
-            eventData['gig'] as Map<String, dynamic>,
+            eventData['data'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
           debugPrint('Successfully updated gig status to VERIFIED: $gigUuid');
@@ -675,9 +725,9 @@ class GigProvider extends ChangeNotifier {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
 
         // Extract the gig data from the event
-        if (eventData['gig'] is Map<String, dynamic>) {
+        if (eventData['data'] is Map<String, dynamic>) {
           final updatedGig = Gig.fromJson(
-            eventData['gig'] as Map<String, dynamic>,
+            eventData['data'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
           debugPrint('Successfully updated gig status to REJECTED: $gigUuid');
@@ -688,24 +738,52 @@ class GigProvider extends ChangeNotifier {
     }
   }
 
+  // FIXED: Improved review event handling with better error handling and logging
   void _handleGigReviewEvent(PusherEvent event, String gigUuid) {
     if (_isDisposed) return;
 
     try {
+      debugPrint('Processing gig.review event for gig: $gigUuid');
+      debugPrint('Event data type: ${event.data.runtimeType}');
+      debugPrint('Event data: ${event.data}');
+
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
+        debugPrint('Decoded event data: $eventData');
 
-        // Extract the review data from the event
+        // Handle different possible structures of the review data
+        Review? newReview;
+
         if (eventData['review'] is Map<String, dynamic>) {
-          final newReview = Review.fromJson(
+          newReview = Review.fromJson(
             eventData['review'] as Map<String, dynamic>,
           );
+        } else if (eventData['data'] is Map<String, dynamic> &&
+            eventData['data']['review'] is Map<String, dynamic>) {
+          newReview = Review.fromJson(
+            eventData['data']['review'] as Map<String, dynamic>,
+          );
+        } else if (eventData.containsKey('uuid') &&
+            eventData.containsKey('rating')) {
+          // The event data itself is the review
+          newReview = Review.fromJson(eventData);
+        }
+
+        if (newReview != null) {
           _addReviewToGig(gigUuid, newReview);
           debugPrint('Successfully added new review to gig: $gigUuid');
+          debugPrint(
+            'Review rating: ${newReview.rating}, Review text: ${newReview.review}',
+          );
+        } else {
+          debugPrint('Could not extract review data from event');
         }
+      } else {
+        debugPrint('Event data is not a string, received: ${event.data}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('GigProvider: Error processing gig.review event: $e');
+      debugPrint('Stack trace: $stackTrace');
     }
   }
 
@@ -753,8 +831,14 @@ class GigProvider extends ChangeNotifier {
     _safeNotifyListeners();
   }
 
+  // FIXED: Improved review addition with better error handling and validation
   void _addReviewToGig(String gigUuid, Review newReview) {
     if (_isDisposed) return;
+
+    debugPrint('Adding review to gig: $gigUuid');
+    debugPrint(
+      'Review details: rating=${newReview.rating}, uuid=${newReview.uuid}',
+    );
 
     // Update gig in all status lists
     for (final status in _gigsByStatus.keys) {

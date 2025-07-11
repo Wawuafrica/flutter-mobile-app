@@ -183,12 +183,24 @@ void main() async {
                   pusherService: pusherService,
                 ),
           ),
-          ChangeNotifierProvider(
+          ChangeNotifierProxyProvider<UserProvider, GigProvider>(
             create:
                 (context) => GigProvider(
                   apiService: apiService,
                   pusherService: pusherService,
+                  userProvider: Provider.of<UserProvider>(
+                    context,
+                    listen: false,
+                  ),
                 ),
+            update:
+                (context, userProvider, gigProvider) =>
+                    gigProvider ??
+                    GigProvider(
+                      apiService: apiService,
+                      pusherService: pusherService,
+                      userProvider: userProvider,
+                    ),
           ),
           ChangeNotifierProvider(
             create:
@@ -448,11 +460,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       if (!_isRefreshingData) {
         _isRefreshingData = true;
+        _hasShownReconnectionNotification = false;
+        _showReconnectionNotification(); // Show notification
         _logger.i(
           'MyApp: Network reconnected. Re-engaging services and refreshing data...',
         );
-
-        _showReconnectionNotification(); // Show notification
 
         _handlePusherReconnection();
 

@@ -48,6 +48,8 @@ class _SignUpMerchState extends State<SignUpMerch> {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         return Scaffold(
+          appBar: AppBar(),
+
           body: SingleChildScrollView(
             child: Container(
               width: double.infinity,
@@ -63,7 +65,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                   children: [
                     CustomIntroBar(
                       text: 'Sign Up',
-                      desc: 'Wanna show off your superpower?  Start here.',
+                      // desc: 'Wanna show off your superpower?  Start here.',
                     ),
                     CustomTextfield(
                       labelText: 'Email Address',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 
 showNotification(
   String content,
@@ -20,7 +21,7 @@ showNotification(
       ),
       backgroundColor:
           backgroundColor ??
-          const Color(0xFF0A2A5C), // Default to Wawu primary if not provided
+          wawuColors.primary, // Default to Wawu primary if not provided
       duration: const Duration(seconds: 2),
       behavior: SnackBarBehavior.floating,
     ),

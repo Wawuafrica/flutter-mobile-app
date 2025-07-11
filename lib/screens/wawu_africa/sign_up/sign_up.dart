@@ -69,6 +69,7 @@ class _SignUpState extends State<SignUp> {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
         return Scaffold(
+          appBar: AppBar(),
           body: SingleChildScrollView(
             child: Container(
               width: double.infinity,
@@ -84,7 +85,7 @@ class _SignUpState extends State<SignUp> {
                   children: [
                     CustomIntroBar(
                       text: 'Sign Up',
-                      desc: 'Wanna show off your superpower?  Start here.',
+                      desc: 'Join the family of EST .IN CHRIST women',
                     ),
                     CustomTextfield(
                       labelText: 'Email Address',
