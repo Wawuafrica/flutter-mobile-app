@@ -12,8 +12,8 @@ class CustomTextfield extends StatefulWidget {
   final double borderRadius;
   final Function(String)? onChanged;
   final TextEditingController? controller;
-  final bool maxLines;
-  final int maxLinesNum;
+  final bool maxLines; // Controls if it's a multi-line input
+  final int maxLinesNum; // Max lines when maxLines is true
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
   final Function()? onTap;
@@ -32,7 +32,7 @@ class CustomTextfield extends StatefulWidget {
     this.onChanged,
     this.controller,
     this.labelTextStyle2 = false,
-    this.maxLines = false,
+    this.maxLines = false, // Default to single line
     this.maxLinesNum = 5,
     this.validator,
     this.keyboardType,
@@ -93,6 +93,22 @@ class _CustomTextfieldState extends State<CustomTextfield> {
 
   @override
   Widget build(BuildContext context) {
+    // Determine the effective maxLines for the TextFormField
+    final int effectiveMaxLines =
+        _isObscured
+            ? 1 // Password fields are always single line
+            : widget.maxLines
+            ? widget
+                .maxLinesNum // Use maxLinesNum if maxLines is true
+            : 1; // Default to 1 if maxLines is false (single line)
+
+    // Determine the text input action for the keyboard
+    final TextInputAction textInputAction =
+        (effectiveMaxLines == 1)
+            ? TextInputAction
+                .done // Show 'Done' if it's a single line
+            : TextInputAction.newline; // Show 'Enter' to allow new lines
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -108,20 +124,15 @@ class _CustomTextfieldState extends State<CustomTextfield> {
         const SizedBox(height: 10),
         TextFormField(
           controller: widget.controller,
-          obscureText:
-              _isObscured, // Use internal state instead of widget.obscureText
+          obscureText: _isObscured,
           inputFormatters: widget.inputFormatters,
           onChanged: widget.onChanged,
-          maxLines:
-              _isObscured // Use internal state for maxLines logic
-                  ? 1
-                  : widget.maxLines
-                  ? widget.maxLinesNum
-                  : null,
+          maxLines: effectiveMaxLines, // Use the calculated effectiveMaxLines
           keyboardType: widget.keyboardType,
           validator: widget.validator,
           onTap: widget.onTap,
           readOnly: widget.readOnly,
+          textInputAction: textInputAction, // Set the text input action
           decoration: InputDecoration(
             labelText: widget.labelTextStyle2 ? null : widget.labelText,
             hintText: widget.hintText,

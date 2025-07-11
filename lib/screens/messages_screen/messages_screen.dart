@@ -1,3 +1,4 @@
+// messages_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/message_provider.dart';
@@ -57,10 +58,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
       );
 
       // Set current conversation before navigation
-      _messageProvider!.setCurrentConversation(
+      await _messageProvider!.setCurrentConversation(
         currentUserId,
         otherParticipant.id,
       );
+
+      // Mark messages as read AFTER setting current conversation, but BEFORE navigation
+      // This ensures the messages in the provider are updated before SingleMessageScreen consumes them.
+      _messageProvider!.markMessagesAsRead(conversation.id, currentUserId);
 
       // Check if widget is still mounted after async operation
       if (!mounted) return;
@@ -128,28 +133,31 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 final conversation = conversations[index];
 
                 // Get the other participant's ID
-                final otherParticipantId =
-                    conversation.participants
-                        .firstWhere(
-                          (user) => user.id != currentUserId,
-                          orElse:
-                              () => ChatUser(
-                                id: '',
-                                name: 'Unknown',
-                                avatar: null,
-                              ),
-                        )
-                        .id;
+                final otherParticipant = conversation.participants.firstWhere(
+                  (user) => user.id != currentUserId,
+                  orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
+                );
 
                 // Get cached profile if available
                 final cachedProfile = messageProvider.getCachedUserProfile(
-                  otherParticipantId,
+                  otherParticipant.id,
                 );
+
+                // Calculate unread messages for this conversation
+                final unreadCount =
+                    conversation.messages
+                        .where(
+                          (message) =>
+                              message.senderId == otherParticipant.id &&
+                              !message.isRead,
+                        )
+                        .length;
 
                 return MessageCard(
                   conversation: conversation,
                   currentUserId: currentUserId,
                   recipient: cachedProfile,
+                  unreadCount: unreadCount, // Pass unread count to MessageCard
                   onTap: () => _handleConversationTap(conversation),
                 );
               },

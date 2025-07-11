@@ -1,3 +1,4 @@
+// message_provider.dart
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/models/chat_user.dart';
@@ -71,18 +72,71 @@ class MessageProvider extends ChangeNotifier {
     _safeNotifyListeners();
   }
 
+  // New method to mark messages as read
+  void markMessagesAsRead(String conversationId, String currentUserId) {
+    bool changed = false;
+    final convIndex = _allConversations.indexWhere(
+      (conv) => conv.id == conversationId,
+    );
+
+    if (convIndex != -1) {
+      final updatedMessagesInConv =
+          _allConversations[convIndex].messages.map((msg) {
+            if (msg.senderId != currentUserId && !msg.isRead) {
+              changed = true;
+              return msg.copyWith(isRead: true);
+            }
+            return msg;
+          }).toList();
+
+      if (changed) {
+        final updatedConversation = _allConversations[convIndex].copyWith(
+          messages: updatedMessagesInConv,
+        );
+        _allConversations[convIndex] = updatedConversation;
+      }
+    }
+
+    // Mark current messages as read if this is the active conversation
+    if (_currentConversationId == conversationId) {
+      _currentMessages =
+          _currentMessages.map((msg) {
+            if (msg.senderId != currentUserId && !msg.isRead) {
+              changed = true;
+              return msg.copyWith(isRead: true);
+            }
+            return msg;
+          }).toList();
+    }
+
+    if (changed) {
+      _safeNotifyListeners();
+    }
+  }
+
   Future<void> fetchConversations() async {
     setLoading();
     try {
       final response = await _apiService.get('/chats');
 
       if (response['statusCode'] == 200 && response.containsKey('data')) {
+        // Initialize all conversations with messages marked as read/unread based on sender
         _allConversations =
-            (response['data'] as List<dynamic>)
-                .map(
-                  (json) => Conversation.fromJson(json as Map<String, dynamic>),
-                )
-                .toList();
+            (response['data'] as List<dynamic>).map((json) {
+              final conversation = Conversation.fromJson(
+                json as Map<String, dynamic>,
+              );
+              final currentUserId = _userProvider.currentUser?.uuid ?? '';
+              final updatedMessages =
+                  conversation.messages.map((message) {
+                    // Mark messages as read if the current user is the sender
+                    // Or if the message is from another user and we are not in the chat yet
+                    return message.copyWith(
+                      isRead: message.senderId == currentUserId,
+                    );
+                  }).toList();
+              return conversation.copyWith(messages: updatedMessages);
+            }).toList();
 
         for (var conv in _allConversations) {
           for (var participant in conv.participants) {
@@ -150,13 +204,23 @@ class MessageProvider extends ChangeNotifier {
       );
 
       if (existingIndex == -1) {
-        _allConversations.insert(0, newConversation);
-        for (var participant in newConversation.participants) {
+        // Initialize messages in new conversation as unread by default
+        final updatedMessages =
+            newConversation.messages.map((message) {
+              return message.copyWith(isRead: false);
+            }).toList();
+
+        final newConvWithReadStatus = newConversation.copyWith(
+          messages: updatedMessages,
+        );
+
+        _allConversations.insert(0, newConvWithReadStatus);
+        for (var participant in newConvWithReadStatus.participants) {
           if (!_userProfileCache.containsKey(participant.id)) {
             _fetchAndCacheUserProfile(participant.id);
           }
         }
-        _subscribeToMessages(newConversation.id);
+        _subscribeToMessages(newConvWithReadStatus.id);
         _safeNotifyListeners();
       }
     } catch (e) {}
@@ -203,7 +267,9 @@ class MessageProvider extends ChangeNotifier {
       if (existingConversation.id.isNotEmpty) {
         _currentConversationId = existingConversation.id;
         _currentRecipientId = recipientId;
-        await _fetchMessages(existingConversation.id);
+        await _fetchMessages(
+          existingConversation.id,
+        ); // Fetch messages, they will be marked as read here
         await _subscribeToMessages(existingConversation.id);
 
         if (initialMessage != null && initialMessage.isNotEmpty) {
@@ -230,7 +296,7 @@ class MessageProvider extends ChangeNotifier {
         _allConversations.insert(0, newConversation);
         _currentConversationId = newConversation.id;
         _currentRecipientId = recipientId;
-        _currentMessages = [];
+        _currentMessages = []; // Clear messages for new conversation
         await _subscribeToMessages(newConversation.id);
 
         if (initialMessage != null && initialMessage.isNotEmpty) {
@@ -240,6 +306,7 @@ class MessageProvider extends ChangeNotifier {
             content: initialMessage,
           );
         } else {
+          // No initial message, still fetch messages (which might be empty) and mark as read
           await _fetchMessages(newConversation.id);
         }
 
@@ -266,6 +333,33 @@ class MessageProvider extends ChangeNotifier {
                 .map((json) => Message.fromJson(json as Map<String, dynamic>))
                 .toList();
         _currentMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+        // Mark all fetched messages as read for the current user
+        final currentUserId = _userProvider.currentUser?.uuid ?? '';
+        for (var message in _currentMessages) {
+          if (message.senderId != currentUserId && !message.isRead) {
+            message.isRead = true;
+          }
+        }
+
+        // Also update the isRead status in the _allConversations list
+        final convIndex = _allConversations.indexWhere(
+          (conv) => conv.id == conversationId,
+        );
+        if (convIndex != -1) {
+          final updatedMessagesInConv =
+              _allConversations[convIndex].messages.map((msg) {
+                if (msg.senderId != currentUserId && !msg.isRead) {
+                  return msg.copyWith(isRead: true);
+                }
+                return msg;
+              }).toList();
+          final updatedConversation = _allConversations[convIndex].copyWith(
+            messages: updatedMessagesInConv,
+          );
+          _allConversations[convIndex] = updatedConversation;
+        }
+
         setSuccess();
         _safeNotifyListeners();
       } else {
@@ -316,6 +410,16 @@ class MessageProvider extends ChangeNotifier {
 
       final messageData = eventData['message'] as Map<String, dynamic>;
       final newMessage = Message.fromJson(messageData);
+      final currentUserId = _userProvider.currentUser?.uuid ?? '';
+
+      // If the message is for the current conversation and from the other user, mark as read
+      if (conversationId == _currentConversationId &&
+          newMessage.senderId != currentUserId) {
+        newMessage.isRead = true;
+      } else {
+        newMessage.isRead =
+            false; // Mark as unread if not in current conversation
+      }
 
       if (conversationId == _currentConversationId) {
         final pendingMessageIndex = _currentMessages.indexWhere(
@@ -346,10 +450,26 @@ class MessageProvider extends ChangeNotifier {
         (conv) => conv.id == conversationId,
       );
       if (convIndex != -1) {
+        // Update the message in the conversation list, ensuring read status is correct
+        final updatedMessagesInConv = List<Message>.from(
+          _allConversations[convIndex].messages,
+        );
+        final existingMsgInConvIndex = updatedMessagesInConv.indexWhere(
+          (m) => m.id == newMessage.id,
+        );
+        if (existingMsgInConvIndex != -1) {
+          updatedMessagesInConv[existingMsgInConvIndex] = newMessage;
+        } else {
+          updatedMessagesInConv.insert(
+            0,
+            newMessage,
+          ); // Add new message to the top
+        }
+
         final updatedConversation = Conversation(
           id: _allConversations[convIndex].id,
           participants: _allConversations[convIndex].participants,
-          messages: [newMessage, ..._allConversations[convIndex].messages],
+          messages: updatedMessagesInConv,
           lastMessage: newMessage,
           name: _allConversations[convIndex].name,
         );
@@ -411,7 +531,7 @@ class MessageProvider extends ChangeNotifier {
       receiverId: receiverId,
       content: content,
       timestamp: timestamp,
-      isRead: true,
+      isRead: true, // Sender's message is always read by sender
       attachmentUrl: mediaFilePath,
       attachmentType: mediaType,
       status: 'pending',
@@ -453,7 +573,7 @@ class MessageProvider extends ChangeNotifier {
 
         final sentMessageWithStatus = sentMessage.copyWith(
           status: 'sent',
-          isRead: senderId == sentMessage.senderId,
+          isRead: true, // Sender's message is always read by sender
         );
 
         final duplicateIndex = _currentMessages.indexWhere(
@@ -468,13 +588,23 @@ class MessageProvider extends ChangeNotifier {
           (conv) => conv.id == targetConversationId,
         );
         if (convIndex != -1) {
+          final updatedMessages = List<Message>.from(
+            _allConversations[convIndex].messages,
+          );
+          // Find and replace the pending message or add the new message
+          final pendingMsgInConvIndex = updatedMessages.indexWhere(
+            (m) => m.id == pendingMessage.id,
+          );
+          if (pendingMsgInConvIndex != -1) {
+            updatedMessages[pendingMsgInConvIndex] = sentMessageWithStatus;
+          } else {
+            updatedMessages.insert(0, sentMessageWithStatus); // Add to the top
+          }
+
           final updatedConversation = Conversation(
             id: _allConversations[convIndex].id,
             participants: _allConversations[convIndex].participants,
-            messages: [
-              sentMessageWithStatus,
-              ..._allConversations[convIndex].messages,
-            ],
+            messages: updatedMessages,
             lastMessage: sentMessageWithStatus,
             name: _allConversations[convIndex].name,
           );
@@ -490,6 +620,7 @@ class MessageProvider extends ChangeNotifier {
         final failedMessage = pendingMessage.copyWith(
           id: 'local-failed-${timestamp.millisecondsSinceEpoch}',
           status: 'failed',
+          isRead: true, // Still "read" by sender in a failed state
         );
         _currentMessages.add(failedMessage);
         _safeNotifyListeners();
@@ -500,6 +631,7 @@ class MessageProvider extends ChangeNotifier {
       final failedMessage = pendingMessage.copyWith(
         id: 'local-failed-${timestamp.millisecondsSinceEpoch}',
         status: 'failed',
+        isRead: true, // Still "read" by sender in a failed state
       );
       _currentMessages.add(failedMessage);
       _safeNotifyListeners();
@@ -526,12 +658,8 @@ class MessageProvider extends ChangeNotifier {
     if (conversation.id.isNotEmpty) {
       _currentConversationId = conversation.id;
       _currentRecipientId = recipientId;
-      if (_currentMessages.isEmpty ||
-          conversation.messages.length != _currentMessages.length) {
-        await _fetchMessages(conversation.id);
-      } else {
-        _currentMessages = conversation.messages;
-      }
+      // Always fetch messages to ensure the latest state and mark as read
+      await _fetchMessages(conversation.id);
       await _subscribeToMessages(conversation.id);
       _safeNotifyListeners();
     }

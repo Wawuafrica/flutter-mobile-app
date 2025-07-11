@@ -47,4 +47,21 @@ class Conversation {
       'name': name,
     };
   }
+
+  // Add the copyWith method here
+  Conversation copyWith({
+    String? id,
+    List<ChatUser>? participants,
+    Message? lastMessage,
+    List<Message>? messages,
+    String? name,
+  }) {
+    return Conversation(
+      id: id ?? this.id,
+      participants: participants ?? this.participants,
+      lastMessage: lastMessage ?? this.lastMessage,
+      messages: messages ?? this.messages,
+      name: name ?? this.name,
+    );
+  }
 }

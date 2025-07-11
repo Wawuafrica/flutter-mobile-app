@@ -1,10 +1,11 @@
+// message.dart
 class Message {
   final String id;
   final String senderId;
   final String receiverId;
   final String content;
   final DateTime timestamp;
-  final bool isRead;
+  bool isRead; // Make it mutable for frontend updates
   final String? attachmentUrl;
   final String? attachmentType;
   final String? status;
@@ -15,7 +16,7 @@ class Message {
     required this.receiverId,
     required this.content,
     required this.timestamp,
-    this.isRead = false,
+    this.isRead = false, // Default to false
     this.attachmentUrl,
     this.attachmentType,
     this.status,
@@ -28,7 +29,7 @@ class Message {
       receiverId: json['chat'] != null ? json['chat']['uuid'] as String : '',
       content: json['message'] as String,
       timestamp: DateTime.parse(json['created_at'] as String),
-      isRead: json['sent_by_me'] as bool? ?? false,
+      isRead: false, // Always initialize as false from backend for read status
       attachmentUrl:
           json['media'] != null && (json['media'] as List).isNotEmpty
               ? json['media'][0]['link'] as String?
@@ -50,7 +51,7 @@ class Message {
       'chat': {'uuid': receiverId},
       'message': content,
       'created_at': timestamp.toIso8601String(),
-      'sent_by_me': isRead,
+      // 'sent_by_me': isRead, // Remove this as it's not for recipient read status
       'media':
           attachmentUrl != null
               ? [
@@ -70,7 +71,7 @@ class Message {
     String? receiverId,
     String? content,
     DateTime? timestamp,
-    bool? isRead,
+    bool? isRead, // Add isRead
     String? attachmentUrl,
     String? attachmentType,
     String? status,
@@ -81,7 +82,7 @@ class Message {
       receiverId: receiverId ?? this.receiverId,
       content: content ?? this.content,
       timestamp: timestamp ?? this.timestamp,
-      isRead: isRead ?? this.isRead,
+      isRead: isRead ?? this.isRead, // Update isRead
       attachmentUrl: attachmentUrl ?? this.attachmentUrl,
       attachmentType: attachmentType ?? this.attachmentType,
       status: status ?? this.status,

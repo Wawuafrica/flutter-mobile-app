@@ -1,3 +1,4 @@
+// single_message_screen.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -101,7 +102,7 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   }
 
   Future<void> _initializeConversation() async {
-    if (!mounted) return;
+    if (!mounted || _messageProvider == null || _userProvider == null) return;
 
     // Handle route arguments for new conversations
     final args =
@@ -127,6 +128,15 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollToBottom();
         });
+
+        // Mark messages as read after conversation is initialized and messages are fetched
+        if (_messageProvider != null &&
+            _messageProvider!.currentConversationId.isNotEmpty) {
+          _messageProvider!.markMessagesAsRead(
+            _messageProvider!.currentConversationId,
+            currentUserId,
+          );
+        }
       } catch (e) {
         _showErrorSnackbar('Error initializing conversation: $e');
       }
@@ -137,6 +147,15 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottom();
       });
+
+      // Mark messages as read for existing conversation
+      if (_messageProvider != null &&
+          _messageProvider!.currentConversationId.isNotEmpty) {
+        _messageProvider!.markMessagesAsRead(
+          _messageProvider!.currentConversationId,
+          currentUserId,
+        );
+      }
     }
   }
 
@@ -329,16 +348,18 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
     return Consumer<MessageProvider>(
       builder: (context, messageProvider, child) {
         // Show loading while initializing conversation
+        // Only show CircularProgressIndicator if _currentMessages is empty
         if (messageProvider.isLoading &&
-            messageProvider.currentConversationId.isEmpty) {
+            messageProvider.currentMessages.isEmpty) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Show error if conversation failed to load
+        // Show error if conversation failed to load and there are no messages
         if (messageProvider.hasError &&
-            messageProvider.currentConversationId.isEmpty) {
+            messageProvider.currentConversationId.isEmpty &&
+            messageProvider.currentMessages.isEmpty) {
           return Scaffold(
             body: Center(
               child: Column(
@@ -356,8 +377,9 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           );
         }
 
-        // Check if we have a valid conversation
-        if (messageProvider.currentConversationId.isEmpty) {
+        // Check if we have a valid conversation, if not, show "No conversation selected"
+        if (messageProvider.currentConversationId.isEmpty &&
+            !messageProvider.isLoading) {
           return Scaffold(
             body: Center(
               child: Column(
@@ -459,7 +481,8 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   ) {
     final messages = messageProvider.currentMessages;
 
-    if (messages.isEmpty) {
+    // Only show "No messages yet" if not loading and messages are truly empty
+    if (messages.isEmpty && !messageProvider.isLoading) {
       return const Center(child: Text('No messages yet'));
     }
 
@@ -513,7 +536,7 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                     if (_messageProvider != null) {
                       _messageProvider!.deleteMessage(
                         message.id,
-                        // message.senderId,
+                        // message.senderId, // senderId is not needed here
                       );
                       _messageProvider!.sendMessage(
                         senderId: message.senderId,
@@ -534,7 +557,7 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                     if (_messageProvider != null) {
                       _messageProvider!.deleteMessage(
                         message.id,
-                        // message.senderId,
+                        // message.senderId, // senderId is not needed here
                       );
                     }
                   }

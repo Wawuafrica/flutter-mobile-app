@@ -1,3 +1,4 @@
+// widgets/message_card/message_card.dart
 import 'package:flutter/material.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:wawu_mobile/models/conversation.dart';
@@ -9,6 +10,7 @@ class MessageCard extends StatelessWidget {
   final String currentUserId;
   final ChatUser? recipient;
   final void Function()? onTap;
+  final int unreadCount; // Added unreadCount as a parameter
 
   const MessageCard({
     super.key,
@@ -16,15 +18,18 @@ class MessageCard extends StatelessWidget {
     required this.currentUserId,
     this.recipient,
     this.onTap,
+    required this.unreadCount, // Made unreadCount required
   });
 
   @override
   Widget build(BuildContext context) {
     // Get the other participant's name and avatar from recipient if available, otherwise from conversation
-    final otherParticipant = recipient ?? conversation.participants.firstWhere(
-      (user) => user.id != currentUserId,
-      orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
-    );
+    final otherParticipant =
+        recipient ??
+        conversation.participants.firstWhere(
+          (user) => user.id != currentUserId,
+          orElse: () => ChatUser(id: '', name: 'Unknown', avatar: null),
+        );
 
     // Get last message details
     final lastMessage = conversation.lastMessage;
@@ -34,11 +39,10 @@ class MessageCard extends StatelessWidget {
             ? timeago.format(lastMessage!.timestamp)
             : '';
 
-    // Count unread messages (simplified, as isRead is always false)
-    final unreadCount =
-        conversation.messages
-            .where((msg) => msg.senderId != currentUserId)
-            .length;
+    // The unreadCount is now passed in as a parameter, no longer calculated here.
+    // final unreadCount = conversation.messages
+    //     .where((msg) => msg.senderId != currentUserId && !msg.isRead)
+    //     .length;
 
     return InkWell(
       onTap: onTap,
@@ -57,7 +61,8 @@ class MessageCard extends StatelessWidget {
                   clipBehavior: Clip.hardEdge,
                   decoration: const BoxDecoration(shape: BoxShape.circle),
                   child:
-                      otherParticipant.avatar != null && otherParticipant.avatar!.isNotEmpty
+                      otherParticipant.avatar != null &&
+                              otherParticipant.avatar!.isNotEmpty
                           ? Image.network(
                             otherParticipant.avatar!,
                             fit: BoxFit.cover,
@@ -72,18 +77,6 @@ class MessageCard extends StatelessWidget {
                             fit: BoxFit.cover,
                           ),
                 ),
-                // Positioned(
-                //   right: 5,
-                //   bottom: 0,
-                //   child: Container(
-                //     width: 10.0,
-                //     height: 10.0,
-                //     decoration: BoxDecoration(
-                //       shape: BoxShape.circle,
-                //       color: wawuColors.primary,
-                //     ),
-                //   ),
-                // ),
               ],
             ),
             const SizedBox(width: 10.0),
