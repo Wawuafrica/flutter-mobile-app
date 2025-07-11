@@ -88,6 +88,14 @@ platform :ios do
       end
     end
 
+    # --- ADD BUILD NUMBER INCREMENT HERE ---
+    UI.message("Incrementing build number...")
+    increment_build_number(
+      xcodeproj: "../Runner.xcodeproj" # Path to your .xcodeproj file from the fastlane directory
+    )
+    UI.message("Build number incremented to: #{get_build_number(xcodeproj: '../Runner.xcodeproj')}")
+    # --- END BUILD NUMBER INCREMENT ---
+
     project.save # Crucial: Save the changes to the .xcodeproj file
     UI.message("Updated Runner target code signing settings, leaving Pods untouched.")
 
