@@ -62,6 +62,36 @@ platform :ios do
     )
     UI.message("Updated project team settings.")
 
+    # **OPTION 1: Increment build number automatically**
+    # This gets the latest build number from App Store Connect and increments it
+    increment_build_number(
+      build_number: latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: "com.wawuafrica.wawu"
+      ) + 1,
+      xcodeproj: "Runner.xcodeproj"
+    )
+    UI.message("Build number incremented to avoid TestFlight conflicts.")
+
+    # **OPTION 2: Use timestamp-based build number (alternative)**
+    # Uncomment the lines below and comment out the increment_build_number block above
+    # timestamp_build_number = Time.now.strftime("%Y%m%d%H%M")
+    # increment_build_number(
+    #   build_number: timestamp_build_number,
+    #   xcodeproj: "Runner.xcodeproj"
+    # )
+    # UI.message("Build number set to timestamp: #{timestamp_build_number}")
+
+    # **OPTION 3: Use GitHub Actions run number (alternative)**
+    # Uncomment the lines below and comment out the increment_build_number block above
+    # if ENV['GITHUB_RUN_NUMBER']
+    #   increment_build_number(
+    #     build_number: ENV['GITHUB_RUN_NUMBER'],
+    #     xcodeproj: "Runner.xcodeproj"
+    #   )
+    #   UI.message("Build number set to GitHub run number: #{ENV['GITHUB_RUN_NUMBER']}")
+    # end
+
     # Change into the parent directory for flutter build
     Dir.chdir("..") do
       sh("flutter", "build", "ios", "--release", "--no-codesign")
@@ -162,6 +192,15 @@ platform :ios do
       git_basic_authorization: Base64.strict_encode64("#{ENV['MATCH_GIT_TOKEN']}:x-oauth-basic"),
       storage_mode: "git",
       api_key: api_key
+    )
+
+    # Increment build number for production release too
+    increment_build_number(
+      build_number: latest_testflight_build_number(
+        api_key: api_key,
+        app_identifier: "com.wawuafrica.wawu"
+      ) + 1,
+      xcodeproj: "Runner.xcodeproj"
     )
 
     # Upload metadata, screenshots, etc.
