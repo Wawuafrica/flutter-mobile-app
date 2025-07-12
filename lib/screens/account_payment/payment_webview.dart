@@ -22,6 +22,7 @@ class PaymentWebView extends StatefulWidget {
 class _PaymentWebViewState extends State<PaymentWebView> {
   late final WebViewController controller;
   bool isLoading = true;
+  bool hasHandledCallback = false; // Prevent multiple callbacks
   final Logger _logger = Logger();
 
   @override
@@ -40,7 +41,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 });
 
                 // Check for Paystack callback URLs
-                if (_isPaymentCallback(url)) {
+                if (_isPaymentCallback(url) && !hasHandledCallback) {
                   _handlePaymentCallback(url);
                 }
               },
@@ -51,7 +52,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 _logger.i('Page finished loading: $url');
 
                 // Double check for callback URLs on page finish
-                if (_isPaymentCallback(url)) {
+                if (_isPaymentCallback(url) && !hasHandledCallback) {
                   _handlePaymentCallback(url);
                 }
               },
@@ -60,16 +61,16 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 _logger.i('Navigating to: $url');
 
                 // Check if the URL is a payment callback
-                if (url.contains('wawuafrica.com/api/payment/callback')) {
-                  _handlePaymentCallback(url);
-                } else if (url.contains('your_success_url')) {
-                  // Example: handle a generic success URL if needed
-                  _onPaymentSuccess(url, 'unknown', 'unknown');
-                } else if (url.contains('your_failure_url')) {
-                  // Example: handle a generic failure URL if needed
-                  _onPaymentFailed('Payment failed', url);
+                if (_isPaymentCallback(url)) {
+                  if (!hasHandledCallback) {
+                    _handlePaymentCallback(url);
+                  }
+                  // Still allow navigation to the callback URL
+                  return NavigationDecision.navigate;
                 }
-                return NavigationDecision.prevent; // Stop navigation
+
+                // Allow all other navigation to proceed normally
+                return NavigationDecision.navigate;
               },
             ),
           )
@@ -94,6 +95,10 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   }
 
   void _handlePaymentCallback(String url) {
+    // Prevent multiple handling of the same callback
+    if (hasHandledCallback) return;
+    hasHandledCallback = true;
+
     _logger.i('Payment callback URL detected: $url');
 
     // Parse the URL and extract payment info
@@ -110,32 +115,39 @@ class _PaymentWebViewState extends State<PaymentWebView> {
     _logger.i('Reference: $reference');
     _logger.d('All params: $params');
 
-    // Handle different payment statuses
-    if (status == 'success' || status == 'successful') {
-      _onPaymentSuccess(url, reference ?? '', trxref ?? '');
-    } else if (status == 'cancelled' || status == 'canceled') {
-      _onPaymentFailed('Payment was cancelled by user', url);
-    } else if (status == 'failed' || status == 'error') {
-      _onPaymentFailed('Payment failed', url);
-    } else if (reference != null &&
-        reference.isNotEmpty &&
-        trxref != null &&
-        trxref.isNotEmpty) {
-      // If we have a reference but unclear status, assume success
-      // You might want to verify this with your backend
-      _onPaymentSuccess(url, reference, trxref);
-    } else {
-      // Check URL path for success indicators
-      if (url.toLowerCase().contains('success')) {
-        _onPaymentSuccess(url, reference ?? 'unknown', trxref ?? 'unknown');
-      } else if (url.toLowerCase().contains('cancel') ||
-          url.toLowerCase().contains('fail')) {
-        _onPaymentFailed('Payment was not completed', url);
+    // Add a small delay to ensure the webview has fully loaded the callback page
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+
+      // Handle different payment statuses
+      if (status == 'success' || status == 'successful') {
+        _onPaymentSuccess(url, reference ?? '', trxref ?? '');
+      } else if (status == 'cancelled' || status == 'canceled') {
+        _onPaymentFailed('Payment was cancelled by user', url);
+      } else if (status == 'failed' || status == 'error') {
+        _onPaymentFailed('Payment failed', url);
+      } else if (reference != null &&
+          reference.isNotEmpty &&
+          trxref != null &&
+          trxref.isNotEmpty) {
+        // If we have a reference but unclear status, assume success
+        // You might want to verify this with your backend
+        _onPaymentSuccess(url, reference, trxref);
+      } else {
+        // Check URL path for success indicators
+        if (url.toLowerCase().contains('success')) {
+          _onPaymentSuccess(url, reference ?? 'unknown', trxref ?? 'unknown');
+        } else if (url.toLowerCase().contains('cancel') ||
+            url.toLowerCase().contains('fail')) {
+          _onPaymentFailed('Payment was not completed', url);
+        }
       }
-    }
+    });
   }
 
   void _onPaymentSuccess(String redirectUrl, String reference, String trxref) {
+    if (!mounted) return;
+
     _logger.i('Payment successful with reference: $reference');
 
     // Log the user ID
@@ -160,6 +172,8 @@ class _PaymentWebViewState extends State<PaymentWebView> {
   }
 
   void _onPaymentFailed(String message, String redirectUrl) {
+    if (!mounted) return;
+
     _logger.e('Payment failed: $message');
 
     // Pop the screen and return a failure result with the URL
@@ -216,7 +230,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
             WebViewWidget(controller: controller),
             if (isLoading)
               Container(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 child: const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
