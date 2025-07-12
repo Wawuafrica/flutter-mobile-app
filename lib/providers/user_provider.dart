@@ -207,291 +207,214 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> updateCurrentUserProfile({
-    Map<String, dynamic>? data,
-    XFile? profileImage,
-    XFile? coverImage,
-    XFile? professionalCertificationImage,
-    XFile? meansOfIdentification,
-  }) async {
-    if (!_authService.isAuthenticated ||
-        _authService.currentUser == null ||
-        _authService.currentUser!.uuid.isEmpty) {
-      setError('User not authenticated for profile update.');
-      return;
+  Map<String, dynamic>? data,
+  XFile? profileImage,
+  XFile? coverImage,
+  XFile? professionalCertificationImage,
+  XFile? meansOfIdentification,
+}) async {
+  if (!_authService.isAuthenticated ||
+      _authService.currentUser == null ||
+      _authService.currentUser!.uuid.isEmpty) {
+    setError('User not authenticated for profile update.');
+    return;
+  }
+
+  setLoading();
+  try {
+    final imageFormDataMap = <String, dynamic>{};
+    final profileFormDataMap = <String, dynamic>{};
+
+    // Handle profile and cover images
+    if (profileImage != null) {
+      imageFormDataMap['profileImage[file]'] = kIsWeb
+          ? dio.MultipartFile.fromBytes(
+              await profileImage.readAsBytes(),
+              filename: 'profile_image.png',
+            )
+          : await dio.MultipartFile.fromFile(
+              profileImage.path,
+              filename: profileImage.path.split('/').last,
+            );
+      imageFormDataMap['profileImage[fileName]'] =
+          kIsWeb ? 'profile_image.png' : profileImage.path.split('/').last;
     }
-    setLoading();
-    try {
-      if (profileImage != null || coverImage != null) {
-        final imageFormDataMap = <String, dynamic>{};
-        if (profileImage != null) {
-          imageFormDataMap['profileImage[file]'] =
-              kIsWeb
-                  ? dio.MultipartFile.fromBytes(
-                    await profileImage.readAsBytes(),
-                    filename: 'profile_image.png',
-                  )
-                  : await dio.MultipartFile.fromFile(
-                    profileImage.path,
-                    filename: profileImage.path.split('/').last,
-                  );
-          imageFormDataMap['profileImage[fileName]'] =
-              kIsWeb ? 'profile_image.png' : profileImage.path.split('/').last;
-        }
-        if (coverImage != null) {
-          imageFormDataMap['coverImage[file]'] =
-              kIsWeb
-                  ? dio.MultipartFile.fromBytes(
-                    await coverImage.readAsBytes(),
-                    filename: 'cover_image.png',
-                  )
-                  : await dio.MultipartFile.fromFile(
-                    coverImage.path,
-                    filename: coverImage.path.split('/').last,
-                  );
-          imageFormDataMap['coverImage[fileName]'] =
-              kIsWeb ? 'cover_image.png' : coverImage.path.split('/').last;
-        }
-        final imageResponse = await _apiService.post(
-          '/user/profile/image/update',
-          data: dio.FormData.fromMap(imageFormDataMap),
-        );
-        if (imageResponse['statusCode'] != 200) {
-          final message =
-              imageResponse['message'] as String? ??
-              'Failed to update profile images.';
-          setError(message);
-          return;
-        }
+
+    if (coverImage != null) {
+      imageFormDataMap['coverImage[file]'] = kIsWeb
+          ? dio.MultipartFile.fromBytes(
+              await coverImage.readAsBytes(),
+              filename: 'cover_image.png',
+            )
+          : await dio.MultipartFile.fromFile(
+              coverImage.path,
+              filename: coverImage.path.split('/').last,
+            );
+      imageFormDataMap['coverImage[fileName]'] =
+          kIsWeb ? 'cover_image.png' : coverImage.path.split('/').last;
+    }
+
+    // Upload profile/cover images first if they exist
+    if (imageFormDataMap.isNotEmpty) {
+      final imageResponse = await _apiService.post(
+        '/user/profile/image/update',
+        data: dio.FormData.fromMap(imageFormDataMap),
+      );
+      if (imageResponse['statusCode'] != 200) {
+        final message = imageResponse['message'] as String? ?? 'Failed to update profile images.';
+        setError(message);
+        return;
       }
-      // Handle other profile data if present with logging
-      final hasOtherData =
-          data != null &&
-              (data['about'] != null ||
-                  (data['skills'] != null &&
-                      data['skills'] is List &&
-                      (data['skills'] as List).isNotEmpty) ||
-                  (data['educationCertification']?.toString().isNotEmpty ==
-                      true) ||
-                  (data['educationInstitution']?.toString().isNotEmpty ==
-                      true) ||
-                  (data['educationCourseOfStudy']?.toString().isNotEmpty ==
-                      true) ||
-                  (data['educationGraduationDate']?.toString().isNotEmpty ==
-                      true) ||
-                  (data['educationEndDate']?.toString().isNotEmpty == true) ||
-                  (data['professionalCertificationName']
-                          ?.toString()
-                          .isNotEmpty ==
-                      true) ||
-                  (data['professionalCertificationOrganization']
-                          ?.toString()
-                          .isNotEmpty ==
-                      true) ||
-                  (data['professionalCertificationEndDate']
-                          ?.toString()
-                          .isNotEmpty ==
-                      true) ||
-                  (data['country']?.toString().trim().isNotEmpty == true) ||
-                  (data['state']?.toString().trim().isNotEmpty == true) ||
-                  (data['social'] != null) ||
-                  data['subCategoryUuid'] != null) ||
-          professionalCertificationImage != null ||
-          meansOfIdentification != null;
+    }
 
-      if (hasOtherData) {
-        final profileFormDataMap = <String, dynamic>{};
+    // Handle about section
+    if (data?['about'] != null) {
+      profileFormDataMap['about'] = data!['about'].toString().trim();
+    }
 
-        // Use data map to add about
-        if (data?['about'] != null) {
-          profileFormDataMap['about'] = data!['about'].toString().trim();
-        }
-
-        // Add skills only if present and not empty
-        if (data?['skills'] != null && data!['skills'] is List) {
-          final skills = data['skills'] as List;
-          if (skills.isNotEmpty) {
-            for (int i = 0; i < skills.length; i++) {
-              profileFormDataMap['skills[$i]'] = skills[i].toString();
-            }
-          }
-        }
-
-        // Add education data only if at least one field has value
-        final hasEducationData =
-            (data?['educationCertification']?.toString().isNotEmpty == true) ||
-            (data?['educationInstitution']?.toString().isNotEmpty == true) ||
-            (data?['educationCourseOfStudy']?.toString().isNotEmpty == true) ||
-            (data?['educationGraduationDate']?.toString().isNotEmpty == true) ||
-            (data?['educationEndDate']?.toString().isNotEmpty == true);
-        if (hasEducationData) {
-          if (data?['educationCertification'] != null) {
-            profileFormDataMap['education[1][certification]'] =
-                data!['educationCertification'].toString();
-          }
-          if (data?['educationInstitution'] != null) {
-            profileFormDataMap['education[1][institution]'] =
-                data!['educationInstitution'].toString();
-          }
-          if (data?['educationCourseOfStudy'] != null) {
-            profileFormDataMap['education[1][courseOfStudy]'] =
-                data!['educationCourseOfStudy'].toString();
-          }
-          if (data?['educationGraduationDate'] != null) {
-            profileFormDataMap['education[1][startDate]'] =
-                data!['educationGraduationDate'].toString();
-          }
-          if (data?['educationEndDate'] != null) {
-            profileFormDataMap['education[1][endDate]'] =
-                data!['educationEndDate'].toString();
-          }
-        }
-
-        // Add means of identification only if provided
-        if (meansOfIdentification != null) {
-          profileFormDataMap['meansOfIdentification[file]'] =
-              kIsWeb
-                  ? dio.MultipartFile.fromBytes(
-                    await meansOfIdentification.readAsBytes(),
-                    filename: 'id_doc.png',
-                  )
-                  : await dio.MultipartFile.fromFile(
-                    meansOfIdentification.path,
-                    filename: meansOfIdentification.path.split('/').last,
-                  );
-          profileFormDataMap['meansOfIdentification[fileName]'] =
-              kIsWeb
-                  ? 'id_doc.png'
-                  : meansOfIdentification.path.split('/').last;
-        }
-
-        // Add professional certification only if at least one field has value
-        final hasProfessionalCertData =
-            (data?['professionalCertificationName']?.toString().isNotEmpty ==
-                true) ||
-            (data?['professionalCertificationOrganization']
-                    ?.toString()
-                    .isNotEmpty ==
-                true) ||
-            (data?['professionalCertificationEndDate']?.toString().isNotEmpty ==
-                true) ||
-            (professionalCertificationImage != null);
-        if (hasProfessionalCertData) {
-          if (data?['professionalCertificationName'] != null) {
-            profileFormDataMap['professionalCertification[1][name]'] =
-                data!['professionalCertificationName'].toString();
-          }
-          if (data?['professionalCertificationOrganization'] != null) {
-            profileFormDataMap['professionalCertification[1][organization]'] =
-                data!['professionalCertificationOrganization']
-                    .toString()
-                    .trim();
-          }
-          if (data?['professionalCertificationEndDate'] != null) {
-            profileFormDataMap['professionalCertification[1][endDate]'] =
-                data!['professionalCertificationEndDate'].toString().trim();
-          }
-          if (professionalCertificationImage != null) {
-            profileFormDataMap['professionalCertification[1][file]'] =
-                kIsWeb
-                    ? dio.MultipartFile.fromBytes(
-                      await professionalCertificationImage.readAsBytes(),
-                      filename: 'cert_doc.png',
-                    )
-                    : await dio.MultipartFile.fromFile(
-                      professionalCertificationImage.path,
-                      filename:
-                          professionalCertificationImage.path.split('/').last,
-                    );
-            profileFormDataMap['professionalCertification[1][fileName]'] =
-                kIsWeb
-                    ? 'cert_doc.png'
-                    : professionalCertificationImage.path.split('/').last;
-          }
-        }
-
-        // Add location data only if not empty
-        if (data?['country'] != null &&
-            data!['country'].toString().trim().isNotEmpty) {
-          profileFormDataMap['country'] = data['country'].toString().trim();
-        }
-        if (data?['state'] != null &&
-            data!['state'].toString().trim().isNotEmpty) {
-          profileFormDataMap['state'] = data['state'].toString().trim();
-        }
-        if (data?['phoneNumber'] != null &&
-            data!['phoneNumber'].toString().trim().isNotEmpty) {
-          profileFormDataMap['phoneNumber'] =
-              data['phoneNumber'].toString().trim();
-        }
-
-        // Add social handles only if not empty and data contains it
-        if (data?['social'] != null && data!['social'] is Map) {
-          final socialMap = data['social'] as Map<String, dynamic>;
-          if (socialMap['facebook'] != null &&
-              socialMap['facebook'].toString().trim().isNotEmpty) {
-            profileFormDataMap['social[facebook]'] =
-                socialMap['facebook'].toString().trim();
-          }
-          if (socialMap['linkedIn'] != null &&
-              socialMap['linkedIn'].toString().trim().isNotEmpty) {
-            profileFormDataMap['social[linkedIn]'] =
-                socialMap['linkedIn'].toString().trim();
-          }
-          if (socialMap['instagram'] != null &&
-              socialMap['instagram'].toString().trim().isNotEmpty) {
-            profileFormDataMap['social[instagram]'] =
-                socialMap['instagram'].toString().trim();
-          }
-          if (socialMap['twitter'] != null &&
-              socialMap['twitter'].toString().trim().isNotEmpty) {
-            profileFormDataMap['social[twitter]'] =
-                socialMap['twitter'].toString().trim();
-          }
-        }
-
-        // Add subCategoryUuid if present
-        if (data?['subCategoryUuid'] != null) {
-          profileFormDataMap['subCategoryUuid'] = data!['subCategoryUuid'];
-        }
-
-        _logger.d('Updating profile with data: $profileFormDataMap');
-
-        final response = await _apiService.post(
-          '/user/profile/update',
-          data: dio.FormData.fromMap(profileFormDataMap),
-        );
-        if (response['statusCode'] != 200) {
-          final message =
-              response['message'] as String? ??
-              'Failed to update profile: Invalid response structure.';
-          setError(message);
-          return;
-        }
+    // Handle skills array
+    if (data?['skills'] != null && data!['skills'] is List) {
+      final skills = data['skills'] as List;
+      for (int i = 0; i < skills.length; i++) {
+        profileFormDataMap['skills[${i + 1}]'] = skills[i].toString();
       }
+    }
 
-      final finalResponse = await _apiService.get('/user/profile');
-      if (finalResponse['statusCode'] == 200 &&
-          finalResponse.containsKey('data')) {
-        final updatedUser = User.fromJson(
-          finalResponse['data'] as Map<String, dynamic>,
-        );
-        _currentUser = updatedUser;
-        await _authService.saveUser(_currentUser!);
-        setSuccess();
-      } else {
-        setSuccess(); // Set success even if fetch fails, as updates might have gone through
+    // Handle education
+    if (data?['educationCertification'] != null ||
+        data?['educationInstitution'] != null ||
+        data?['educationCourseOfStudy'] != null) {
+      profileFormDataMap['education[1][certification]'] =
+          data!['educationCertification'].toString();
+      profileFormDataMap['education[1][institution]'] =
+          data['educationInstitution'].toString();
+      profileFormDataMap['education[1][courseOfStudy]'] =
+          data['educationCourseOfStudy'].toString();
+      
+      if (data['educationGraduationDate'] != null) {
+        profileFormDataMap['education[1][startDate]'] =
+            data['educationGraduationDate'].toString();
       }
-    } on dio.DioException catch (e) {
-      setError('API error during profile update: ${e.message}');
-    } catch (e) {
-      setError('Unexpected error during profile update: $e');
-    } finally {
-      if (isLoading) {
-        isLoading = false;
-        notifyListeners();
+      if (data['educationEndDate'] != null) {
+        profileFormDataMap['education[1][endDate]'] =
+            data['educationEndDate'].toString();
       }
+    }
+
+    // Handle professional certification
+    if (data?['professionalCertificationName'] != null ||
+        data?['professionalCertificationOrganization'] != null ||
+        professionalCertificationImage != null) {
+      if (data?['professionalCertificationName'] != null) {
+        profileFormDataMap['professionalCertification[1][name]'] =
+            data!['professionalCertificationName'].toString();
+      }
+      if (data?['professionalCertificationOrganization'] != null) {
+        profileFormDataMap['professionalCertification[1][organization]'] =
+            data!['professionalCertificationOrganization'].toString().trim();
+      }
+      if (professionalCertificationImage != null) {
+        profileFormDataMap['professionalCertification[1][file]'] = kIsWeb
+            ? dio.MultipartFile.fromBytes(
+                await professionalCertificationImage.readAsBytes(),
+                filename: 'cert_doc.png',
+              )
+            : await dio.MultipartFile.fromFile(
+                professionalCertificationImage.path,
+                filename: professionalCertificationImage.path.split('/').last,
+              );
+        profileFormDataMap['professionalCertification[1][fileName]'] =
+            kIsWeb ? 'cert_doc.png' : professionalCertificationImage.path.split('/').last;
+      }
+    }
+
+    // Handle means of identification
+    if (meansOfIdentification != null) {
+      profileFormDataMap['meansOfIdentification[file]'] = kIsWeb
+          ? dio.MultipartFile.fromBytes(
+              await meansOfIdentification.readAsBytes(),
+              filename: 'id_doc.png',
+            )
+          : await dio.MultipartFile.fromFile(
+              meansOfIdentification.path,
+              filename: meansOfIdentification.path.split('/').last,
+            );
+      profileFormDataMap['meansOfIdentification[fileName]'] =
+          kIsWeb ? 'id_doc.png' : meansOfIdentification.path.split('/').last;
+    }
+
+    // Handle location data
+    if (data?['country'] != null && data!['country'].toString().trim().isNotEmpty) {
+      profileFormDataMap['country'] = data['country'].toString().trim();
+    }
+    if (data?['state'] != null && data!['state'].toString().trim().isNotEmpty) {
+      profileFormDataMap['state'] = data['state'].toString().trim();
+    }
+
+    // Handle phone number
+    if (data?['phoneNumber'] != null && data!['phoneNumber'].toString().trim().isNotEmpty) {
+      profileFormDataMap['phoneNumber'] = data['phoneNumber'].toString().trim();
+    }
+
+    // Handle social handles
+    if (data?['social'] != null && data!['social'] is Map) {
+      final socialMap = data['social'] as Map<String, dynamic>;
+      if (socialMap['facebook'] != null && socialMap['facebook'].toString().trim().isNotEmpty) {
+        profileFormDataMap['social[facebook]'] = socialMap['facebook'].toString().trim();
+      }
+      if (socialMap['linkedIn'] != null && socialMap['linkedIn'].toString().trim().isNotEmpty) {
+        profileFormDataMap['social[linkedIn]'] = socialMap['linkedIn'].toString().trim();
+      }
+      if (socialMap['instagram'] != null && socialMap['instagram'].toString().trim().isNotEmpty) {
+        profileFormDataMap['social[instagram]'] = socialMap['instagram'].toString().trim();
+      }
+      if (socialMap['twitter'] != null && socialMap['twitter'].toString().trim().isNotEmpty) {
+        profileFormDataMap['social[twitter]'] = socialMap['twitter'].toString().trim();
+      }
+    }
+
+    // Handle subcategory
+    if (data?['subCategoryUuid'] != null) {
+      profileFormDataMap['subCategoryUuid'] = data!['subCategoryUuid'];
+    }
+
+    _logger.d('Updating profile with data: $profileFormDataMap');
+
+    // Only send profile update if there's data to update
+    if (profileFormDataMap.isNotEmpty) {
+      final response = await _apiService.post(
+        '/user/profile/update',
+        data: dio.FormData.fromMap(profileFormDataMap),
+      );
+
+      if (response['statusCode'] != 200) {
+        final message = response['message'] as String? ?? 'Failed to update profile: Invalid response structure.';
+        setError(message);
+        return;
+      }
+    }
+
+    // Fetch updated profile
+    final finalResponse = await _apiService.get('/user/profile');
+    if (finalResponse['statusCode'] == 200 && finalResponse.containsKey('data')) {
+      final updatedUser = User.fromJson(finalResponse['data'] as Map<String, dynamic>);
+      _currentUser = updatedUser;
+      await _authService.saveUser(_currentUser!);
+      setSuccess();
+    } else {
+      setSuccess(); // Set success even if fetch fails, as updates might have gone through
+    }
+  } on dio.DioException catch (e) {
+    setError('API error during profile update: ${e.message}');
+  } catch (e) {
+    setError('Unexpected error during profile update: $e');
+  } finally {
+    if (isLoading) {
+      isLoading = false;
+      notifyListeners();
     }
   }
+}
 
   /// Deletes the current user's account by calling the /user/delete endpoint.
   Future<bool> deleteUserAccount() async {
