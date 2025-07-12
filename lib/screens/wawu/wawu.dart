@@ -16,7 +16,7 @@ class Wawu extends StatelessWidget {
           children: [
             SizedBox(height: 10),
             CustomIntroBar(
-              text: 'Welcome to a WAWU Africa',
+              text: 'Welcome to a WAWUAfrica',
               desc: 'We are the home of the best girl service providers.',
             ),
             Expanded(
