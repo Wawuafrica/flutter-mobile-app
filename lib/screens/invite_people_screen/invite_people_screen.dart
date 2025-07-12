@@ -19,7 +19,7 @@ class InvitePeopleScreen extends StatelessWidget {
               width: double.infinity,
               height: 300,
               child: Image.asset('assets/images/onboarding_images/oi3.webp',
-              cacheWidth: 300,
+              cacheWidth: 500,
               ),
             ),
             SizedBox(height: 40),
