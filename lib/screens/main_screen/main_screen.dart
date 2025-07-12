@@ -278,7 +278,10 @@ class MainScreenState extends State<MainScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: appBarTitles[_selectedIndex],
+        title: Row(
+			  mainAxisAlignment: MainAxisAlignment.start,
+			  children: [appBarTitles[_selectedIndex]],
+				),
         automaticallyImplyLeading: false,
         actions: _getAppBarActions(),
       ),
