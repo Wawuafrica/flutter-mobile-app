@@ -153,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           await locationProvider.fetchStates(_selectedCountry!.id);
         }
       }
-      _selectedState = user.state?.isNotEmpty == true ? user.state : null;
+      _selectedState = user.state != null ? user.state : null;
 
       _facebookController.text =
           user.additionalInfo?.socialHandles?['facebook']?.split('/').last ??
@@ -884,11 +884,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 30),
                   const CustomIntroText(text: 'Education'),
+									const SizedBox(height: 12),
                   if (user?.additionalInfo?.education != null &&
                       user!.additionalInfo!.education!.isNotEmpty)
                     for (Education edu in user.additionalInfo!.education!)
                       _buildEducationCard(edu),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 0),
                   if (user?.additionalInfo?.education == null ||
                       user!.additionalInfo!.education!.isEmpty)
                     const Text('No education available'),
