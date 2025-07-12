@@ -896,6 +896,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       breakpoints: [
         // Small phones (iPhone SE, older Android phones)
+        const ResponsiveBreakpoint.resize(200, name: MOBILE),
         const ResponsiveBreakpoint.resize(280, name: MOBILE),
         const ResponsiveBreakpoint.resize(300, name: MOBILE),
         const ResponsiveBreakpoint.resize(320, name: MOBILE),
@@ -922,21 +923,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         const ResponsiveBreakpoint.resize(1200, name: DESKTOP),
       ],
       // Enable default scaling behavior
-      defaultScale: true,
+      // defaultScale: true,
 
       // Set minimum width to handle very small screens
-      minWidth: 280,
+      minWidth: 300,
 
       // Set maximum width to prevent over-scaling on very large screens
-      maxWidth: 1200,
+      // maxWidth: 1200,
 
       // Default name for smallest screens
       defaultName: MOBILE,
-
-      // Enable automatic scaling for better text and component sizing
-      mediaQueryData: MediaQueryData.fromView(
-        WidgetsBinding.instance.platformDispatcher.views.first,
-      ),
     );
   }
 }
