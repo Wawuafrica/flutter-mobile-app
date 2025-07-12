@@ -282,6 +282,7 @@ class MainScreenState extends State<MainScreen> {
 			  mainAxisAlignment: MainAxisAlignment.start,
 			  children: [appBarTitles[_selectedIndex]],
 				),
+				centerTitle: false,
         automaticallyImplyLeading: false,
         actions: _getAppBarActions(),
       ),
