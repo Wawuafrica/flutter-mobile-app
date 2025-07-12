@@ -182,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     delegate: SliverChildListDelegate([
                       const SizedBox(height: 20),
                       const CustomIntroText(text: 'Updates'),
-
+                      const SizedBox(height: 10),
                       // Real-time Ads Section
                       Consumer<AdProvider>(
                         builder: (context, adProvider, child) {

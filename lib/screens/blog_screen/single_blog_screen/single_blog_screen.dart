@@ -6,6 +6,7 @@ import 'package:wawu_mobile/models/blog_post.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class SingleBlogScreen extends StatefulWidget {
   const SingleBlogScreen({super.key});
@@ -128,17 +129,21 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
           final List<Widget> carouselItems = [
             Container(
               decoration: BoxDecoration(color: Colors.red.withAlpha(0)),
-              child: Image.network(
-                selectedPost.coverImage.link,
+              child: CachedNetworkImage(
+                imageUrl: selectedPost.coverImage.link,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Colors.grey[300],
-                    child: Center(
-                      child: Icon(Icons.image_not_supported, size: 50),
+                placeholder:
+                    (context, url) => Container(
+                      color: Colors.grey[300],
+                      child: Center(child: CircularProgressIndicator()),
                     ),
-                  );
-                },
+                errorWidget:
+                    (context, url, error) => Container(
+                      color: Colors.grey[300],
+                      child: Center(
+                        child: Icon(Icons.image_not_supported, size: 50),
+                      ),
+                    ),
               ),
             ),
           ];
@@ -177,7 +182,6 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                 SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  spacing: 10.0,
                   children: [
                     GestureDetector(
                       onTap: () => _handleLikePost(selectedPost.uuid),
@@ -222,6 +226,7 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                         ),
                       ),
                     ),
+                    SizedBox(width: 10),
                     Container(
                       width: 60,
                       height: 25,
@@ -505,16 +510,23 @@ class _BlogCommentWidgetState extends State<BlogCommentWidget> {
                     child:
                         currentComment.commentedBy.profilePicture != null
                             ? ClipOval(
-                              child: Image.network(
-                                currentComment.commentedBy.profilePicture!,
+                              child: CachedNetworkImage(
+                                imageUrl:
+                                    currentComment.commentedBy.profilePicture!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: 20,
-                                  );
-                                },
+                                placeholder:
+                                    (context, url) => Container(
+                                      color: Colors.grey[200],
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                errorWidget:
+                                    (context, url, error) => Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
                               ),
                             )
                             : Icon(Icons.person, color: Colors.white, size: 20),

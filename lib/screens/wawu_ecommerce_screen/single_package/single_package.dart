@@ -8,6 +8,7 @@ import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/models/variant.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class SinglePackage extends StatefulWidget {
   const SinglePackage({super.key});
@@ -205,12 +206,17 @@ class _SinglePackageState extends State<SinglePackage> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    image.link,
+                  child: CachedNetworkImage(
+                    imageUrl: image.link,
                     fit: BoxFit.cover,
-                    errorBuilder:
-                        (context, error, stackTrace) => Container(
-                          color: Colors.grey[200],
+                    placeholder:
+                        (context, url) => Container(
+                          color: wawuColors.primary.withValues(alpha: 0.2),
+                          child: Center(child: CircularProgressIndicator()),
+                        ),
+                    errorWidget:
+                        (context, url, error) => Container(
+                          color: wawuColors.primary.withValues(alpha: 0.2),
                           child: Center(
                             child: Icon(
                               Icons.broken_image,
@@ -219,13 +225,6 @@ class _SinglePackageState extends State<SinglePackage> {
                             ),
                           ),
                         ),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        color: Colors.grey[200],
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    },
                   ),
                 ),
               ),

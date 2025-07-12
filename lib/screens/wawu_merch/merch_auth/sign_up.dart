@@ -13,6 +13,7 @@ import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/models/country.dart';
 import 'package:wawu_mobile/providers/location_provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class SignUpMerch extends StatefulWidget {
   const SignUpMerch({super.key});
@@ -259,7 +260,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                     country.flag!.isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(right: 8.0),
-                                    child: Image.network(
+                                    child: SvgPicture.network(
                                       country.flag!,
                                       width: 24,
                                       height: 18,

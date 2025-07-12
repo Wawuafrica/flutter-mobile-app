@@ -462,14 +462,14 @@ class Education {
   final String? institution; // Changed from 'school' based on your data
   final String? certification; // Changed from 'degree'
   final String? courseOfStudy; // Changed from 'fieldOfStudy'
-  final String? graduationDate; // Changed from 'endYear' and type
+  final String? startDate; // Changed from 'endYear' and type
   final String? endDate;
 
   Education({
     this.institution,
     this.certification,
     this.courseOfStudy,
-    this.graduationDate,
+    this.startDate,
     this.endDate,
   });
 
@@ -478,7 +478,7 @@ class Education {
       institution: json['institution'] as String?,
       certification: json['certification'] as String?,
       courseOfStudy: json['courseOfStudy'] as String?,
-      graduationDate: json['graduationDate']?.toString(), // Ensure it's String
+      startDate: json['startDate']?.toString(), // Ensure it's String
       endDate: json['endDate']?.toString(),
     );
   }
@@ -487,7 +487,7 @@ class Education {
     'institution': institution,
     'certification': certification,
     'courseOfStudy': courseOfStudy,
-    'graduationDate': graduationDate,
+    'startDate': startDate,
     'endDate': endDate,
   };
 }

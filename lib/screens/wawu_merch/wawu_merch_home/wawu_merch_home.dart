@@ -6,9 +6,9 @@ import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/screens/wawu_ecommerce_screen/wawu_ecommerce_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
-// import 'package:wawu_mobile/utils/error_utils.dart';
 import 'package:wawu_mobile/widgets/e_card/e_card.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class WawuMerchHome extends StatefulWidget {
   const WawuMerchHome({super.key});
@@ -133,17 +133,27 @@ class _WawuMerchHomeState extends State<WawuMerchHome> {
                                 }
                               }
                             },
-                            child: Image.network(
-                              ad.media.link,
+                            child: CachedNetworkImage(
+                              imageUrl: ad.media.link,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: wawuColors.borderPrimary.withAlpha(50),
-                                  child: Center(
-                                    child: Text('Failed to load image'),
+                              placeholder:
+                                  (context, url) => Container(
+                                    color: wawuColors.borderPrimary.withAlpha(
+                                      50,
+                                    ),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
                                   ),
-                                );
-                              },
+                              errorWidget:
+                                  (context, url, error) => Container(
+                                    color: wawuColors.borderPrimary.withAlpha(
+                                      50,
+                                    ),
+                                    child: Center(
+                                      child: Text('Failed to load image'),
+                                    ),
+                                  ),
                             ),
                           );
                         }).toList();

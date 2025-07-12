@@ -20,6 +20,7 @@ import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
 import 'package:wawu_mobile/models/country.dart';
 import 'package:wawu_mobile/providers/location_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -117,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _educationCourseOfStudyController.text =
             latestEducation.courseOfStudy ?? '';
         _educationGraduationDateController.text =
-            latestEducation.graduationDate ?? '';
+            latestEducation.startDate ?? '';
         if (latestEducation.certification == 'School-Level Qualifications') {
           _customInstitutionController.text = latestEducation.institution ?? '';
         } else {
@@ -139,7 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           user.additionalInfo!.education!.isNotEmpty) {
         final education = user.additionalInfo!.education!.last;
         _courseOfStudyController.text = education.courseOfStudy ?? '';
-        _graduationDateController.text = education.graduationDate ?? '';
+        _graduationDateController.text = education.startDate ?? '';
         _educationEndDateController.text = education.endDate ?? '';
       }
 
@@ -436,13 +437,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  education.graduationDate ?? 'N/A',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+                Row(
+                  spacing: 4.0,
+                  children: [
+                    Text(
+                      education.startDate ?? 'N/A',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      education.endDate ?? 'N/A',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -565,9 +579,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         fit: BoxFit.cover,
                                       )
                                       : (user?.coverImage != null
-                                          ? Image.network(
-                                            user!.coverImage!,
+                                          ? CachedNetworkImage(
+                                            imageUrl: user!.coverImage!,
                                             fit: BoxFit.cover,
+                                            placeholder:
+                                                (context, url) => Container(
+                                                  color: Colors.grey[200],
+                                                  child: Center(
+                                                    child:
+                                                        CircularProgressIndicator(),
+                                                  ),
+                                                ),
+                                            errorWidget:
+                                                (context, url, error) =>
+                                                    const Center(
+                                                      child: Text(
+                                                        'Add Cover Photo',
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        style: TextStyle(
+                                                          color: Colors.grey,
+                                                        ),
+                                                      ),
+                                                    ),
                                           )
                                           : const Center(
                                             child: Text(
@@ -638,9 +672,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                   fit: BoxFit.cover,
                                                 )
                                                 : (user?.profileImage != null
-                                                    ? Image.network(
-                                                      user!.profileImage!,
+                                                    ? CachedNetworkImage(
+                                                      imageUrl:
+                                                          user!.profileImage!,
                                                       fit: BoxFit.cover,
+                                                      placeholder:
+                                                          (
+                                                            context,
+                                                            url,
+                                                          ) => Container(
+                                                            color:
+                                                                Colors
+                                                                    .grey[200],
+                                                            child: Center(
+                                                              child:
+                                                                  CircularProgressIndicator(),
+                                                            ),
+                                                          ),
+                                                      errorWidget:
+                                                          (
+                                                            context,
+                                                            url,
+                                                            error,
+                                                          ) => Image.asset(
+                                                            'assets/images/other/avatar.webp',
+                                                            cacheWidth: 200,
+                                                          ),
                                                     )
                                                     : Image.asset(
                                                       'assets/images/other/avatar.webp',
@@ -710,7 +767,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (user?.status == 'VERIFIED')
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    spacing: 5.0,
                     children: [
                       Container(
                         width: 16,
@@ -725,6 +781,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           size: 12,
                         ),
                       ),
+                      const SizedBox(width: 5),
                       const Text(
                         'Verified',
                         style: TextStyle(
@@ -733,7 +790,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(width: 4),
                     ],
                   ),
                 if (user?.status != 'VERIFIED')
@@ -884,7 +940,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 30),
                   const CustomIntroText(text: 'Education'),
-									const SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   if (user?.additionalInfo?.education != null &&
                       user!.additionalInfo!.education!.isNotEmpty)
                     for (Education edu in user.additionalInfo!.education!)
@@ -1069,7 +1125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             border: Border.all(color: Colors.grey),
                             borderRadius: BorderRadius.circular(5),
                             image: DecorationImage(
-                              image: NetworkImage(
+                              image: CachedNetworkImageProvider(
                                 user
                                     .additionalInfo!
                                     .professionalCertification!
@@ -1080,6 +1136,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               fit: BoxFit.cover,
                             ),
                           ),
+                          child:
+                              user
+                                          .additionalInfo!
+                                          .professionalCertification!
+                                          .last
+                                          .file!
+                                          .link !=
+                                      null
+                                  ? CachedNetworkImage(
+                                    imageUrl:
+                                        user
+                                            .additionalInfo!
+                                            .professionalCertification!
+                                            .last
+                                            .file!
+                                            .link!,
+                                    fit: BoxFit.cover,
+                                    placeholder:
+                                        (context, url) => Container(
+                                          color: Colors.grey[200],
+                                          child: Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                        ),
+                                    errorWidget:
+                                        (context, url, error) => Center(
+                                          child: Icon(
+                                            Icons.error,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                  )
+                                  : null,
                         ),
                       UploadImage(
                         labelText: 'Upload Certification Document',
@@ -1105,7 +1194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       border: Border.all(color: Colors.grey),
                       borderRadius: BorderRadius.circular(5),
                       image: DecorationImage(
-                        image: NetworkImage(
+                        image: CachedNetworkImageProvider(
                           user!
                               .additionalInfo!
                               .meansOfIdentification!
@@ -1114,6 +1203,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         fit: BoxFit.cover,
                       ),
+                    ),
+                    child: CachedNetworkImage(
+                      imageUrl:
+                          user
+                              .additionalInfo!
+                              .meansOfIdentification!
+                              .file!
+                              .link!,
+                      fit: BoxFit.cover,
+                      placeholder:
+                          (context, url) => Container(
+                            color: Colors.grey[200],
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                      errorWidget:
+                          (context, url, error) => Center(
+                            child: Icon(Icons.error, color: Colors.red),
+                          ),
                     ),
                   )
                 else
@@ -1173,8 +1280,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       country.flag!,
                                       width: 24,
                                       height: 24,
-                                      errorBuilder:
-                                          (_, __, ___) =>
+                                      placeholderBuilder:
+                                          (_) =>
                                               SizedBox(width: 24, height: 24),
                                     ),
                                   const SizedBox(width: 8),

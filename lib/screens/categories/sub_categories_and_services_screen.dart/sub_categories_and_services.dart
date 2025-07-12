@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/models/category.dart';
 import 'package:wawu_mobile/screens/categories/filtered_gigs/filtered_gigs.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class SubCategoriesAndServices extends StatefulWidget {
   const SubCategoriesAndServices({super.key});
@@ -120,25 +120,32 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
             padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: ListView(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20.0),
-                  height: 100,
-                  decoration: BoxDecoration(color: wawuColors.primary),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          categoryName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 20,
-                            color: Colors.white,
-                          ),
-                        ),
+                // Replace the existing Container with this code:
+                Stack(
+                  children: [
+                    SizedBox(
+                      height: 100,
+                      width: double.infinity,
+                      child: SvgPicture.asset(
+                        'assets/soon.svg',
+                        fit: BoxFit.cover,
                       ),
-                    ],
-                  ),
+                    ),
+                    Container(
+                      height: 100,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      child: Text(
+                        categoryName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 20,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 // Show initial loading state

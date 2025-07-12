@@ -4,12 +4,14 @@ import 'package:wawu_mobile/models/user.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+// import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 
 // Import your GigCard component
 // import 'path/to/your/gig_card.dart';
 
 class SellerProfileScreen extends StatelessWidget {
-  const SellerProfileScreen({Key? key}) : super(key: key);
+  const SellerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +56,7 @@ class SellerProfileScreen extends StatelessWidget {
                 image:
                     user?.coverImage != null && user!.coverImage!.isNotEmpty
                         ? DecorationImage(
-                          image: NetworkImage(user.coverImage!),
+                          image: CachedNetworkImageProvider(user.coverImage!),
                           fit: BoxFit.cover,
                         )
                         : null,
@@ -75,11 +77,18 @@ class SellerProfileScreen extends StatelessWidget {
                     child: ClipOval(
                       child:
                           profileImage.startsWith('http')
-                              ? Image.network(
-                                profileImage,
+                              ? CachedNetworkImage(
+                                imageUrl: profileImage,
                                 fit: BoxFit.cover,
-                                errorBuilder:
-                                    (context, error, stackTrace) => Image.asset(
+                                placeholder:
+                                    (context, url) => Container(
+                                      color: Colors.grey[200],
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                errorWidget:
+                                    (context, url, error) => Image.asset(
                                       'assets/images/other/avatar.webp',
                                       fit: BoxFit.cover,
                                     ),
@@ -87,17 +96,6 @@ class SellerProfileScreen extends StatelessWidget {
                               : Image.asset(profileImage, fit: BoxFit.cover),
                     ),
                   ),
-                  // const SizedBox(height: 8),
-                  // Online Indicator
-                  // Container(
-                  //   width: 16,
-                  //   height: 16,
-                  //   decoration: BoxDecoration(
-                  //     color: isOnline ? Colors.green : Colors.grey,
-                  //     shape: BoxShape.circle,
-                  //     border: Border.all(color: Colors.white, width: 2),
-                  //   ),
-                  // ),
                   const SizedBox(height: 12),
                   // Name and Role
                   Text(
@@ -267,37 +265,37 @@ class SellerProfileScreen extends StatelessWidget {
             // ),
             // const SizedBox(height: 24),
             // Gigs Section
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Gigs',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Gig Cards
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children:
-                    user?.portfolios != null && user!.portfolios!.isNotEmpty
-                        ? user.portfolios!
-                            .map(
-                              (portfolio) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child:
-                                    GigCard(), // Pass portfolio data to GigCard if needed
-                              ),
-                            )
-                            .toList()
-                        : [const Text('No gigs available.')],
-              ),
-            ),
-            const SizedBox(height: 24),
+            // const Padding(
+            //   padding: EdgeInsets.symmetric(horizontal: 20),
+            //   child: Text(
+            //     'Gigs',
+            //     style: TextStyle(
+            //       fontSize: 18,
+            //       fontWeight: FontWeight.bold,
+            //       color: Colors.black,
+            //     ),
+            //   ),
+            // ),
+            // const SizedBox(height: 12),
+            // // Gig Cards
+            // Padding(
+            //   padding: const EdgeInsets.symmetric(horizontal: 20),
+            //   child: Column(
+            //     children:
+            //         user?.portfolios != null && user!.portfolios!.isNotEmpty
+            //             ? user.portfolios!
+            //                 .map(
+            //                   (portfolio) => Padding(
+            //                     padding: const EdgeInsets.only(bottom: 12),
+            //                     child:
+            //                         GigCard(gig: portfolio), // Pass portfolio data to GigCard if needed
+            //                   ),
+            //                 )
+            //                 .toList()
+            //             : [const Text('No gigs available.')],
+            //   ),
+            // ),
+            // const SizedBox(height: 24),
             // Skills Section
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -500,7 +498,7 @@ class SellerProfileScreen extends StatelessWidget {
 }
 
 class BuyerProfileScreen extends StatelessWidget {
-  const BuyerProfileScreen({Key? key}) : super(key: key);
+  const BuyerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -547,7 +545,7 @@ class BuyerProfileScreen extends StatelessWidget {
                 image:
                     user?.coverImage != null && user!.coverImage!.isNotEmpty
                         ? DecorationImage(
-                          image: NetworkImage(user.coverImage!),
+                          image: CachedNetworkImageProvider(user.coverImage!),
                           fit: BoxFit.cover,
                         )
                         : null,
@@ -568,11 +566,18 @@ class BuyerProfileScreen extends StatelessWidget {
                     child: ClipOval(
                       child:
                           profileImage.startsWith('http')
-                              ? Image.network(
-                                profileImage,
+                              ? CachedNetworkImage(
+                                imageUrl: profileImage,
                                 fit: BoxFit.cover,
-                                errorBuilder:
-                                    (context, error, stackTrace) => Image.asset(
+                                placeholder:
+                                    (context, url) => Container(
+                                      color: Colors.grey[200],
+                                      child: Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
+                                    ),
+                                errorWidget:
+                                    (context, url, error) => Image.asset(
                                       'assets/images/other/avatar.webp',
                                       fit: BoxFit.cover,
                                     ),
@@ -580,17 +585,6 @@ class BuyerProfileScreen extends StatelessWidget {
                               : Image.asset(profileImage, fit: BoxFit.cover),
                     ),
                   ),
-                  // const SizedBox(height: 8),
-                  // // Online Indicator
-                  // Container(
-                  //   width: 16,
-                  //   height: 16,
-                  //   decoration: BoxDecoration(
-                  //     color: isOnline ? Colors.green : Colors.grey,
-                  //     shape: BoxShape.circle,
-                  //     border: Border.all(color: Colors.white, width: 2),
-                  //   ),
-                  // ),
                   const SizedBox(height: 12),
                   // Name and Role
                   Text(
@@ -612,7 +606,6 @@ class BuyerProfileScreen extends StatelessWidget {
                       'VERIFIED') // Assuming status or another field indicates verification
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      spacing: 5.0,
                       children: [
                         Container(
                           width: 16,
@@ -640,126 +633,10 @@ class BuyerProfileScreen extends StatelessWidget {
                       ],
                     ),
                   const SizedBox(height: 12),
-                  // Star Rating
-                  // Row(
-                  //   mainAxisAlignment: MainAxisAlignment.center,
-                  //   children: List.generate(5, (index) {
-                  //     // Assuming a rating field in user model; otherwise, this can be adjusted
-                  //     final rating =
-                  //         user?.profileCompletionRate != null
-                  //             ? (user!.profileCompletionRate! / 20).floor()
-                  //             : 4;
-                  //     return Icon(
-                  //       index < rating ? Icons.star : Icons.star_border,
-                  //       color: wawuColors.primary,
-                  //       size: 20,
-                  //     );
-                  //   }),
-                  // ),
-                  // const SizedBox(height: 16),
-                  // // Social Media Icons
-                  // if (user?.additionalInfo?.socialHandles != null &&
-                  //     user!.additionalInfo!.socialHandles!.isNotEmpty)
-                  //   Center(
-                  //     child: Row(
-                  //       mainAxisAlignment: MainAxisAlignment.center,
-                  //       children:
-                  //           user.additionalInfo!.socialHandles!.entries.map((
-                  //             entry,
-                  //           ) {
-                  //             IconData icon;
-                  //             switch (entry.key.toLowerCase()) {
-                  //               case 'twitter':
-                  //                 icon = FontAwesomeIcons.twitter;
-                  //                 break;
-                  //               case 'facebook':
-                  //                 icon = FontAwesomeIcons.facebook;
-                  //                 break;
-                  //               case 'linkedin':
-                  //                 icon = FontAwesomeIcons.linkedin;
-                  //                 break;
-                  //               case 'instagram':
-                  //                 icon = FontAwesomeIcons.instagram;
-                  //                 break;
-                  //               default:
-                  //                 icon = FontAwesomeIcons.link;
-                  //             }
-                  //             return Padding(
-                  //               padding: const EdgeInsets.symmetric(
-                  //                 horizontal: 6,
-                  //               ),
-                  //               child: _buildSocialIcon(
-                  //                 icon,
-                  //                 const wawuColors.primary,
-                  //               ),
-                  //             );
-                  //           }).toList(),
-                  //     ),
-                  //   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            // Stats Section
-            // Padding(
-            //   padding: const EdgeInsets.symmetric(horizontal: 20),
-            //   child: Row(
-            //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //     children: [
-            //       Column(
-            //         crossAxisAlignment: CrossAxisAlignment.start,
-            //         children: [
-            //           const Text(
-            //             'Total Gigs Sold',
-            //             style: TextStyle(
-            //               fontSize: 14,
-            //               color: Colors.black87,
-            //               fontWeight: FontWeight.w500,
-            //             ),
-            //           ),
-            //           const SizedBox(height: 4),
-            //           Text(
-            //             user?.additionalInfo != null &&
-            //                     user!.additionalInfo!.bio != null
-            //                 ? '2200' // Replace with actual data if available in user model
-            //                 : '0',
-            //             style: const TextStyle(
-            //               fontSize: 16,
-            //               color: Colors.black,
-            //               fontWeight: FontWeight.bold,
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //       Column(
-            //         crossAxisAlignment: CrossAxisAlignment.end,
-            //         children: [
-            //           const Text(
-            //             'Total Gigs bought',
-            //             style: TextStyle(
-            //               fontSize: 14,
-            //               color: Colors.black87,
-            //               fontWeight: FontWeight.w500,
-            //             ),
-            //           ),
-            //           const SizedBox(height: 4),
-            //           Text(
-            //             user?.additionalInfo != null &&
-            //                     user!.additionalInfo!.bio != null
-            //                 ? '700' // Replace with actual data if available in user model
-            //                 : '0',
-            //             style: const TextStyle(
-            //               fontSize: 16,
-            //               color: Colors.black,
-            //               fontWeight: FontWeight.bold,
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //     ],
-            //   ),
-            // ),
-            // const SizedBox(height: 24),
             // Contact Section
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
@@ -799,15 +676,6 @@ class BuyerProfileScreen extends StatelessWidget {
     );
   }
 
-  // Widget _buildSocialIcon(IconData icon, Color color) {
-  //   return Container(
-  //     width: 40,
-  //     height: 40,
-  //     decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-  //     child: Center(child: FaIcon(icon, color: Colors.white, size: 20)),
-  //   );
-  // }
-
   Widget _buildContactField(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -827,20 +695,20 @@ class BuyerProfileScreen extends StatelessWidget {
   }
 }
 
-// Placeholder GigCard widget - replace with your actual implementation
-class GigCard extends StatelessWidget {
-  const GigCard({Key? key}) : super(key: key);
+// // Placeholder GigCard widget - replace with your actual implementation
+// class GigCard extends StatelessWidget {
+//   const GigCard({Key? key}) : super(key: key);
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Center(child: Text('Gig Card Placeholder')),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       width: double.infinity,
+//       height: 200,
+//       decoration: BoxDecoration(
+//         color: Colors.grey.shade200,
+//         borderRadius: BorderRadius.circular(12),
+//       ),
+//       child: const Center(child: Text('Gig Card Placeholder')),
+//     );
+//   }
+// }

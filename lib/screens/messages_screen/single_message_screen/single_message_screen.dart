@@ -1,4 +1,3 @@
-// single_message_screen.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -14,6 +13,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
 import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
 import 'package:wawu_mobile/screens/user_profile/user_profile_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class SingleMessageScreen extends StatefulWidget {
   const SingleMessageScreen({super.key});
@@ -454,11 +454,16 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
             decoration: const BoxDecoration(shape: BoxShape.circle),
             child:
                 recipient.avatar != null && recipient.avatar!.isNotEmpty
-                    ? Image.network(
-                      recipient.avatar!,
+                    ? CachedNetworkImage(
+                      imageUrl: recipient.avatar!,
                       fit: BoxFit.cover,
-                      errorBuilder:
-                          (context, error, stackTrace) => Image.asset(
+                      placeholder:
+                          (context, url) => Container(
+                            color: Colors.grey[200],
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                      errorWidget:
+                          (context, url, error) => Image.asset(
                             'assets/images/other/avatar.webp',
                             fit: BoxFit.cover,
                           ),
