@@ -12,6 +12,7 @@ import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/package_grid_component/package_grid_component.dart';
 import 'package:wawu_mobile/models/gig.dart';
 import 'package:wawu_mobile/widgets/review_component/review_component.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Import CachedNetworkImage
 
 class SingleGigScreen extends StatefulWidget {
   const SingleGigScreen({super.key});
@@ -129,12 +130,24 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                 child: Opacity(
                   opacity: 0.7,
                   child:
-                      photo != null
-                          ? Image.network(
-                            photo.link,
+                      photo != null && photo.link.isNotEmpty
+                          ? CachedNetworkImage(
+                            imageUrl: photo.link,
                             fit: BoxFit.cover,
-                            errorBuilder:
-                                (context, error, stackTrace) =>
+                            placeholder:
+                                (context, url) => Container(
+                                  color: wawuColors.primary.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                            errorWidget:
+                                (context, url, error) =>
                                     Container(color: Colors.black),
                           )
                           : Container(color: Colors.black),
@@ -211,23 +224,33 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                 clipBehavior: Clip.hardEdge,
                 decoration: const BoxDecoration(shape: BoxShape.circle),
                 child:
-                    gig.seller.profileImage != null
-                        ? Image.network(
-                          gig.seller.profileImage!,
-                          cacheWidth: 200,
-                          errorBuilder:
-                              (context, error, stackTrace) => Image.asset(
-                                'assets/images/other/avatar.webp',
+                    gig.seller.profileImage != null &&
+                            gig.seller.profileImage!.isNotEmpty
+                        ? CachedNetworkImage(
+                          imageUrl: gig.seller.profileImage!,
+                          fit: BoxFit.cover,
+                          placeholder:
+                              (context, url) => Container(
                                 width: 90,
                                 height: 90,
-                                cacheWidth: 200,
+                                color: wawuColors.primary.withValues(
+                                  alpha: 0.2,
+                                ),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                          errorWidget:
+                              (context, url, error) => Image.asset(
+                                'assets/images/other/avatar.webp',
+                                fit: BoxFit.cover,
                               ),
                         )
                         : Image.asset(
                           'assets/images/other/avatar.webp',
-                          width: 90,
-                          height: 90,
-                          cacheWidth: 200,
+                          fit: BoxFit.cover,
                         ),
               ),
             ),
