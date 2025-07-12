@@ -16,7 +16,7 @@ class Wawu extends StatelessWidget {
           children: [
             SizedBox(height: 10),
             CustomIntroBar(
-              text: 'Welcome to a Wow Experience',
+              text: 'Welcome to a WAWU Africa',
               desc: 'We are the home of the best girl service providers.',
             ),
             Expanded(
@@ -127,7 +127,7 @@ class Wawu extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'WAWU MERCH',
+                        'WAWUAfrica E-COMMERCE',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

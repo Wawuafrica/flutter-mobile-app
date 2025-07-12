@@ -16,10 +16,14 @@ class PusherService {
   PusherChannelsFlutter? _pusher;
   final Map<String, bool> _subscribedChannels = {};
   final Map<String, Map<String, Function(PusherEvent)>> _eventBindings = {};
+  final Map<String, Map<String, Function(PusherEvent)>>
+  _persistentEventBindings = {};
   bool _isInitialized = false;
   String? _currentUserId;
   final StreamController<bool> _initStreamController =
       StreamController<bool>.broadcast();
+  Timer? _reconnectTimer;
+  bool _isReconnecting = false;
 
   // Pusher internal events that don't need custom handlers
   static const Set<String> _internalPusherEvents = {
@@ -231,20 +235,45 @@ class PusherService {
     _logger.i(
       'PusherService: Connection state changed from $previousState to $currentState',
     );
+
     if (currentState == 'CONNECTED') {
       _isInitialized = true;
       _initStreamController.add(true);
+      _isReconnecting = false;
+      _reconnectTimer?.cancel();
       _logger.i('PusherService: Connected. Resubscribing to channels...');
-      resubscribeToChannels();
+      // Add delay to ensure connection is stable before resubscribing
+      Future.delayed(const Duration(milliseconds: 500), () {
+        resubscribeToChannels();
+      });
     } else if (currentState == 'DISCONNECTED') {
       _isInitialized = false;
       _initStreamController.add(false);
       _logger.w('PusherService: Disconnected. Channels inactive.');
+      _scheduleReconnect();
     } else if (currentState == 'CONNECTING') {
       _logger.d('PusherService: Connecting...');
     } else if (currentState == 'RECONNECTING') {
       _logger.i('PusherService: Reconnecting...');
+      _isReconnecting = true;
     }
+  }
+
+  void _scheduleReconnect() {
+    if (_isReconnecting) return;
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 5), () async {
+      if (!_isInitialized && _pusher != null) {
+        _logger.i('PusherService: Attempting automatic reconnection...');
+        try {
+          await _pusher!.connect();
+        } catch (e) {
+          _logger.e('PusherService: Automatic reconnection failed: $e');
+          _scheduleReconnect(); // Schedule another attempt
+        }
+      }
+    });
   }
 
   void _onError(String message, int? code, dynamic e) {
@@ -266,8 +295,13 @@ class PusherService {
       'PusherService: Received event "${event.eventName}" on channel "${event.channelName}". Raw data: ${event.data}',
     );
 
-    if (_eventBindings.containsKey(event.channelName) &&
-        _eventBindings[event.channelName]!.containsKey(event.eventName)) {
+    // Check both current and persistent event bindings
+    Map<String, Function(PusherEvent)>? channelBindings =
+        _eventBindings[event.channelName] ??
+        _persistentEventBindings[event.channelName];
+
+    if (channelBindings != null &&
+        channelBindings.containsKey(event.eventName)) {
       try {
         // Parse the event data before dispatching
         final parsedData = _parseEventData(event.data);
@@ -280,7 +314,7 @@ class PusherService {
         _logger.d(
           'PusherService: Dispatching to handler for ${event.eventName}',
         );
-        _eventBindings[event.channelName]![event.eventName]!(modifiedEvent);
+        channelBindings[event.eventName]!(modifiedEvent);
       } catch (e) {
         _logger.e(
           'PusherService: Error parsing event data for ${event.eventName} on ${event.channelName}: $e',
@@ -367,6 +401,7 @@ class PusherService {
       );
       return false;
     }
+
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
         if (_subscribedChannels.containsKey(channelName) &&
@@ -376,10 +411,14 @@ class PusherService {
           );
           return true;
         }
+
         await _pusher!.subscribe(channelName: channelName);
         _logger.i(
           'PusherService: Subscription request sent for channel: $channelName',
         );
+
+        // Wait a bit for subscription to be confirmed
+        await Future.delayed(const Duration(milliseconds: 100));
         return true;
       } catch (e) {
         _logger.e(
@@ -400,16 +439,16 @@ class PusherService {
     String eventName,
     void Function(PusherEvent) onEvent,
   ) {
-    if (!_isInitialized || _pusher == null) {
-      _logger.w(
-        'PusherService: Not initialized. Cannot bind to event $eventName on channel: $channelName',
-      );
-      return;
-    }
     if (!_eventBindings.containsKey(channelName)) {
       _eventBindings[channelName] = {};
     }
+    if (!_persistentEventBindings.containsKey(channelName)) {
+      _persistentEventBindings[channelName] = {};
+    }
+
     _eventBindings[channelName]![eventName] = onEvent;
+    _persistentEventBindings[channelName]![eventName] = onEvent;
+
     _logger.i(
       'PusherService: Bound to event "$eventName" on channel "$channelName"',
     );
@@ -422,12 +461,14 @@ class PusherService {
       );
       return;
     }
+
     if (_subscribedChannels.containsKey(channelName) &&
         _subscribedChannels[channelName] == true) {
       try {
         await _pusher!.unsubscribe(channelName: channelName);
         _subscribedChannels.remove(channelName);
         _eventBindings.remove(channelName);
+        _persistentEventBindings.remove(channelName);
         _logger.i('PusherService: Unsubscribed from channel: $channelName');
       } catch (e) {
         _logger.e(
@@ -443,8 +484,10 @@ class PusherService {
 
   Future<void> disconnect() async {
     _logger.i('PusherService: Disconnecting...');
+    _reconnectTimer?.cancel();
     _subscribedChannels.clear();
     _eventBindings.clear();
+    _persistentEventBindings.clear();
     if (_pusher != null) {
       await _pusher!.disconnect();
     }
@@ -459,26 +502,43 @@ class PusherService {
       _logger.w('PusherService: Not initialized. Cannot resubscribe.');
       return;
     }
+
     _logger.i('PusherService: Resubscribing to channels...');
-    final channelsToResubscribe = Map<String, bool>.from(_subscribedChannels);
-    final eventBindingsToRestore =
-        Map<String, Map<String, Function(PusherEvent)>>.from(_eventBindings);
+
+    // Get channels that were previously subscribed
+    final channelsToResubscribe =
+        _subscribedChannels.keys
+            .where((channel) => _subscribedChannels[channel] == true)
+            .toList();
+
+    // Clear current subscription status but keep persistent bindings
     _subscribedChannels.clear();
     _eventBindings.clear();
-    for (final channelName in channelsToResubscribe.keys) {
-      if (channelsToResubscribe[channelName] == true) {
-        await subscribeToChannel(channelName);
-        if (eventBindingsToRestore.containsKey(channelName)) {
-          for (final entry in eventBindingsToRestore[channelName]!.entries) {
-            bindToEvent(channelName, entry.key, entry.value);
-          }
-        }
+
+    // Resubscribe to all channels
+    for (final channelName in channelsToResubscribe) {
+      _logger.d('PusherService: Resubscribing to channel: $channelName');
+      await subscribeToChannel(channelName);
+
+      // Restore event bindings from persistent storage
+      if (_persistentEventBindings.containsKey(channelName)) {
+        _eventBindings[channelName] = Map.from(
+          _persistentEventBindings[channelName]!,
+        );
+        _logger.d(
+          'PusherService: Restored ${_eventBindings[channelName]!.length} event bindings for $channelName',
+        );
       }
     }
+
+    // Resubscribe to user channel if needed
     if (_currentUserId != null) {
       await _subscribeToUserChannel(_currentUserId!);
     }
-    _logger.i('PusherService: Resubscription completed.');
+
+    _logger.i(
+      'PusherService: Resubscription completed for ${channelsToResubscribe.length} channels.',
+    );
   }
 
   Future<Channel?> subscribeToChannelCompat(String channelName) async {
@@ -487,6 +547,7 @@ class PusherService {
   }
 
   void dispose() {
+    _reconnectTimer?.cancel();
     _initStreamController.close();
   }
 }

@@ -214,20 +214,20 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                     gig.seller.profileImage != null
                         ? Image.network(
                           gig.seller.profileImage!,
-                          fit: BoxFit.fill,
+                          cacheWidth: 200,
                           errorBuilder:
                               (context, error, stackTrace) => Image.asset(
                                 'assets/images/other/avatar.webp',
                                 width: 90,
                                 height: 90,
-                                fit: BoxFit.fill,
+                                cacheWidth: 200,
                               ),
                         )
                         : Image.asset(
                           'assets/images/other/avatar.webp',
                           width: 90,
                           height: 90,
-                          fit: BoxFit.fill,
+                          cacheWidth: 200,
                         ),
               ),
             ),
