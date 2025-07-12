@@ -4,6 +4,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'package:wawu_mobile/models/conversation.dart';
 import 'package:wawu_mobile/models/chat_user.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Import CachedNetworkImage
 
 class MessageCard extends StatelessWidget {
   final Conversation conversation;
@@ -63,11 +64,24 @@ class MessageCard extends StatelessWidget {
                   child:
                       otherParticipant.avatar != null &&
                               otherParticipant.avatar!.isNotEmpty
-                          ? Image.network(
-                            otherParticipant.avatar!,
+                          ? CachedNetworkImage(
+                            imageUrl: otherParticipant.avatar!,
                             fit: BoxFit.cover,
-                            errorBuilder:
-                                (context, error, stackTrace) => Image.asset(
+                            placeholder:
+                                (context, url) => Container(
+                                  width: 50,
+                                  height: 50,
+                                  color: wawuColors.primary.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                ),
+                            errorWidget:
+                                (context, url, error) => Image.asset(
                                   'assets/images/other/avatar.webp',
                                   fit: BoxFit.cover,
                                 ),

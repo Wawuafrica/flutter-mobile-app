@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../cached_image.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class ImageTextCard extends StatelessWidget {
@@ -29,11 +30,10 @@ class ImageTextCard extends StatelessWidget {
                   color: wawuColors.primary.withAlpha(50),
                 ),
                 clipBehavior: Clip.hardEdge,
-                child: Image.asset(
-                  asset,
+                child: CachedImage(
+                  urlOrAsset: asset,
                   width: 140,
                   fit: BoxFit.cover,
-                  // cacheWidth: ,
                 ),
               ),
             ),

@@ -15,6 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
 import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Import for CachedNetworkImage
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
+    // final gigProvider = Provider.of<GigProvider>(context, listen: false); // Uncommmented as per request
 
     // Initialize categories
     if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
@@ -63,9 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
       productProvider.fetchFeaturedProducts();
     }
 
-    // Note: Uncomment if you want to fetch recently viewed gigs
-    // final gigProvider = Provider.of<GigProvider>(context, listen: false);
-    // gigProvider.fetchRecentlyViewedGigs();
+    // Fetch recently viewed gigs
+    // if (gigProvider.recentlyViewedGigs.isEmpty && !gigProvider.isRecentlyViewedLoading) {
+    //   gigProvider.fetchRecentlyViewedGigs();
+    // }
   }
 
   Future<void> _refreshData() async {
@@ -79,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         listen: false,
       );
-      // final gigProvider = Provider.of<GigProvider>(context, listen: false);
+      // final gigProvider = Provider.of<GigProvider>(context, listen: false); // Uncommmented as per request
 
       // Create a list of futures to run in parallel
       final futures = <Future>[
@@ -87,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
         adProvider
             .refresh(), // Use refresh() instead of fetchAds() to reset state
         productProvider.fetchFeaturedProducts(),
-        // gigProvider.fetchRecentlyViewedGigs(),
+        // gigProvider.fetchRecentlyViewedGigs(), // Uncommmented as per request
       ];
 
       // Wait for all futures to complete
@@ -284,54 +287,44 @@ class _HomeScreenState extends State<HomeScreen> {
                                   onTap: () => _handleAdTap(ad.link),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
-                                    child: Image.network(
-                                      ad.media.link,
+                                    child: CachedNetworkImage(
+                                      // Replaced Image.network with CachedNetworkImage
+                                      imageUrl: ad.media.link,
                                       fit: BoxFit.cover,
-                                      loadingBuilder: (
-                                        context,
-                                        child,
-                                        loadingProgress,
-                                      ) {
-                                        if (loadingProgress == null)
-                                          return child;
-                                        return Container(
-                                          color: wawuColors.borderPrimary
-                                              .withAlpha(50),
-                                          child: const Center(
-                                            child: CircularProgressIndicator(),
-                                          ),
-                                        );
-                                      },
-                                      errorBuilder: (
-                                        context,
-                                        error,
-                                        stackTrace,
-                                      ) {
-                                        return Container(
-                                          color: wawuColors.borderPrimary
-                                              .withAlpha(50),
-                                          child: const Center(
-                                            child: Column(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.broken_image,
-                                                  color: Colors.grey,
-                                                  size: 48,
-                                                ),
-                                                SizedBox(height: 8),
-                                                Text(
-                                                  'Failed to load image',
-                                                  style: TextStyle(
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
+                                      placeholder:
+                                          (context, url) => Container(
+                                            color: wawuColors.borderPrimary
+                                                .withAlpha(50),
+                                            child: const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
                                             ),
                                           ),
-                                        );
-                                      },
+                                      errorWidget:
+                                          (context, url, error) => Container(
+                                            color: wawuColors.borderPrimary
+                                                .withAlpha(50),
+                                            child: const Center(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.broken_image,
+                                                    color: Colors.grey,
+                                                    size: 48,
+                                                  ),
+                                                  SizedBox(height: 8),
+                                                  Text(
+                                                    'Failed to load image',
+                                                    style: TextStyle(
+                                                      color: Colors.grey,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
                                     ),
                                   ),
                                 );

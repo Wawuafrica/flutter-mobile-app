@@ -55,7 +55,7 @@ class Disclaimer extends StatelessWidget {
                 child: Image.asset(
                   'assets/images/other/book.webp',
                   // width: 200,
-                  cacheWidth: 500,
+                  cacheWidth: 300,
                 ),
               ),
             ),

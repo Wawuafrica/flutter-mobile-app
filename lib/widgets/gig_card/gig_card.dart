@@ -4,6 +4,7 @@ import 'package:wawu_mobile/models/gig.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/gigs_screen/single_gig_screen/single_gig_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Import CachedNetworkImage
 
 class GigCard extends StatelessWidget {
   final Gig gig;
@@ -42,7 +43,7 @@ class GigCard extends StatelessWidget {
           // Navigate to single gig screen
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => SingleGigScreen()),
+            MaterialPageRoute(builder: (context) => const SingleGigScreen()),
           );
         } catch (e, stackTrace) {
           debugPrint('[GigCard][ERROR] Exception in onTap: $e');
@@ -57,7 +58,7 @@ class GigCard extends StatelessWidget {
             gigProvider.selectGig(gig);
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => SingleGigScreen()),
+              MaterialPageRoute(builder: (context) => const SingleGigScreen()),
             );
           } catch (navError) {
             debugPrint('[GigCard][ERROR] Navigation also failed: $navError');
@@ -172,25 +173,23 @@ class GigCard extends StatelessWidget {
 
   Widget _buildGigImage() {
     if (gig.assets.photos.isNotEmpty && gig.assets.photos[0].link.isNotEmpty) {
-      return Image.network(
-        gig.assets.photos[0].link,
+      return CachedNetworkImage(
+        imageUrl: gig.assets.photos[0].link,
         width: 100,
         height: 110,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
+        placeholder:
+            (context, url) => Container(
+              width: 100,
+              height: 110,
+              color: wawuColors.primary.withValues(alpha: 0.2),
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+        errorWidget: (context, url, error) {
           debugPrint('[GigCard] Error loading gig image: $error');
           return _buildPlaceholderImage();
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Container(
-            width: 100,
-            height: 110,
-            color: Colors.grey[200],
-            child: const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
         },
       );
     }
@@ -200,10 +199,19 @@ class GigCard extends StatelessWidget {
   Widget _buildSellerImage() {
     if (gig.seller.profileImage != null &&
         gig.seller.profileImage!.isNotEmpty) {
-      return Image.network(
-        gig.seller.profileImage!,
+      return CachedNetworkImage(
+        imageUrl: gig.seller.profileImage!,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
+        placeholder:
+            (context, url) => Container(
+              width: 35,
+              height: 35,
+              color: wawuColors.primary.withValues(alpha: 0.2),
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 1),
+              ),
+            ),
+        errorWidget: (context, url, error) {
           return Image.asset(
             'assets/images/other/avatar.webp',
             fit: BoxFit.cover,

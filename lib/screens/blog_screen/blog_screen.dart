@@ -9,6 +9,7 @@ import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart'; // Import the package
 
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
@@ -214,74 +215,67 @@ class _BlogScreenState extends State<BlogScreen> {
                 onTap: () => _handleAdTap(ad.link),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    ad.media.link,
+                  child: CachedNetworkImage(
+                    imageUrl: ad.media.link,
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: 220,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-
-                      return Container(
-                        width: double.infinity,
-                        height: 220,
-                        decoration: BoxDecoration(
-                          color: wawuColors.borderPrimary.withAlpha(50),
-                          borderRadius: BorderRadius.circular(10),
+                    placeholder:
+                        (context, url) => Container(
+                          width: double.infinity,
+                          height: 220,
+                          decoration: BoxDecoration(
+                            color: wawuColors.borderPrimary.withAlpha(50),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    wawuColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Loading ad...',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: Center(
+                    errorWidget:
+                        (context, url, error) => Container(
+                          width: double.infinity,
+                          height: 220,
+                          decoration: BoxDecoration(
+                            color: wawuColors.borderPrimary.withAlpha(50),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              CircularProgressIndicator(
-                                value:
-                                    loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress
-                                                .cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
+                              Icon(
+                                Icons.broken_image_outlined,
+                                size: 48,
+                                color: Colors.grey[400],
                               ),
                               const SizedBox(height: 8),
-                              const Text(
-                                'Loading ad...',
+                              Text(
+                                'Failed to load ad',
                                 style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: double.infinity,
-                        height: 220,
-                        decoration: BoxDecoration(
-                          color: wawuColors.borderPrimary.withAlpha(50),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image_outlined,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Failed to load ad',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
                   ),
                 ),
               );
@@ -550,46 +544,41 @@ class _BlogListItemState extends State<BlogListItem> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                widget.blogPost.coverImage.link,
+              child: CachedNetworkImage(
+                imageUrl: widget.blogPost.coverImage.link,
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.image_not_supported_outlined,
-                      color: Colors.grey[500],
-                    ),
-                  );
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        value:
-                            loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                    loadingProgress.expectedTotalBytes!
-                                : null,
+                placeholder:
+                    (context, url) => Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            wawuColors.primary,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                },
+                errorWidget:
+                    (context, url, error) => Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.image_not_supported_outlined,
+                        color: Colors.grey[500],
+                      ),
+                    ),
               ),
             ),
             const SizedBox(width: 12),
