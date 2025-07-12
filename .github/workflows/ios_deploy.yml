@@ -117,6 +117,12 @@ jobs:
         # This will be handled by fastlane's update_project_team action
         echo "Team ID will be set by fastlane: ${{ secrets.APPLE_TEAM_ID }}"
 
+    # Create Fastfile in the ios directory
+    - name: Create Fastfile
+      run: |
+        mkdir -p ios/fastlane
+        # The Fastfile content will be created here or should already exist in your repo
+
     - name: Deploy to TestFlight
       env:
         APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
@@ -156,8 +162,23 @@ jobs:
         security find-identity -p codesigning -v "${HOME}/Library/Keychains/signing_keychain" || echo "signing_keychain not found or no identities (older path format - expected for now)."
         echo "--- End Keychain Diagnostics Pre-Fastlane ---"
 
-        # Execute Fastlane
-        fastlane beta
+        # Check if Fastfile exists
+        echo "--- Checking Fastfile structure ---"
+        if [ -f "fastlane/Fastfile" ]; then
+          echo "Fastfile found in ios/fastlane/"
+          echo "Available lanes:"
+          fastlane lanes
+        else
+          echo "Fastfile not found in ios/fastlane/"
+          echo "Current directory contents:"
+          ls -la
+          echo "Fastlane directory contents:"
+          ls -la fastlane/ || echo "No fastlane directory found"
+          exit 1
+        fi
+
+        # Execute Fastlane with explicit platform
+        fastlane ios beta
 
     - name: Upload IPA artifact
       uses: actions/upload-artifact@v4

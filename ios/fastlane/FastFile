@@ -1,3 +1,10 @@
+# Fastfile
+# This file contains the fastlane configuration
+
+# Disable analytics
+opt_out_usage
+
+# Define the iOS platform
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :beta do
