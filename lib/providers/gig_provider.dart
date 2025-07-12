@@ -7,11 +7,13 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/pusher_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:logger/logger.dart';
 
 class GigProvider extends ChangeNotifier {
   final ApiService _apiService;
   final PusherService _pusherService;
   final UserProvider _userProvider;
+  final Logger _logger = Logger();
 
   bool _isLoading = false;
   String? _error;
@@ -323,6 +325,7 @@ class GigProvider extends ChangeNotifier {
       );
       if (_isDisposed) return null;
       if (response['statusCode'] == 200 && response['data'] != null) {
+        _logger.i('GigProvider: Fetch gig response: ${response['data']}');
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         selectGig(gig);
         _safeNotifyListeners();

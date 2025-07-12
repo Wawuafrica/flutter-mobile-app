@@ -5,7 +5,7 @@ class Seller {
   final String firstName;
   final String lastName;
   final String? email;
-  final String? profileImage; // This will store the image URL/link
+  final String? profileImage;
 
   Seller({
     required this.uuid,
@@ -15,23 +15,32 @@ class Seller {
     this.profileImage,
   });
 
-  factory Seller.fromJson(Map<String, dynamic> json) {
+  factory Seller.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Seller(uuid: '', firstName: 'Unknown', lastName: 'Seller');
+    }
+
     // Handle profileImage - it can be either a string or an object
     String? profileImageUrl;
-    if (json['profileImage'] != null) {
-      if (json['profileImage'] is String) {
-        profileImageUrl = json['profileImage'] as String;
-      } else if (json['profileImage'] is Map<String, dynamic>) {
-        final imageData = json['profileImage'] as Map<String, dynamic>;
-        profileImageUrl = imageData['link'] as String?;
+    try {
+      if (json['profileImage'] != null) {
+        if (json['profileImage'] is String) {
+          profileImageUrl = json['profileImage'] as String;
+        } else if (json['profileImage'] is Map<String, dynamic>) {
+          final imageData = json['profileImage'] as Map<String, dynamic>;
+          profileImageUrl = imageData['link'] as String?;
+        }
       }
+    } catch (e) {
+      debugPrint('Error parsing profileImage: $e');
+      profileImageUrl = null;
     }
 
     return Seller(
-      uuid: json['uuid'] as String? ?? '',
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
-      email: json['email'] as String?,
+      uuid: json['uuid']?.toString() ?? '',
+      firstName: json['firstName']?.toString() ?? 'Unknown',
+      lastName: json['lastName']?.toString() ?? 'Seller',
+      email: json['email']?.toString(),
       profileImage: profileImageUrl,
     );
   }
@@ -61,7 +70,7 @@ class Gig {
   final List<Faq> faqs;
   final Assets assets;
   final String status;
-  final List<Review> reviews; // Added reviews field
+  final List<Review> reviews;
 
   Gig({
     required this.uuid,
@@ -75,28 +84,100 @@ class Gig {
     required this.faqs,
     required this.assets,
     required this.status,
-    required this.reviews, // Added reviews parameter
+    required this.reviews,
   });
 
-  factory Gig.fromJson(Map<String, dynamic> json) {
-    // Handle seller data
+  factory Gig.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Gig(
+        uuid: '',
+        title: 'No Title',
+        description: '',
+        keywords: '',
+        about: '',
+        seller: Seller.fromJson(null),
+        services: [],
+        pricings: [],
+        faqs: [],
+        assets: Assets.fromJson(null),
+        status: 'PENDING',
+        reviews: [],
+      );
+    }
+
+    // Handle seller data with extra safety
     Seller seller;
     try {
-      seller =
-          json['seller'] != null && json['seller'] is Map<String, dynamic>
-              ? Seller.fromJson(Map<String, dynamic>.from(json['seller']))
-              : Seller(
-                uuid: 'unknown',
-                firstName: 'Unknown',
-                lastName: 'Seller',
-              );
+      seller = Seller.fromJson(json['seller'] as Map<String, dynamic>?);
     } catch (e) {
       debugPrint('Error parsing seller data: $e');
-      seller = Seller(
-        uuid: 'error',
-        firstName: 'Error',
-        lastName: 'Loading Seller',
-      );
+      seller = Seller.fromJson(null);
+    }
+
+    // Handle services with extra safety
+    List<Service> services = [];
+    try {
+      if (json['services'] != null && json['services'] is List) {
+        services =
+            (json['services'] as List<dynamic>)
+                .where((e) => e != null)
+                .map(
+                  (e) => Service.fromJson(e is Map<String, dynamic> ? e : null),
+                )
+                .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing services: $e');
+      services = [];
+    }
+
+    // Handle pricings with extra safety
+    List<Pricing> pricings = [];
+    try {
+      if (json['pricings'] != null && json['pricings'] is List) {
+        pricings =
+            (json['pricings'] as List<dynamic>)
+                .where((e) => e != null)
+                .map(
+                  (e) => Pricing.fromJson(e is Map<String, dynamic> ? e : null),
+                )
+                .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing pricings: $e');
+      pricings = [];
+    }
+
+    // Handle faqs with extra safety
+    List<Faq> faqs = [];
+    try {
+      if (json['faqs'] != null && json['faqs'] is List) {
+        faqs =
+            (json['faqs'] as List<dynamic>)
+                .where((e) => e != null)
+                .map((e) => Faq.fromJson(e is Map<String, dynamic> ? e : null))
+                .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing faqs: $e');
+      faqs = [];
+    }
+
+    // Handle reviews with extra safety
+    List<Review> reviews = [];
+    try {
+      if (json['reviews'] != null && json['reviews'] is List) {
+        reviews =
+            (json['reviews'] as List<dynamic>)
+                .where((e) => e != null)
+                .map(
+                  (e) => Review.fromJson(e is Map<String, dynamic> ? e : null),
+                )
+                .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing reviews: $e');
+      reviews = [];
     }
 
     return Gig(
@@ -106,28 +187,12 @@ class Gig {
       keywords: json['keywords']?.toString() ?? '',
       about: json['about']?.toString() ?? '',
       seller: seller,
-      services:
-          (json['services'] as List<dynamic>?)
-              ?.map((e) => Service.fromJson(Map<String, dynamic>.from(e)))
-              .toList() ??
-          [],
-      pricings:
-          (json['pricings'] as List<dynamic>?)
-              ?.map((e) => Pricing.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      faqs:
-          (json['faqs'] as List<dynamic>?)
-              ?.map((e) => Faq.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      assets: Assets.fromJson(json['assets'] as Map<String, dynamic>? ?? {}),
-      status: json['status'] as String? ?? 'PENDING',
-      reviews: // Added reviews parsing
-          (json['reviews'] as List<dynamic>?)
-              ?.map((e) => Review.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      services: services,
+      pricings: pricings,
+      faqs: faqs,
+      assets: Assets.fromJson(json['assets'] as Map<String, dynamic>?),
+      status: json['status']?.toString() ?? 'PENDING',
+      reviews: reviews,
     );
   }
 
@@ -144,19 +209,20 @@ class Gig {
       'faqs': faqs.map((f) => f.toJson()).toList(),
       'assets': assets.toJson(),
       'status': status,
-      'reviews':
-          reviews
-              .map((r) => r.toJson())
-              .toList(), // Added reviews serialization
+      'reviews': reviews.map((r) => r.toJson()).toList(),
     };
   }
 
   DateTime get createdAt {
-    if (services.isNotEmpty && services[0].createdAt.isNotEmpty) {
-      return DateTime.tryParse(services[0].createdAt) ?? DateTime.now();
-    }
-    if (pricings.isNotEmpty && pricings[0].createdAt.isNotEmpty) {
-      return DateTime.tryParse(pricings[0].createdAt) ?? DateTime.now();
+    try {
+      if (services.isNotEmpty && services[0].createdAt.isNotEmpty) {
+        return DateTime.tryParse(services[0].createdAt) ?? DateTime.now();
+      }
+      if (pricings.isNotEmpty && pricings[0].createdAt.isNotEmpty) {
+        return DateTime.tryParse(pricings[0].createdAt) ?? DateTime.now();
+      }
+    } catch (e) {
+      debugPrint('Error parsing createdAt: $e');
     }
     return DateTime.now();
   }
@@ -169,8 +235,13 @@ class Gig {
   // Helper methods for reviews
   double get averageRating {
     if (reviews.isEmpty) return 0.0;
-    final total = reviews.fold<int>(0, (sum, review) => sum + review.rating);
-    return total / reviews.length;
+    try {
+      final total = reviews.fold<int>(0, (sum, review) => sum + review.rating);
+      return total / reviews.length;
+    } catch (e) {
+      debugPrint('Error calculating average rating: $e');
+      return 0.0;
+    }
   }
 
   int get totalReviews => reviews.length;
@@ -191,13 +262,23 @@ class Review {
     required this.createdAt,
   });
 
-  factory Review.fromJson(Map<String, dynamic> json) {
+  factory Review.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Review(
+        uuid: '',
+        rating: 0,
+        review: '',
+        user: ReviewUser.fromJson(null),
+        createdAt: '',
+      );
+    }
+
     return Review(
-      uuid: json['uuid'] as String? ?? '',
-      rating: json['rating'] as int? ?? 0,
-      review: json['review'] as String? ?? '',
-      user: ReviewUser.fromJson(json['user'] as Map<String, dynamic>? ?? {}),
-      createdAt: json['createdAt'] as String? ?? '',
+      uuid: json['uuid']?.toString() ?? '',
+      rating: _parseToInt(json['rating']) ?? 0,
+      review: json['review']?.toString() ?? '',
+      user: ReviewUser.fromJson(json['user'] as Map<String, dynamic>?),
+      createdAt: json['createdAt']?.toString() ?? '',
     );
   }
 
@@ -212,7 +293,12 @@ class Review {
   }
 
   DateTime get createdAtDateTime {
-    return DateTime.tryParse(createdAt) ?? DateTime.now();
+    try {
+      return DateTime.tryParse(createdAt) ?? DateTime.now();
+    } catch (e) {
+      debugPrint('Error parsing createdAt: $e');
+      return DateTime.now();
+    }
   }
 }
 
@@ -231,23 +317,37 @@ class ReviewUser {
     this.profilePicture,
   });
 
-  factory ReviewUser.fromJson(Map<String, dynamic> json) {
+  factory ReviewUser.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return ReviewUser(
+        uuid: '',
+        firstName: 'Unknown',
+        lastName: 'User',
+        email: '',
+      );
+    }
+
     // Handle profilePicture - it can be either a string or an object
     String? profilePictureUrl;
-    if (json['profilePicture'] != null) {
-      if (json['profilePicture'] is String) {
-        profilePictureUrl = json['profilePicture'] as String;
-      } else if (json['profilePicture'] is Map<String, dynamic>) {
-        final imageData = json['profilePicture'] as Map<String, dynamic>;
-        profilePictureUrl = imageData['link'] as String?;
+    try {
+      if (json['profilePicture'] != null) {
+        if (json['profilePicture'] is String) {
+          profilePictureUrl = json['profilePicture'] as String;
+        } else if (json['profilePicture'] is Map<String, dynamic>) {
+          final imageData = json['profilePicture'] as Map<String, dynamic>;
+          profilePictureUrl = imageData['link'] as String?;
+        }
       }
+    } catch (e) {
+      debugPrint('Error parsing profilePicture: $e');
+      profilePictureUrl = null;
     }
 
     return ReviewUser(
-      uuid: json['uuid'] as String? ?? '',
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
-      email: json['email'] as String? ?? '',
+      uuid: json['uuid']?.toString() ?? '',
+      firstName: json['firstName']?.toString() ?? 'Unknown',
+      lastName: json['lastName']?.toString() ?? 'User',
+      email: json['email']?.toString() ?? '',
       profilePicture: profilePictureUrl,
     );
   }
@@ -278,12 +378,16 @@ class Service {
     this.updatedAt,
   });
 
-  factory Service.fromJson(Map<String, dynamic> json) {
+  factory Service.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Service(uuid: '', name: 'Unknown Service', createdAt: '');
+    }
+
     return Service(
-      uuid: json['uuid'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      createdAt: json['createdAt'] as String? ?? '',
-      updatedAt: json['updatedAt'] as String?,
+      uuid: json['uuid']?.toString() ?? '',
+      name: json['name']?.toString() ?? 'Unknown Service',
+      createdAt: json['createdAt']?.toString() ?? '',
+      updatedAt: json['updatedAt']?.toString(),
     );
   }
 
@@ -316,19 +420,44 @@ class Pricing {
     required this.package,
   });
 
-  factory Pricing.fromJson(Map<String, dynamic> json) {
+  factory Pricing.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Pricing(
+        uuid: '',
+        userId: 0,
+        gigId: 0,
+        features: [],
+        createdAt: '',
+        updatedAt: '',
+        package: Package.fromJson(null),
+      );
+    }
+
+    // Handle features with extra safety
+    List<Feature> features = [];
+    try {
+      if (json['features'] != null && json['features'] is List) {
+        features =
+            (json['features'] as List<dynamic>)
+                .where((e) => e != null)
+                .map(
+                  (e) => Feature.fromJson(e is Map<String, dynamic> ? e : null),
+                )
+                .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing features: $e');
+      features = [];
+    }
+
     return Pricing(
-      uuid: json['uuid'] as String? ?? '',
-      userId: json['userId'] as int? ?? 0,
-      gigId: json['gigId'] as int? ?? 0,
-      features:
-          (json['features'] as List<dynamic>?)
-              ?.map((e) => Feature.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      createdAt: json['createdAt'] as String? ?? '',
-      updatedAt: json['updatedAt'] as String? ?? '',
-      package: Package.fromJson(json['package'] as Map<String, dynamic>? ?? {}),
+      uuid: json['uuid']?.toString() ?? '',
+      userId: _parseToInt(json['userId']) ?? 0,
+      gigId: _parseToInt(json['gigId']) ?? 0,
+      features: features,
+      createdAt: json['createdAt']?.toString() ?? '',
+      updatedAt: json['updatedAt']?.toString() ?? '',
+      package: Package.fromJson(json['package'] as Map<String, dynamic>?),
     );
   }
 
@@ -351,10 +480,14 @@ class Feature {
 
   Feature({required this.name, required this.value});
 
-  factory Feature.fromJson(Map<String, dynamic> json) {
+  factory Feature.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Feature(name: '', value: '');
+    }
+
     return Feature(
-      name: json['name'] as String? ?? '',
-      value: json['value'] as String? ?? '',
+      name: json['name']?.toString() ?? '',
+      value: json['value']?.toString() ?? '',
     );
   }
 
@@ -374,11 +507,15 @@ class Package {
     required this.description,
   });
 
-  factory Package.fromJson(Map<String, dynamic> json) {
+  factory Package.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Package(name: 'Unknown Package', amount: '0', description: '');
+    }
+
     return Package(
-      name: json['name'] as String? ?? '',
-      amount: json['amount'] as String? ?? '0',
-      description: json['description'] as String? ?? '',
+      name: json['name']?.toString() ?? 'Unknown Package',
+      amount: json['amount']?.toString() ?? '0',
+      description: json['description']?.toString() ?? '',
     );
   }
 
@@ -404,18 +541,43 @@ class Faq {
     required this.updatedAt,
   });
 
-  factory Faq.fromJson(Map<String, dynamic> json) {
+  factory Faq.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Faq(
+        uuid: '',
+        userId: 0,
+        gigId: 0,
+        attributes: [],
+        createdAt: '',
+        updatedAt: '',
+      );
+    }
+
+    // Handle attributes with extra safety
+    List<Attribute> attributes = [];
+    try {
+      if (json['attributes'] != null && json['attributes'] is List) {
+        attributes =
+            (json['attributes'] as List<dynamic>)
+                .where((e) => e != null)
+                .map(
+                  (e) =>
+                      Attribute.fromJson(e is Map<String, dynamic> ? e : null),
+                )
+                .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing attributes: $e');
+      attributes = [];
+    }
+
     return Faq(
-      uuid: json['uuid'] as String? ?? '',
-      userId: json['userId'] as int? ?? 0,
-      gigId: json['gigId'] as int? ?? 0,
-      attributes:
-          (json['attributes'] as List<dynamic>?)
-              ?.map((e) => Attribute.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      createdAt: json['createdAt'] as String? ?? '',
-      updatedAt: json['updatedAt'] as String? ?? '',
+      uuid: json['uuid']?.toString() ?? '',
+      userId: _parseToInt(json['userId']) ?? 0,
+      gigId: _parseToInt(json['gigId']) ?? 0,
+      attributes: attributes,
+      createdAt: json['createdAt']?.toString() ?? '',
+      updatedAt: json['updatedAt']?.toString() ?? '',
     );
   }
 
@@ -437,10 +599,14 @@ class Attribute {
 
   Attribute({required this.question, required this.answer});
 
-  factory Attribute.fromJson(Map<String, dynamic> json) {
+  factory Attribute.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Attribute(question: '', answer: '');
+    }
+
     return Attribute(
-      question: json['question'] as String? ?? '',
-      answer: json['answer'] as String? ?? '',
+      question: json['question']?.toString() ?? '',
+      answer: json['answer']?.toString() ?? '',
     );
   }
 
@@ -456,22 +622,51 @@ class Assets {
 
   Assets({required this.photos, this.video, this.pdf});
 
-  factory Assets.fromJson(Map<String, dynamic> json) {
-    return Assets(
-      photos:
-          (json['photos'] as List<dynamic>?)
-              ?.map((e) => Photo.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      video:
-          json['video'] != null
-              ? Video.fromJson(json['video'] as Map<String, dynamic>)
-              : null,
-      pdf:
-          json['pdf'] != null
-              ? Pdf.fromJson(json['pdf'] as Map<String, dynamic>)
-              : null,
-    );
+  factory Assets.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Assets(photos: []);
+    }
+
+    // Handle photos with extra safety
+    List<Photo> photos = [];
+    try {
+      if (json['photos'] != null && json['photos'] is List) {
+        photos =
+            (json['photos'] as List<dynamic>)
+                .where((e) => e != null)
+                .map(
+                  (e) => Photo.fromJson(e is Map<String, dynamic> ? e : null),
+                )
+                .toList();
+      }
+    } catch (e) {
+      debugPrint('Error parsing photos: $e');
+      photos = [];
+    }
+
+    // Handle video with extra safety
+    Video? video;
+    try {
+      if (json['video'] != null && json['video'] is Map<String, dynamic>) {
+        video = Video.fromJson(json['video'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('Error parsing video: $e');
+      video = null;
+    }
+
+    // Handle pdf with extra safety
+    Pdf? pdf;
+    try {
+      if (json['pdf'] != null && json['pdf'] is Map<String, dynamic>) {
+        pdf = Pdf.fromJson(json['pdf'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('Error parsing pdf: $e');
+      pdf = null;
+    }
+
+    return Assets(photos: photos, video: video, pdf: pdf);
   }
 
   Map<String, dynamic> toJson() {
@@ -489,10 +684,14 @@ class Photo {
 
   Photo({required this.name, required this.link});
 
-  factory Photo.fromJson(Map<String, dynamic> json) {
+  factory Photo.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Photo(name: '', link: '');
+    }
+
     return Photo(
-      name: json['name'] as String? ?? '',
-      link: json['link'] as String? ?? '',
+      name: json['name']?.toString() ?? '',
+      link: json['link']?.toString() ?? '',
     );
   }
 
@@ -507,10 +706,14 @@ class Video {
 
   Video({required this.name, required this.link});
 
-  factory Video.fromJson(Map<String, dynamic> json) {
+  factory Video.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Video(name: '', link: '');
+    }
+
     return Video(
-      name: json['name'] as String? ?? '',
-      link: json['link'] as String? ?? '',
+      name: json['name']?.toString() ?? '',
+      link: json['link']?.toString() ?? '',
     );
   }
 
@@ -525,14 +728,27 @@ class Pdf {
 
   Pdf({required this.name, required this.link});
 
-  factory Pdf.fromJson(Map<String, dynamic> json) {
+  factory Pdf.fromJson(Map<String, dynamic>? json) {
+    if (json == null) {
+      return Pdf(name: '', link: '');
+    }
+
     return Pdf(
-      name: json['name'] as String? ?? '',
-      link: json['link'] as String? ?? '',
+      name: json['name']?.toString() ?? '',
+      link: json['link']?.toString() ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {'name': name, 'link': link};
   }
+}
+
+// Helper function to safely parse integers
+int? _parseToInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value);
+  if (value is double) return value.toInt();
+  return null;
 }

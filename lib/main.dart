@@ -896,34 +896,36 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       ),
       breakpoints: [
         // Small phones (iPhone SE, older Android phones)
+        const ResponsiveBreakpoint.resize(280, name: MOBILE),
+        const ResponsiveBreakpoint.resize(300, name: MOBILE),
         const ResponsiveBreakpoint.resize(320, name: MOBILE),
 
         // Standard phones (iPhone 12, 13, 14, Samsung Galaxy S series)
-        const ResponsiveBreakpoint.autoScale(375, name: MOBILE),
+        const ResponsiveBreakpoint.resize(375, name: MOBILE),
 
         // Large phones (iPhone Pro Max, Samsung Galaxy Note, Z Fold outer screen)
-        const ResponsiveBreakpoint.autoScale(428, name: MOBILE),
+        const ResponsiveBreakpoint.resize(428, name: MOBILE),
 
         // Extra large phones and foldables
-        const ResponsiveBreakpoint.autoScale(480, name: MOBILE),
+        const ResponsiveBreakpoint.resize(480, name: MOBILE),
 
         // Small tablets and foldables inner screen
-        const ResponsiveBreakpoint.autoScale(600, name: TABLET),
+        const ResponsiveBreakpoint.resize(600, name: TABLET),
 
         // Standard tablets
-        const ResponsiveBreakpoint.autoScale(768, name: TABLET),
+        const ResponsiveBreakpoint.resize(768, name: TABLET),
 
         // Large tablets
-        const ResponsiveBreakpoint.autoScale(1024, name: TABLET),
+        const ResponsiveBreakpoint.resize(1024, name: TABLET),
 
         // Desktop
-        const ResponsiveBreakpoint.autoScale(1200, name: DESKTOP),
+        const ResponsiveBreakpoint.resize(1200, name: DESKTOP),
       ],
       // Enable default scaling behavior
       defaultScale: true,
 
       // Set minimum width to handle very small screens
-      minWidth: 320,
+      minWidth: 280,
 
       // Set maximum width to prevent over-scaling on very large screens
       maxWidth: 1200,

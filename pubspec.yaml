@@ -95,6 +95,7 @@ flutter:
   assets:
     - .env
     - assets/
+    - assets/soon.svg
     - assets/logo/
     - assets/images/onboarding_images/
     - assets/images/svg/

@@ -387,7 +387,7 @@ class _BlogScreenState extends State<BlogScreen> {
                     'category': post.category,
                     'likes': post.likes.toString(),
                     'comments': post.comments.length.toString(),
-                    'coverImage': post.coverImage.link,
+                    'coverImage': post.coverImage?.link ?? '',
                     'authorName': post.authorName,
                     'authorAvatar': post.authorAvatar ?? '',
                     'createdAt': post.formattedDate,
@@ -545,7 +545,7 @@ class _BlogListItemState extends State<BlogListItem> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: CachedNetworkImage(
-                imageUrl: widget.blogPost.coverImage.link,
+                imageUrl: widget.blogPost.coverImage?.link ?? '',
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,

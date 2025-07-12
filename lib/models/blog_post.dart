@@ -4,9 +4,10 @@ class BlogPost {
   final String content;
   final String page;
   final String category;
+  final String? categoryId;
   final String status;
   final BlogUser user;
-  final BlogImage coverImage;
+  final BlogImage? coverImage;
   final int likes;
   final List<BlogLiker> likers;
   final List<BlogComment> comments;
@@ -19,9 +20,10 @@ class BlogPost {
     required this.content,
     required this.page,
     required this.category,
+    this.categoryId,
     required this.status,
     required this.user,
-    required this.coverImage,
+    this.coverImage,
     this.likes = 0,
     this.likers = const [],
     this.comments = const [],
@@ -30,64 +32,67 @@ class BlogPost {
   });
 
   factory BlogPost.fromJson(Map<String, dynamic> json) {
-    // Defensive parsing and error logging
     try {
-      if (json['user'] is! Map<String, dynamic>) {
-        throw Exception(
-          'Expected user to be Map<String, dynamic>, got: \\${json['user'].runtimeType}',
-        );
-      }
-      if (json['coverImage'] is! Map<String, dynamic>) {
-        throw Exception(
-          'Expected coverImage to be Map<String, dynamic>, got: \\${json['coverImage'].runtimeType}',
-        );
-      }
-      if (json['comments'] != null && json['comments'] is! List) {
-        throw Exception(
-          'Expected comments to be List, got: \\${json['comments'].runtimeType}',
-        );
-      }
-      if (json['likers'] != null && json['likers'] is! List) {
-        throw Exception(
-          'Expected likers to be List, got: \\${json['likers'].runtimeType}',
-        );
-      }
       return BlogPost(
-        uuid: json['uuid'] as String,
-        title: json['title'] as String,
-        content: json['content'] as String,
-        page: json['page'] as String,
-        category: json['category'] as String,
-        status: json['status'] as String,
-        user: BlogUser.fromJson(json['user'] as Map<String, dynamic>),
-        coverImage: BlogImage.fromJson(
-          json['coverImage'] as Map<String, dynamic>,
-        ),
+        uuid: json['uuid']?.toString() ?? '',
+        title: json['title']?.toString() ?? '',
+        content: json['content']?.toString() ?? '',
+        page: json['page']?.toString() ?? '',
+        category: json['category']?.toString() ?? '',
+        categoryId: json['categoryId']?.toString(),
+        status: json['status']?.toString() ?? 'Draft',
+        user: BlogUser.fromJson(json['user'] as Map<String, dynamic>? ?? {}),
+        coverImage:
+            json['coverImage'] != null
+                ? BlogImage.fromJson(json['coverImage'] as Map<String, dynamic>)
+                : null,
         likes: (json['likes'] as num?)?.toInt() ?? 0,
-        likers: () {
-          final likersRaw = json['likers'];
-          if (likersRaw is List) {
-            return likersRaw
-                .map((e) => BlogLiker.fromJson(e))
-                .where((liker) => liker.uuid.isNotEmpty)
-                .toList();
-          }
-          return <BlogLiker>[];
-        }(),
-        comments: () {
-          final commentsRaw = json['comments'];
-          if (commentsRaw is List) {
-            return commentsRaw
-                .map((e) => BlogComment.fromJson(e as Map<String, dynamic>, ''))
-                .toList();
-          }
-          return <BlogComment>[];
-        }(),
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
+        likers: _parseLikers(json['likers']),
+        comments: _parseComments(json['comments']),
+        createdAt: _parseDateTime(json['created_at']) ?? DateTime.now(),
+        updatedAt: _parseDateTime(json['updated_at']) ?? DateTime.now(),
       );
     } catch (e) {
-      rethrow;
+      // Return a safe default object instead of crashing
+      return BlogPost(
+        uuid: '',
+        title: 'Error Loading Post',
+        content: 'Could not load post content',
+        page: 'Home',
+        category: 'General',
+        status: 'Draft',
+        user: BlogUser.defaultUser(),
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
+  }
+
+  static List<BlogLiker> _parseLikers(dynamic likersRaw) {
+    if (likersRaw == null || likersRaw is! List) return [];
+
+    return likersRaw
+        .where((e) => e != null)
+        .map((e) => BlogLiker.fromJson(e))
+        .where((liker) => liker.uuid.isNotEmpty)
+        .toList();
+  }
+
+  static List<BlogComment> _parseComments(dynamic commentsRaw) {
+    if (commentsRaw == null || commentsRaw is! List) return [];
+
+    return commentsRaw
+        .where((e) => e != null && e is Map<String, dynamic>)
+        .map((e) => BlogComment.fromJson(e as Map<String, dynamic>, ''))
+        .toList();
+  }
+
+  static DateTime? _parseDateTime(dynamic dateStr) {
+    if (dateStr == null) return null;
+    try {
+      return DateTime.parse(dateStr.toString());
+    } catch (e) {
+      return null;
     }
   }
 
@@ -98,9 +103,10 @@ class BlogPost {
       'content': content,
       'page': page,
       'category': category,
+      'categoryId': categoryId,
       'status': status,
       'user': user.toJson(),
-      'coverImage': coverImage.toJson(),
+      'coverImage': coverImage?.toJson(),
       'likes': likes,
       'likers': likers.map((e) => e.toJson()).toList(),
       'comments': comments.map((e) => e.toJson()).toList(),
@@ -115,6 +121,7 @@ class BlogPost {
     String? content,
     String? page,
     String? category,
+    String? categoryId,
     String? status,
     BlogUser? user,
     BlogImage? coverImage,
@@ -130,6 +137,7 @@ class BlogPost {
       content: content ?? this.content,
       page: page ?? this.page,
       category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       status: status ?? this.status,
       user: user ?? this.user,
       coverImage: coverImage ?? this.coverImage,
@@ -156,14 +164,14 @@ class BlogUser {
   final String? uuid;
   final String? firstName;
   final String? lastName;
-  final String email;
+  final String? email;
   final String? profilePicture;
 
   BlogUser({
     this.uuid,
     this.firstName,
     this.lastName,
-    required this.email,
+    this.email,
     this.profilePicture,
   });
 
@@ -176,12 +184,24 @@ class BlogUser {
         profilePicture = json['profilePicture']['link'] as String?;
       }
     }
+
     return BlogUser(
-      uuid: json['uuid'],
-      firstName: json['firstName'],
-      lastName: json['lastName'],
-      email: json['email'],
+      uuid: json['uuid']?.toString(),
+      firstName: json['firstName']?.toString(),
+      lastName: json['lastName']?.toString(),
+      email: json['email']?.toString(),
       profilePicture: profilePicture,
+    );
+  }
+
+  // Factory for creating a default user when parsing fails
+  factory BlogUser.defaultUser() {
+    return BlogUser(
+      uuid: null,
+      firstName: 'Unknown',
+      lastName: 'User',
+      email: null,
+      profilePicture: null,
     );
   }
 
@@ -204,8 +224,8 @@ class BlogImage {
 
   factory BlogImage.fromJson(Map<String, dynamic> json) {
     return BlogImage(
-      name: json['name'] as String,
-      link: json['link'] as String,
+      name: json['name']?.toString() ?? '',
+      link: json['link']?.toString() ?? '',
     );
   }
 
@@ -228,6 +248,10 @@ class BlogLiker {
   });
 
   factory BlogLiker.fromJson(dynamic json) {
+    if (json == null) {
+      return BlogLiker(name: '', uuid: '', email: '', profilePicture: null);
+    }
+
     if (json is Map<String, dynamic>) {
       String? profilePicture;
       if (json['profilePicture'] != null) {
@@ -237,10 +261,11 @@ class BlogLiker {
           profilePicture = json['profilePicture']['link'] as String?;
         }
       }
+
       return BlogLiker(
-        name: json['name'] as String? ?? '',
-        uuid: json['uuid'] as String? ?? '',
-        email: json['email'] as String? ?? '',
+        name: json['name']?.toString() ?? '',
+        uuid: json['uuid']?.toString() ?? '',
+        email: json['email']?.toString() ?? '',
         profilePicture: profilePicture,
       );
     } else if (json is String) {
@@ -285,23 +310,26 @@ class BlogComment {
     String currentUserId,
   ) {
     try {
-      // Defensive: likers can be null, missing, or a list
+      // Parse likers safely - handle null case
       final likersRaw = json['likers'];
       List<BlogLiker> likers = [];
       if (likersRaw is List) {
         likers =
             likersRaw
+                .where((e) => e != null)
                 .map((e) => BlogLiker.fromJson(e))
                 .where((l) => l.uuid.isNotEmpty)
                 .toList();
       }
+      // If likersRaw is null, likers remains empty list
 
-      // Defensive: subComments can be null, missing, or a list
+      // Parse subComments safely - handle null case
       final subCommentsRaw = json['subComments'];
       List<BlogComment> subComments = [];
       if (subCommentsRaw is List) {
         subComments =
             subCommentsRaw
+                .where((e) => e != null && e is Map<String, dynamic>)
                 .map(
                   (e) => BlogComment.fromJson(
                     e as Map<String, dynamic>,
@@ -310,27 +338,46 @@ class BlogComment {
                 )
                 .toList();
       }
+      // If subCommentsRaw is null, subComments remains empty list
 
-      // isLiked may be provided by backend, otherwise fallback to likers
+      // Handle isLiked safely
       bool isLiked = false;
       if (json['isLiked'] != null) {
         isLiked = json['isLiked'] is bool ? json['isLiked'] : false;
       } else {
         isLiked = likers.any((liker) => liker.uuid == currentUserId);
       }
+
+      // Parse DateTime safely
+      DateTime createdAt;
+      try {
+        createdAt = DateTime.parse(json['createdAt']?.toString() ?? '');
+      } catch (e) {
+        createdAt = DateTime.now();
+      }
+
       return BlogComment(
-        id: json['id'] as int,
-        content: json['content'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        content: json['content']?.toString() ?? '',
+        createdAt: createdAt,
         commentedBy: BlogUser.fromJson(
-          json['commentedBy'] as Map<String, dynamic>,
+          json['commentedBy'] as Map<String, dynamic>? ?? {},
         ),
         isLiked: isLiked,
         likers: likers,
         subComments: subComments,
       );
     } catch (e) {
-      rethrow;
+      // Return a safe default comment if parsing fails
+      return BlogComment(
+        id: 0,
+        content: 'Error loading comment',
+        createdAt: DateTime.now(),
+        commentedBy: BlogUser.defaultUser(),
+        isLiked: false,
+        likers: [],
+        subComments: [],
+      );
     }
   }
 

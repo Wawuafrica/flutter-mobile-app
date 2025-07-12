@@ -130,7 +130,7 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
             Container(
               decoration: BoxDecoration(color: Colors.red.withAlpha(0)),
               child: CachedNetworkImage(
-                imageUrl: selectedPost.coverImage.link,
+                imageUrl: selectedPost.coverImage?.link ?? '',
                 fit: BoxFit.cover,
                 placeholder:
                     (context, url) => Container(
