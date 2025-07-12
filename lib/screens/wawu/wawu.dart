@@ -127,7 +127,7 @@ class Wawu extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'WAWUAfrica E-COMMERCE',
+                        'WAWU SHOP',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
