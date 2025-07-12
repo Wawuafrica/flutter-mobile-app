@@ -537,10 +537,10 @@ class BlogProvider extends BaseProvider {
         _ensureEventHandlers();
       } else {
         _errorMessage = response['message'] ?? 'Failed to load posts';
-        _logger.e('BlogProvider: Failed to fetch posts: $_errorMessage');
+        _logger.e('BlogProvider: Failed to fetch posts:');
       }
     } catch (e) {
-      _errorMessage = 'Failed to fetch posts: $e';
+      _errorMessage = 'Failed to fetch posts';
       _logger.e('BlogProvider: Error fetching posts: $e');
     } finally {
       _isLoading = false;
