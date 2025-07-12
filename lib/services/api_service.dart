@@ -245,7 +245,7 @@ class ApiService {
         message = 'Response receive timed out.';
         break;
       case DioExceptionType.badResponse:
-        message = _handleBadResponse(error.response);
+        message = 'Bad Response';
         break;
       case DioExceptionType.cancel:
         message = 'Request was cancelled';
@@ -256,47 +256,11 @@ class ApiService {
         break;
       case DioExceptionType.unknown:
       default:
-        message =
-            'An unexpected error occurred: ${error.message ?? 'Unknown error'}';
+        message = 'An unexpected error occurred';
         break;
     }
 
     // You can add your error handling/logging logic here
     print('API Error: $message');
   }
-
-  String _handleBadResponse(Response? response) {
-    if (response == null || response.data == null) {
-      return 'No response received from server';
-    }
-
-    try {
-      final data = response.data;
-      if (data is Map<String, dynamic>) {
-        if (data.containsKey('message')) {
-          return data['message'] as String;
-        } else if (data.containsKey('error')) {
-          final error = data['error'];
-          if (error is String) {
-            return error;
-          } else if (error is Map && error.containsKey('message')) {
-            return error['message'] as String;
-          }
-        } else if (data.containsKey('errors')) {
-          final errors = data['errors'];
-          if (errors is Map && errors.isNotEmpty) {
-            return errors.values.first.toString();
-          } else if (errors is List && errors.isNotEmpty) {
-            return errors.first.toString();
-          }
-        }
-      } else if (data is String) {
-        return data;
-      }
-      return 'Server error: ${response.statusCode}';
-    } catch (e) {
-      return 'Failed to parse error response. Status: ${response.statusCode}';
-    }
-  }
 }
-  

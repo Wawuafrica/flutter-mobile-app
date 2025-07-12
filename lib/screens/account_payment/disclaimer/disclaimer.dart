@@ -61,18 +61,18 @@ class Disclaimer extends StatelessWidget {
             ),
             SizedBox(height: 30),
             Text(
-              "Hey, so WawuAfrica helps women connect and find opportunities, but we're not liable for any financial losses, damage, or scams that may happen on our site.  Your safety's important to us; be careful, double-check things, and be smart about transactions.  Use secure payment methods and don't visit strangers or  share private info.",
+              "Hey, so WAWUAfrica helps women connect and find opportunities, but we're not liable for any financial losses, damage, or scams that may happen on our site.  Your safety's important to us; be careful, double-check things, and be smart about transactions.  Use secure payment methods and don't visit strangers or  share private info.",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
             ),
             SizedBox(height: 20),
             Text(
-              "Using WawAfrica means you've read this, and you're taking the risk yourself",
+              "Using WAWUAfrica means you've read this, and you're taking the risk yourself",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
             ),
             SizedBox(height: 30),
             CustomButton(
               widget: Text(
-                'Proceed To Wawu',
+                'Proceed To WAWUAfrica',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
