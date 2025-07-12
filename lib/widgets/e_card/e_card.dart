@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/models/variant.dart';
 import 'package:wawu_mobile/screens/wawu_ecommerce_screen/single_package/single_package.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ECard extends StatelessWidget {
   final Product product;
@@ -42,42 +43,31 @@ class ECard extends StatelessWidget {
                 ),
                 child:
                     product.primaryImageUrl.isNotEmpty
-                        ? Image.network(
-                          product.primaryImageUrl,
+                        ? CachedNetworkImage(
+                          imageUrl: product.primaryImageUrl,
                           height: 150,
                           width: isMargin ? 140 : double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              height: 150,
-                              width: isMargin ? 140 : double.infinity,
-                              color: Colors.grey[200],
-                              child: Icon(
-                                Icons.image_not_supported,
-                                color: Colors.grey[400],
-                                size: 40,
-                              ),
-                            );
-                          },
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              height: 150,
-                              width: isMargin ? 140 : double.infinity,
-                              color: Colors.grey[200],
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  value:
-                                      loadingProgress.expectedTotalBytes != null
-                                          ? loadingProgress
-                                                  .cumulativeBytesLoaded /
-                                              loadingProgress
-                                                  .expectedTotalBytes!
-                                          : null,
+                          placeholder:
+                              (context, url) => Container(
+                                height: 150,
+                                width: isMargin ? 140 : double.infinity,
+                                color: Colors.grey[200],
+                                child: Center(
+                                  child: CircularProgressIndicator(),
                                 ),
                               ),
-                            );
-                          },
+                          errorWidget:
+                              (context, url, error) => Container(
+                                height: 150,
+                                width: isMargin ? 140 : double.infinity,
+                                color: Colors.grey[200],
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  color: Colors.grey[400],
+                                  size: 40,
+                                ),
+                              ),
                         )
                         : Container(
                           height: 150,
