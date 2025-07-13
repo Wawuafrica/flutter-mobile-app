@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:wawu_mobile/models/certification.dart';
 import 'package:wawu_mobile/models/institution.dart';
+import 'package:wawu_mobile/providers/base_provider.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 
-class DropdownDataProvider with ChangeNotifier {
+class DropdownDataProvider extends BaseProvider {
   final ApiService _apiService;
   final Logger _logger = Logger();
 
@@ -13,13 +13,8 @@ class DropdownDataProvider with ChangeNotifier {
 
   List<Certification> _certifications = [];
   List<Institution> _institutions = [];
-  bool _isLoading = false;
-  String? _error;
-
   List<Certification> get certifications => _certifications;
   List<Institution> get institutions => _institutions;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
 
   Future<void> fetchDropdownData() async {
     _logger.i('Attempting to fetch dropdown data...');
@@ -30,48 +25,33 @@ class DropdownDataProvider with ChangeNotifier {
       return;
     }
 
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    setLoading();
 
     try {
-      final certResponseFuture = _apiService.get('/certification');
-      final instResponseFuture = _apiService.get('/institution');
-
-      final responses = await Future.wait([
-        certResponseFuture,
-        instResponseFuture,
-      ]);
-
-      final certResponse = responses[0];
-      _logger.d('Certification API Response: $certResponse');
-      if (certResponse['statusCode'] == 200) {
+      // Fetch certifications
+      final certResponse = await _apiService.get('/certifications');
+      if (certResponse['statusCode'] == 200 && certResponse['data'] != null) {
+        final List<dynamic> certData = certResponse['data'];
         _certifications =
-            (certResponse['data'] as List)
-                .map((item) => Certification.fromJson(item))
-                .toList();
-        _logger.d('Parsed Certifications: $_certifications');
+            certData.map((json) => Certification.fromJson(json)).toList();
       } else {
-        throw 'Failed to fetch certifications';
+        throw Exception('Failed to fetch certifications');
       }
 
-      final instResponse = responses[1];
-      _logger.d('Institution API Response: $instResponse');
-      if (instResponse['statusCode'] == 200) {
+      // Fetch institutions
+      final instResponse = await _apiService.get('/institutions');
+      if (instResponse['statusCode'] == 200 && instResponse['data'] != null) {
+        final List<dynamic> instData = instResponse['data'];
         _institutions =
-            (instResponse['data'] as List)
-                .map((item) => Institution.fromJson(item))
-                .toList();
-        _logger.d('Parsed Institutions: $_institutions');
+            instData.map((json) => Institution.fromJson(json)).toList();
       } else {
-        throw 'Failed to fetch institutions';
+        throw Exception('Failed to fetch institutions');
       }
+
+      setSuccess();
     } catch (e) {
-      _logger.e('Error fetching dropdown data: $e');
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      _logger.e('Failed to fetch dropdown data: $e');
+      setError(e.toString());
     }
   }
 }

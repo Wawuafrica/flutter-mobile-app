@@ -44,16 +44,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _educationGraduationDateController =
       TextEditingController();
   final TextEditingController _customInstitutionController =
-      TextEditingController();
+      TextEditingController(); // For 'School-Level Qualifications'
   final TextEditingController _professionalCertificationNameController =
       TextEditingController();
   final TextEditingController _professionalCertificationOrganizationController =
       TextEditingController();
   final TextEditingController _educationEndDateController =
-      TextEditingController();
-  final TextEditingController _courseOfStudyController =
-      TextEditingController();
-  final TextEditingController _graduationDateController =
       TextEditingController();
 
   XFile? _profileImage;
@@ -66,7 +62,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _instagramController = TextEditingController();
   final TextEditingController _twitterController = TextEditingController();
 
-  final TextEditingController _stateController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   Country? _selectedCountry;
@@ -81,51 +76,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
-  }
-
-  Future<void> _loadInitialData() async {
     apiService = Provider.of<ApiService>(context, listen: false);
     authService = AuthService(apiService: apiService);
+    _addListeners();
+    _loadInitialData(); // Initial load
+  }
 
-    final dropdownProvider = Provider.of<DropdownDataProvider>(
-      context,
-      listen: false,
-    );
-    final skillProvider = Provider.of<SkillProvider>(context, listen: false);
+  // Call this method whenever the widget is rebuilt with new data (e.g., after a profile update)
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // This ensures that if the user data changes (e.g., from a Pusher event or successful update),
+    // the UI elements are re-initialized with the latest data.
+    _initializeControllersFromUser();
+  }
+
+  void _initializeControllersFromUser() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final user = userProvider.currentUser;
     final locationProvider = Provider.of<LocationProvider>(
       context,
       listen: false,
     );
 
-    await Future.wait([
-      dropdownProvider.fetchDropdownData(),
-      skillProvider.fetchSkills(),
-      locationProvider.fetchCountries(), // Ensure countries are fetched
-    ]);
-
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final user = userProvider.currentUser;
     if (user != null) {
       _aboutController.text = user.additionalInfo?.about ?? '';
       _skills = user.additionalInfo?.skills ?? [];
 
+      // Education
       if (user.additionalInfo?.education != null &&
           user.additionalInfo!.education!.isNotEmpty) {
         final latestEducation = user.additionalInfo!.education!.last;
         _selectedCertification = latestEducation.certification;
-        _selectedInstitution = latestEducation.institution;
         _educationCourseOfStudyController.text =
             latestEducation.courseOfStudy ?? '';
         _educationGraduationDateController.text =
             latestEducation.startDate ?? '';
+        _educationEndDateController.text = latestEducation.endDate ?? '';
+
         if (latestEducation.certification == 'School-Level Qualifications') {
           _customInstitutionController.text = latestEducation.institution ?? '';
+          _selectedInstitution = null; // Ensure dropdown is not selected
         } else {
           _selectedInstitution = latestEducation.institution;
+          _customInstitutionController.clear(); // Ensure custom field is clear
         }
+      } else {
+        _selectedCertification = null;
+        _selectedInstitution = null;
+        _educationCourseOfStudyController.clear();
+        _educationGraduationDateController.clear();
+        _educationEndDateController.clear();
+        _customInstitutionController.clear();
       }
 
+      // Professional Certification
       if (user.additionalInfo?.professionalCertification != null &&
           user.additionalInfo!.professionalCertification!.isNotEmpty) {
         final latestProfCert =
@@ -134,28 +139,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             latestProfCert.name ?? '';
         _professionalCertificationOrganizationController.text =
             latestProfCert.organization ?? '';
+      } else {
+        _professionalCertificationNameController.clear();
+        _professionalCertificationOrganizationController.clear();
       }
 
-      if (user.additionalInfo?.education != null &&
-          user.additionalInfo!.education!.isNotEmpty) {
-        final education = user.additionalInfo!.education!.last;
-        _courseOfStudyController.text = education.courseOfStudy ?? '';
-        _graduationDateController.text = education.startDate ?? '';
-        _educationEndDateController.text = education.endDate ?? '';
-      }
-
+      // Location
       if (user.country != null && locationProvider.countries.isNotEmpty) {
         _selectedCountry = locationProvider.countries.firstWhere(
           (c) => c.name.toLowerCase() == user.country!.toLowerCase(),
           orElse: () => Country(id: 0, name: user.country!, flag: ''),
         );
-        // Fetch states for the selected country
-        if (_selectedCountry != null) {
-          await locationProvider.fetchStates(_selectedCountry!.id);
+        // Fetch states for the selected country if not already fetched or if country changed
+        // Ensure states are fetched when the country is initially set from user data
+        if (_selectedCountry != null && user.state != null) {
+          locationProvider.fetchStates(_selectedCountry!.id);
         }
+      } else {
+        _selectedCountry = null;
       }
-      _selectedState = user.state != null ? user.state : null;
+      _selectedState = user.state; // Directly assign user's state
 
+      // Social Handles
       _facebookController.text =
           user.additionalInfo?.socialHandles?['facebook']?.split('/').last ??
           '';
@@ -170,11 +175,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _twitterController.text =
           user.additionalInfo?.socialHandles?['twitter']?.split('/').last ?? '';
 
+      // Phone and Email
       _phoneController.text = user.phoneNumber ?? '';
       _emailController.text = user.email ?? '';
     }
+  }
 
-    _addListeners();
+  Future<void> _loadInitialData() async {
+    final dropdownProvider = Provider.of<DropdownDataProvider>(
+      context,
+      listen: false,
+    );
+    final skillProvider = Provider.of<SkillProvider>(context, listen: false);
+    final locationProvider = Provider.of<LocationProvider>(
+      context,
+      listen: false,
+    );
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    await Future.wait([
+      dropdownProvider.fetchDropdownData(),
+      skillProvider.fetchSkills(),
+      locationProvider.fetchCountries(),
+      userProvider.fetchCurrentUser(), // Ensure current user is fetched
+    ]);
+
+    _initializeControllersFromUser(); // Initialize controllers after data is fetched
 
     if (mounted) {
       setState(() {
@@ -192,14 +222,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _professionalCertificationNameController,
       _professionalCertificationOrganizationController,
       _educationEndDateController,
-      _courseOfStudyController,
-      _graduationDateController,
+      _customInstitutionController,
       _facebookController,
       _linkedInController,
       _instagramController,
       _twitterController,
-      _stateController,
-      _customInstitutionController,
       _phoneController,
       _emailController,
     ];
@@ -229,6 +256,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else if (imageType == 'cover') {
           _coverImage = pickedFile;
         }
+        _isDirty = true;
       });
     }
   }
@@ -263,6 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         controller.text =
             "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+        _isDirty = true;
       });
     }
   }
@@ -279,44 +308,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     Map<String, dynamic> payload = {};
+
+    // Basic Info
     if (_aboutController.text.isNotEmpty) {
       payload['about'] = _aboutController.text;
     }
     if (_skills.isNotEmpty) payload['skills'] = _skills;
-    if (_selectedCertification != null) {
+    if (_phoneController.text.isNotEmpty) {
+      payload['phoneNumber'] = _phoneController.text;
+    }
+
+    // Education
+    // Only add education fields if at least one of them is provided
+    if (_selectedCertification != null ||
+        _selectedInstitution != null ||
+        _customInstitutionController.text.isNotEmpty ||
+        _educationCourseOfStudyController.text.isNotEmpty ||
+        _educationGraduationDateController.text.isNotEmpty ||
+        _educationEndDateController.text.isNotEmpty) {
       payload['educationCertification'] = _selectedCertification;
       if (_selectedCertification == 'School-Level Qualifications') {
-        if (_customInstitutionController.text.isNotEmpty) {
-          payload['educationInstitution'] = _customInstitutionController.text;
-        }
+        payload['educationInstitution'] = _customInstitutionController.text;
       } else {
-        if (_selectedInstitution != null) {
-          payload['educationInstitution'] = _selectedInstitution;
-        }
+        payload['educationInstitution'] = _selectedInstitution;
       }
-    }
-    if (_educationCourseOfStudyController.text.isNotEmpty) {
       payload['educationCourseOfStudy'] =
           _educationCourseOfStudyController.text;
-    }
-    if (_educationGraduationDateController.text.isNotEmpty) {
       payload['educationGraduationDate'] =
           _educationGraduationDateController.text;
+      payload['educationEndDate'] = _educationEndDateController.text;
     }
-    if (_professionalCertificationNameController.text.isNotEmpty) {
+
+    // Professional Certification
+    // Only add professional certification fields if at least one of them is provided
+    if (_professionalCertificationNameController.text.isNotEmpty ||
+        _professionalCertificationOrganizationController.text.isNotEmpty ||
+        _professionalCertificationImage != null) {
       payload['professionalCertificationName'] =
           _professionalCertificationNameController.text;
-    }
-    if (_professionalCertificationOrganizationController.text.isNotEmpty) {
       payload['professionalCertificationOrganization'] =
           _professionalCertificationOrganizationController.text;
     }
-    if (_educationEndDateController.text.isNotEmpty) {
-      payload['educationEndDate'] = _educationEndDateController.text;
+
+    // Location
+    if (_selectedCountry != null) {
+      payload['country'] = _selectedCountry!.name;
     }
     if (_selectedState != null) {
       payload['state'] = _selectedState;
     }
+
+    // Social Handles
     Map<String, String> socialHandles = {};
     if (_facebookController.text.isNotEmpty) {
       socialHandles['facebook'] =
@@ -335,11 +377,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           'https://twitter.com/${_twitterController.text.trim()}';
     }
     if (socialHandles.isNotEmpty) payload['socialHandles'] = socialHandles;
+
+    // Subcategory
     if (categoryProvider.selectedSubCategory?.uuid != null) {
       payload['subCategoryUuid'] = categoryProvider.selectedSubCategory!.uuid;
-    }
-    if (_phoneController.text.isNotEmpty) {
-      payload['phoneNumber'] = _phoneController.text;
     }
 
     try {
@@ -356,6 +397,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Profile updated successfully!')),
           );
+          // Clear file selections after successful upload
+          setState(() {
+            _profileImage = null;
+            _coverImage = null;
+            _professionalCertificationImage = null;
+            _meansOfIdentificationImage = null;
+          });
+          // Re-load initial data to refresh UI and state
+          await _loadInitialData();
         }
       } else {
         if (mounted) {
@@ -391,15 +441,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _educationGraduationDateController.dispose();
     _professionalCertificationOrganizationController.dispose();
     _educationEndDateController.dispose();
-    _courseOfStudyController.dispose();
-    _graduationDateController.dispose();
+    _customInstitutionController.dispose();
+    _professionalCertificationNameController.dispose();
     _facebookController.dispose();
     _linkedInController.dispose();
     _instagramController.dispose();
     _twitterController.dispose();
-    _stateController.dispose();
-    _customInstitutionController.dispose();
-    _professionalCertificationNameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -409,9 +456,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10), // Add margin for spacing
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6B46C1), Color(0xFF9333EA)],
+          colors: [wawuColors.primary, Color(0xFF9333EA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -438,18 +486,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 8),
                 Row(
-                  spacing: 4.0,
                   children: [
                     Text(
-                      education.startDate ?? 'N/A',
+                      education.courseOfStudy ?? 'N/A',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    const Text(
+                      ' | ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     Text(
-                      education.endDate ?? 'N/A',
+                      '${education.startDate ?? 'N/A'} - ${education.endDate ?? 'N/A'}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -479,9 +534,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10), // Add margin for spacing
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF6B46C1), Color(0xFF9333EA)],
+          colors: [wawuColors.primary, Color(0xFF9333EA)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -506,6 +562,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   cert.organization ?? 'N/A',
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
+                if (cert.file?.link != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Document: ${cert.file!.name ?? 'View Document'}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -549,6 +616,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final fullName =
             '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
 
+        // Determine if education inputs should be hidden (assuming one-time update for primary education)
+        final hasEducation =
+            user?.additionalInfo?.education != null &&
+            user!.additionalInfo!.education!.isNotEmpty;
+
+        // Determine if professional cert inputs should be hidden (assuming one-time update)
+        final hasProfessionalCertification =
+            user?.additionalInfo?.professionalCertification != null &&
+            user!.additionalInfo!.professionalCertification!.isNotEmpty;
+
+        // Determine if means of ID inputs should be hidden (assuming one-time update)
+        // final hasMeansOfIdentification =
+        //     user?.additionalInfo?.meansOfIdentification?.file?.link != null;
+
         return Scaffold(
           appBar: AppBar(title: const Text('Profile'), centerTitle: true),
           body: Form(
@@ -585,7 +666,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             placeholder:
                                                 (context, url) => Container(
                                                   color: Colors.grey[200],
-                                                  child: Center(
+                                                  child: const Center(
                                                     child:
                                                         CircularProgressIndicator(),
                                                   ),
@@ -684,7 +765,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                             color:
                                                                 Colors
                                                                     .grey[200],
-                                                            child: Center(
+                                                            child: const Center(
                                                               child:
                                                                   CircularProgressIndicator(),
                                                             ),
@@ -835,7 +916,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   labelText: 'Phone Number',
                   hintText: 'Phone Number',
                   labelTextStyle2: true,
-                  readOnly: _phoneController.text.isNotEmpty,
+                  // Removed readOnly to allow updates
                 ),
                 const SizedBox(height: 10),
                 CustomTextfield(
@@ -871,7 +952,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     controller: _aboutController,
                     maxLength: _maxAboutLength,
                     maxLines: 5,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: 'Tell us about yourself...',
                       border: OutlineInputBorder(),
                     ),
@@ -890,6 +971,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       setState(() {
                         _selectedSkill = value;
                         _skillController.clear();
+                        _isDirty = true;
                       });
                     },
                   ),
@@ -929,6 +1011,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   onTap: () {
                                     setState(() {
                                       _skills.remove(skill);
+                                      _isDirty = true;
                                     });
                                   },
                                   child: const Icon(Icons.close, size: 16),
@@ -941,249 +1024,192 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 30),
                   const CustomIntroText(text: 'Education'),
                   const SizedBox(height: 12),
-                  if (user?.additionalInfo?.education != null &&
-                      user!.additionalInfo!.education!.isNotEmpty)
-                    for (Education edu in user.additionalInfo!.education!)
+                  // Display existing education cards
+                  if (user?.additionalInfo?.education != null)
+                    for (Education edu in user!.additionalInfo!.education!)
                       _buildEducationCard(edu),
-                  const SizedBox(height: 0),
                   if (user?.additionalInfo?.education == null ||
                       user!.additionalInfo!.education!.isEmpty)
-                    const Text('No education available'),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 25),
-                      Text(
-                        'Certificate',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      CustomDropdown(
-                        options:
-                            dropdownProvider.certifications
-                                .map((e) => e.name)
-                                .toList(),
-                        label: 'Select Certificate',
-                        selectedValue: _selectedCertification,
-                        onChanged: (value) {
-                          setState(() {
-                            _isDirty = true;
-                            _selectedCertification = value;
-                            if (value == 'School-Level Qualifications') {
-                              _selectedInstitution = null;
-                            } else {
-                              _customInstitutionController.clear();
-                            }
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      if (_selectedCertification ==
-                          'School-Level Qualifications')
-                        CustomTextfield(
-                          controller: _customInstitutionController,
-                          hintText: 'Enter your institution',
-                          labelText: 'Institution',
-                          labelTextStyle2: true,
-                        )
-                      else
-                        Text(
-                          'Institution',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
+                    // const Text('No education available'),
+                    // const SizedBox(height: 10),
+                    // Education Input Fields (conditionally hidden after first entry)
+                    if (!hasEducation)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 25),
+                          const Text(
+                            'Certificate',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
                           ),
-                        ),
-                      SizedBox(height: 8),
-                      CustomDropdown(
-                        options:
-                            dropdownProvider.institutions
-                                .map((e) => e.name)
-                                .toList(),
-                        label: 'Select Institution',
-                        selectedValue: _selectedInstitution,
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedInstitution = value;
-                            _isDirty = true;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 10),
-                      CustomTextfield(
-                        controller: _educationCourseOfStudyController,
-                        hintText: 'Enter your course of study',
-                        labelText: 'Course of Study',
-                        labelTextStyle2: true,
-                      ),
-                      const SizedBox(height: 10),
-                      CustomTextfield(
-                        controller: _educationGraduationDateController,
-                        hintText: 'YYYY-MM-DD',
-                        labelText: 'Start Date',
-                        labelTextStyle2: true,
-                        suffixIcon: Icons.calendar_today,
-                        readOnly: true,
-                        onTap:
-                            () => _selectGraduationDate(
-                              _educationGraduationDateController,
+                          const SizedBox(height: 8),
+                          CustomDropdown(
+                            options:
+                                dropdownProvider.certifications
+                                    .map((e) => e.name)
+                                    .toList(),
+                            label: 'Select Certificate',
+                            selectedValue: _selectedCertification,
+                            onChanged: (value) {
+                              setState(() {
+                                _isDirty = true;
+                                _selectedCertification = value;
+                                if (value == 'School-Level Qualifications') {
+                                  _selectedInstitution = null;
+                                } else {
+                                  _customInstitutionController.clear();
+                                }
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          if (_selectedCertification ==
+                              'School-Level Qualifications')
+                            CustomTextfield(
+                              controller: _customInstitutionController,
+                              hintText: 'Enter your institution',
+                              labelText: 'Institution',
+                              labelTextStyle2: true,
+                            )
+                          else
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Institution',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                CustomDropdown(
+                                  options:
+                                      dropdownProvider.institutions
+                                          .map((e) => e.name)
+                                          .toList(),
+                                  label: 'Select Institution',
+                                  selectedValue: _selectedInstitution,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedInstitution = value;
+                                      _isDirty = true;
+                                    });
+                                  },
+                                ),
+                              ],
                             ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Start Date is required';
-                          }
-                          return null;
-                        },
+                          const SizedBox(height: 10),
+                          CustomTextfield(
+                            controller: _educationCourseOfStudyController,
+                            hintText: 'Enter your course of study',
+                            labelText: 'Course of Study',
+                            labelTextStyle2: true,
+                          ),
+                          const SizedBox(height: 10),
+                          CustomTextfield(
+                            controller: _educationGraduationDateController,
+                            hintText: 'YYYY-MM-DD',
+                            labelText: 'Start Date',
+                            labelTextStyle2: true,
+                            suffixIcon: Icons.calendar_today,
+                            readOnly: true,
+                            onTap:
+                                () => _selectGraduationDate(
+                                  _educationGraduationDateController,
+                                ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Start Date is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          CustomTextfield(
+                            controller: _educationEndDateController,
+                            hintText: 'YYYY-MM-DD',
+                            labelText: 'End Date',
+                            labelTextStyle2: true,
+                            suffixIcon: Icons.calendar_today,
+                            readOnly: true,
+                            onTap:
+                                () => _selectGraduationDate(
+                                  _educationEndDateController,
+                                ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'End Date is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 20),
+                        ],
                       ),
-                      CustomTextfield(
-                        controller: _educationEndDateController,
-                        hintText: 'YYYY-MM-DD',
-                        labelText: 'End Date',
-                        labelTextStyle2: true,
-                        suffixIcon: Icons.calendar_today,
-                        readOnly: true,
-                        onTap:
-                            () => _selectGraduationDate(
-                              _educationEndDateController,
-                            ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'End Date is required';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
                   const SizedBox(height: 30),
                   const CustomIntroText(text: 'Professional Certification'),
                   const SizedBox(height: 10),
-                  if (user?.additionalInfo?.professionalCertification != null &&
-                      user!
-                          .additionalInfo!
-                          .professionalCertification!
-                          .isNotEmpty)
+                  // Display existing professional certification cards
+                  if (user?.additionalInfo?.professionalCertification != null)
                     for (ProfessionalCertification cert
-                        in user.additionalInfo!.professionalCertification!)
+                        in user!.additionalInfo!.professionalCertification!)
                       _buildCertificationCard(cert),
-                  const SizedBox(height: 12),
                   if (user?.additionalInfo?.professionalCertification == null ||
                       user!.additionalInfo!.professionalCertification!.isEmpty)
-                    const Text('No certifications available'),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 25),
-                      CustomTextfield(
-                        controller: _professionalCertificationNameController,
-                        hintText:
-                            'Enter Certificate Name (e.g., CAC, Skill Certificate)',
-                        labelText: 'Name',
-                        labelTextStyle2: true,
-                      ),
-                      const SizedBox(height: 20),
-                      CustomTextfield(
-                        controller:
-                            _professionalCertificationOrganizationController,
-                        hintText: 'Your Registered Company Name',
-                        labelText: 'Organization',
-                        labelTextStyle2: true,
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Upload Certification Document',
-                        style: TextStyle(
-                          color: Color.fromARGB(255, 125, 125, 125),
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      if (user?.additionalInfo?.professionalCertification !=
-                              null &&
-                          user!
-                              .additionalInfo!
-                              .professionalCertification!
-                              .isNotEmpty &&
-                          user
-                                  .additionalInfo!
-                                  .professionalCertification!
-                                  .last
-                                  .file
-                                  ?.link !=
-                              null)
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          height: 150,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(5),
-                            image: DecorationImage(
-                              image: CachedNetworkImageProvider(
-                                user
-                                    .additionalInfo!
-                                    .professionalCertification!
-                                    .last
-                                    .file!
-                                    .link!,
-                              ),
-                              fit: BoxFit.cover,
+                    // const Text('No certifications available'),
+                    // const SizedBox(height: 10),
+                    // Professional Certification Input Fields (conditionally hidden after first entry)
+                    if (!hasProfessionalCertification)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 25),
+                          CustomTextfield(
+                            controller:
+                                _professionalCertificationNameController,
+                            hintText:
+                                'Enter Certificate Name (e.g., CAC, Skill Certificate)',
+                            labelText: 'Name',
+                            labelTextStyle2: true,
+                          ),
+                          const SizedBox(height: 20),
+                          CustomTextfield(
+                            controller:
+                                _professionalCertificationOrganizationController,
+                            hintText: 'Your Registered Company Name',
+                            labelText: 'Organization',
+                            labelTextStyle2: true,
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Upload Certification Document',
+                            style: TextStyle(
+                              color: Color.fromARGB(255, 125, 125, 125),
+                              fontSize: 13,
                             ),
                           ),
-                          child:
-                              user
-                                          .additionalInfo!
-                                          .professionalCertification!
-                                          .last
-                                          .file!
-                                          .link !=
-                                      null
-                                  ? CachedNetworkImage(
-                                    imageUrl:
-                                        user
-                                            .additionalInfo!
-                                            .professionalCertification!
-                                            .last
-                                            .file!
-                                            .link!,
-                                    fit: BoxFit.cover,
-                                    placeholder:
-                                        (context, url) => Container(
-                                          color: Colors.grey[200],
-                                          child: Center(
-                                            child: CircularProgressIndicator(),
-                                          ),
-                                        ),
-                                    errorWidget:
-                                        (context, url, error) => Center(
-                                          child: Icon(
-                                            Icons.error,
-                                            color: Colors.red,
-                                          ),
-                                        ),
-                                  )
-                                  : null,
-                        ),
-                      UploadImage(
-                        labelText: 'Upload Certification Document',
-                        onImageChanged: (xfile) {
-                          setState(() {
-                            _professionalCertificationImage = xfile;
-                          });
-                        },
+                          const SizedBox(height: 20),
+                          UploadImage(
+                            labelText: 'Upload Certification Document',
+                            onImageChanged: (xfile) {
+                              setState(() {
+                                _professionalCertificationImage = xfile;
+                                _isDirty = true;
+                              });
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
                 ],
                 const SizedBox(height: 40),
                 const CustomIntroText(text: 'Means Of Identification'),
                 const SizedBox(height: 20),
+                // Display existing means of identification
                 if (user?.additionalInfo?.meansOfIdentification?.file?.link !=
                     null)
                   Container(
@@ -1193,20 +1219,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey),
                       borderRadius: BorderRadius.circular(5),
-                      image: DecorationImage(
-                        image: CachedNetworkImageProvider(
-                          user!
-                              .additionalInfo!
-                              .meansOfIdentification!
-                              .file!
-                              .link!,
-                        ),
-                        fit: BoxFit.cover,
-                      ),
                     ),
                     child: CachedNetworkImage(
                       imageUrl:
-                          user
+                          user!
                               .additionalInfo!
                               .meansOfIdentification!
                               .file!
@@ -1215,20 +1231,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       placeholder:
                           (context, url) => Container(
                             color: Colors.grey[200],
-                            child: Center(child: CircularProgressIndicator()),
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
                           ),
                       errorWidget:
-                          (context, url, error) => Center(
+                          (context, url, error) => const Center(
                             child: Icon(Icons.error, color: Colors.red),
                           ),
                     ),
                   )
-                else
+                else // Conditionally show upload image if no ID is present
                   UploadImage(
                     labelText: 'Upload Means of ID',
                     onImageChanged: (xfile) {
                       setState(() {
                         _meansOfIdentificationImage = xfile;
+                        _isDirty = true;
                       });
                     },
                   ),
@@ -1255,9 +1274,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           options: locationProvider.countries,
                           label: 'Select Country',
                           selectedValue: _selectedCountry,
-                          isDisabled:
-                              _selectedCountry !=
-                              null, // Disable if country is set
+                          // Allow changing country even if one is set
                           onChanged: (value) {
                             setState(() {
                               _selectedCountry = value;
@@ -1281,8 +1298,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       width: 24,
                                       height: 24,
                                       placeholderBuilder:
-                                          (_) =>
-                                              SizedBox(width: 24, height: 24),
+                                          (_) => const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                          ),
                                     ),
                                   const SizedBox(width: 8),
                                   Text(country.name),
@@ -1301,14 +1320,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Colors.black87,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
+                        // Ensure options are not null and handle loading/error states
+                        final List<String> stateOptions =
+                            locationProvider.states.map((s) => s.name).toList();
+
                         if (_selectedCountry == null ||
                             locationProvider.countries.isEmpty) {
                           return CustomDropdown(
                             label: 'Select your state',
-                            options: const [],
+                            options:
+                                const [], // Empty options if no country selected
                             selectedValue: null,
                             onChanged: (_) {},
                             isDisabled: true,
@@ -1323,10 +1347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         }
                         return CustomDropdown(
                           label: 'Select your state',
-                          options:
-                              locationProvider.states
-                                  .map((s) => s.name)
-                                  .toList(),
+                          options: stateOptions,
                           selectedValue: _selectedState,
                           onChanged: (value) {
                             setState(() {
@@ -1334,9 +1355,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               _isDirty = true;
                             });
                           },
-                          isDisabled:
-                              _selectedState != null &&
-                              _selectedState!.isNotEmpty,
+                          // Allow changing state even if one is set
+                          isDisabled: false,
                         );
                       },
                     ),
@@ -1382,7 +1402,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 CustomButton(
                   widget:
                       userProvider.isLoading
-                          ? CircularProgressIndicator()
+                          ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          )
                           : const Text(
                             'Save Profile',
                             style: TextStyle(
