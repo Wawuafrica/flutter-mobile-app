@@ -115,7 +115,7 @@ class PusherService {
     try {
       await dotenv.load();
       final appKey = dotenv.env['PUSHER_APP_KEY'];
-      final cluster = dotenv.env['PUSHER_CLUSTER'] ?? 'eu';
+      final cluster = dotenv.env['PUSHER_CLUSTER'];
       final authEndpoint =
           dotenv.env['PUSHER_AUTH_ENDPOINT'] ??
           'https://your-backend.com/pusher/auth';
@@ -124,6 +124,10 @@ class PusherService {
         throw Exception(
           'PusherService: PUSHER_APP_KEY is not set in .env file',
         );
+      }
+
+      if (cluster == null || cluster.isEmpty) {
+        throw Exception('PusherService: Cluster not set in env');
       }
 
       if (kIsWeb) {

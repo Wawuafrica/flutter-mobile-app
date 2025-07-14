@@ -9,7 +9,7 @@ class BlockedAccountOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.black54,
+      color: Colors.black54.withValues(alpha: 0.7),
       child: Center(
         child: Container(
           margin: const EdgeInsets.all(24),

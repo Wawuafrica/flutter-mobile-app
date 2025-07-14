@@ -589,24 +589,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 8),
+                Text(
+                  education.courseOfStudy ?? 'N/A',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text(
-                      education.courseOfStudy ?? 'N/A',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Text(
-                      ' | ',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                     Text(
                       '${education.startDate ?? 'N/A'} - ${education.endDate ?? 'N/A'}',
                       style: const TextStyle(
@@ -1236,7 +1229,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(skill),
+                                Text(
+                                  skill,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                                 const SizedBox(width: 5),
                                 GestureDetector(
                                   onTap: () {

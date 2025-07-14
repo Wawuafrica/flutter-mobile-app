@@ -37,7 +37,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Import your new screens
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
-import 'package:wawu_mobile/widgets/in_app_notifications.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/account_type/account_type.dart';
 import 'package:wawu_mobile/screens/category_selection/category_selection.dart';
@@ -263,13 +262,9 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isInitialized = false;
   Widget? _currentScreen;
-  bool _isRefreshingData = false;
-  Timer? _reconnectionDebouncer;
 
   // Tracks if the "No internet connection" notification is currently shown
   bool _isOfflineNotificationShown = false;
-  // Tracks if the "You're back online!" notification has been shown recently
-  bool _hasShownReconnectionNotification = false;
 
   @override
   void initState() {
@@ -401,400 +396,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  // --- Network Connection Handling ---
-
+  // --- Simple Network Connection Handling ---
   void _handleNetworkStatusChange(NetworkStatusProvider networkStatus) {
     if (!_isInitialized) return; // Only process after initial app load
 
-    if (!networkStatus.isOnline && _isOfflineNotificationShown == false) {
-      // Show "No internet" if currently online and not already shown
+    if (!networkStatus.isOnline && !_isOfflineNotificationShown) {
+      // Show "No internet" banner
       setState(() {
         _isOfflineNotificationShown = true;
       });
       _logger.i(
         'MyApp: Network went offline. Displaying "No internet" banner.',
       );
-      // Cancel any pending reconnection debouncer if we go offline
-      _reconnectionDebouncer?.cancel();
-      _isRefreshingData = false; // Reset refresh flag
-      _hasShownReconnectionNotification =
-          false; // Allow reconnection notification to show again
-    } else if (networkStatus.isOnline && networkStatus.wasOffline) {
-      // Network reconnected (was offline, now online)
-      _logger.d(
-        'MyApp: Network status indicates reconnection (was offline, now online).',
-      );
-      if (_isOfflineNotificationShown) {
-        setState(() {
-          _isOfflineNotificationShown = false;
-        });
-        _logger.i('MyApp: Network reconnected. Hiding "No internet" banner.');
-      }
-      _handleNetworkReconnection();
-    } else if (networkStatus.isOnline &&
-        !networkStatus.wasOffline &&
-        _isOfflineNotificationShown) {
-      // Case where it comes online but wasn't explicitly "offline" (e.g., initial load was offline)
-      // Hide the banner if it's showing and we're online
+    } else if (networkStatus.isOnline && _isOfflineNotificationShown) {
+      // Hide "No internet" banner when back online
       setState(() {
         _isOfflineNotificationShown = false;
       });
-      _logger.i(
-        'MyApp: Network is online. Hiding "No internet" banner if shown.',
-      );
-    }
-  }
-
-  void _handleNetworkReconnection() {
-    _reconnectionDebouncer?.cancel(); // Cancel any existing debouncer
-
-    _reconnectionDebouncer = Timer(const Duration(seconds: 3), () {
-      // Debounce for 3 seconds to ensure stable connection
-      if (!mounted) return;
-
-      if (!_isRefreshingData) {
-        _isRefreshingData = true;
-        _hasShownReconnectionNotification = false;
-        _showReconnectionNotification(); // Show notification
-        _logger.i(
-          'MyApp: Network reconnected. Re-engaging services and refreshing data...',
-        );
-
-        _handlePusherReconnection();
-
-        _refreshProvidersOptimized().whenComplete(() {
-          if (mounted) {
-            _isRefreshingData = false;
-            _logger.i(
-              'MyApp: Network reconnection and data refresh process completed.',
-            );
-          }
-        });
-      }
-    });
-  }
-
-  void _showReconnectionNotification() {
-    if (_hasShownReconnectionNotification) return;
-
-    // _hasShownReconnectionNotification = true;
-
-    if (mounted) {
-      showNotification(
-        "✨ You're back online! Wawu is syncing your world. ✨",
-        context,
-        backgroundColor: Colors.green,
-        textStyle: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      );
-    }
-
-    Timer(const Duration(seconds: 5), () {
-      if (mounted) {
-        _hasShownReconnectionNotification = false;
-      }
-    });
-  }
-
-  void _handlePusherReconnection() {
-    if (widget.pusherService.isInitialized) {
-      _logger.d(
-        'MyApp: PusherService is initialized, calling resubscribeToChannels.',
-      );
-      try {
-        widget.pusherService.resubscribeToChannels();
-      } catch (e) {
-        _logger.e('MyApp: Error resubscribing to Pusher channels: $e');
-      }
-    } else {
-      _logger.w(
-        'MyApp: PusherService is not initialized. Attempting to re-initialize.',
-      );
-      widget.pusherService
-          .initialize()
-          .then((_) {
-            _logger.i(
-              'MyApp: PusherService successfully re-initialized after network recovery.',
-            );
-          })
-          .catchError((e) {
-            _logger.e(
-              'MyApp: Failed to re-initialize PusherService on network recovery: $e',
-            );
-          });
-    }
-  }
-
-  Future<void> _refreshProvidersOptimized() async {
-    if (!mounted) return;
-
-    _logger.i(
-      'MyApp: Starting optimized data refresh after network reconnection',
-    );
-
-    final List<Future<void> Function()> refreshTasks = [
-      () => _refreshUserProviderSafe(),
-      () => _refreshMessageProviderSafe(),
-      () => _refreshCategoryProviderSafe(),
-      () => _refreshBlogProviderSafe(),
-      () => _refreshProductProviderSafe(),
-      () => _refreshPlanProviderSafe(),
-      () => _refreshDropdownProviderSafe(),
-      () => _refreshGigProviderSafe(),
-      () => _refreshAdProviderSafe(),
-      () => _refreshNotificationProviderSafe(),
-      () => _refreshLocationProviderSafe(),
-      () => _refreshSkillProviderSafe(),
-      () => _refreshLinksProviderSafe(),
-    ];
-
-    for (var task in refreshTasks) {
-      if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 50));
-      await task();
-    }
-
-    _logger.i('MyApp: Optimized provider refresh completed successfully');
-  }
-
-  Future<void> _refreshLocationProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final locationProvider = Provider.of<LocationProvider>(
-        context,
-        listen: false,
-      );
-      await locationProvider.fetchCountries();
-      _logger.d('MyApp: LocationProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing LocationProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshSkillProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final skillProvider = Provider.of<SkillProvider>(context, listen: false);
-      await skillProvider.fetchSkills();
-      _logger.d('MyApp: SkillProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing SkillProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshLinksProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final linksProvider = Provider.of<LinksProvider>(context, listen: false);
-      await linksProvider.fetchLinks();
-      _logger.d('MyApp: LinksProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing LinksProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshUserProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final currentUser = userProvider.currentUser;
-      if (currentUser != null && currentUser.uuid.isNotEmpty) {
-        await userProvider
-            .fetchUserById(currentUser.uuid)
-            .timeout(const Duration(seconds: 10));
-        _logger.d('MyApp: UserProvider refreshed successfully');
-      }
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing UserProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshMessageProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final messageProvider = Provider.of<MessageProvider>(
-        context,
-        listen: false,
-      );
-      await messageProvider.fetchConversations().timeout(
-        const Duration(seconds: 15),
-      );
-      _logger.d('MyApp: MessageProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing MessageProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshCategoryProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final categoryProvider = Provider.of<CategoryProvider>(
-        context,
-        listen: false,
-      );
-      await categoryProvider.fetchCategories().timeout(
-        const Duration(seconds: 10),
-      );
-      _logger.d('MyApp: CategoryProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing CategoryProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshBlogProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final blogProvider = Provider.of<BlogProvider>(context, listen: false);
-      await blogProvider
-          .fetchPosts(refresh: true)
-          .timeout(const Duration(seconds: 15));
-      _logger.d('MyApp: BlogProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing BlogProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshProductProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final productProvider = Provider.of<ProductProvider>(
-        context,
-        listen: false,
-      );
-      await Future.wait([
-        productProvider.fetchFeaturedProducts().timeout(
-          const Duration(seconds: 10),
-        ),
-        productProvider
-            .fetchProducts(refresh: true)
-            .timeout(const Duration(seconds: 15)),
-      ], eagerError: false);
-      _logger.d('MyApp: ProductProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing ProductProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshPlanProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final planProvider = Provider.of<PlanProvider>(context, listen: false);
-      await planProvider.fetchAllPlans().timeout(const Duration(seconds: 10));
-      _logger.d('MyApp: PlanProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing PlanProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshDropdownProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final dropdownProvider = Provider.of<DropdownDataProvider>(
-        context,
-        listen: false,
-      );
-      await dropdownProvider.fetchDropdownData().timeout(
-        const Duration(seconds: 10),
-      );
-      _logger.d('MyApp: DropdownDataProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing DropdownDataProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshGigProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final gigProvider = Provider.of<GigProvider>(context, listen: false);
-      await gigProvider.fetchGigs().timeout(const Duration(seconds: 15));
-      _logger.d('MyApp: GigProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing GigProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshAdProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final adProvider = Provider.of<AdProvider>(context, listen: false);
-      await adProvider.refresh().timeout(const Duration(seconds: 10));
-      _logger.d('MyApp: AdProvider refreshed successfully');
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing AdProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
-
-  Future<void> _refreshNotificationProviderSafe() async {
-    if (!mounted) return;
-    try {
-      final notificationProvider = Provider.of<NotificationProvider>(
-        context,
-        listen: false,
-      );
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final currentUser = userProvider.currentUser;
-      if (currentUser != null && currentUser.uuid.isNotEmpty) {
-        await notificationProvider.refreshNotifications().timeout(
-          const Duration(seconds: 10),
-        );
-        _logger.d('MyApp: NotificationProvider refreshed successfully');
-      }
-    } catch (e, st) {
-      _logger.e(
-        'MyApp: Error refreshing NotificationProvider: $e',
-        error: e,
-        stackTrace: st,
-      );
+      _logger.i('MyApp: Network is back online. Hiding "No internet" banner.');
     }
   }
 
@@ -802,7 +421,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     _logger.d('MyApp: Disposing of WidgetsBindingObserver.');
     WidgetsBinding.instance.removeObserver(this);
-    _reconnectionDebouncer?.cancel();
     super.dispose();
   }
 
@@ -811,8 +429,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _logger.d('MyApp: App lifecycle state changed to: $state');
     if (state == AppLifecycleState.resumed) {
       _logger.i('MyApp: App resumed.');
-      // The NetworkStatusProvider will automatically handle connectivity checks
-      // and trigger the reconnection logic via the Consumer if needed.
     }
   }
 
@@ -834,17 +450,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ),
           home: Consumer<NetworkStatusProvider>(
             builder: (context, networkStatus, child) {
-              // Trigger network status handling logic
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                _handleNetworkStatusChange(networkStatus);
-              });
+              // Handle network status changes
+              _handleNetworkStatusChange(networkStatus);
 
               return Stack(
                 children: [
                   _isInitialized && _currentScreen != null
                       ? _currentScreen!
                       : const SplashScreen(),
-                  // Only show the "No internet connection" banner if it's explicitly marked to be shown
+                  // Show "No internet connection" banner when offline
                   if (_isOfflineNotificationShown)
                     Positioned(
                       top: 0,
@@ -917,7 +531,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         const ResponsiveBreakpoint.resize(1200, name: DESKTOP),
       ],
       // Enable default scaling behavior
-      // defaultScale: true,
+      defaultScale: true,
 
       // Set minimum width to handle very small screens
       minWidth: 300,

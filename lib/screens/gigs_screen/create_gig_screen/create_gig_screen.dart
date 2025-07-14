@@ -263,7 +263,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
 
     final gigProvider = Provider.of<GigProvider>(context, listen: false);
 
-    // Validation
+    // Validation for required fields
     if (_titleController.text.trim().isEmpty ||
         _descriptionController.text.trim().isEmpty ||
         _keywordsController.text.trim().isEmpty ||
@@ -275,6 +275,19 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         context,
         message:
             'Please fill all required fields, upload at least 3 photos, and set prices.',
+        isError: true,
+      );
+      return;
+    }
+
+    // Validation for at least one feature across all packages
+    bool hasAtLeastOneFeature = _packages.any(
+      (pkg) => pkg['features'] != null && (pkg['features'] as List).isNotEmpty,
+    );
+    if (!hasAtLeastOneFeature) {
+      CustomSnackBar.show(
+        context,
+        message: 'Please add at least one feature to any of your packages.',
         isError: true,
       );
       return;
@@ -487,19 +500,30 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           ),
         );
 
-        for (int j = 0; j < pkg['features'].length; j++) {
+        // Ensure the 'features' field is always included, even if the list is empty.
+        // The backend expects this field to be present.
+        if (pkg['features'].isEmpty) {
           formData.fields.add(
             MapEntry(
-              'pricing[${i + 1}][features][${j + 1}][name]',
-              pkg['features'][j]['name'],
-            ),
+              'pricing[${i + 1}][features]',
+              '',
+            ), // Send an empty string for the field
           );
-          formData.fields.add(
-            MapEntry(
-              'pricing[${i + 1}][features][${j + 1}][value]',
-              pkg['features'][j]['value'],
-            ),
-          );
+        } else {
+          for (int j = 0; j < pkg['features'].length; j++) {
+            formData.fields.add(
+              MapEntry(
+                'pricing[${i + 1}][features][${j + 1}][name]',
+                pkg['features'][j]['name'],
+              ),
+            );
+            formData.fields.add(
+              MapEntry(
+                'pricing[${i + 1}][features][${j + 1}][value]',
+                pkg['features'][j]['value'],
+              ),
+            );
+          }
         }
       }
 
@@ -740,7 +764,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
             child: Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 14),
             ),
           ),
         ),
@@ -775,10 +799,10 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 4,
                             ),
-                            hintStyle: const TextStyle(fontSize: 10),
+                            hintStyle: const TextStyle(fontSize: 14),
                           ),
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: 14),
                           onChanged: (_) => _updatePackages(),
                         ),
                       ),

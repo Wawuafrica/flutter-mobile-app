@@ -255,14 +255,74 @@ class MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildNotificationsButton() {
-    return Consumer<NotificationProvider>(
-      builder: (context, notificationProvider, _) {
+    return Consumer2<NotificationProvider, UserProvider>(
+      builder: (context, notificationProvider, userProvider, _) {
         final unreadCount = notificationProvider.unreadCount;
         final hasUnread = unreadCount > 0;
+        if (notificationProvider.notifications.isEmpty) {
+          notificationProvider.fetchNotifications(
+            userProvider.currentUser!.uuid,
+          );
+          return Container(
+            decoration: BoxDecoration(
+              color: wawuColors.purpleDarkestContainer,
+              shape: BoxShape.circle,
+            ),
+            margin: const EdgeInsets.only(right: 10),
+            height: 36,
+            width: 36,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.notifications,
+                    size: 17,
+                    color: Colors.white,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const Notifications(),
+                      ),
+                    );
+                  },
+                ),
+                if (hasUnread)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: wawuColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        unreadCount > 9 ? '9+' : '$unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          height: 1,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        }
 
         return Container(
           decoration: BoxDecoration(
-            color: wawuColors.purpleDarkContainer,
+            color: wawuColors.purpleDarkestContainer,
             shape: BoxShape.circle,
           ),
           margin: const EdgeInsets.only(right: 10),
@@ -288,27 +348,29 @@ class MainScreenState extends State<MainScreen> {
               ),
               if (hasUnread)
                 Positioned(
-                  right: 2,
-                  top: 2,
+                  right: -2,
+                  top: -2,
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
-                      color: wawuColors.buttonSecondary,
+                      color: wawuColors.primary,
                       shape: BoxShape.circle,
                     ),
                     constraints: const BoxConstraints(
                       minWidth: 16,
                       minHeight: 16,
                     ),
-                    child: Text(
-                      unreadCount > 9 ? '9+' : '$unreadCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 8,
-                        height: 1,
-                        fontWeight: FontWeight.bold,
+                    child: Center(
+                      child: Text(
+                        unreadCount > 9 ? '9+' : '$unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          height: 1,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),

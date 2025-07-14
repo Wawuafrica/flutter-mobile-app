@@ -1,5 +1,21 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import '../services/auth_service.dart';
+
+// Custom exception for API errors
+class ApiException implements Exception {
+  final String message;
+  final int? statusCode;
+  final dynamic responseData;
+
+  ApiException(this.message, {this.statusCode, this.responseData});
+
+  @override
+  String toString() {
+    return '$message (Status: $statusCode)';
+  }
+}
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -36,6 +52,7 @@ class ApiService {
         'channel': 'user',
         ...?defaultHeaders,
       },
+      // Keep validateStatus to throw for 5xx errors, but handle them in _handleError
       validateStatus: (status) => status! < 500,
     );
 
@@ -61,9 +78,10 @@ class ApiService {
               }
             } catch (e) {
               // Token refresh failed, let the error propagate
+              // The _handleError will catch this as a DioException and rethrow ApiException
             }
           }
-
+          // If not a 401 or refresh failed, let the error propagate to _handleError
           return handler.next(error);
         },
       ),
@@ -126,8 +144,8 @@ class ApiService {
       }
       return response.data as T;
     } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
+      _handleError(e); // This will now rethrow ApiException
+      rethrow; // This rethrows the ApiException from _handleError
     }
   }
 
@@ -151,8 +169,8 @@ class ApiService {
       }
       return response.data as T;
     } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
+      _handleError(e); // This will now rethrow ApiException
+      rethrow; // This rethrows the ApiException from _handleError
     }
   }
 
@@ -176,8 +194,8 @@ class ApiService {
       }
       return response.data as T;
     } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
+      _handleError(e); // This will now rethrow ApiException
+      rethrow; // This rethrows the ApiException from _handleError
     }
   }
 
@@ -201,8 +219,8 @@ class ApiService {
       }
       return response.data as T;
     } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
+      _handleError(e); // This will now rethrow ApiException
+      rethrow; // This rethrows the ApiException from _handleError
     }
   }
 
@@ -226,29 +244,35 @@ class ApiService {
       }
       return response.data as T;
     } on DioException catch (e) {
-      _handleError(e);
-      rethrow;
+      _handleError(e); // This will now rethrow ApiException
+      rethrow; // This rethrows the ApiException from _handleError
     }
   }
 
   void _handleError(DioException error) {
     String message;
+    int? statusCode = error.response?.statusCode;
+    dynamic responseData = error.response?.data;
+
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
         message =
             'Connection timed out. Please check your internet connection.';
         break;
-      case DioExceptionType.sendTimeout:
-        message = 'Request send timed out.';
-        break;
-      case DioExceptionType.receiveTimeout:
-        message = 'Response receive timed out.';
-        break;
       case DioExceptionType.badResponse:
-        message = 'Bad Response';
+        // Extract specific error message from backend response if available
+        if (responseData is Map && responseData.containsKey('message')) {
+          message = responseData['message'].toString();
+        } else if (responseData is String && responseData.isNotEmpty) {
+          message = responseData; // Sometimes response data is a plain string
+        } else {
+          message = 'Server error: ${statusCode ?? 'Unknown'}';
+        }
         break;
       case DioExceptionType.cancel:
-        message = 'Request was cancelled';
+        message = 'Request was cancelled.';
         break;
       case DioExceptionType.connectionError:
         message =
@@ -256,11 +280,22 @@ class ApiService {
         break;
       case DioExceptionType.unknown:
       default:
-        message = 'An unexpected error occurred';
+        // Fallback for other unknown Dio errors or if response data is not helpful
+        message = 'An unexpected error occurred. Please try again.';
+        if (error.error is SocketException) {
+          message = 'No internet connection. Please check your network.';
+        }
         break;
     }
 
-    // You can add your error handling/logging logic here
-    print('API Error: $message');
+    // Log the error for debugging
+    print('API Error: $message (Status: $statusCode, Data: $responseData)');
+
+    // Rethrow a custom ApiException with the extracted message and status code
+    throw ApiException(
+      message,
+      statusCode: statusCode,
+      responseData: responseData,
+    );
   }
 }
