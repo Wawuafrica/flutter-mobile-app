@@ -7,9 +7,11 @@ import 'package:wawu_mobile/models/message.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/pusher_service.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/providers/base_provider.dart'; // Import BaseProvider
 import 'package:path/path.dart' as path;
 
-class MessageProvider extends ChangeNotifier {
+// MessageProvider now extends BaseProvider for standardized state management.
+class MessageProvider extends BaseProvider {
   final ApiService _apiService;
   final PusherService _pusherService;
   final UserProvider _userProvider;
@@ -18,9 +20,10 @@ class MessageProvider extends ChangeNotifier {
   List<Message> _currentMessages = [];
   String _currentConversationId = '';
   String _currentRecipientId = '';
-  bool _isLoading = false;
-  bool _hasError = false;
-  String? _errorMessage;
+  // Removed _isLoading, _hasError, _errorMessage fields as BaseProvider handles them.
+  // bool _isLoading = false;
+  // bool _hasError = false;
+  // String? _errorMessage;
   final Set<String> _subscribedChatChannels = {};
   final Map<String, bool> _boundEvents = {};
   final Map<String, ChatUser> _userProfileCache = {};
@@ -37,39 +40,18 @@ class MessageProvider extends ChangeNotifier {
   List<Message> get currentMessages => _currentMessages;
   String get currentConversationId => _currentConversationId;
   String get currentRecipientId => _currentRecipientId;
-  bool get isLoading => _isLoading;
-  bool get hasError => _hasError;
-  String? get errorMessage => _errorMessage;
 
   ChatUser? getCachedUserProfile(String userId) {
     return _userProfileCache[userId];
   }
 
+  // _safeNotifyListeners is still useful for state changes not managed by BaseProvider methods,
+  // or for ensuring listeners are notified when BaseProvider's notifyListeners might not be called
+  // (e.g., if _state doesn't change but other data does).
   void _safeNotifyListeners() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       notifyListeners();
     });
-  }
-
-  void setLoading() {
-    _isLoading = true;
-    _hasError = false;
-    _errorMessage = null;
-    _safeNotifyListeners();
-  }
-
-  void setError(String message) {
-    _isLoading = false;
-    _hasError = true;
-    _errorMessage = message;
-    _safeNotifyListeners();
-  }
-
-  void setSuccess() {
-    _isLoading = false;
-    _hasError = false;
-    _errorMessage = null;
-    _safeNotifyListeners();
   }
 
   // New method to mark messages as read
@@ -111,11 +93,12 @@ class MessageProvider extends ChangeNotifier {
 
     if (changed) {
       _safeNotifyListeners();
+      setSuccess(); // Notify BaseProvider listeners that data has been updated successfully
     }
   }
 
   Future<void> fetchConversations() async {
-    setLoading();
+    setLoading(); // Use BaseProvider's setLoading
     try {
       final response = await _apiService.get('/chats');
 
@@ -151,12 +134,16 @@ class MessageProvider extends ChangeNotifier {
           await _subscribeToMessages(conversation.id);
         }
 
-        setSuccess();
+        setSuccess(); // Use BaseProvider's setSuccess
       } else {
-        setError(response['message'] ?? 'Failed to fetch conversations');
+        setError(
+          response['message'] ?? 'Failed to fetch conversations',
+        ); // Use BaseProvider's setError
       }
     } catch (e) {
-      setError('Error fetching conversations: $e');
+      setError(
+        'Error fetching conversations: ${e.toString()}',
+      ); // Use BaseProvider's setError
     }
   }
 
@@ -176,8 +163,16 @@ class MessageProvider extends ChangeNotifier {
       if (success) {
         _subscribedChatChannels.add(globalChannelName);
         await _bindToGlobalChatEvents(globalChannelName);
+      } else {
+        setError(
+          'Failed to subscribe to global chat channel: $globalChannelName',
+        ); // Report error
       }
-    } catch (e) {}
+    } catch (e) {
+      setError(
+        'Error subscribing to global chat events: ${e.toString()}',
+      ); // Report error
+    }
   }
 
   Future<void> _bindToGlobalChatEvents(String channelName) async {
@@ -190,7 +185,11 @@ class MessageProvider extends ChangeNotifier {
         _handleNewChatCreatedEvent(event);
       });
       _boundEvents[eventKey] = true;
-    } catch (e) {}
+    } catch (e) {
+      setError(
+        'Error binding to global chat events: ${e.toString()}',
+      ); // Report error
+    }
   }
 
   void _handleNewChatCreatedEvent(dynamic event) {
@@ -222,8 +221,13 @@ class MessageProvider extends ChangeNotifier {
         }
         _subscribeToMessages(newConvWithReadStatus.id);
         _safeNotifyListeners();
+        setSuccess(); // Notify BaseProvider listeners about the new conversation
       }
-    } catch (e) {}
+    } catch (e) {
+      setError(
+        'Error handling new chat created event: ${e.toString()}',
+      ); // Report error
+    }
   }
 
   Future<void> _fetchAndCacheUserProfile(String userId) async {
@@ -245,8 +249,13 @@ class MessageProvider extends ChangeNotifier {
           name: '${user.firstName} ${user.lastName}',
           avatar: user.profileImage ?? '',
         );
+        setSuccess(); // Indicate success for caching profile
       }
-    } catch (e) {}
+    } catch (e) {
+      setError(
+        'Error fetching and caching user profile: ${e.toString()}',
+      ); // Report error
+    }
   }
 
   Future<void> startConversation(
@@ -254,7 +263,7 @@ class MessageProvider extends ChangeNotifier {
     String recipientId, [
     String? initialMessage,
   ]) async {
-    setLoading();
+    setLoading(); // Use BaseProvider's setLoading
     try {
       await _fetchAndCacheUserProfile(recipientId);
       final existingConversation = _allConversations.firstWhere(
@@ -279,7 +288,7 @@ class MessageProvider extends ChangeNotifier {
             content: initialMessage,
           );
         }
-        setSuccess();
+        setSuccess(); // Use BaseProvider's setSuccess
         return;
       }
 
@@ -310,18 +319,22 @@ class MessageProvider extends ChangeNotifier {
           await _fetchMessages(newConversation.id);
         }
 
-        setSuccess();
+        setSuccess(); // Use BaseProvider's setSuccess
         _safeNotifyListeners();
       } else {
-        setError(response['message'] ?? 'Failed to create conversation');
+        setError(
+          response['message'] ?? 'Failed to create conversation',
+        ); // Use BaseProvider's setError
       }
     } catch (e) {
-      setError('Error starting conversation: $e');
+      setError(
+        'Error starting conversation: ${e.toString()}',
+      ); // Use BaseProvider's setError
     }
   }
 
   Future<void> _fetchMessages(String conversationId) async {
-    setLoading();
+    setLoading(); // Use BaseProvider's setLoading
     try {
       final response = await _apiService.get(
         '/chats/$conversationId/messages',
@@ -360,13 +373,17 @@ class MessageProvider extends ChangeNotifier {
           _allConversations[convIndex] = updatedConversation;
         }
 
-        setSuccess();
+        setSuccess(); // Use BaseProvider's setSuccess
         _safeNotifyListeners();
       } else {
-        setError(response['message'] ?? 'Failed to fetch messages');
+        setError(
+          response['message'] ?? 'Failed to fetch messages',
+        ); // Use BaseProvider's setError
       }
     } catch (e) {
-      setError('Error fetching messages: $e');
+      setError(
+        'Error fetching messages: ${e.toString()}',
+      ); // Use BaseProvider's setError
     }
   }
 
@@ -381,8 +398,16 @@ class MessageProvider extends ChangeNotifier {
       if (success) {
         _subscribedChatChannels.add(channelName);
         await _bindToMessageEvents(channelName, conversationId);
+      } else {
+        setError(
+          'Failed to subscribe to message channel: $channelName',
+        ); // Report error
       }
-    } catch (e) {}
+    } catch (e) {
+      setError(
+        'Error subscribing to messages: ${e.toString()}',
+      ); // Report error
+    }
   }
 
   Future<void> _bindToMessageEvents(
@@ -398,7 +423,11 @@ class MessageProvider extends ChangeNotifier {
         _handleNewMessageEvent(event, conversationId);
       });
       _boundEvents[eventKey] = true;
-    } catch (e) {}
+    } catch (e) {
+      setError(
+        'Error binding to message events: ${e.toString()}',
+      ); // Report error
+    }
   }
 
   void _handleNewMessageEvent(dynamic event, String conversationId) {
@@ -444,6 +473,7 @@ class MessageProvider extends ChangeNotifier {
         }
         _currentMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
         _safeNotifyListeners();
+        setSuccess(); // Notify BaseProvider listeners about the new message
       }
 
       final convIndex = _allConversations.indexWhere(
@@ -476,8 +506,13 @@ class MessageProvider extends ChangeNotifier {
         _allConversations.removeAt(convIndex);
         _allConversations.insert(0, updatedConversation);
         _safeNotifyListeners();
+        setSuccess(); // Notify BaseProvider listeners about the conversation update
       }
-    } catch (e) {}
+    } catch (e) {
+      setError(
+        'Error handling new message event: ${e.toString()}',
+      ); // Report error
+    }
   }
 
   Future<Message?> sendMessage({
@@ -487,7 +522,7 @@ class MessageProvider extends ChangeNotifier {
     String? mediaFilePath,
     String? mediaType,
   }) async {
-    setLoading();
+    setLoading(); // Use BaseProvider's setLoading
     String targetConversationId = '';
     final timestamp = DateTime.now();
 
@@ -501,26 +536,36 @@ class MessageProvider extends ChangeNotifier {
     if (conversation.id.isNotEmpty) {
       targetConversationId = conversation.id;
     } else {
-      final response = await _apiService.post(
-        '/chats',
-        data: {
-          'participant_ids': [senderId, receiverId],
-        },
-        options: Options(headers: {'Api-Token': '{{api_token}}'}),
-      );
-
-      if (response['statusCode'] == 200 && response.containsKey('data')) {
-        final newConversation = Conversation.fromJson(
-          response['data'] as Map<String, dynamic>,
+      try {
+        final response = await _apiService.post(
+          '/chats',
+          data: {
+            'participant_ids': [senderId, receiverId],
+          },
+          options: Options(headers: {'Api-Token': '{{api_token}}'}),
         );
-        _allConversations.insert(0, newConversation);
-        targetConversationId = newConversation.id;
-        _currentConversationId = newConversation.id;
-        _currentRecipientId = receiverId;
-        await _subscribeToMessages(newConversation.id);
-        _safeNotifyListeners();
-      } else {
-        setError(response['message'] ?? 'Failed to create conversation');
+
+        if (response['statusCode'] == 200 && response.containsKey('data')) {
+          final newConversation = Conversation.fromJson(
+            response['data'] as Map<String, dynamic>,
+          );
+          _allConversations.insert(0, newConversation);
+          targetConversationId = newConversation.id;
+          _currentConversationId = newConversation.id;
+          _currentRecipientId = receiverId;
+          await _subscribeToMessages(newConversation.id);
+          _safeNotifyListeners();
+          setSuccess(); // Indicate success for conversation creation
+        } else {
+          setError(
+            response['message'] ?? 'Failed to create conversation',
+          ); // Use BaseProvider's setError
+          return null;
+        }
+      } catch (e) {
+        setError(
+          'Error creating conversation: ${e.toString()}',
+        ); // Use BaseProvider's setError
         return null;
       }
     }
@@ -548,6 +593,7 @@ class MessageProvider extends ChangeNotifier {
     if (existingMessageIndex == -1) {
       _currentMessages.add(pendingMessage);
       _safeNotifyListeners();
+      setSuccess(); // Indicate success for adding pending message
     }
 
     try {
@@ -612,7 +658,7 @@ class MessageProvider extends ChangeNotifier {
           _allConversations.insert(0, updatedConversation);
         }
 
-        setSuccess();
+        setSuccess(); // Use BaseProvider's setSuccess
         _safeNotifyListeners();
         return sentMessageWithStatus;
       } else {
@@ -623,6 +669,9 @@ class MessageProvider extends ChangeNotifier {
           isRead: true, // Still "read" by sender in a failed state
         );
         _currentMessages.add(failedMessage);
+        setError(
+          response['message'] ?? 'Failed to send message',
+        ); // Use BaseProvider's setError
         _safeNotifyListeners();
         return null;
       }
@@ -634,6 +683,9 @@ class MessageProvider extends ChangeNotifier {
         isRead: true, // Still "read" by sender in a failed state
       );
       _currentMessages.add(failedMessage);
+      setError(
+        'Error sending message: ${e.toString()}',
+      ); // Use BaseProvider's setError
       _safeNotifyListeners();
       return null;
     }
@@ -642,6 +694,7 @@ class MessageProvider extends ChangeNotifier {
   void deleteMessage(String messageId) {
     _currentMessages.removeWhere((m) => m.id == messageId);
     _safeNotifyListeners();
+    setSuccess(); // Indicate success for message deletion
   }
 
   Future<void> setCurrentConversation(
@@ -662,6 +715,7 @@ class MessageProvider extends ChangeNotifier {
       await _fetchMessages(conversation.id);
       await _subscribeToMessages(conversation.id);
       _safeNotifyListeners();
+      setSuccess(); // Indicate success for setting current conversation
     }
   }
 
@@ -671,6 +725,7 @@ class MessageProvider extends ChangeNotifier {
       await _pusherService.unsubscribeFromChannel(channelName);
       _subscribedChatChannels.remove(channelName);
       _boundEvents.removeWhere((key, value) => key.startsWith(channelName));
+      setSuccess(); // Indicate success for unsubscribing
     }
   }
 
@@ -681,12 +736,16 @@ class MessageProvider extends ChangeNotifier {
     }
     _subscribedChatChannels.clear();
     _boundEvents.clear();
+    setSuccess(); // Indicate success for unsubscribing from all chats
+  }
+
+  void clearError() {
+    resetState();
   }
 
   @override
   void dispose() {
-    _isLoading = false;
-    _hasError = false;
+    // Removed manual _isLoading = false; _hasError = false; as BaseProvider's dispose handles state reset.
     unsubscribeFromAllChats().then((_) {
       super.dispose();
     });

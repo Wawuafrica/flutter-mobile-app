@@ -53,7 +53,7 @@ class ContactUsScreen extends StatelessWidget {
                           style: TextStyle(fontSize: 11),
                         ),
                         Text(
-                          'Mon-Fri • 9-17',
+                          'Mon-Fri • 9-5',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 11,
@@ -93,7 +93,7 @@ class ContactUsScreen extends StatelessWidget {
                           style: TextStyle(fontSize: 11),
                         ),
                         Text(
-                          'Mon-Fri • 9-17',
+                          'Mon-Fri • 9-5',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 11,

@@ -54,4 +54,8 @@ class DropdownDataProvider extends BaseProvider {
       setError(e.toString());
     }
   }
+
+    void clearError() {
+    resetState();
+  }
 }

@@ -5,6 +5,8 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/gigs_screen/create_gig_screen/create_gig_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class GigsScreen extends StatelessWidget {
   const GigsScreen({super.key});
@@ -75,6 +77,7 @@ class GigTab extends StatefulWidget {
 class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
   bool _isInitialLoad = true;
   bool _isRefreshing = false;
+  bool _hasShownError = false; // Flag to prevent multiple snackbars
 
   @override
   bool get wantKeepAlive => true;
@@ -88,7 +91,11 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _loadGigs() async {
-    if (_isInitialLoad) setState(() => _isInitialLoad = true);
+    // Only set _isInitialLoad to true if it's genuinely the first load
+    // and not a refresh triggered by pull-to-refresh.
+    if (_isInitialLoad) {
+      setState(() => _isInitialLoad = true);
+    }
 
     final gigProvider = Provider.of<GigProvider>(context, listen: false);
     await gigProvider.fetchGigs(status: widget.status);
@@ -96,16 +103,54 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
     if (mounted) {
       setState(() {
         _isInitialLoad = false;
-        _isRefreshing = false;
+        _isRefreshing = false; // Reset refreshing state after load
       });
     }
   }
 
   Future<void> _onRefresh() async {
-    if (_isRefreshing) return;
+    if (_isRefreshing) return; // Prevent multiple refresh calls
 
     setState(() => _isRefreshing = true);
+    // Call _loadGigs, which will internally handle the provider's loading state
     await _loadGigs();
+  }
+
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -114,6 +159,27 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
 
     return Consumer<GigProvider>(
       builder: (context, provider, child) {
+        // Listen for errors from GigProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (provider.hasError &&
+              provider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: provider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                provider.fetchGigs(status: widget.status);
+              },
+            );
+            _hasShownError = true;
+            provider.clearError(); // Clear error state
+          } else if (!provider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
         final gigs = provider.gigsForStatus(widget.status);
         final bool isLoading = provider.isLoading && _isInitialLoad;
 
@@ -126,21 +192,59 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
           );
         }
 
+        // Show full error display if there's an error and no gigs are loaded
+        if (provider.hasError && gigs.isEmpty && !isLoading) {
+          return FullErrorDisplay(
+            errorMessage:
+                provider.errorMessage ??
+                'Failed to load gigs. Please try again.',
+            onRetry: () {
+              provider.fetchGigs(status: widget.status);
+            },
+            onContactSupport: () {
+              _showErrorSupportDialog(
+                context,
+                'If this problem persists, please contact our support team. We are here to help!',
+              );
+            },
+          );
+        }
+
         // Show empty state
         if (gigs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          return RefreshIndicator(
+            onRefresh: _onRefresh,
+            color: wawuColors.primary,
+            child: Stack(
               children: [
-                const Text(
-                  'No gigs found',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: _onRefresh,
-                  icon: const Icon(Icons.refresh, size: 20),
-                  label: const Text('Refresh'),
+                ListView(), // Needed for the indicator to work with RefreshIndicator
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.sentiment_dissatisfied_outlined,
+                        size: 48,
+                        color: Colors.grey[400],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        widget.status == null
+                            ? 'No gigs available yet.'
+                            : 'No ${widget.status?.toLowerCase()} gigs found.',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Pull down to refresh or create a new gig.',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -148,12 +252,12 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
         }
 
         // Show content with pull-to-refresh
-        return Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: _onRefresh,
-              color: wawuColors.primary,
-              child: ListView.builder(
+        return RefreshIndicator(
+          onRefresh: _onRefresh,
+          color: wawuColors.primary,
+          child: Stack(
+            children: [
+              ListView.builder(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20.0,
                   vertical: 20.0,
@@ -167,26 +271,26 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
                   );
                 },
               ),
-            ),
-            if (_isRefreshing)
-              const Positioned(
-                top: 20.0,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        wawuColors.primary,
+              if (_isRefreshing)
+                const Positioned(
+                  top: 20.0,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          wawuColors.primary,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );

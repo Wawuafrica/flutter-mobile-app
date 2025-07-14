@@ -16,6 +16,8 @@ import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
 import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart'; // Import for CachedNetworkImage
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +29,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
+
+  // Flags to prevent showing multiple snackbars for the same error
+  bool _hasShownAdError = false;
+  bool _hasShownCategoryError = false;
+  bool _hasShownProductError = false;
+  bool _hasShownGigError = false;
 
   @override
   void initState() {
@@ -47,7 +55,10 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
-    // final gigProvider = Provider.of<GigProvider>(context, listen: false); // Uncommmented as per request
+    final gigProvider = Provider.of<GigProvider>(
+      context,
+      listen: false,
+    ); // Uncommented
 
     // Initialize categories
     if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
@@ -66,9 +77,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Fetch recently viewed gigs
-    // if (gigProvider.recentlyViewedGigs.isEmpty && !gigProvider.isRecentlyViewedLoading) {
-    //   gigProvider.fetchRecentlyViewedGigs();
-    // }
+    if (gigProvider.recentlyViewedGigs.isEmpty &&
+        !gigProvider.isRecentlyViewedLoading) {
+      gigProvider.fetchRecentlyViewedGigs();
+    }
   }
 
   Future<void> _refreshData() async {
@@ -82,7 +94,10 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         listen: false,
       );
-      // final gigProvider = Provider.of<GigProvider>(context, listen: false); // Uncommmented as per request
+      // final gigProvider = Provider.of<GigProvider>(
+      //   context,
+      //   listen: false,
+      // ); // Uncommented
 
       // Create a list of futures to run in parallel
       final futures = <Future>[
@@ -90,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
         adProvider
             .refresh(), // Use refresh() instead of fetchAds() to reset state
         productProvider.fetchFeaturedProducts(),
-        // gigProvider.fetchRecentlyViewedGigs(), // Uncommmented as per request
+        // gigProvider.fetchRecentlyViewedGigs(), // Uncommented
       ];
 
       // Wait for all futures to complete
@@ -98,22 +113,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Show success message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Data refreshed successfully'),
-            duration: Duration(seconds: 2),
-          ),
+        CustomSnackBar.show(
+          context,
+          message: 'Data refreshed successfully',
+          isError: false,
         );
       }
     } catch (error) {
       // Show error message
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to refresh data: $error'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
+        CustomSnackBar.show(
+          context,
+          message: 'Failed to refresh data: $error',
+          isError: true,
         );
       }
     }
@@ -122,9 +134,11 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Handle ad tap with improved error handling
   Future<void> _handleAdTap(String adLink) async {
     if (adLink.isEmpty) {
-      ScaffoldMessenger.of(
+      CustomSnackBar.show(
         context,
-      ).showSnackBar(const SnackBar(content: Text('This ad has no link')));
+        message: 'This ad has no link',
+        isError: false, // Informative, not an error
+      );
       return;
     }
 
@@ -134,30 +148,163 @@ class _HomeScreenState extends State<HomeScreen> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open the ad link')),
+          CustomSnackBar.show(
+            context,
+            message: 'Could not open the ad link',
+            isError: true,
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening link: ${e.toString()}')),
+        CustomSnackBar.show(
+          context,
+          message: 'Error opening link: ${e.toString()}',
+          isError: true,
         );
       }
     }
   }
 
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer3<CategoryProvider, UserProvider, ProductProvider>(
+    return Consumer5<
+      CategoryProvider,
+      UserProvider,
+      ProductProvider,
+      GigProvider,
+      AdProvider
+    >(
       builder: (
         context,
         categoryProvider,
         userProvider,
         productProvider,
+        gigProvider,
+        adProvider,
         child,
       ) {
+        // Listen for errors from AdProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (adProvider.hasError &&
+              adProvider.errorMessage != null &&
+              !_hasShownAdError) {
+            CustomSnackBar.show(
+              context,
+              message: adProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                adProvider.fetchAds();
+              },
+            );
+            _hasShownAdError = true;
+            adProvider.clearError(); // Clear error state
+          } else if (!adProvider.hasError && _hasShownAdError) {
+            _hasShownAdError = false;
+          }
+        });
+
+        // Listen for errors from CategoryProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (categoryProvider.hasError &&
+              categoryProvider.errorMessage != null &&
+              !_hasShownCategoryError) {
+            CustomSnackBar.show(
+              context,
+              message: categoryProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                categoryProvider.fetchCategories();
+              },
+            );
+            _hasShownCategoryError = true;
+            categoryProvider.clearError(); // Clear error state
+          } else if (!categoryProvider.hasError && _hasShownCategoryError) {
+            _hasShownCategoryError = false;
+          }
+        });
+
+        // Listen for errors from ProductProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (productProvider.hasError &&
+              productProvider.errorMessage != null &&
+              !_hasShownProductError) {
+            CustomSnackBar.show(
+              context,
+              message: productProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                productProvider.fetchFeaturedProducts();
+              },
+            );
+            _hasShownProductError = true;
+            productProvider.clearError(); // Clear error state
+          } else if (!productProvider.hasError && _hasShownProductError) {
+            _hasShownProductError = false;
+          }
+        });
+
+        // Listen for errors from GigProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (gigProvider.hasError &&
+              gigProvider.errorMessage != null &&
+              !_hasShownGigError) {
+            CustomSnackBar.show(
+              context,
+              message: gigProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                gigProvider.fetchRecentlyViewedGigs();
+              },
+            );
+            _hasShownGigError = true;
+            gigProvider.clearError(); // Clear error state
+          } else if (!gigProvider.hasError && _hasShownGigError) {
+            _hasShownGigError = false;
+          }
+        });
+
         // Asset paths to map to the first three categories (in order)
         final List<String> assetPaths = [
           'assets/images/section/programming.png',
@@ -187,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Consumer<AdProvider>(
                         builder: (context, adProvider, child) {
                           // Loading state
-                          if (adProvider.isLoading) {
+                          if (adProvider.isLoading && adProvider.ads.isEmpty) {
                             return Container(
                               width: double.infinity,
                               height: 250,
@@ -201,50 +348,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                           }
 
-                          // Error state
-                          if (adProvider.errorMessage != null) {
-                            return Container(
-                              width: double.infinity,
-                              height: 250,
-                              decoration: BoxDecoration(
-                                color: wawuColors.borderPrimary.withAlpha(50),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.error_outline,
-                                    color: Colors.red,
-                                    size: 48,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  const Text(
-                                    'Error loading ads',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    adProvider.errorMessage!,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  TextButton(
-                                    onPressed: () {
-                                      adProvider.fetchAds();
-                                    },
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
+                          // Error state with FullErrorDisplay
+                          if (adProvider.hasError &&
+                              adProvider.ads.isEmpty &&
+                              !adProvider.isLoading) {
+                            return FullErrorDisplay(
+                              errorMessage:
+                                  adProvider.errorMessage ??
+                                  'Failed to load ads. Please try again.',
+                              onRetry: () {
+                                adProvider.fetchAds();
+                              },
+                              onContactSupport: () {
+                                _showErrorSupportDialog(
+                                  context,
+                                  'If this problem persists, please contact our support team. We are here to help!',
+                                );
+                              },
                             );
                           }
 
@@ -288,7 +408,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(10),
                                     child: CachedNetworkImage(
-                                      // Replaced Image.network with CachedNetworkImage
                                       imageUrl: ad.media.link,
                                       fit: BoxFit.cover,
                                       placeholder:
@@ -355,44 +474,90 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: double.infinity,
                         height: 160,
                         child:
-                            categoryProvider.isLoading
+                            categoryProvider.isLoading &&
+                                    categoryProvider.categories.isEmpty
                                 ? const Center(
                                   child: CircularProgressIndicator(),
+                                )
+                                : categoryProvider.hasError &&
+                                    categoryProvider.categories.isEmpty &&
+                                    !categoryProvider.isLoading
+                                ? FullErrorDisplay(
+                                  errorMessage:
+                                      categoryProvider.errorMessage ??
+                                      'Failed to load categories. Please try again.',
+                                  onRetry: () {
+                                    categoryProvider.fetchCategories();
+                                  },
+                                  onContactSupport: () {
+                                    _showErrorSupportDialog(
+                                      context,
+                                      'If this problem persists, please contact our support team. We are here to help!',
+                                    );
+                                  },
                                 )
                                 : categoryProvider.categories.isEmpty
                                 ? const Center(
                                   child: Text('No categories available'),
                                 )
-                                : ListView(
+                                : ListView.separated(
+                                  separatorBuilder:
+                                      (context, index) =>
+                                          const SizedBox(width: 10),
                                   scrollDirection: Axis.horizontal,
-                                  children:
+                                  itemCount:
                                       categoryProvider.categories
                                           .take(3)
-                                          .toList()
-                                          .asMap()
-                                          .entries
-                                          .map((entry) {
-                                            final index = entry.key;
-                                            final category = entry.value;
-                                            return ImageTextCard(
-                                              function: () {
-                                                categoryProvider.selectCategory(
-                                                  category,
-                                                );
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder:
-                                                        (context) =>
-                                                            const SubCategoriesAndServices(),
-                                                  ),
-                                                );
-                                              },
-                                              text: category.name,
-                                              asset: assetPaths[index],
-                                            );
-                                          })
-                                          .toList(),
+                                          .length,
+                                  itemBuilder: (context, index) {
+                                    final category =
+                                        categoryProvider.categories[index];
+                                    return ImageTextCard(
+                                      function: () {
+                                        categoryProvider.selectCategory(
+                                          category,
+                                        );
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder:
+                                                (context) =>
+                                                    const SubCategoriesAndServices(),
+                                          ),
+                                        );
+                                      },
+                                      text: category.name,
+                                      asset: assetPaths[index],
+                                    );
+                                  },
+                                  // children:
+                                  //     categoryProvider.categories
+                                  //         .take(3)
+                                  //         .toList()
+                                  //         .asMap()
+                                  //         .entries
+                                  //         .map((entry) {
+                                  //           final index = entry.key;
+                                  //           final category = entry.value;
+                                  //           return ImageTextCard(
+                                  //             function: () {
+                                  //               categoryProvider.selectCategory(
+                                  //                 category,
+                                  //               );
+                                  //               Navigator.push(
+                                  //                 context,
+                                  //                 MaterialPageRoute(
+                                  //                   builder:
+                                  //                       (context) =>
+                                  //                           const SubCategoriesAndServices(),
+                                  //                 ),
+                                  //               );
+                                  //             },
+                                  //             text: category.name,
+                                  //             asset: assetPaths[index],
+                                  //           );
+                                  //         })
+                                  //         .toList(),
                                 ),
                       ),
                       const SizedBox(height: 30),
@@ -413,29 +578,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: double.infinity,
                         height: 180,
                         child:
-                            productProvider.isLoading
+                            productProvider.isLoading &&
+                                    productProvider.featuredProducts.isEmpty
                                 ? const Center(
                                   child: CircularProgressIndicator(),
                                 )
-                                : productProvider.errorMessage != null
-                                ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        'Error loading products',
-                                        style: TextStyle(fontSize: 14),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      TextButton(
-                                        onPressed: () {
-                                          productProvider
-                                              .fetchFeaturedProducts();
-                                        },
-                                        child: const Text('Retry'),
-                                      ),
-                                    ],
-                                  ),
+                                : productProvider.hasError &&
+                                    productProvider.featuredProducts.isEmpty &&
+                                    !productProvider.isLoading
+                                ? FullErrorDisplay(
+                                  errorMessage:
+                                      productProvider.errorMessage ??
+                                      'Failed to load products. Please try again.',
+                                  onRetry: () {
+                                    productProvider.fetchFeaturedProducts();
+                                  },
+                                  onContactSupport: () {
+                                    _showErrorSupportDialog(
+                                      context,
+                                      'If this problem persists, please contact our support team. We are here to help!',
+                                    );
+                                  },
                                 )
                                 : productProvider.featuredProducts.isEmpty
                                 ? const Center(
@@ -464,12 +627,31 @@ class _HomeScreenState extends State<HomeScreen> {
                           debugPrint(
                             '[HomeScreen] Recently Viewed section built. isLoading: ${gigProvider.isRecentlyViewedLoading}, count: ${gigProvider.recentlyViewedGigs.length}',
                           );
-                          if (gigProvider.isRecentlyViewedLoading) {
+                          if (gigProvider.isRecentlyViewedLoading &&
+                              gigProvider.recentlyViewedGigs.isEmpty) {
                             return const Center(
                               child: Padding(
                                 padding: EdgeInsets.symmetric(vertical: 32.0),
                                 child: CircularProgressIndicator(),
                               ),
+                            );
+                          }
+                          if (gigProvider.hasError &&
+                              gigProvider.recentlyViewedGigs.isEmpty &&
+                              !gigProvider.isRecentlyViewedLoading) {
+                            return FullErrorDisplay(
+                              errorMessage:
+                                  gigProvider.errorMessage ??
+                                  'Failed to load recently viewed gigs. Please try again.',
+                              onRetry: () {
+                                gigProvider.fetchRecentlyViewedGigs();
+                              },
+                              onContactSupport: () {
+                                _showErrorSupportDialog(
+                                  context,
+                                  'If this problem persists, please contact our support team. We are here to help!',
+                                );
+                              },
                             );
                           }
                           if (gigProvider.recentlyViewedGigs.isEmpty) {

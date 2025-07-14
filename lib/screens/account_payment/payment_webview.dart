@@ -72,6 +72,17 @@ class _PaymentWebViewState extends State<PaymentWebView> {
                 // Allow all other navigation to proceed normally
                 return NavigationDecision.navigate;
               },
+              // Add onWebResourceError handler for robust error handling
+              onWebResourceError: (WebResourceError error) {
+                _logger.e('Web error: ${error.description}, URL: ${error.url}');
+                if (hasHandledCallback) return; // Prevent multiple calls
+                hasHandledCallback = true;
+
+                _onPaymentFailed(
+                  'Failed to load payment page: ${error.description}',
+                  error.url ?? widget.paymentUrl, // Use error.url if available
+                );
+              },
             ),
           )
           ..loadRequest(Uri.parse(widget.paymentUrl));
@@ -140,6 +151,9 @@ class _PaymentWebViewState extends State<PaymentWebView> {
         } else if (url.toLowerCase().contains('cancel') ||
             url.toLowerCase().contains('fail')) {
           _onPaymentFailed('Payment was not completed', url);
+        } else {
+          // If none of the above, it's an unhandled scenario, treat as failed
+          _onPaymentFailed('Payment status could not be determined.', url);
         }
       }
     });
@@ -230,7 +244,9 @@ class _PaymentWebViewState extends State<PaymentWebView> {
             WebViewWidget(controller: controller),
             if (isLoading)
               Container(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: Colors.white.withAlpha(
+                  200,
+                ), // Adjusted alpha for better visibility
                 child: const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

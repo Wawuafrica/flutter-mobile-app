@@ -15,6 +15,8 @@ import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
 import 'package:wawu_mobile/widgets/upload_pdf/upload_pdf.dart';
 import 'package:wawu_mobile/widgets/upload_video/upload_video.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 enum FetchType { none, categories, subCategories, services }
 
@@ -71,6 +73,9 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
   // FAQ State
   final TextEditingController _questionController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
+
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
 
   @override
   void initState() {
@@ -207,7 +212,50 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         _questionController.clear();
         _answerController.clear();
       });
+    } else {
+      CustomSnackBar.show(
+        context,
+        message: 'Please enter both question and answer for FAQ.',
+        isError: true,
+      );
     }
+  }
+
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _createGig() async {
@@ -223,12 +271,11 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         _photos.length < 3 ||
         _selectedServiceId == null ||
         _packages.any((pkg) => pkg['package']['amount'].isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please fill all required fields, upload at least 3 photos, and set prices',
-          ),
-        ),
+      CustomSnackBar.show(
+        context,
+        message:
+            'Please fill all required fields, upload at least 3 photos, and set prices.',
+        isError: true,
       );
       return;
     }
@@ -299,15 +346,13 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
             print(
               'Error: Photo ${photo.name} not found at path: ${photo.path}',
             );
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
+            CustomSnackBar.show(
+              context,
+              message:
                   'Error: Photo "${photo.name}" could not be found. Please re-select.',
-                ),
-                backgroundColor: Colors.red,
-              ),
+              isError: true,
             );
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(); // Dismiss loading dialog
             setState(() => _isSubmitting = false);
             return;
           }
@@ -351,15 +396,12 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         } else {
           final videoFile = File(_video!.path);
           if (!videoFile.existsSync()) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Error: Video could not be found. Please re-select.',
-                ),
-                backgroundColor: Colors.red,
-              ),
+            CustomSnackBar.show(
+              context,
+              message: 'Error: Video could not be found. Please re-select.',
+              isError: true,
             );
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(); // Dismiss loading dialog
             setState(() => _isSubmitting = false);
             return;
           }
@@ -403,15 +445,12 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         } else {
           final pdfFile = File(_pdf!.path);
           if (!pdfFile.existsSync()) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Error: PDF could not be found. Please re-select.',
-                ),
-                backgroundColor: Colors.red,
-              ),
+            CustomSnackBar.show(
+              context,
+              message: 'Error: PDF could not be found. Please re-select.',
+              isError: true,
             );
-            Navigator.of(context).pop();
+            Navigator.of(context).pop(); // Dismiss loading dialog
             setState(() => _isSubmitting = false);
             return;
           }
@@ -478,68 +517,32 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
       final gig = await gigProvider.createGig(formData);
 
       // Close progress dialog
-      Navigator.of(context).pop();
-
-      setState(() => _isSubmitting = false);
-
-      if (gig != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gig created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to create gig. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } on DioException catch (e) {
-      // Close progress dialog if open
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop();
       }
 
       setState(() => _isSubmitting = false);
 
-      String errorMessage = 'Failed to create gig';
-
-      switch (e.type) {
-        case DioExceptionType.connectionTimeout:
-          errorMessage =
-              'Connection timeout. Please check your internet connection and try again.';
-          break;
-        case DioExceptionType.sendTimeout:
-          errorMessage =
-              'Upload timeout. Your files might be too large. Try reducing file sizes.';
-          break;
-        case DioExceptionType.receiveTimeout:
-          errorMessage =
-              'Server response timeout. The server is taking too long to process your request.';
-          break;
-        case DioExceptionType.connectionError:
-          errorMessage =
-              'Network connection error. Please check your network connection.';
-          break;
-        case DioExceptionType.badResponse:
-          errorMessage =
-              'Server error (${e.response?.statusCode}). Please try again later.';
-          break;
-        default:
-          errorMessage = 'An unexpected error occurred. Please try again.';
+      if (gig != null) {
+        CustomSnackBar.show(
+          context,
+          message: 'Gig created successfully!',
+          isError: false,
+        );
+        Navigator.pop(context);
+      } else {
+        // This else block might be reached if gigProvider.createGig returns null
+        // without setting an error, or if gigProvider.hasError is true.
+        // We ensure a SnackBar is shown based on gigProvider's state.
+        CustomSnackBar.show(
+          context,
+          message:
+              gigProvider.errorMessage ??
+              'Failed to create gig. Please try again.',
+          isError: true,
+        );
+        gigProvider.clearError(); // Clear error state
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
-      );
     } catch (e) {
       // Close progress dialog if open
       if (Navigator.canPop(context)) {
@@ -548,14 +551,17 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
 
       setState(() => _isSubmitting = false);
 
-      print('Unexpected error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('An unexpected error occurred: ${e.toString()}'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 5),
-        ),
+      // Log the error for debugging
+      print('Gig creation error: $e');
+
+      // Display error using CustomSnackBar
+      CustomSnackBar.show(
+        context,
+        message:
+            'An unexpected error occurred during gig creation: ${e.toString()}',
+        isError: true,
       );
+      gigProvider.clearError(); // Clear error state
     }
   }
 
@@ -594,7 +600,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                 function: () => _addPackageRow(isCheckbox: true),
                 widget: const Text(
                   'Add Checkbox Feature',
-                  style: TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 color: wawuColors.primary,
               ),
@@ -605,7 +612,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                 function: () => _addPackageRow(isCheckbox: false),
                 widget: const Text(
                   'Add Input Feature',
-                  style: TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 color: wawuColors.primary,
               ),
@@ -646,8 +654,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
     return Row(
       children: [
         Container(
-          width: 120,
-          height: 40,
+          width: 150,
+          height: 70,
           padding: const EdgeInsets.all(8.0),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey),
@@ -662,8 +670,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           ),
         ),
         Container(
-          width: 100,
-          height: 40,
+          width: 145,
+          height: 70,
           padding: const EdgeInsets.all(8.0),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey),
@@ -678,8 +686,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           ),
         ),
         Container(
-          width: 100,
-          height: 40,
+          width: 145,
+          height: 70,
           padding: const EdgeInsets.all(8.0),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey),
@@ -694,8 +702,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
           ),
         ),
         Container(
-          width: 100,
-          height: 40,
+          width: 145,
+          height: 70,
           padding: const EdgeInsets.all(8.0),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey),
@@ -724,8 +732,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
     return Row(
       children: [
         Container(
-          width: 120,
-          height: 50,
+          width: 150,
+          height: 70,
           padding: const EdgeInsets.all(8.0),
           decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
           child: Center(
@@ -739,8 +747,8 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
         ...List.generate(
           3,
           (index) => Container(
-            width: 100,
-            height: 50,
+            width: 145,
+            height: 70,
             decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
             child: Center(
               child:
@@ -868,31 +876,46 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
   Widget build(BuildContext context) {
     return Consumer<CategoryProvider>(
       builder: (context, categoryProvider, child) {
-        if (categoryProvider.hasError && _fetchType == FetchType.categories) {
+        // Listen for errors from CategoryProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (categoryProvider.hasError &&
+              categoryProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: categoryProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                categoryProvider.fetchCategories();
+              },
+            );
+            _hasShownError = true;
+            categoryProvider.clearError(); // Clear error state
+          } else if (!categoryProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
+        // Display full error screen if category loading failed critically
+        if (categoryProvider.hasError &&
+            categoryProvider.categories.isEmpty &&
+            !categoryProvider.isLoading) {
           return Scaffold(
             appBar: AppBar(title: const Text('Create A New Gig')),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    categoryProvider.errorMessage ??
-                        'Failed to load categories',
-                  ),
-                  const SizedBox(height: 20),
-                  CustomButton(
-                    function: () {
-                      setState(() => _fetchType = FetchType.categories);
-                      categoryProvider.fetchCategories();
-                    },
-                    widget: const Text(
-                      'Retry',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    color: wawuColors.purpleDarkContainer,
-                  ),
-                ],
-              ),
+            body: FullErrorDisplay(
+              errorMessage:
+                  categoryProvider.errorMessage ??
+                  'Failed to load categories. Please try again.',
+              onRetry: () {
+                categoryProvider.fetchCategories();
+              },
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'If this problem persists, please contact our support team. We are here to help!',
+                );
+              },
             ),
           );
         }
@@ -1202,7 +1225,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
               child:
                   _isSubmitting
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : Icon(Icons.done, color: Colors.white, size: 20),
+                      : const Icon(Icons.done, color: Colors.white, size: 20),
             ),
           ),
         );

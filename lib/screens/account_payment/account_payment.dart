@@ -12,8 +12,10 @@ import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 import 'package:wawu_mobile/widgets/payment/payment_success_dialog.dart';
-import 'package:wawu_mobile/widgets/payment/payment_error_dialog.dart';
+// import 'package:wawu_mobile/widgets/payment/payment_error_dialog.dart'; // Removed
 // import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class AccountPayment extends StatefulWidget {
   final String userId; // Pass user ID from previous screen
@@ -28,6 +30,9 @@ class _AccountPaymentState extends State<AccountPayment> {
   final TextEditingController _discountController = TextEditingController();
   double discountPercentage = 0.0;
   double calculatedTotal = 0.0;
+
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
 
   @override
   void initState() {
@@ -67,29 +72,70 @@ class _AccountPaymentState extends State<AccountPayment> {
     }
   }
 
-  // void _applyDiscount() {
-  //   // You can implement discount code validation here
-  //   String discountCode = _discountController.text.trim();
-  //   if (discountCode.isNotEmpty) {
-  //     // Example: Apply 8% discount for demo
-  //     // In real app, validate with API
-  //     setState(() {
-  //       discountPercentage = 8.0;
-  //       _calculateTotal();
-  //     });
-  //   } else {
-  //     setState(() {
-  //       discountPercentage = 0.0;
-  //       _calculateTotal();
-  //     });
-  //   }
-  // }
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Future<void> _proceedToCheckout() async {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     if (planProvider.selectedPlan == null) {
-      _showErrorDialog('No plan selected. Please go back and select a plan.');
+      // Show full error display if no plan is selected
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder:
+            (context) => FullErrorDisplay(
+              errorMessage:
+                  'No plan selected. Please go back and select a plan.',
+              onRetry: () {
+                Navigator.of(context).pop(); // Dismiss error dialog
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const Plan()),
+                );
+              },
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'You must select a plan before proceeding to checkout. If you are having trouble selecting a plan, please contact support.',
+                );
+              },
+            ),
+      );
       return;
     }
 
@@ -108,9 +154,12 @@ class _AccountPaymentState extends State<AccountPayment> {
       );
 
       // Close loading dialog
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
 
-      if (planProvider.paymentLink != null) {
+      if (planProvider.paymentLink != null &&
+          planProvider.paymentLink!.link.isNotEmpty) {
         // Persist onboarding step as 'payment_processing'
         await OnboardingStateService.saveStep('payment_processing');
         // Navigate to payment webview
@@ -131,12 +180,26 @@ class _AccountPaymentState extends State<AccountPayment> {
           await _handlePaymentResult(paymentResult);
         }
       } else {
-        _showErrorDialog('Failed to generate payment link. Please try again.');
+        CustomSnackBar.show(
+          context,
+          message:
+              planProvider.errorMessage ??
+              'Failed to generate payment link. Please try again.',
+          isError: true,
+        );
+        planProvider.clearError(); // Clear error state
       }
     } catch (e) {
       // Close loading dialog
-      Navigator.pop(context);
-      _showErrorDialog('An error occurred: ${e.toString()}');
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      CustomSnackBar.show(
+        context,
+        message: 'An error occurred during checkout: ${e.toString()}',
+        isError: true,
+      );
+      planProvider.clearError(); // Clear error state
     }
   }
 
@@ -147,7 +210,11 @@ class _AccountPaymentState extends State<AccountPayment> {
     final String? redirectUrl = result['redirectUrl'];
 
     if (redirectUrl == null || redirectUrl.isEmpty) {
-      _showErrorDialog('Payment verification failed: Missing redirect URL.');
+      CustomSnackBar.show(
+        context,
+        message: 'Payment verification failed: Missing redirect URL.',
+        isError: true,
+      );
       return;
     }
 
@@ -158,26 +225,38 @@ class _AccountPaymentState extends State<AccountPayment> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
     try {
-      final planProvider = Provider.of<PlanProvider>(context, listen: false);
-
       // Directly call the provider with the full redirect URL.
       await planProvider.handlePaymentCallback(redirectUrl);
 
       // Close the loading dialog.
-      Navigator.pop(context);
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
 
       if (planProvider.state == LoadingState.success) {
         _showSuccessDialog();
       } else {
-        _showErrorDialog(
-          planProvider.errorMessage ?? 'Payment verification failed.',
+        CustomSnackBar.show(
+          context,
+          message: planProvider.errorMessage ?? 'Payment verification failed.',
+          isError: true,
         );
+        planProvider.clearError(); // Clear error state
       }
     } catch (e) {
       // Close the loading dialog in case of an unexpected error.
-      Navigator.pop(context);
-      _showErrorDialog('An unexpected error occurred: ${e.toString()}');
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      CustomSnackBar.show(
+        context,
+        message:
+            'An unexpected error occurred during payment verification: ${e.toString()}',
+        isError: true,
+      );
+      planProvider.clearError(); // Clear error state
     }
   }
 
@@ -194,17 +273,10 @@ class _AccountPaymentState extends State<AccountPayment> {
       await OnboardingStateService.setComplete();
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => Disclaimer()),
+        MaterialPageRoute(builder: (context) => const Disclaimer()),
         (Route<dynamic> route) => false,
       );
     }
-  }
-
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => PaymentErrorDialog(errorMessage: message),
-    );
   }
 
   @override
@@ -217,50 +289,51 @@ class _AccountPaymentState extends State<AccountPayment> {
   Widget build(BuildContext context) {
     return Consumer<PlanProvider>(
       builder: (context, planProvider, child) {
+        // Listen for errors from PlanProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (planProvider.hasError &&
+              planProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: planProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                // Assuming a method to retry the last failed operation,
+                // or navigate back to select plan.
+                // For simplicity, we'll just clear the error here.
+                planProvider.clearError();
+              },
+            );
+            _hasShownError = true;
+            planProvider.clearError(); // Clear error state
+          } else if (!planProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
         final selectedPlan = planProvider.selectedPlan;
 
         if (selectedPlan == null) {
           // Fallback UI if no plan is selected or restored
           return Scaffold(
             appBar: AppBar(title: const Text('Payment')),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No plan selected',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Please go back and select a subscription plan',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 24),
-                  // Fallback button to select a plan
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: CustomButton(
-                      widget: const Text(
-                        'Select a Plan',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      color: wawuColors.primary,
-                      function: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (context) => Plan()),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+            body: FullErrorDisplay(
+              errorMessage:
+                  'No plan selected. Please go back and select a plan.',
+              onRetry: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const Plan()),
+                );
+              },
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'You must select a plan before proceeding to checkout. If you are having trouble selecting a plan, please contact support.',
+                );
+              },
             ),
           );
         }
@@ -360,7 +433,7 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                // // Discount code field
+                // // Discount code field (commented out in original, keeping it commented)
                 // Row(
                 //   children: [
                 //     Expanded(
@@ -400,13 +473,13 @@ class _AccountPaymentState extends State<AccountPayment> {
                       Expanded(
                         child: CustomRowSingleColumn(
                           leftText: 'Subscription Plan',
-                          leftTextStyle: TextStyle(
+                          leftTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                           rightText: selectedPlan.name,
-                          rightTextStyle: TextStyle(
+                          rightTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -416,14 +489,14 @@ class _AccountPaymentState extends State<AccountPayment> {
                       Expanded(
                         child: CustomRowSingleColumn(
                           leftText: 'Discount',
-                          leftTextStyle: TextStyle(
+                          leftTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
                           rightText:
                               '${discountPercentage.toStringAsFixed(0)}%',
-                          rightTextStyle: TextStyle(
+                          rightTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
@@ -433,14 +506,14 @@ class _AccountPaymentState extends State<AccountPayment> {
                       Expanded(
                         child: CustomRowSingleColumn(
                           leftText: 'Total',
-                          leftTextStyle: TextStyle(
+                          leftTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                           rightText:
                               '${selectedPlan.currency} ${calculatedTotal.toStringAsFixed(0)}',
-                          rightTextStyle: TextStyle(
+                          rightTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -453,7 +526,7 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                // Features section (if available)
+                // Features section (if available) (commented out in original, keeping it commented)
                 // if (selectedPlan.features != null &&
                 //     selectedPlan.features!.isNotEmpty) ...[
                 //   Container(

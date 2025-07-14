@@ -1,68 +1,81 @@
-import 'package:flutter/material.dart';
 import '../models/country.dart';
 import '../models/state_province.dart';
 import '../services/api_service.dart';
+import 'base_provider.dart'; // Import BaseProvider
 
-class LocationProvider with ChangeNotifier {
+// LocationProvider now extends BaseProvider for standardized state management.
+class LocationProvider extends BaseProvider {
   final ApiService apiService;
   LocationProvider({required this.apiService});
 
   List<Country> _countries = [];
   List<StateProvince> _states = [];
-  bool _isLoadingCountries = false;
-  bool _isLoadingStates = false;
-  String? _errorCountries;
-  String? _errorStates;
+  // Removed multiple _isLoading and _error fields as BaseProvider handles a single state.
+  // bool _isLoadingCountries = false;
+  // bool _isLoadingStates = false;
+  // String? _errorCountries;
+  // String? _errorStates;
 
   List<Country> get countries => _countries;
   List<StateProvince> get states => _states;
-  bool get isLoadingCountries => _isLoadingCountries;
-  bool get isLoadingStates => _isLoadingStates;
-  String? get errorCountries => _errorCountries;
-  String? get errorStates => _errorStates;
+  // Getters for isLoading and error are now inherited from BaseProvider.
+  // bool get isLoadingCountries => _isLoadingCountries; // No longer needed directly
+  // bool get isLoadingStates => _isLoadingStates; // No longer needed directly
+  // String? get errorCountries => _errorCountries; // No longer needed directly
+  // String? get errorStates => _errorStates; // No longer needed directly
 
   Future<void> fetchCountries() async {
-    _isLoadingCountries = true;
-    _errorCountries = null;
-    notifyListeners();
+    setLoading(); // Use BaseProvider's setLoading
     try {
       final response = await apiService.get<Map<String, dynamic>>('/countries');
       if (response['statusCode'] == 200 && response['data'] is List) {
-        _countries = (response['data'] as List)
-            .map((item) => Country.fromJson(item))
-            .toList();
+        _countries =
+            (response['data'] as List)
+                .map((item) => Country.fromJson(item))
+                .toList();
+        setSuccess(); // Use BaseProvider's setSuccess
       } else {
-        _errorCountries = response['message'] ?? 'Failed to fetch countries';
+        // Use BaseProvider's setError with the message from the response
+        setError(response['message'] ?? 'Failed to fetch countries');
       }
     } catch (e) {
-      _errorCountries = e.toString();
+      setError(
+        e.toString(),
+      ); // Use BaseProvider's setError with the caught exception
     }
-    _isLoadingCountries = false;
-    notifyListeners();
+    // Removed manual _isLoadingCountries = false; notifyListeners(); as BaseProvider methods handle this.
   }
 
   Future<void> fetchStates(int countryId) async {
-    _isLoadingStates = true;
-    _errorStates = null;
-    notifyListeners();
+    setLoading(); // Use BaseProvider's setLoading
     try {
-      final response = await apiService.get<Map<String, dynamic>>('/states/$countryId');
+      final response = await apiService.get<Map<String, dynamic>>(
+        '/states/$countryId',
+      );
       if (response['statusCode'] == 200 && response['data'] is List) {
-        _states = (response['data'] as List)
-            .map((item) => StateProvince.fromJson(item))
-            .toList();
+        _states =
+            (response['data'] as List)
+                .map((item) => StateProvince.fromJson(item))
+                .toList();
+        setSuccess(); // Use BaseProvider's setSuccess
       } else {
-        _errorStates = response['message'] ?? 'Failed to fetch states';
+        // Use BaseProvider's setError with the message from the response
+        setError(response['message'] ?? 'Failed to fetch states');
       }
     } catch (e) {
-      _errorStates = e.toString();
+      setError(
+        e.toString(),
+      ); // Use BaseProvider's setError with the caught exception
     }
-    _isLoadingStates = false;
-    notifyListeners();
+    // Removed manual _isLoadingStates = false; notifyListeners(); as BaseProvider methods handle this.
   }
 
   void clearStates() {
     _states = [];
-    notifyListeners();
+    setSuccess(); // Use setSuccess to notify listeners about the cleared states
+  }
+
+  void clearError() {
+    resetState(); // Calls resetState from BaseProvider
   }
 }

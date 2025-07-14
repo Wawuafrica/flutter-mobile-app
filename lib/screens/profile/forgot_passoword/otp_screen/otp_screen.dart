@@ -143,7 +143,7 @@ class _OtpScreenState extends State<OtpScreen> {
     });
 
     try {
-      await widget.authService.sendOtp(widget.email, type: 'password_reset');
+      await widget.authService.forgotPassword(widget.email);
 
       _showSnackBar('New OTP sent to your email!');
       _otpController.clear();

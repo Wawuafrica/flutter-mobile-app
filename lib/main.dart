@@ -81,12 +81,6 @@ void main() async {
       'Main: Error loading .env file: $e. Ensure .env file exists and is accessible.',
     );
 
-    // // Initialize WebView for iOS
-    // if (Platform.isIOS) {
-    //   // WebView.platform = SurfaceWebViewPlatform();
-    //   // WebView.platform = WebKitWebViewPlatform();
-    // }
-
     runApp(
       const MaterialApp(
         home: Scaffold(

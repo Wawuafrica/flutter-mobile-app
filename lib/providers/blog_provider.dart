@@ -23,8 +23,9 @@ class BlogProvider extends BaseProvider {
 
   List<BlogPost> _posts = [];
   BlogPost? _selectedPost;
-  bool _isLoading = false;
-  String? _errorMessage;
+  // Removed _isLoading and _errorMessage fields as BaseProvider handles them.
+  // bool _isLoading = false;
+  // String? _errorMessage;
   int _currentPage = 1;
   bool _hasMore = true;
   bool _pusherEventsInitialized = false;
@@ -33,10 +34,12 @@ class BlogProvider extends BaseProvider {
   // Getters
   List<BlogPost> get posts => _posts;
   BlogPost? get selectedPost => _selectedPost;
-  @override
-  bool get isLoading => _isLoading;
-  @override
-  String? get errorMessage => _errorMessage;
+  // isLoading and errorMessage are now inherited from BaseProvider,
+  // so the @override annotations are no longer needed if they just expose the base getters.
+  // @override
+  // bool get isLoading => _isLoading;
+  // @override
+  // String? get errorMessage => _errorMessage;
   bool get hasMore => _hasMore;
 
   BlogProvider({
@@ -136,6 +139,9 @@ class BlogProvider extends BaseProvider {
       });
     } catch (e) {
       _logger.e('BlogProvider: Error initializing Pusher events: $e');
+      setError(
+        'Error initializing Pusher events: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -233,7 +239,7 @@ class BlogProvider extends BaseProvider {
         _logger.i(
           'BlogProvider: New post added: ${newPost.title} (UUID: ${newPost.uuid})',
         );
-        notifyListeners();
+        setSuccess(); // Use setSuccess to notify listeners
       } else {
         _logger.w(
           'BlogProvider: Duplicate post detected, not adding: ${newPost.title}',
@@ -241,8 +247,7 @@ class BlogProvider extends BaseProvider {
       }
     } catch (e) {
       _logger.e('BlogProvider: Error handling post.created event: $e');
-      _errorMessage = 'Failed to process new post: $e';
-      notifyListeners();
+      setError('Failed to process new post: ${e.toString()}'); // Use setError
     }
   }
 
@@ -277,11 +282,12 @@ class BlogProvider extends BaseProvider {
         _logger.i('BlogProvider: Selected post updated: ${updatedPost.title}');
       }
 
-      notifyListeners();
+      setSuccess(); // Use setSuccess to notify listeners
     } catch (e) {
       _logger.e('BlogProvider: Error handling post.updated event: $e');
-      _errorMessage = 'Failed to process post update: $e';
-      notifyListeners();
+      setError(
+        'Failed to process post update: ${e.toString()}',
+      ); // Use setError
     }
   }
 
@@ -320,11 +326,12 @@ class BlogProvider extends BaseProvider {
       _logger.i(
         'BlogProvider: Post deleted: $deletedPostUuid (removed $removedCount from list)',
       );
-      notifyListeners();
+      setSuccess(); // Use setSuccess to notify listeners
     } catch (e) {
       _logger.e('BlogProvider: Error handling post.deleted event: $e');
-      _errorMessage = 'Failed to process post deletion: $e';
-      notifyListeners();
+      setError(
+        'Failed to process post deletion: ${e.toString()}',
+      ); // Use setError
     }
   }
 
@@ -361,11 +368,10 @@ class BlogProvider extends BaseProvider {
         );
       }
 
-      notifyListeners();
+      setSuccess(); // Use setSuccess to notify listeners
     } catch (e) {
       _logger.e('BlogProvider: Error handling post.liked event: $e');
-      _errorMessage = 'Failed to process post like: $e';
-      notifyListeners();
+      setError('Failed to process post like: ${e.toString()}'); // Use setError
     }
   }
 
@@ -402,11 +408,12 @@ class BlogProvider extends BaseProvider {
         );
       }
 
-      notifyListeners();
+      setSuccess(); // Use setSuccess to notify listeners
     } catch (e) {
       _logger.e('BlogProvider: Error handling post.comment event: $e');
-      _errorMessage = 'Failed to process post comment: $e';
-      notifyListeners();
+      setError(
+        'Failed to process post comment: ${e.toString()}',
+      ); // Use setError
     }
   }
 
@@ -445,11 +452,12 @@ class BlogProvider extends BaseProvider {
         );
       }
 
-      notifyListeners();
+      setSuccess(); // Use setSuccess to notify listeners
     } catch (e) {
       _logger.e('BlogProvider: Error handling post.comment.like event: $e');
-      _errorMessage = 'Failed to process comment like: $e';
-      notifyListeners();
+      setError(
+        'Failed to process comment like: ${e.toString()}',
+      ); // Use setError
     }
   }
 
@@ -459,6 +467,9 @@ class BlogProvider extends BaseProvider {
       _logger.w(
         'BlogProvider: PusherService not initialized, cannot subscribe to post events for $postUuid',
       );
+      setError(
+        'PusherService not initialized, cannot subscribe to post events.',
+      ); // Report error
       return;
     }
 
@@ -474,6 +485,7 @@ class BlogProvider extends BaseProvider {
     Timer(const Duration(milliseconds: 100), () {
       _bindPostSpecificHandlers(postUuid);
     });
+    setSuccess(); // Indicate success for subscription
   }
 
   /// Unsubscribe from post-specific events
@@ -482,6 +494,9 @@ class BlogProvider extends BaseProvider {
       _logger.w(
         'BlogProvider: PusherService not initialized, cannot unsubscribe from $postUuid',
       );
+      setError(
+        'PusherService not initialized, cannot unsubscribe from post events.',
+      ); // Report error
       return;
     }
 
@@ -491,11 +506,12 @@ class BlogProvider extends BaseProvider {
     _pusherService.unsubscribeFromChannel('post.liked.$postUuid');
     _pusherService.unsubscribeFromChannel('post.comment.$postUuid');
     _pusherService.unsubscribeFromChannel('post.comment.like.$postUuid');
+    setSuccess(); // Indicate success for unsubscription
   }
 
   /// Fetches blog posts with pagination
   Future<void> fetchPosts({bool refresh = false}) async {
-    if (_isLoading) return;
+    if (isLoading) return; // Use inherited isLoading
 
     if (refresh) {
       _currentPage = 1;
@@ -505,9 +521,9 @@ class BlogProvider extends BaseProvider {
       return;
     }
 
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading(); // Use BaseProvider's setLoading
+    // _errorMessage = null; // setLoading already clears error message
+    // notifyListeners(); // setLoading calls notifyListeners
 
     try {
       final response = await _apiService.get(
@@ -535,24 +551,26 @@ class BlogProvider extends BaseProvider {
 
         // Ensure event handlers are bound (especially after network issues)
         _ensureEventHandlers();
+        setSuccess(); // Use BaseProvider's setSuccess
       } else {
-        _errorMessage = response['message'] ?? 'Failed to load posts';
-        _logger.e('BlogProvider: Failed to fetch posts:');
+        setError(response['message'] ?? 'Failed to load posts'); // Use setError
+        _logger.e(
+          'BlogProvider: Failed to fetch posts: $errorMessage',
+        ); // Use inherited errorMessage
       }
     } catch (e) {
-      _errorMessage = 'Failed to fetch posts';
-      _logger.e('BlogProvider: Error fetching posts: $e');
+      setError(e.toString()); // Use setError with e.toString()
+      _logger.e('BlogProvider: Error fetching posts: ${e.toString()}');
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      // No need for _isLoading = false; notifyListeners(); as BaseProvider methods handle this.
     }
   }
 
   /// Fetches a single blog post by ID
   Future<BlogPost?> fetchPostById(String postId) async {
-    _isLoading = true;
-    _errorMessage = null;
-    notifyListeners();
+    setLoading(); // Use BaseProvider's setLoading
+    // _errorMessage = null; // setLoading already clears error message
+    // notifyListeners(); // setLoading calls notifyListeners
 
     try {
       final response = await _apiService.get('/post/$postId');
@@ -564,19 +582,21 @@ class BlogProvider extends BaseProvider {
         // Subscribe to real-time events for this specific post
         subscribeToPostEvents(postId);
 
+        setSuccess(); // Use BaseProvider's setSuccess
         return _selectedPost;
       } else {
-        _errorMessage = response['message'] ?? 'Failed to load post';
-        _logger.e('BlogProvider: Failed to fetch post: $_errorMessage');
+        setError(response['message'] ?? 'Failed to load post'); // Use setError
+        _logger.e(
+          'BlogProvider: Failed to fetch post: $errorMessage',
+        ); // Use inherited errorMessage
         return null;
       }
     } catch (e) {
-      _errorMessage = 'Failed to fetch post: $e';
-      _logger.e('BlogProvider: Error fetching post: $e');
+      setError(e.toString()); // Use setError with e.toString()
+      _logger.e('BlogProvider: Error fetching post: ${e.toString()}');
       return null;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      // No need for _isLoading = false; notifyListeners(); as BaseProvider methods handle this.
     }
   }
 
@@ -604,15 +624,17 @@ class BlogProvider extends BaseProvider {
           );
         }
 
-        notifyListeners();
+        setSuccess(); // Use setSuccess to notify listeners
         return true;
       }
-      _logger.w('BlogProvider: Failed to like post: ${response['message']}');
+      setError(response['message'] ?? 'Failed to like post'); // Use setError
+      _logger.w(
+        'BlogProvider: Failed to like post: $errorMessage',
+      ); // Use inherited errorMessage
       return false;
     } catch (e) {
-      _errorMessage = 'Failed to like post: $e';
-      _logger.e('BlogProvider: Error liking post: $e');
-      notifyListeners();
+      setError(e.toString()); // Use setError with e.toString()
+      _logger.e('BlogProvider: Error liking post: ${e.toString()}');
       return false;
     }
   }
@@ -646,22 +668,27 @@ class BlogProvider extends BaseProvider {
         // Find the new comment
         final newComment = updatedPost.comments.lastWhere(
           (c) =>
-              !_selectedPost!.comments.any((existing) => existing.id == c.id),
+              !(_selectedPost?.comments.any(
+                    (existing) => existing.id == c.id,
+                  ) ??
+                  false),
           orElse: () => updatedPost.comments.last,
         );
 
         _logger.i(
           'BlogProvider: New comment added to post: ${updatedPost.title}',
         );
-        notifyListeners();
+        setSuccess(); // Use setSuccess to notify listeners
         return newComment;
       }
-      _logger.w('BlogProvider: Failed to add comment: ${response['message']}');
+      setError(response['message'] ?? 'Failed to add comment'); // Use setError
+      _logger.w(
+        'BlogProvider: Failed to add comment: $errorMessage',
+      ); // Use inherited errorMessage
       return null;
     } catch (e) {
-      _errorMessage = 'Failed to add comment: $e';
-      _logger.e('BlogProvider: Error adding comment: $e');
-      notifyListeners();
+      setError(e.toString()); // Use setError with e.toString()
+      _logger.e('BlogProvider: Error adding comment: ${e.toString()}');
       return null;
     }
   }
@@ -704,24 +731,27 @@ class BlogProvider extends BaseProvider {
           final newReply = updatedPost.comments[commentIndex].subComments
               .lastWhere(
                 (sc) =>
-                    !_selectedPost!.comments[commentIndex].subComments.any(
-                      (existing) => existing.id == sc.id,
-                    ),
+                    !(_selectedPost?.comments[commentIndex].subComments.any(
+                          (existing) => existing.id == sc.id,
+                        ) ??
+                        false),
                 orElse:
                     () => updatedPost.comments[commentIndex].subComments.last,
               );
 
           _logger.i('BlogProvider: New reply added to comment $commentId');
-          notifyListeners();
+          setSuccess(); // Use setSuccess to notify listeners
           return newReply;
         }
       }
-      _logger.w('BlogProvider: Failed to add reply: ${response['message']}');
+      setError(response['message'] ?? 'Failed to add reply'); // Use setError
+      _logger.w(
+        'BlogProvider: Failed to add reply: $errorMessage',
+      ); // Use inherited errorMessage
       return null;
     } catch (e) {
-      _errorMessage = 'Failed to add reply: $e';
-      _logger.e('BlogProvider: Error adding reply: $e');
-      notifyListeners();
+      setError(e.toString()); // Use setError with e.toString()
+      _logger.e('BlogProvider: Error adding reply: ${e.toString()}');
       return null;
     }
   }
@@ -754,15 +784,17 @@ class BlogProvider extends BaseProvider {
           );
         }
 
-        notifyListeners();
+        setSuccess(); // Use setSuccess to notify listeners
         return true;
       }
-      _logger.w('BlogProvider: Failed to like comment: ${response['message']}');
+      setError(response['message'] ?? 'Failed to like comment'); // Use setError
+      _logger.w(
+        'BlogProvider: Failed to like comment: $errorMessage',
+      ); // Use inherited errorMessage
       return false;
     } catch (e) {
-      _errorMessage = 'Failed to like comment: $e';
-      _logger.e('BlogProvider: Error liking comment: $e');
-      notifyListeners();
+      setError(e.toString()); // Use setError with e.toString()
+      _logger.e('BlogProvider: Error liking comment: ${e.toString()}');
       return false;
     }
   }
@@ -770,12 +802,14 @@ class BlogProvider extends BaseProvider {
   /// Public method to ensure event handlers are bound (can be called after network recovery)
   void ensureEventHandlers() {
     _ensureEventHandlers();
+    setSuccess(); // Indicate success for ensuring handlers
   }
 
   /// Clear error message
   void clearError() {
-    _errorMessage = null;
-    notifyListeners();
+    resetState(); // Use resetState to clear error and set to idle
+    // _errorMessage = null; // Handled by resetState
+    // notifyListeners(); // Handled by resetState
   }
 
   /// Select a post and subscribe to its events
@@ -790,7 +824,7 @@ class BlogProvider extends BaseProvider {
     // Subscribe to new post events
     subscribeToPostEvents(post.uuid);
 
-    setSuccess();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   /// Refresh the provider state
@@ -804,8 +838,9 @@ class BlogProvider extends BaseProvider {
     _selectedPost = null;
     _currentPage = 1;
     _hasMore = true;
-    _errorMessage = null;
-    notifyListeners();
+    // _errorMessage = null; // Handled by resetState
+    resetState(); // Use resetState to clear error and set to idle
+    // notifyListeners(); // Handled by resetState
   }
 
   @override

@@ -12,6 +12,7 @@ import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
 
 class SignIn extends StatefulWidget {
   const SignIn({super.key});
@@ -28,6 +29,9 @@ class _SignInState extends State<SignIn> {
   // Declare services without initialization
   late final ApiService apiService;
   late final AuthService authService;
+
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
 
   @override
   void initState() {
@@ -48,6 +52,26 @@ class _SignInState extends State<SignIn> {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
+        // Listen for errors from UserProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userProvider.hasError &&
+              userProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: userProvider.errorMessage!,
+              isError: true,
+            );
+            _hasShownError = true; // Set flag to true after showing
+            // It's crucial to clear the error state in the provider
+            // after it has been displayed to the user.
+            userProvider.resetState(); // Assuming resetState() or clearError()
+          } else if (!userProvider.hasError && _hasShownError) {
+            // Reset flag if error is cleared in provider
+            _hasShownError = false;
+          }
+        });
+
         return Scaffold(
           appBar: AppBar(),
           body: SingleChildScrollView(
@@ -70,7 +94,7 @@ class _SignInState extends State<SignIn> {
                     labelTextStyle2: true,
                     controller: emailController,
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   CustomTextfield(
                     labelText: 'Password',
                     hintText: 'Enter your password',
@@ -78,7 +102,7 @@ class _SignInState extends State<SignIn> {
                     controller: passwordController,
                     obscureText: true,
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -92,18 +116,17 @@ class _SignInState extends State<SignIn> {
                         ),
                       );
                     },
-                    child: Text(
+                    child: const Text(
                       'Forgot Password',
                       style: TextStyle(color: wawuColors.buttonSecondary),
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Show loading indicator when authentication is in progress
                   if (userProvider.isLoading)
                     CustomButton(
                       color: wawuColors.buttonPrimary,
-                      // textColor: Colors.white,
                       function: () {}, // Empty function when loading
                       widget: Center(
                         child: SizedBox(
@@ -114,21 +137,31 @@ class _SignInState extends State<SignIn> {
                       ),
                     ),
 
-                  // Show error message if login failed
-                  if (userProvider.hasError)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10.0),
-                      child: Text(
-                        userProvider.errorMessage ?? 'An error occurred',
-                        style: TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
+                  // Removed the old inline error Text widget for userProvider.
+                  // if (userProvider.hasError)
+                  //   Padding(
+                  //     padding: const EdgeInsets.only(bottom: 10.0),
+                  //     child: Text(
+                  //       userProvider.errorMessage ?? 'An error occurred',
+                  //       style: TextStyle(color: Colors.red),
+                  //       textAlign: TextAlign.center,
+                  //     ),
+                  //   ),
                   if (!userProvider
                       .isLoading) // Show button only when not loading
                     CustomButton(
                       function: () async {
+                        // Basic validation for empty fields
+                        if (emailController.text.isEmpty ||
+                            passwordController.text.isEmpty) {
+                          CustomSnackBar.show(
+                            context,
+                            message: 'Please enter your email and password.',
+                            isError: true,
+                          );
+                          return;
+                        }
+
                         // Call login method from provider
                         await userProvider.login(
                           emailController.text,
@@ -136,18 +169,19 @@ class _SignInState extends State<SignIn> {
                         );
 
                         // Navigate on success
-                        if (userProvider.isSuccess &&
+                        if (mounted &&
+                            userProvider.isSuccess &&
                             userProvider.currentUser != null) {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => MainScreen(),
+                              builder: (context) => const MainScreen(),
                             ),
                             (Route<dynamic> route) => false,
                           );
                         }
                       },
-                      widget: Text(
+                      widget: const Text(
                         'Sign In',
                         style: TextStyle(
                           color: Colors.white,
@@ -157,15 +191,15 @@ class _SignInState extends State<SignIn> {
                       color: wawuColors.buttonPrimary,
                       textColor: Colors.white,
                     ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         "Don't have an account?",
                         style: TextStyle(fontSize: 13),
                       ),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       GestureDetector(
                         onTap:
                             userProvider.isLoading
@@ -175,11 +209,11 @@ class _SignInState extends State<SignIn> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => SignUp(),
+                                      builder: (context) => const SignUp(),
                                     ),
                                   );
                                 },
-                        child: Text(
+                        child: const Text(
                           'Sign Up',
                           style: TextStyle(
                             color: wawuColors.buttonSecondary,
@@ -189,89 +223,7 @@ class _SignInState extends State<SignIn> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
-
-                  // Row(
-                  //   mainAxisAlignment: MainAxisAlignment.center,
-                  //   spacing: 10,
-                  //   children: [
-                  //     Flexible(
-                  //       child: Container(
-                  //         width: double.infinity,
-                  //         height: 1,
-                  //         color: const Color.fromARGB(255, 209, 209, 209),
-                  //       ),
-                  //     ),
-                  //     Text('Or', style: TextStyle(fontSize: 13)),
-                  //     Flexible(
-                  //       child: Container(
-                  //         width: double.infinity,
-                  //         height: 1,
-                  //         color: const Color.fromARGB(255, 209, 209, 209),
-                  //       ),
-                  //     ),
-                  //   ],
-                  // ),
-                  // SizedBox(height: 30),
-                  // CustomButton(
-                  //   border: Border.all(
-                  //     color: const Color.fromARGB(255, 216, 216, 216),
-                  //   ),
-                  //   widget: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     spacing: 10,
-                  //     children: [
-                  //       SvgPicture.asset(
-                  //         'assets/images/svg/google.svg',
-                  //         width: 20,
-                  //         height: 20,
-                  //       ),
-                  //       Text('Continue with Google'),
-                  //     ],
-                  //   ),
-                  //   color: Colors.white,
-                  //   textColor: Colors.black,
-                  // ),
-                  // SizedBox(height: 10),
-                  // CustomButton(
-                  //   border: Border.all(
-                  //     color: const Color.fromARGB(255, 216, 216, 216),
-                  //   ),
-                  //   widget: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     spacing: 10,
-                  //     children: [
-                  //       SvgPicture.asset(
-                  //         'assets/images/svg/apple.svg',
-                  //         width: 20,
-                  //         height: 20,
-                  //       ),
-                  //       Text('Continue with Apple'),
-                  //     ],
-                  //   ),
-                  //   color: Colors.white,
-                  //   textColor: Colors.black,
-                  // ),
-                  // SizedBox(height: 10),
-                  // CustomButton(
-                  //   border: Border.all(
-                  //     color: const Color.fromARGB(255, 216, 216, 216),
-                  //   ),
-                  //   widget: Row(
-                  //     mainAxisAlignment: MainAxisAlignment.center,
-                  //     spacing: 10,
-                  //     children: [
-                  //       SvgPicture.asset(
-                  //         'assets/images/svg/facebook.svg',
-                  //         width: 20,
-                  //         height: 20,
-                  //       ),
-                  //       Text('Continue with Facebook'),
-                  //     ],
-                  //   ),
-                  //   color: Colors.white,
-                  //   textColor: Colors.black,
-                  // ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),

@@ -20,7 +20,6 @@ class NotificationProvider extends BaseProvider {
   bool _isSubscribedToGeneralChannel = false;
   int _currentPage = 1;
   bool _hasMore = true;
-  bool _isLoadingMore = false;
   String? _currentUserId; // Store current user ID for filtering
 
   List<NotificationModel> get notifications => _notifications;
@@ -54,6 +53,7 @@ class NotificationProvider extends BaseProvider {
           _logger.w(
             'NotificationProvider: Android notification permission not granted',
           );
+          // No setError here as it's a permission issue, not a provider data error.
           return;
         }
       } else if (Platform.isIOS) {
@@ -90,10 +90,12 @@ class NotificationProvider extends BaseProvider {
       _logger.i(
         'NotificationProvider: Local notifications initialized successfully',
       );
+      // No setSuccess here as this is an internal initialization, not a primary data operation.
     } catch (e) {
       _logger.e(
         'NotificationProvider: Failed to initialize local notifications: $e',
       );
+      // No setError here as this is an internal initialization, not a primary data operation.
     }
   }
 
@@ -128,6 +130,7 @@ class NotificationProvider extends BaseProvider {
       );
     } catch (e) {
       _logger.e('NotificationProvider: Failed to show local notification: $e');
+      // No setError here as this is an internal display function.
     }
   }
 
@@ -151,10 +154,21 @@ class NotificationProvider extends BaseProvider {
     String userId, {
     bool loadMore = false,
   }) async {
-    if (_isLoadingMore && loadMore) return _notifications;
+    // Use BaseProvider's isLoading. If already loading for a primary operation, return.
+    // _isLoadingMore is removed, so we check BaseProvider's isLoading.
+    if (isLoading && loadMore) return _notifications;
+
+    // Set loading state for the primary operation.
+    // If loadMore is true, we are "loading more" but the main state is still "loading".
+    // If loadMore is false, it's a fresh fetch, so it's a new loading cycle.
+    if (!loadMore) {
+      setLoading(); // Set BaseProvider's loading state for initial fetch
+    }
+    // For loadMore, we don't set the main loading state, as it's a background fetch.
+    // The UI might have a separate indicator for "loading more".
 
     try {
-      _isLoadingMore = loadMore;
+      // _isLoadingMore = loadMore; // Removed
       _currentUserId = userId; // Store current user ID
 
       if (!loadMore) {
@@ -199,9 +213,11 @@ class NotificationProvider extends BaseProvider {
             _logger.w(
               'NotificationProvider: Invalid response format from $endpoint',
             );
+            // Don't set global error for partial failure, just log.
           }
         } catch (e) {
           _logger.e('NotificationProvider: Error fetching from $endpoint: $e');
+          // Don't set global error for partial failure, just log.
         }
       }
 
@@ -220,17 +236,20 @@ class NotificationProvider extends BaseProvider {
       _logger.i(
         'NotificationProvider: Total notifications loaded: ${_notifications.length}',
       );
-      notifyListeners();
+      setSuccess(); // Use BaseProvider's setSuccess
       return _notifications;
     } catch (e) {
       _logger.e('NotificationProvider: Failed to fetch notifications: $e');
+      setError(e.toString()); // Use BaseProvider's setError
       return [];
     } finally {
-      _isLoadingMore = false;
+      // _isLoadingMore = false; // Removed
+      // BaseProvider's state is handled by setLoading/setSuccess/setError
     }
   }
 
   Future<bool> markAsRead(String notificationId) async {
+    setLoading(); // Indicate loading for this specific operation
     try {
       final response = await _apiService.patch<Map<String, dynamic>>(
         '/notifications/$notificationId/mark-as-read',
@@ -249,15 +268,19 @@ class NotificationProvider extends BaseProvider {
         _logger.i(
           'NotificationProvider: Marked notification $notificationId as read',
         );
-        notifyListeners();
+        setSuccess(); // Use BaseProvider's setSuccess
         return true;
       }
 
+      setError(
+        response['message'] ?? 'Failed to mark notification as read',
+      ); // Use BaseProvider's setError
       _logger.w(
         'NotificationProvider: Failed to mark notification as read - Status: ${response['statusCode']}',
       );
       return false;
     } catch (e) {
+      setError(e.toString()); // Use BaseProvider's setError
       _logger.e(
         'NotificationProvider: Failed to mark notification as read: $e',
       );
@@ -266,6 +289,7 @@ class NotificationProvider extends BaseProvider {
   }
 
   Future<bool> markAllAsRead(String userId) async {
+    setLoading(); // Indicate loading for this specific operation
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
         '/notifications/mark-all-as-read',
@@ -281,15 +305,19 @@ class NotificationProvider extends BaseProvider {
         _logger.i(
           'NotificationProvider: Marked all notifications as read for user $userId',
         );
-        notifyListeners();
+        setSuccess(); // Use BaseProvider's setSuccess
         return true;
       }
 
+      setError(
+        response['message'] ?? 'Failed to mark all notifications as read',
+      ); // Use BaseProvider's setError
       _logger.w(
         'NotificationProvider: Failed to mark all notifications as read - Status: ${response['statusCode']}',
       );
       return false;
     } catch (e) {
+      setError(e.toString()); // Use BaseProvider's setError
       _logger.e(
         'NotificationProvider: Failed to mark all notifications as read: $e',
       );
@@ -302,6 +330,9 @@ class NotificationProvider extends BaseProvider {
       _logger.w(
         'NotificationProvider: PusherService not initialized, cannot subscribe to notifications',
       );
+      setError(
+        'PusherService not initialized, cannot subscribe to notifications.',
+      ); // Report error
       return;
     }
 
@@ -322,39 +353,25 @@ class NotificationProvider extends BaseProvider {
           _handleNotificationCreated(event, userId);
         });
 
-        // Bind to NotificationRead event
-        _pusherService.bindToEvent(channelName, 'NotificationRead', (
-          PusherEvent event,
-        ) {
-          _handleNotificationRead(event, userId);
-        });
-
-        // Bind to AllNotificationsRead event
-        _pusherService.bindToEvent(channelName, 'AllNotificationsRead', (
-          PusherEvent event,
-        ) {
-          _handleAllNotificationsRead(event, userId);
-        });
-
-        // Bind to NotificationDeleted event
-        _pusherService.bindToEvent(channelName, 'NotificationDeleted', (
-          PusherEvent event,
-        ) {
-          _handleNotificationDeleted(event, userId);
-        });
-
         _logger.i(
           'NotificationProvider: Successfully bound to all notification events',
         );
+        setSuccess(); // Indicate success for subscription
       } else {
         _logger.e(
           'NotificationProvider: Failed to subscribe to notifications channel',
         );
+        setError(
+          'Failed to subscribe to notifications channel.',
+        ); // Report error
       }
     } catch (e) {
       _logger.e(
         'NotificationProvider: Failed to subscribe to notifications: $e',
       );
+      setError(
+        'Error subscribing to notifications: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -364,6 +381,9 @@ class NotificationProvider extends BaseProvider {
         _logger.w(
           'NotificationProvider: Invalid NotificationCreated event data. Expected String, got ${event.data.runtimeType}',
         );
+        setError(
+          'Invalid NotificationCreated event data received.',
+        ); // Report error
         return;
       }
 
@@ -385,8 +405,7 @@ class NotificationProvider extends BaseProvider {
           _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
           await _showPushNotification(notification);
-          notifyListeners();
-
+          setSuccess(); // Use setSuccess to notify listeners
           _logger.i(
             'NotificationProvider: Added new notification ${notification.id} for current user',
           );
@@ -400,144 +419,9 @@ class NotificationProvider extends BaseProvider {
       _logger.e(
         'NotificationProvider: Error processing NotificationCreated event: $e',
       );
-    }
-  }
-
-  void _handleNotificationRead(PusherEvent event, String userId) async {
-    try {
-      if (event.data is! String) {
-        _logger.w(
-          'NotificationProvider: Invalid NotificationRead event data. Expected String, got ${event.data.runtimeType}',
-        );
-        return;
-      }
-
-      final jsonData = jsonDecode(event.data) as Map<String, dynamic>;
-      final notificationId =
-          jsonData['notification_id'] as String? ?? jsonData['id'] as String?;
-      final eventUserId = jsonData['user_id']?.toString();
-
-      _logger.i(
-        'NotificationProvider: Received NotificationRead event for notification $notificationId',
-      );
-
-      // Only process if it's for the current user
-      if (notificationId != null &&
-          (eventUserId == null || eventUserId == userId)) {
-        final index = _notifications.indexWhere((n) => n.id == notificationId);
-        if (index != -1) {
-          _notifications[index] = _notifications[index].markAsRead();
-          notifyListeners();
-          _logger.i(
-            'NotificationProvider: Marked notification $notificationId as read via real-time event',
-          );
-        }
-      }
-    } catch (e) {
-      _logger.e(
-        'NotificationProvider: Error processing NotificationRead event: $e',
-      );
-    }
-  }
-
-  void _handleAllNotificationsRead(PusherEvent event, String userId) async {
-    try {
-      if (event.data is! String) {
-        _logger.w(
-          'NotificationProvider: Invalid AllNotificationsRead event data. Expected String, got ${event.data.runtimeType}',
-        );
-        return;
-      }
-
-      final jsonData = jsonDecode(event.data) as Map<String, dynamic>;
-      final eventUserId = jsonData['user_id']?.toString();
-
-      _logger.i(
-        'NotificationProvider: Received AllNotificationsRead event for user $eventUserId',
-      );
-
-      // Only process if it's for the current user
-      if (eventUserId == userId) {
-        _notifications =
-            _notifications
-                .map((notification) => notification.markAsRead())
-                .toList();
-        notifyListeners();
-        _logger.i(
-          'NotificationProvider: Marked all notifications as read via real-time event',
-        );
-      }
-    } catch (e) {
-      _logger.e(
-        'NotificationProvider: Error processing AllNotificationsRead event: $e',
-      );
-    }
-  }
-
-  void _handleNotificationDeleted(PusherEvent event, String userId) async {
-    try {
-      if (event.data is! String) {
-        _logger.w(
-          'NotificationProvider: Invalid NotificationDeleted event data. Expected String, got ${event.data.runtimeType}',
-        );
-        return;
-      }
-
-      final jsonData = jsonDecode(event.data) as Map<String, dynamic>;
-      final notificationId =
-          jsonData['notification_id'] as String? ?? jsonData['id'] as String?;
-      final eventUserId = jsonData['user_id']?.toString();
-
-      _logger.i(
-        'NotificationProvider: Received NotificationDeleted event for notification $notificationId',
-      );
-
-      // Only process if it's for the current user
-      if (notificationId != null &&
-          (eventUserId == null || eventUserId == userId)) {
-        final removedCount = _notifications.length;
-        _notifications.removeWhere(
-          (notification) => notification.id == notificationId,
-        );
-
-        if (_notifications.length < removedCount) {
-          notifyListeners();
-          _logger.i(
-            'NotificationProvider: Removed notification $notificationId via real-time event',
-          );
-        }
-      }
-    } catch (e) {
-      _logger.e(
-        'NotificationProvider: Error processing NotificationDeleted event: $e',
-      );
-    }
-  }
-
-  // Method to delete a notification
-  Future<bool> deleteNotification(String notificationId) async {
-    try {
-      final response = await _apiService.delete<Map<String, dynamic>>(
-        '/notifications/$notificationId',
-      );
-
-      if (response['statusCode'] == 200) {
-        _notifications.removeWhere(
-          (notification) => notification.id == notificationId,
-        );
-
-        _logger.i('NotificationProvider: Deleted notification $notificationId');
-        notifyListeners();
-        return true;
-      }
-
-      _logger.w(
-        'NotificationProvider: Failed to delete notification - Status: ${response['statusCode']}',
-      );
-      return false;
-    } catch (e) {
-      _logger.e('NotificationProvider: Failed to delete notification: $e');
-      return false;
+      setError(
+        'Error processing new notification event: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -550,7 +434,9 @@ class NotificationProvider extends BaseProvider {
 
   // Method to load more notifications
   Future<void> loadMoreNotifications() async {
-    if (_currentUserId != null && _hasMore && !_isLoadingMore) {
+    // Check BaseProvider's isLoading to prevent concurrent primary operations.
+    // _isLoadingMore is removed.
+    if (_currentUserId != null && _hasMore && !isLoading) {
       await fetchNotifications(_currentUserId!, loadMore: true);
     }
   }
@@ -562,7 +448,7 @@ class NotificationProvider extends BaseProvider {
     _isSubscribedToGeneralChannel = false;
     _currentUserId = null;
     _logger.i('NotificationProvider: Cleared all notifications data');
-    notifyListeners();
+    resetState(); // Use resetState to clear error and set to idle, which also calls notifyListeners
   }
 
   // Method to unsubscribe from notifications (useful for logout)
@@ -573,11 +459,15 @@ class NotificationProvider extends BaseProvider {
       _logger.i(
         'NotificationProvider: Unsubscribed from notifications channel',
       );
+      setSuccess(); // Indicate success for unsubscription
     }
   }
 
   @override
   void dispose() {
+    // It's generally better to await async operations in dispose if possible,
+    // but if the app is shutting down, it might not complete.
+    // For now, keep it as is, but be aware of potential uncompleted async ops.
     unsubscribeFromNotifications();
     _logger.i('NotificationProvider: Disposed');
     super.dispose();

@@ -6,7 +6,10 @@ import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/account_payment/account_payment.dart';
 import 'package:wawu_mobile/widgets/plan_card/plan_card.dart';
 import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
-import 'package:wawu_mobile/utils/error_utils.dart';
+// import 'package:wawu_mobile/utils/error_utils.dart'; // This utility might be replaced or integrated
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
+import 'package:wawu_mobile/utils/constants/colors.dart'; // Import wawuColors
 
 class Plan extends StatefulWidget {
   const Plan({super.key});
@@ -16,6 +19,9 @@ class Plan extends StatefulWidget {
 }
 
 class _PlanState extends State<Plan> {
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
+
   @override
   void initState() {
     super.initState();
@@ -24,6 +30,43 @@ class _PlanState extends State<Plan> {
       await OnboardingStateService.saveStep('plan');
       context.read<PlanProvider>().fetchAllPlans();
     });
+  }
+
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -65,43 +108,51 @@ class _PlanState extends State<Plan> {
       ),
       body: Consumer2<PlanProvider, UserProvider>(
         builder: (context, planProvider, userProvider, child) {
-          if (planProvider.isLoading) {
+          // Listen for errors from PlanProvider and display SnackBar
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (planProvider.hasError &&
+                planProvider.errorMessage != null &&
+                !_hasShownError) {
+              CustomSnackBar.show(
+                context,
+                message: planProvider.errorMessage!,
+                isError: true,
+                actionLabel: 'RETRY',
+                onActionPressed: () {
+                  planProvider.fetchAllPlans();
+                },
+              );
+              _hasShownError = true;
+              planProvider.clearError(); // Clear error state
+            } else if (!planProvider.hasError && _hasShownError) {
+              _hasShownError = false;
+            }
+          });
+
+          if (planProvider.isLoading && planProvider.plans.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (planProvider.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    planProvider.errorMessage ?? 'Failed to load plans',
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      planProvider.fetchAllPlans();
-                    },
-                    child: const Text('Retry'),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.mail_outline),
-                    label: const Text('Contact Support'),
-                    onPressed: () {
-                      showErrorSupportDialog(
-                        context: context,
-                        title: 'Contact Support',
-                        message:
-                            'If this problem persists, please contact our support team. We are here to help!',
-                      );
-                    },
-                  ),
-                ],
-              ),
+
+          // Display full error screen for critical loading failures for plans
+          if (planProvider.hasError &&
+              planProvider.plans.isEmpty &&
+              !planProvider.isLoading) {
+            return FullErrorDisplay(
+              errorMessage:
+                  planProvider.errorMessage ??
+                  'Failed to load plans. Please try again.',
+              onRetry: () {
+                planProvider.fetchAllPlans();
+              },
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'If this problem persists, please contact our support team. We are here to help!',
+                );
+              },
             );
           }
+
           return Column(
             children: [
               // Header section with user info
@@ -210,6 +261,13 @@ class _PlanState extends State<Plan> {
                                                 userId: userId,
                                               ),
                                         ),
+                                      );
+                                    } else {
+                                      CustomSnackBar.show(
+                                        context,
+                                        message:
+                                            'User not logged in. Please log in to select a plan.',
+                                        isError: true,
                                       );
                                     }
                                   },

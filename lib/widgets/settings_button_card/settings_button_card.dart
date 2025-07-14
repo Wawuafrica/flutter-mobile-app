@@ -20,14 +20,17 @@ class SettingsButtonCard extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            height: 60,
+            height: 70,
             decoration: BoxDecoration(
               // color: wawuColors.primary.withAlpha(50),
               border: Border.all(width: 0.5, color: wawuColors.primary),
               borderRadius: BorderRadius.circular(10),
             ),
             padding: EdgeInsets.all(20.0),
-            child: Align(alignment: Alignment.centerLeft, child: Text(title)),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(title, style: TextStyle(fontSize: 13)),
+            ),
           ),
           SizedBox(height: 10),
         ],

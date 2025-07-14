@@ -85,9 +85,9 @@ class ProductProvider extends BaseProvider {
       return _products;
     }
 
-    try {
-      setLoading();
+    setLoading(); // Use BaseProvider's setLoading
 
+    try {
       final queryParams = <String, String>{
         'paginate': 'true',
         'pageNumber': _currentPage.toString(),
@@ -146,19 +146,18 @@ class ProductProvider extends BaseProvider {
       // but keeping it won't hurt, as _isGeneralChannelSubscribed prevents re-subscription.
       // await _subscribeToGeneralProductsChannel();
 
-      setSuccess();
+      setSuccess(); // Use BaseProvider's setSuccess
       return _products;
     } catch (e) {
-      setError('Failed to fetch products: $e');
+      setError(e.toString()); // Use BaseProvider's setError with e.toString()
       return [];
     }
   }
 
   /// Fetches featured products (available and published products)
   Future<List<Product>> fetchFeaturedProducts() async {
+    setLoading(); // Use BaseProvider's setLoading
     try {
-      setLoading();
-
       final response = await _apiService.get<Map<String, dynamic>>(
         '/e-commerce/products',
         queryParameters: {
@@ -183,19 +182,18 @@ class ProductProvider extends BaseProvider {
       // Filter for featured products (published and available)
       _featuredProducts = allProducts.where((p) => p.isFeatured).toList();
 
-      setSuccess();
+      setSuccess(); // Use BaseProvider's setSuccess
       return _featuredProducts;
     } catch (e) {
-      setError('Failed to fetch featured products: $e');
+      setError(e.toString()); // Use BaseProvider's setError with e.toString()
       return [];
     }
   }
 
   /// Fetches details of a specific product and subscribes to its channel
   Future<Product?> fetchProductDetails(String productId) async {
+    setLoading(); // Use BaseProvider's setLoading
     try {
-      setLoading();
-
       final response = await _apiService.get<Map<String, dynamic>>(
         '/e-commerce/products/$productId',
       );
@@ -216,10 +214,10 @@ class ProductProvider extends BaseProvider {
       // Subscribe to the specific product channels
       await _subscribeToSpecificProductChannels(productId);
 
-      setSuccess();
+      setSuccess(); // Use BaseProvider's setSuccess
       return product;
     } catch (e) {
-      setError('Failed to fetch product details: $e');
+      setError(e.toString()); // Use BaseProvider's setError with e.toString()
       return null;
     }
   }
@@ -265,7 +263,7 @@ class ProductProvider extends BaseProvider {
       _featuredProducts.insert(0, updatedProduct);
     }
 
-    notifyListeners();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   /// Removes a product from lists and cart
@@ -276,7 +274,7 @@ class ProductProvider extends BaseProvider {
     if (_selectedProduct?.id == productId) {
       _selectedProduct = null;
     }
-    notifyListeners();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   /// Sets the selected product and subscribes to its channel
@@ -293,13 +291,14 @@ class ProductProvider extends BaseProvider {
       if (_selectedProduct != null) {
         // Subscribe to the specific product channels
         _subscribeToSpecificProductChannels(productId);
-        notifyListeners();
+        setSuccess(); // Use setSuccess to notify listeners
       } else {
         fetchProductDetails(productId);
       }
     } catch (e) {
       // If product not found locally, fetch from API
       fetchProductDetails(productId);
+      // No setError here as fetchProductDetails will handle its own error state.
     }
   }
 
@@ -309,117 +308,7 @@ class ProductProvider extends BaseProvider {
       _unsubscribeFromSpecificProductChannels(_selectedProduct!.id);
     }
     _selectedProduct = null;
-    notifyListeners();
-  }
-
-  /// Adds a product to cart
-  void addToCart(String productId, {int quantity = 1}) {
-    if (quantity <= 0) return;
-
-    final product = _products.firstWhere(
-      (p) => p.id == productId,
-      orElse:
-          () => _featuredProducts.firstWhere(
-            (p) => p.id == productId,
-            orElse: () => throw Exception('Product not found: $productId'),
-          ),
-    );
-
-    // Check if product is available
-    if (!product.isAvailable) {
-      setError('Product is not available');
-      return;
-    }
-
-    // Add to cart
-    final currentQuantity = _cartItems[productId] ?? 0;
-    _cartItems[productId] = currentQuantity + quantity;
-    notifyListeners();
-  }
-
-  /// Updates the quantity of a product in cart
-  void updateCartItemQuantity(String productId, int quantity) {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-
-    _cartItems[productId] = quantity;
-    notifyListeners();
-  }
-
-  /// Removes a product from cart
-  void removeFromCart(String productId) {
-    _cartItems.remove(productId);
-    notifyListeners();
-  }
-
-  /// Clears the cart
-  void clearCart() {
-    _cartItems.clear();
-    notifyListeners();
-  }
-
-  /// Submits an order with the current cart items
-  Future<Map<String, dynamic>?> submitOrder({
-    required String userId,
-    required String shippingAddress,
-    required String paymentMethod,
-    Map<String, dynamic>? additionalDetails,
-  }) async {
-    if (_cartItems.isEmpty) {
-      setError('Cannot submit an empty order');
-      return null;
-    }
-
-    try {
-      setLoading();
-
-      // Prepare order items
-      final List<Map<String, dynamic>> items = [];
-
-      for (final entry in _cartItems.entries) {
-        final productId = entry.key;
-        final quantity = entry.value;
-
-        final product = _products.firstWhere(
-          (p) => p.id == productId,
-          orElse:
-              () => _featuredProducts.firstWhere(
-                (p) => p.id == productId,
-                orElse: () => throw Exception('Product not found: $productId'),
-              ),
-        );
-
-        items.add({
-          'product_id': productId,
-          'quantity': quantity,
-          'price': product.getDiscountedPrice(),
-          'name': product.name,
-        });
-      }
-
-      final response = await _apiService.post<Map<String, dynamic>>(
-        '/e-commerce/orders',
-        data: {
-          'user_id': userId,
-          'items': items,
-          'shipping_address': shippingAddress,
-          'payment_method': paymentMethod,
-          'total_amount': cartTotal,
-          if (additionalDetails != null)
-            'additional_details': additionalDetails,
-        },
-      );
-
-      // Clear cart after successful order
-      clearCart();
-      setSuccess();
-      return response;
-    } catch (e) {
-      setError('Failed to submit order: $e');
-      return null;
-    }
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   /// Subscribes to the general products channel for creates
@@ -438,15 +327,22 @@ class ProductProvider extends BaseProvider {
         _logger.d(
           'ProductProvider: Successfully subscribed to "$channelName" and bound "product.created" event.',
         );
+        setSuccess(); // Indicate success for subscription
       } else {
         _logger.e(
           'ProductProvider: Failed to subscribe to general products channel: $channelName',
         );
+        setError(
+          'Failed to subscribe to general products channel.',
+        ); // Report error
       }
     } catch (e) {
       _logger.e(
         'ProductProvider: Error subscribing to general products channel: $e',
       );
+      setError(
+        'Error subscribing to general products channel: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -466,46 +362,74 @@ class ProductProvider extends BaseProvider {
 
     try {
       // Subscribe to updated channel
-      await _pusherService.subscribeToChannel(updatedChannelName);
-      _pusherService.bindToEvent(updatedChannelName, 'product.updated', (
-        event,
-      ) {
-        _logger.i(
-          'ProductProvider: Received product.updated event for product $productId.',
-        );
-        _handleProductUpdated(event.data);
-      });
+      final updatedSuccess = await _pusherService.subscribeToChannel(
+        updatedChannelName,
+      );
+      if (updatedSuccess) {
+        _pusherService.bindToEvent(updatedChannelName, 'product.updated', (
+          event,
+        ) {
+          _logger.i(
+            'ProductProvider: Received product.updated event for product $productId.',
+          );
+          _handleProductUpdated(event.data);
+        });
+      } else {
+        setError(
+          'Failed to subscribe to product updated channel: $updatedChannelName',
+        ); // Report error
+      }
 
       // Subscribe to deleted channel
-      await _pusherService.subscribeToChannel(deletedChannelName);
-      _pusherService.bindToEvent(deletedChannelName, 'product.deleted', (
-        event,
-      ) {
-        _logger.i(
-          'ProductProvider: Received product.deleted event for product $productId.',
-        );
-        _handleProductDeleted(event.data);
-      });
+      final deletedSuccess = await _pusherService.subscribeToChannel(
+        deletedChannelName,
+      );
+      if (deletedSuccess) {
+        _pusherService.bindToEvent(deletedChannelName, 'product.deleted', (
+          event,
+        ) {
+          _logger.i(
+            'ProductProvider: Received product.deleted event for product $productId.',
+          );
+          _handleProductDeleted(event.data);
+        });
+      } else {
+        setError(
+          'Failed to subscribe to product deleted channel: $deletedChannelName',
+        ); // Report error
+      }
 
       // Subscribe to review channel
-      await _pusherService.subscribeToChannel(reviewChannelName);
-      _pusherService.bindToEvent(reviewChannelName, 'product.review.created', (
-        event,
-      ) {
-        _logger.i(
-          'ProductProvider: Received product.review.created event for product $productId.',
-        );
-        _handleProductReviewCreated(event.data);
-      });
+      final reviewSuccess = await _pusherService.subscribeToChannel(
+        reviewChannelName,
+      );
+      if (reviewSuccess) {
+        _pusherService.bindToEvent(reviewChannelName, 'product.review.created', (
+          event,
+        ) {
+          _logger.i(
+            'ProductProvider: Received product.review.created event for product $productId.',
+          );
+          _handleProductReviewCreated(event.data);
+        });
+      } else {
+        setError(
+          'Failed to subscribe to product review channel: $reviewChannelName',
+        ); // Report error
+      }
 
       _subscribedProductChannels.add(productId);
       _logger.d(
         'ProductProvider: Subscribed to specific product channels for product: $productId.',
       );
+      setSuccess(); // Indicate success for subscription
     } catch (e) {
       _logger.e(
         'ProductProvider: Failed to subscribe to specific product channels for $productId: $e',
       );
+      setError(
+        'Failed to subscribe to specific product channels: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -531,10 +455,14 @@ class ProductProvider extends BaseProvider {
       _logger.d(
         'ProductProvider: Unsubscribed from specific product channels for product: $productId.',
       );
+      setSuccess(); // Indicate success for unsubscription
     } catch (e) {
       _logger.e(
         'ProductProvider: Failed to unsubscribe from specific product channels for $productId: $e',
       );
+      setError(
+        'Failed to unsubscribe from specific product channels: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -558,6 +486,9 @@ class ProductProvider extends BaseProvider {
         _logger.w(
           'ProductProvider: Unexpected data type for product.created event: ${data.runtimeType}',
         );
+        setError(
+          'Unexpected data type for product creation event.',
+        ); // Report error
         return;
       }
 
@@ -572,7 +503,7 @@ class ProductProvider extends BaseProvider {
           _featuredProducts.insert(0, newProduct);
         }
         _logger.i('ProductProvider: Product created: ${newProduct.name}');
-        notifyListeners();
+        setSuccess(); // Use setSuccess to notify listeners
       } else {
         _logger.d(
           'ProductProvider: Product created event received for existing or unavailable product: ${newProduct.name}',
@@ -582,6 +513,9 @@ class ProductProvider extends BaseProvider {
       _logger.e(
         'ProductProvider: Failed to handle product.created event: $e\n$stackTrace',
       );
+      setError(
+        'Failed to handle product creation event: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -596,6 +530,9 @@ class ProductProvider extends BaseProvider {
         _logger.w(
           'ProductProvider: Unexpected data type for product.updated event: ${data.runtimeType}',
         );
+        setError(
+          'Unexpected data type for product update event.',
+        ); // Report error
         return;
       }
 
@@ -619,11 +556,14 @@ class ProductProvider extends BaseProvider {
         }
       }
       _logger.i('ProductProvider: Product updated: ${updatedProduct.name}');
-      notifyListeners();
+      setSuccess(); // Use setSuccess to notify listeners
     } catch (e, stackTrace) {
       _logger.e(
         'ProductProvider: Failed to handle product.updated event: $e\n$stackTrace',
       );
+      setError(
+        'Failed to handle product update event: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -638,6 +578,9 @@ class ProductProvider extends BaseProvider {
         _logger.w(
           'ProductProvider: Unexpected data type for product.deleted event: ${data.runtimeType}',
         );
+        setError(
+          'Unexpected data type for product deletion event.',
+        ); // Report error
         return;
       }
 
@@ -647,15 +590,22 @@ class ProductProvider extends BaseProvider {
         _removeProduct(deletedProductId);
         _unsubscribeFromSpecificProductChannels(deletedProductId);
         _logger.i('ProductProvider: Product deleted: $deletedProductId');
+        setSuccess(); // Use setSuccess to notify listeners
       } else {
         _logger.w(
           'ProductProvider: No product_uuid found in product.deleted event data.',
         );
+        setError(
+          'Product ID not found in deletion event data.',
+        ); // Report error
       }
     } catch (e, stackTrace) {
       _logger.e(
         'ProductProvider: Failed to handle product.deleted event: $e\n$stackTrace',
       );
+      setError(
+        'Failed to handle product deletion event: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -670,6 +620,9 @@ class ProductProvider extends BaseProvider {
         _logger.w(
           'ProductProvider: Unexpected data type for product.review.created event: ${data.runtimeType}',
         );
+        setError(
+          'Unexpected data type for product review creation event.',
+        ); // Report error
         return;
       }
 
@@ -679,6 +632,7 @@ class ProductProvider extends BaseProvider {
         _logger.w(
           'ProductProvider: No product_uuid found in product.review.created event data.',
         );
+        setError('Product ID not found in review event data.'); // Report error
         return;
       }
 
@@ -697,7 +651,7 @@ class ProductProvider extends BaseProvider {
         _logger.i(
           'ProductProvider: Product review created, updated product data included.',
         );
-        notifyListeners();
+        setSuccess(); // Use setSuccess to notify listeners
       } else {
         // If product data is not included, refetch the product if it's currently selected
         if (_selectedProduct?.id == reviewedProductId) {
@@ -715,6 +669,9 @@ class ProductProvider extends BaseProvider {
       _logger.e(
         'ProductProvider: Failed to handle product.review.created event: $e\n$stackTrace',
       );
+      setError(
+        'Failed to handle product review creation event: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -731,8 +688,8 @@ class ProductProvider extends BaseProvider {
     _selectedProduct = null;
     _hasMoreProducts = true;
     _currentPage = 1;
-    resetState();
-    notifyListeners();
+    resetState(); // Use resetState to clear error and set to idle
+    setSuccess(); // Use setSuccess to notify listeners
     _logger.d('ProductProvider: Cleared product data.');
   }
 
@@ -747,8 +704,12 @@ class ProductProvider extends BaseProvider {
       _logger.d('ProductProvider: Unsubscribed from general products channel.');
     }
 
-    notifyListeners();
+    setSuccess(); // Use setSuccess to notify listeners
     _logger.d('ProductProvider: Cleared all product and cart data.');
+  }
+
+  void clearError() {
+    resetState(); // Calls resetState from BaseProvider
   }
 
   @override

@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/providers/links_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'otp_screen.dart';
-// import 'package:wawu_mobile/screens/account_type/account_type.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
@@ -17,8 +16,9 @@ import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wawu_mobile/models/country.dart';
-
 import 'package:wawu_mobile/providers/location_provider.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -34,7 +34,6 @@ class _SignUpState extends State<SignUp> {
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  // Replace countryController with selectedCountry string
   String? selectedCountry;
   String? selectedState;
   String? selectedGender;
@@ -42,6 +41,12 @@ class _SignUpState extends State<SignUp> {
   // Declare services without initialization
   late final ApiService apiService;
   late final AuthService authService;
+
+  // Add a GlobalKey for the form to manage validation state
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
 
   @override
   void initState() {
@@ -51,22 +56,77 @@ class _SignUpState extends State<SignUp> {
     authService = AuthService(apiService: apiService);
   }
 
-  // Add a GlobalKey for the form to manage validation state
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
   @override
   void dispose() {
     emailController.dispose();
     firstNameController.dispose();
     lastNameController.dispose();
     passwordController.dispose();
+    phoneController.dispose();
     super.dispose();
+  }
+
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
+        // Listen for errors from UserProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userProvider.hasError &&
+              userProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: userProvider.errorMessage!,
+              isError: true,
+            );
+            _hasShownError = true; // Set flag to true after showing
+            // It's crucial to clear the error state in the provider
+            // after it has been displayed to the user.
+            userProvider.resetState(); // Assuming resetState() or clearError()
+          } else if (!userProvider.hasError && _hasShownError) {
+            // Reset flag if error is cleared in provider
+            _hasShownError = false;
+          }
+        });
+
         return Scaffold(
           appBar: AppBar(),
           body: SingleChildScrollView(
@@ -104,7 +164,7 @@ class _SignUpState extends State<SignUp> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'First Name',
                       hintText: 'Enter your first name',
@@ -118,7 +178,7 @@ class _SignUpState extends State<SignUp> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'Last Name',
                       hintText: 'Enter your last name',
@@ -132,7 +192,7 @@ class _SignUpState extends State<SignUp> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'Phone Number',
                       hintText: 'Enter your phone number',
@@ -147,7 +207,7 @@ class _SignUpState extends State<SignUp> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'Password',
                       hintText: 'Enter your password',
@@ -166,10 +226,10 @@ class _SignUpState extends State<SignUp> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
                     // Add label for the country dropdown
-                    Text(
+                    const Text(
                       'Gender',
                       style: TextStyle(
                         fontSize: 14,
@@ -177,11 +237,11 @@ class _SignUpState extends State<SignUp> {
                         color: Colors.black87,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
                     // Replace CustomTextfield with CustomDropdown for country
                     CustomDropdown(
-                      options: ['Male', 'Female'],
+                      options: const ['Male', 'Female'],
                       label: 'Select your gender',
                       selectedValue: selectedGender,
                       enableSearch: false,
@@ -192,10 +252,10 @@ class _SignUpState extends State<SignUp> {
                       },
                       isDisabled: userProvider.isLoading,
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
                     // Country Dropdown
-                    Text(
+                    const Text(
                       'Country',
                       style: TextStyle(
                         fontSize: 14,
@@ -203,12 +263,54 @@ class _SignUpState extends State<SignUp> {
                         color: Colors.black87,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
+                        // Listen for errors from LocationProvider and display SnackBar
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (locationProvider.hasError &&
+                              locationProvider.errorMessage != null &&
+                              !_hasShownError) {
+                            CustomSnackBar.show(
+                              context,
+                              message: locationProvider.errorMessage!,
+                              isError: true,
+                              actionLabel: 'RETRY',
+                              onActionPressed: () {
+                                locationProvider.fetchCountries();
+                              },
+                            );
+                            _hasShownError = true;
+                            locationProvider.clearError(); // Clear error state
+                          } else if (!locationProvider.hasError &&
+                              _hasShownError) {
+                            _hasShownError = false;
+                          }
+                        });
+
+                        // Display full error screen for critical loading failures for countries
+                        if (locationProvider.hasError &&
+                            locationProvider.countries.isEmpty &&
+                            !locationProvider.isLoading) {
+                          return FullErrorDisplay(
+                            errorMessage:
+                                locationProvider.errorMessage ??
+                                'Failed to load countries. Please try again.',
+                            onRetry: () {
+                              locationProvider.fetchCountries();
+                            },
+                            onContactSupport: () {
+                              _showErrorSupportDialog(
+                                context,
+                                'If this problem persists, please contact our support team. We are here to help!',
+                              );
+                            },
+                          );
+                        }
+
                         // If not loading, not error, and no data, trigger fetch
-                        if (!locationProvider.isLoadingCountries &&
-                            locationProvider.errorCountries == null &&
+                        if (!locationProvider.isLoading &&
+                            locationProvider.errorMessage == null &&
                             locationProvider.countries.isEmpty) {
                           Future.microtask(
                             () => locationProvider.fetchCountries(),
@@ -230,7 +332,7 @@ class _SignUpState extends State<SignUp> {
                             ),
                           );
                         }
-                        if (locationProvider.isLoadingCountries) {
+                        if (locationProvider.isLoading) {
                           return Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -248,15 +350,21 @@ class _SignUpState extends State<SignUp> {
                               ],
                             ),
                           );
-                        } else if (locationProvider.errorCountries != null) {
-                          return Text(
-                            'Error: ${locationProvider.errorCountries}',
-                            style: const TextStyle(color: Colors.red),
-                          );
                         }
+                        // Removed the inline error Text widget for locationProvider.
+                        // Errors are now handled by CustomSnackBar or FullErrorDisplay.
+                        // else if (locationProvider.errorMessage != null) {
+                        //   return Text(
+                        //     'Error: ${locationProvider.errorMessage}',
+                        //     style: const TextStyle(color: Colors.red),
+                        //   );
+                        // }
                         final countryOptions = locationProvider.countries;
                         if (countryOptions.isEmpty) {
-                          return Text(
+                          // This is an empty state, not necessarily an error,
+                          // unless fetchCountries() failed and set an error.
+                          // If there's an error, the SnackBar or FullErrorDisplay above will handle it.
+                          return const Text(
                             'No countries available',
                             style: TextStyle(color: Colors.red),
                           );
@@ -314,8 +422,8 @@ class _SignUpState extends State<SignUp> {
                         );
                       },
                     ),
-                    SizedBox(height: 20),
-                    // State Dropdown
+                    const SizedBox(height: 20),
+                    // State Dropdown (commented out in original, keeping it commented)
                     // Text(
                     //   'State/Province',
                     //   style: TextStyle(
@@ -358,9 +466,31 @@ class _SignUpState extends State<SignUp> {
                     // ),
 
                     // SizedBox(height: 20),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     Consumer<LinksProvider>(
                       builder: (context, linksProvider, _) {
+                        // Listen for errors from LinksProvider and display SnackBar
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (linksProvider.hasError &&
+                              linksProvider.errorMessage != null &&
+                              !_hasShownError) {
+                            CustomSnackBar.show(
+                              context,
+                              message: linksProvider.errorMessage!,
+                              isError: true,
+                              actionLabel: 'RETRY',
+                              onActionPressed: () {
+                                linksProvider.fetchLinks();
+                              },
+                            );
+                            _hasShownError = true;
+                            linksProvider.clearError(); // Clear error state
+                          } else if (!linksProvider.hasError &&
+                              _hasShownError) {
+                            _hasShownError = false;
+                          }
+                        });
+
                         final termsLink =
                             linksProvider.getLinkByName('terms of use')?.link ??
                             '';
@@ -399,12 +529,26 @@ class _SignUpState extends State<SignUp> {
                                             mode:
                                                 LaunchMode.externalApplication,
                                           );
+                                        } else {
+                                          CustomSnackBar.show(
+                                            context,
+                                            message:
+                                                'Could not open Terms of Use link.',
+                                            isError: true,
+                                          );
                                         }
+                                      } else {
+                                        CustomSnackBar.show(
+                                          context,
+                                          message:
+                                              'Terms of Use link is not available.',
+                                          isError: true,
+                                        );
                                       }
                                     },
-                                    child: Text(
+                                    child: const Text(
                                       'Terms of Use',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: wawuColors.primary,
                                         decoration: TextDecoration.underline,
                                       ),
@@ -421,12 +565,26 @@ class _SignUpState extends State<SignUp> {
                                             mode:
                                                 LaunchMode.externalApplication,
                                           );
+                                        } else {
+                                          CustomSnackBar.show(
+                                            context,
+                                            message:
+                                                'Could not open Privacy Policy link.',
+                                            isError: true,
+                                          );
                                         }
+                                      } else {
+                                        CustomSnackBar.show(
+                                          context,
+                                          message:
+                                              'Privacy Policy link is not available.',
+                                          isError: true,
+                                        );
                                       }
                                     },
-                                    child: Text(
+                                    child: const Text(
                                       'Privacy Policy',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: wawuColors.primary,
                                         decoration: TextDecoration.underline,
                                       ),
@@ -439,25 +597,24 @@ class _SignUpState extends State<SignUp> {
                         );
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                    // Show error message if registration failed
-                    if (userProvider.hasError &&
-                        userProvider.errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10.0),
-                        child: Text(
-                          userProvider.errorMessage!,
-                          style: TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                    // Removed the old inline error Text widget for userProvider.
+                    // if (userProvider.hasError &&
+                    //     userProvider.errorMessage != null)
+                    //   Padding(
+                    //     padding: const EdgeInsets.only(bottom: 10.0),
+                    //     child: Text(
+                    //       userProvider.errorMessage!,
+                    //       style: TextStyle(color: Colors.red),
+                    //       textAlign: TextAlign.center,
+                    //     ),
+                    //   ),
 
                     // Conditionally render CircularProgressIndicator or CustomButton
                     if (userProvider.isLoading)
                       CustomButton(
                         color: wawuColors.buttonPrimary,
-                        // textColor: Colors.white,
                         function: () {}, // Empty function when loading
                         widget: Center(
                           child: SizedBox(
@@ -474,13 +631,11 @@ class _SignUpState extends State<SignUp> {
                         function: () async {
                           // Validate form fields first
                           if (!_formKey.currentState!.validate()) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
+                            CustomSnackBar.show(
+                              context,
+                              message:
                                   'Please fill all required fields correctly.',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
+                              isError: true,
                             );
                             return;
                           }
@@ -488,36 +643,30 @@ class _SignUpState extends State<SignUp> {
                           // Validate country selection
                           if (selectedCountry == null ||
                               selectedCountry!.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Please select your country.'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                            return;
-                          }
-
-                          if (!isChecked) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Please agree to the terms and conditions',
-                                ),
-                                backgroundColor:
-                                    Colors
-                                        .orange, // Differentiate from validation errors
-                              ),
+                            CustomSnackBar.show(
+                              context,
+                              message: 'Please select your country.',
+                              isError: true,
                             );
                             return;
                           }
 
                           if (selectedGender == null ||
                               selectedGender!.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Please select your gender.'),
-                                backgroundColor: Colors.red,
-                              ),
+                            CustomSnackBar.show(
+                              context,
+                              message: 'Please select your gender.',
+                              isError: true,
+                            );
+                            return;
+                          }
+
+                          if (!isChecked) {
+                            CustomSnackBar.show(
+                              context,
+                              message:
+                                  'Please agree to the terms and conditions',
+                              isError: true,
                             );
                             return;
                           }
@@ -558,7 +707,7 @@ class _SignUpState extends State<SignUp> {
                             );
                           }
                         },
-                        widget: Text(
+                        widget: const Text(
                           'Sign Up',
                           style: TextStyle(
                             color: Colors.white,
@@ -568,15 +717,15 @@ class _SignUpState extends State<SignUp> {
                         color: wawuColors.buttonPrimary,
                         textColor: Colors.white,
                       ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
+                        const Text(
                           'Already have an account?',
                           style: TextStyle(fontSize: 13),
                         ),
-                        SizedBox(width: 5),
+                        const SizedBox(width: 5),
                         GestureDetector(
                           onTap:
                               userProvider.isLoading
@@ -585,11 +734,11 @@ class _SignUpState extends State<SignUp> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => SignIn(),
+                                        builder: (context) => const SignIn(),
                                       ),
                                     );
                                   },
-                          child: Text(
+                          child: const Text(
                             'Login',
                             style: TextStyle(
                               color: wawuColors.buttonSecondary,
@@ -599,7 +748,7 @@ class _SignUpState extends State<SignUp> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),

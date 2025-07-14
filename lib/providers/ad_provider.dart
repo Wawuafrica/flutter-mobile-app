@@ -265,6 +265,10 @@ class AdProvider extends BaseProvider {
     await fetchAds();
   }
 
+  void clearError() {
+    resetState();
+  }
+
   @override
   void dispose() {
     // Clean up ad-specific channel subscriptions

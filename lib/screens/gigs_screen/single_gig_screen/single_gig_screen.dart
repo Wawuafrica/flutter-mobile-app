@@ -623,7 +623,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        gigProvider.error ??
+                                        gigProvider.errorMessage ??
                                             'Failed to submit review',
                                       ),
                                     ),

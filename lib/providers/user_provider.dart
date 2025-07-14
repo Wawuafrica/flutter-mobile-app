@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart' as dio;
+import 'package:dio/dio.dart' as dio; // Still needed for MultipartFile
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 
@@ -9,6 +9,8 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/pusher_service.dart';
 
+// UserProvider does not extend BaseProvider in the current structure,
+// but it implements similar state management methods.
 class UserProvider extends ChangeNotifier {
   final ApiService _apiService;
   final AuthService _authService;
@@ -91,10 +93,10 @@ class UserProvider extends ChangeNotifier {
       } else {
         setError('Login failed: User object is null.');
       }
-    } on AuthException catch (e) {
-      setError(e.toString());
     } catch (e) {
-      setError('An unexpected error occurred during login: $e');
+      // Catch generic Exception
+      _logger.e('An unexpected error occurred during login: $e');
+      setError(e.toString()); // Use e.toString() directly
     }
   }
 
@@ -108,10 +110,10 @@ class UserProvider extends ChangeNotifier {
       } else {
         setError('Registration successful but failed to log in automatically.');
       }
-    } on AuthException catch (e) {
-      setError(e.toString());
     } catch (e) {
-      setError('An unexpected error occurred during registration: $e');
+      // Catch generic Exception
+      _logger.e('An unexpected error occurred during registration: $e');
+      setError(e.toString()); // Use e.toString() directly
     }
   }
 
@@ -130,11 +132,10 @@ class UserProvider extends ChangeNotifier {
       _currentUser = null;
       _viewedUser = null;
       setSuccess();
-    } on dio.DioException catch (e) {
-      final (message, _) = _authService.extractErrorMessage(e);
-      setError(message);
     } catch (e) {
-      setError('Logout failed: $e');
+      // Catch generic Exception
+      _logger.e('Logout failed: $e');
+      setError(e.toString()); // Use e.toString() directly
     } finally {
       _currentUser = null;
       _viewedUser = null;
@@ -157,11 +158,10 @@ class UserProvider extends ChangeNotifier {
       } else {
         setError('Failed to fetch user profile: User is null after fetch.');
       }
-    } on AuthException catch (e) {
-      final (message, _) = _authService.extractErrorMessage(e);
-      setError(message);
     } catch (e) {
-      setError('Failed to fetch current user profile: $e');
+      // Catch generic Exception
+      _logger.e('Failed to fetch current user profile: $e');
+      setError(e.toString()); // Use e.toString() directly
     }
   }
 
@@ -198,11 +198,10 @@ class UserProvider extends ChangeNotifier {
             'Failed to update account type: Invalid response structure.';
         setError(message);
       }
-    } on dio.DioException catch (e) {
-      final (message, _) = _authService.extractErrorMessage(e);
-      setError(message);
     } catch (e) {
-      setError('Failed to update account type: $e');
+      // Catch generic Exception
+      _logger.e('Failed to update account type: $e');
+      setError(e.toString()); // Use e.toString() directly
     }
   }
 
@@ -272,12 +271,15 @@ class UserProvider extends ChangeNotifier {
       }
 
       // Handle about section
-      if (data?['about'] != null) {
-        profileFormDataMap['about'] = data!['about'].toString().trim();
+      if (data?['about'] != null &&
+          data!['about'].toString().trim().isNotEmpty) {
+        profileFormDataMap['about'] = data['about'].toString().trim();
       }
 
       // Handle skills array
-      if (data?['skills'] != null && data!['skills'] is List) {
+      if (data?['skills'] != null &&
+          data!['skills'] is List &&
+          (data['skills'] as List).isNotEmpty) {
         final skills = data['skills'] as List;
         for (int i = 0; i < skills.length; i++) {
           profileFormDataMap['skills[${i + 1}]'] = skills[i].toString();
@@ -285,54 +287,87 @@ class UserProvider extends ChangeNotifier {
       }
 
       // Handle education
-      if (data?['educationCertification'] != null ||
-          data?['educationInstitution'] != null ||
-          data?['educationCourseOfStudy'] != null ||
-          data?['educationGraduationDate'] != null ||
-          data?['educationEndDate'] != null) {
-        profileFormDataMap['education[1][certification]'] =
-            data?['educationCertification']?.toString() ?? '';
-        profileFormDataMap['education[1][institution]'] =
-            data?['educationInstitution']?.toString() ?? '';
-        profileFormDataMap['education[1][courseOfStudy]'] =
-            data?['educationCourseOfStudy']?.toString() ?? '';
-        profileFormDataMap['education[1][startDate]'] =
-            data?['educationGraduationDate']?.toString() ?? '';
-        profileFormDataMap['education[1][endDate]'] =
-            data?['educationEndDate']?.toString() ?? '';
-      }
+      final hasEducationData =
+          (data?['educationCertification'] != null &&
+              data!['educationCertification'].toString().isNotEmpty) ||
+          (data?['educationInstitution'] != null &&
+              data!['educationInstitution'].toString().isNotEmpty) ||
+          (data?['educationCourseOfStudy'] != null &&
+              data!['educationCourseOfStudy'].toString().isNotEmpty) ||
+          (data?['educationGraduationDate'] != null &&
+              data!['educationGraduationDate'].toString().isNotEmpty) ||
+          (data?['educationEndDate'] != null &&
+              data!['educationEndDate'].toString().isNotEmpty);
 
-      // Handle professional certification
-      // Ensure all fields are sent if any part of professionalCertification is being updated
-      if (data?['professionalCertificationName'] != null ||
-          data?['professionalCertificationOrganization'] != null ||
-          professionalCertificationImage != null) {
-        profileFormDataMap['professionalCertification[1][name]'] =
-            data?['professionalCertificationName']?.toString() ?? '';
-        profileFormDataMap['professionalCertification[1][organization]'] =
-            data?['professionalCertificationOrganization']?.toString() ?? '';
-
-        if (professionalCertificationImage != null) {
-          profileFormDataMap['professionalCertification[1][file]'] =
-              kIsWeb
-                  ? dio.MultipartFile.fromBytes(
-                    await professionalCertificationImage.readAsBytes(),
-                    filename: 'cert_doc.png',
-                  )
-                  : await dio.MultipartFile.fromFile(
-                    professionalCertificationImage.path,
-                    filename:
-                        professionalCertificationImage.path.split('/').last,
-                  );
-          profileFormDataMap['professionalCertification[1][fileName]'] =
-              kIsWeb
-                  ? 'cert_doc.png'
-                  : professionalCertificationImage.path.split('/').last;
+      if (hasEducationData) {
+        if (data['educationCertification'] != null &&
+            data['educationCertification'].toString().isNotEmpty) {
+          profileFormDataMap['education[1][certification]'] =
+              data['educationCertification'].toString();
+        }
+        if (data['educationInstitution'] != null &&
+            data['educationInstitution'].toString().isNotEmpty) {
+          profileFormDataMap['education[1][institution]'] =
+              data['educationInstitution'].toString();
+        }
+        if (data['educationCourseOfStudy'] != null &&
+            data['educationCourseOfStudy'].toString().isNotEmpty) {
+          profileFormDataMap['education[1][courseOfStudy]'] =
+              data['educationCourseOfStudy'].toString();
+        }
+        if (data['educationGraduationDate'] != null &&
+            data['educationGraduationDate'].toString().isNotEmpty) {
+          profileFormDataMap['education[1][startDate]'] =
+              data['educationGraduationDate'].toString();
+        }
+        if (data['educationEndDate'] != null &&
+            data['educationEndDate'].toString().isNotEmpty) {
+          profileFormDataMap['education[1][endDate]'] =
+              data['educationEndDate'].toString();
         }
       }
 
+      // Handle professional certification
+      final hasProfessionalCertificationData =
+          (data?['professionalCertificationName'] != null &&
+              data!['professionalCertificationName'].toString().isNotEmpty) &&
+          (data['professionalCertificationOrganization'] != null &&
+              data['professionalCertificationOrganization']
+                  .toString()
+                  .isNotEmpty) &&
+          professionalCertificationImage != null;
+
+      if (hasProfessionalCertificationData) {
+        if (data['professionalCertificationName'] != null &&
+            data['professionalCertificationName'].toString().isNotEmpty) {
+          profileFormDataMap['professionalCertification[1][name]'] =
+              data['professionalCertificationName'].toString();
+        }
+        if (data['professionalCertificationOrganization'] != null &&
+            data['professionalCertificationOrganization']
+                .toString()
+                .isNotEmpty) {
+          profileFormDataMap['professionalCertification[1][organization]'] =
+              data['professionalCertificationOrganization'].toString();
+        }
+
+        profileFormDataMap['professionalCertification[1][file]'] =
+            kIsWeb
+                ? dio.MultipartFile.fromBytes(
+                  await professionalCertificationImage.readAsBytes(),
+                  filename: 'cert_doc.png',
+                )
+                : await dio.MultipartFile.fromFile(
+                  professionalCertificationImage.path,
+                  filename: professionalCertificationImage.path.split('/').last,
+                );
+        profileFormDataMap['professionalCertification[1][fileName]'] =
+            kIsWeb
+                ? 'cert_doc.png'
+                : professionalCertificationImage.path.split('/').last;
+      }
+
       // Handle means of identification
-      // Ensure fileName is always sent if file is present
       if (meansOfIdentification != null) {
         profileFormDataMap['meansOfIdentification[file]'] =
             kIsWeb
@@ -368,6 +403,7 @@ class UserProvider extends ChangeNotifier {
       // Handle social handles
       if (data?['socialHandles'] != null && data!['socialHandles'] is Map) {
         final socialMap = data['socialHandles'] as Map<String, dynamic>;
+        // Only add social handle if its value is not empty
         if (socialMap['facebook'] != null &&
             socialMap['facebook'].toString().trim().isNotEmpty) {
           profileFormDataMap['social[facebook]'] =
@@ -391,8 +427,9 @@ class UserProvider extends ChangeNotifier {
       }
 
       // Handle subcategory
-      if (data?['subCategoryUuid'] != null) {
-        profileFormDataMap['subCategoryUuid'] = data!['subCategoryUuid'];
+      if (data?['subCategoryUuid'] != null &&
+          data!['subCategoryUuid'].toString().isNotEmpty) {
+        profileFormDataMap['subCategoryUuid'] = data['subCategoryUuid'];
       }
 
       _logger.d('Updating profile with data: $profileFormDataMap');
@@ -429,16 +466,10 @@ class UserProvider extends ChangeNotifier {
         setSuccess();
         _logger.e('Failed to fetch latest user profile after update.');
       }
-    } on dio.DioException catch (e) {
-      _logger.e(
-        'API error during profile update: ${e.response?.data ?? e.message}',
-      );
-      setError(
-        'API error during profile update: ${e.response?.data?['message'] ?? e.message}',
-      );
     } catch (e) {
-      _logger.e('Unexpected error during profile update: $e');
-      setError('Unexpected error during profile update: $e');
+      // Catch generic Exception
+      _logger.e('Error during profile update: $e');
+      setError(e.toString()); // Use e.toString() directly
     } finally {
       if (isLoading) {
         isLoading = false;
@@ -467,7 +498,9 @@ class UserProvider extends ChangeNotifier {
         return false;
       }
     } catch (e) {
-      setError('Failed to delete account: $e');
+      // Catch generic Exception
+      _logger.e('Failed to delete account: $e');
+      setError(e.toString()); // Use e.toString() directly
       return false;
     }
   }
@@ -488,12 +521,10 @@ class UserProvider extends ChangeNotifier {
         setError(message);
         _viewedUser = null;
       }
-    } on dio.DioException catch (e) {
-      final (message, _) = _authService.extractErrorMessage(e);
-      setError(message);
-      _viewedUser = null;
     } catch (e) {
-      setError('Failed to fetch user profile: $e');
+      // Catch generic Exception
+      _logger.e('Failed to fetch user profile: $e');
+      setError(e.toString()); // Use e.toString() directly
       _viewedUser = null;
     }
   }
@@ -505,6 +536,9 @@ class UserProvider extends ChangeNotifier {
       _logger.w(
         'UserProvider: Cannot subscribe, user not authenticated or UUID missing',
       );
+      setError(
+        'User not authenticated or UUID missing for channel subscription.',
+      ); // Report error
       return;
     }
 
@@ -512,6 +546,9 @@ class UserProvider extends ChangeNotifier {
       _logger.w(
         'UserProvider: PusherService not initialized, cannot subscribe',
       );
+      setError(
+        'PusherService not initialized, cannot subscribe to user channel.',
+      ); // Report error
       return;
     }
 
@@ -552,6 +589,9 @@ class UserProvider extends ChangeNotifier {
             );
             if (event.data == null) {
               _logger.w('UserProvider: Event data is null, skipping update');
+              setError(
+                'User profile update event data is null.',
+              ); // Report error
               return;
             }
 
@@ -560,7 +600,7 @@ class UserProvider extends ChangeNotifier {
 
             _currentUser = updatedUser;
             _authService.saveUser(_currentUser!);
-            notifyListeners();
+            setSuccess(); // Use setSuccess to notify listeners
             _logger.i(
               'UserProvider: User profile updated: ${_currentUser!.uuid}',
             );
@@ -568,21 +608,20 @@ class UserProvider extends ChangeNotifier {
             _logger.e(
               'UserProvider: Error processing user.profile.updated event: $e. Data: ${event.data}',
             );
-            setError(
-              'UserProvider: Error processing user.profile.updated event: $e',
-            );
+            setError(e.toString()); // Use e.toString() directly
           }
         });
         _logger.i(
           'UserProvider: Successfully subscribed to channel: $channelName',
         );
+        setSuccess(); // Indicate success for subscription
       } else {
         _logger.e(
           'UserProvider: Failed to subscribe to Pusher channel: $channelName',
         );
         setError(
-          'UserProvider: Failed to subscribe to Pusher channel: $channelName',
-        );
+          'Failed to subscribe to Pusher channel: $channelName',
+        ); // Report error
         _userChannelName = null;
         _isSubscribed = false;
       }
@@ -590,9 +629,7 @@ class UserProvider extends ChangeNotifier {
       _logger.e(
         'UserProvider: Error subscribing to Pusher channel $channelName: $e',
       );
-      setError(
-        'UserProvider: Error subscribing to Pusher channel $channelName: $e',
-      );
+      setError(e.toString()); // Use e.toString() directly
       _userChannelName = null;
       _isSubscribed = false;
     }

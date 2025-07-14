@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/models/category.dart';
@@ -126,8 +125,9 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                     SizedBox(
                       height: 100,
                       width: double.infinity,
-                      child: SvgPicture.asset(
-                        'assets/soon.svg',
+                      child: Image.asset(
+                        'assets/soon.jpg',
+                        cacheWidth: 600,
                         fit: BoxFit.cover,
                       ),
                     ),

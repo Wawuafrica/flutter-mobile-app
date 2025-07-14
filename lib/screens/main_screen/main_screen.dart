@@ -9,7 +9,10 @@ import 'package:wawu_mobile/screens/messages_screen/messages_screen.dart';
 import 'package:wawu_mobile/screens/notifications/notifications.dart';
 import 'package:wawu_mobile/screens/settings_screen/settings_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
+import 'package:wawu_mobile/widgets/blocked_account_overlay.dart';
+import 'package:wawu_mobile/providers/user_provider.dart' show UserProvider;
 
 class MainScreen extends StatefulWidget {
   final bool isAdmin;
@@ -252,23 +255,67 @@ class MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildNotificationsButton() {
-    return Container(
-      decoration: BoxDecoration(
-        color: wawuColors.purpleDarkestContainer,
-        shape: BoxShape.circle,
-      ),
-      margin: const EdgeInsets.only(right: 10),
-      height: 36,
-      width: 36,
-      child: IconButton(
-        icon: const Icon(Icons.notifications, size: 17, color: Colors.white),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const Notifications()),
-          );
-        },
-      ),
+    return Consumer<NotificationProvider>(
+      builder: (context, notificationProvider, _) {
+        final unreadCount = notificationProvider.unreadCount;
+        final hasUnread = unreadCount > 0;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: wawuColors.purpleDarkContainer,
+            shape: BoxShape.circle,
+          ),
+          margin: const EdgeInsets.only(right: 10),
+          height: 36,
+          width: 36,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications,
+                  size: 17,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const Notifications(),
+                    ),
+                  );
+                },
+              ),
+              if (hasUnread)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: wawuColors.buttonSecondary,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      unreadCount > 9 ? '9+' : '$unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        height: 1,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -276,30 +323,44 @@ class MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final List<Widget> appBarTitles = _getAppBarTitles();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-			  mainAxisAlignment: MainAxisAlignment.start,
-			  children: [appBarTitles[_selectedIndex]],
-				),
-				centerTitle: false,
-        automaticallyImplyLeading: false,
-        actions: _getAppBarActions(),
-      ),
-      body: Column(
-        children: [
-          _buildInPageSearchBar(),
-          const SizedBox.shrink(),
-          Expanded(
-            child: IndexedStack(index: _selectedIndex, children: _screens),
-          ),
-        ],
-      ),
-      bottomNavigationBar: CustomBottomNavigationBar(
-        selectedIndex: _selectedIndex,
-        onItemTapped: _onItemTapped,
-        items: _customNavItems,
-      ),
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, _) {
+        final isBlocked = userProvider.currentUser?.status == 'BLOCKED';
+
+        return Stack(
+          children: [
+            Scaffold(
+              appBar: AppBar(
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [appBarTitles[_selectedIndex]],
+                ),
+                centerTitle: false,
+                automaticallyImplyLeading: false,
+                actions: _getAppBarActions(),
+              ),
+              body: Column(
+                children: [
+                  _buildInPageSearchBar(),
+                  const SizedBox.shrink(),
+                  Expanded(
+                    child: IndexedStack(
+                      index: _selectedIndex,
+                      children: _screens,
+                    ),
+                  ),
+                ],
+              ),
+              bottomNavigationBar: CustomBottomNavigationBar(
+                selectedIndex: _selectedIndex,
+                onItemTapped: _onItemTapped,
+                items: _customNavItems,
+              ),
+            ),
+            if (isBlocked) const BlockedAccountOverlay(),
+          ],
+        );
+      },
     );
   }
 }

@@ -476,22 +476,305 @@ Refactor the logic to show a `SnackBar` with the error message. The UI should li
 // In the build method
 
 WidgetsBinding.instance.addPostFrameCallback((_) {
-  if (messageProvider.hasError && messageProvider.errorMessage != null) {
+  if (provider.hasError && provider.errorMessage != null) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(messageProvider.errorMessage!),
+        content: Text(provider.errorMessage!),
         backgroundColor: Colors.red,
       ),
     );
-    // Pop the screen after showing the error
-    Navigator.of(context).pop();
-    // messageProvider.clearError(); 
+    // Clear the error state after showing the message
+    provider.clearError();
   }
 });
 
-// The widget tree should show a loading indicator or an empty state,
-// not the inline error view.
+// Remove the inline error Text widget from the widget tree
 ```
+
+---
+
+### 11. `single_message_screen.dart`
+
+- **File Path**: `lib/screens/messages_screen/single_message_screen/single_message_screen.dart`
+- **Location**: `_SingleMessageScreenState.build` method, line 368
+
+**Problem Description**:
+
+Error messages are displayed directly in the UI using a `Text` widget when `messageProvider.errorMessage` is not null. This should be displayed as a dismissible `SnackBar` instead.
+
+**Code Snippet**:
+```dart
+// lib/screens/messages_screen/single_message_screen/single_message_screen.dart
+
+if (messageProvider.errorMessage != null)
+  Text('Error: ${messageProvider.errorMessage}'),
+```
+
+**Recommendation**:
+
+Refactor to use `ScaffoldMessenger` to show the error message as a `SnackBar` when `messageProvider.errorMessage` is not null.
+
+**Example Refactor**:
+```dart
+// In the build method
+
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (messageProvider.errorMessage != null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: ${messageProvider.errorMessage}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    // Clear the error state after showing the message
+    messageProvider.clearError();
+  }
+});
+
+// Remove the inline error Text widget from the widget tree
+```
+
+---
+
+### 12. `profile_screen.dart`
+
+- **File Path**: `lib/screens/profile/profile_screen.dart`
+- **Location**: `_ProfileScreenState._saveProfile` method, line 415
+
+**Problem Description**:
+
+Error messages during profile updates are shown using a direct `SnackBar` without using `ScaffoldMessenger`, which can cause issues with the widget lifecycle.
+
+**Code Snippet**:
+```dart
+// lib/screens/profile/profile_screen.dart
+
+Scaffold.of(context).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
+```
+
+**Recommendation**:
+
+Update to use `ScaffoldMessenger` for showing the error message.
+
+**Example Refactor**:
+```dart
+// Replace the error handling with:
+
+if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('Error updating profile: $e'),
+      backgroundColor: Colors.red,
+    ),
+  );
+}
+```
+
+---
+
+### 13. `home_screen.dart`
+
+- **File Path**: `lib/screens/home_screen/home_screen.dart`
+- **Location**: `_HomeScreenState._refreshData` and `_handleAdTap` methods
+
+**Problem Description**:
+
+Error messages are shown using direct `SnackBar` without `ScaffoldMessenger`, and error states are handled inconsistently.
+
+**Code Snippet**:
+```dart
+// In _refreshData
+content: Text('Failed to refresh data: $error'),
+
+// In _handleAdTap
+SnackBar(content: Text('Error opening link: ${e.toString()}')),
+```
+
+**Recommendation**:
+
+Standardize error handling using `ScaffoldMessenger` and ensure consistent error message formatting.
+
+**Example Refactor**:
+```dart
+// For refresh errors
+if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text('Failed to refresh data. Please try again.'),
+      backgroundColor: Colors.red,
+    ),
+  );
+}
+
+// For ad tap errors
+if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Could not open the link. Please try again later.'),
+      backgroundColor: Colors.red,
+    ),
+  );
+}
+```
+
+---
+
+### 14. `create_gig_screen.dart`
+
+- **File Path**: `lib/screens/gigs_screen/create_gig_screen/create_gig_screen.dart`
+- **Location**: `_CreateGigScreenState._createGig` method
+
+**Problem Description**:
+
+Error handling uses direct dialogs and `SnackBar` without `ScaffoldMessenger`, and error messages are constructed in a way that might expose internal errors to users.
+
+**Code Snippet**:
+```dart
+// Error message construction
+String errorMessage = 'Failed to create gig';
+// ...
+content: Text(errorMessage),
+
+// Later in the same method
+content: Text('An unexpected error occurred: ${e.toString()}'),
+```
+
+**Recommendation**:
+
+Standardize error handling with `ScaffoldMessenger` and use user-friendly error messages.
+
+**Example Refactor**:
+```dart
+// For known error cases
+if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Failed to create gig. Please check your input and try again.'),
+      backgroundColor: Colors.red,
+    ),
+  );
+}
+
+// For unexpected errors
+if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('An unexpected error occurred. Please try again later.'),
+      backgroundColor: Colors.red,
+    ),
+  );
+  // Log the actual error for debugging
+  debugPrint('Create gig error: $e');
+}
+```
+
+---
+
+### 17. `update_profile_screen.dart`
+
+- **File Path**: `lib/screens/update_profile/profile_update/profile_update.dart`
+- **Location**: `_ProfileUpdateState._saveProfile` method
+
+**Problem Description**:
+
+Error messages during profile updates are shown using direct `SnackBar` without using `ScaffoldMessenger`, which can cause issues with the widget lifecycle.
+
+**Code Snippet**:
+```dart
+// lib/screens/update_profile/profile_update/profile_update.dart
+
+Scaffold.of(context).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
+```
+
+**Recommendation**:
+
+Update to use `ScaffoldMessenger` for showing the error message and ensure proper error handling.
+
+**Example Refactor**:
+```dart
+if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: const Text('Failed to update profile. Please try again.'),
+      backgroundColor: Colors.red,
+    ),
+  );
+  // Log the actual error for debugging
+  debugPrint('Profile update error: $e');
+}
+```
+
+---
+
+### 18. `categories_screen.dart`
+
+- **File Path**: `lib/screens/categories/categories_screen.dart`
+- **Location**: `_CategoriesScreenState.build` method
+
+**Problem Description**:
+
+Error messages for category loading are displayed directly in the UI using a `Text` widget. These should be shown as dismissible `SnackBar` messages instead.
+
+**Code Snippet**:
+```dart
+// lib/screens/categories/categories_screen.dart
+
+'Error loading categories: ${categoryProvider.errorMessage}',
+```
+
+**Recommendation**:
+
+Refactor to use `ScaffoldMessenger` to show the error message when category loading fails.
+
+**Example Refactor**:
+```dart
+// In the build method
+
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  if (categoryProvider.hasError && 
+      categoryProvider.errorMessage != null && 
+      mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Failed to load categories: ${categoryProvider.errorMessage}'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    // Clear the error after showing it
+    categoryProvider.clearError();
+  }
+});
+```
+
+---
+
+## General Recommendations
+
+1. **Consistent Error Handling**:
+   - Always use `ScaffoldMessenger.of(context).showSnackBar()` for displaying error messages
+   - Ensure error messages are user-friendly and don't expose internal error details
+   - Clear error states after displaying them to prevent duplicate messages
+
+2. **Widget Lifecycle**:
+   - Always check `mounted` before calling `setState` or accessing context in async callbacks
+   - Use `WidgetsBinding.instance.addPostFrameCallback` for showing messages after the frame is built
+
+3. **Error Messages**:
+   - Keep error messages concise and actionable
+   - Avoid technical jargon in user-facing messages
+   - Log detailed errors to the console for debugging
+
+4. **Loading States**:
+   - Show loading indicators during async operations
+   - Handle both success and error cases appropriately
+   - Provide a way for users to retry failed operations
+
+5. **Accessibility**:
+   - Ensure error messages are announced to screen readers
+   - Use appropriate colors and contrast for error states
+   - Provide alternative text for error icons and images
+
+
 
 ---
 

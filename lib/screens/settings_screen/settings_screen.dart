@@ -21,6 +21,8 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -30,30 +32,37 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final userId = userProvider.currentUser?.uuid;
-      final userType = userProvider.currentUser?.role?.toLowerCase();
-      int role = 0;
-
-      if (userType == 'artisan') {
-        role = 3;
-      } else if (userType == 'professional') {
-        role = 2;
-      } else {
-        role = 1;
-      }
-
-      if (userId != null) {
-        Provider.of<PlanProvider>(
-          context,
-          listen: false,
-        ).fetchUserSubscriptionDetails(userId, role);
-      }
+      _fetchSubscriptionDetails();
     });
+  }
+
+  void _fetchSubscriptionDetails() {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = userProvider.currentUser?.uuid;
+    final userType = userProvider.currentUser?.role?.toLowerCase();
+    int role = 0;
+
+    if (userType == 'artisan') {
+      role = 3;
+    } else if (userType == 'professional') {
+      role = 2;
+    } else {
+      role = 1;
+    }
+
+    if (userId != null) {
+      Provider.of<PlanProvider>(
+        context,
+        listen: false,
+      ).fetchUserSubscriptionDetails(userId, role);
+    }
   }
 
   // Build cached cover image widget
@@ -142,6 +151,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _handleLogoutAsync(BuildContext context) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final adProvider = Provider.of<AdProvider>(context, listen: false);
@@ -223,6 +269,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // User Name Section
             Consumer<UserProvider>(
               builder: (context, userProvider, child) {
+                // Listen for errors from UserProvider and display SnackBar
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (userProvider.hasError &&
+                      userProvider.errorMessage != null &&
+                      !_hasShownError) {
+                    CustomSnackBar.show(
+                      context,
+                      message: userProvider.errorMessage!,
+                      isError: true,
+                    );
+                    _hasShownError = true;
+                    userProvider.resetState(); // Clear error state
+                  } else if (!userProvider.hasError && _hasShownError) {
+                    _hasShownError = false;
+                  }
+                });
+
                 final user = userProvider.currentUser;
                 final fullName =
                     '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
@@ -242,6 +305,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Subscription Section
             Consumer<PlanProvider>(
               builder: (context, planProvider, child) {
+                // Listen for errors from PlanProvider and display SnackBar
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (planProvider.hasError &&
+                      planProvider.errorMessage != null &&
+                      !_hasShownError) {
+                    CustomSnackBar.show(
+                      context,
+                      message: planProvider.errorMessage!,
+                      isError: true,
+                      actionLabel: 'RETRY',
+                      onActionPressed: () {
+                        _fetchSubscriptionDetails();
+                      },
+                    );
+                    _hasShownError = true;
+                    planProvider.clearError(); // Clear error state
+                  } else if (!planProvider.hasError && _hasShownError) {
+                    _hasShownError = false;
+                  }
+                });
+
                 final userType =
                     Provider.of<UserProvider>(
                       context,
@@ -268,7 +352,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 }
 
-                if (hasError || subscriptionData == null) {
+                // Display full error screen for critical loading failures for subscription
+                if (hasError && subscriptionData == null && !isLoading) {
+                  return FullErrorDisplay(
+                    errorMessage:
+                        planProvider.errorMessage ??
+                        'Failed to load subscription details. Please try again.',
+                    onRetry: () {
+                      _fetchSubscriptionDetails();
+                    },
+                    onContactSupport: () {
+                      _showErrorSupportDialog(
+                        context,
+                        'If this problem persists, please contact our support team. We are here to help!',
+                      );
+                    },
+                  );
+                }
+
+                if (subscriptionData == null) {
                   return Container(
                     width: double.infinity,
                     height: 160,
@@ -280,7 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
+                        const Text(
                           'No active subscription',
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -292,40 +394,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () {
-                            final currentUserId =
-                                Provider.of<UserProvider>(
-                                  context,
-                                  listen: false,
-                                ).currentUser?.uuid;
-                            final currentUserType =
-                                Provider.of<UserProvider>(
-                                  context,
-                                  listen: false,
-                                ).currentUser?.role?.toLowerCase();
-                            int currentRole = 0;
-                            if (currentUserType == 'artisan') {
-                              currentRole = 3;
-                            } else if (currentUserType == 'professional') {
-                              currentRole = 2;
-                            } else {
-                              currentRole = 1;
-                            }
-
-                            if (currentUserId != null) {
-                              planProvider.fetchUserSubscriptionDetails(
-                                currentUserId,
-                                currentRole,
-                              );
-                            }
+                            _fetchSubscriptionDetails(); // Retry fetching subscription
                           },
                           child: Text(
                             'Upgrade Plan or Retry',
                             style: TextStyle(
-                              color: wawuColors.white.withOpacity(0.8),
+                              color: wawuColors.white.withValues(alpha: 0.8),
                               fontSize: 14,
                               decoration: TextDecoration.underline,
-                              decorationColor: wawuColors.white.withOpacity(
-                                0.8,
+                              decorationColor: wawuColors.white.withValues(
+                                alpha: 0.8,
                               ),
                             ),
                           ),
@@ -355,7 +433,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     }
                   } catch (e) {
                     daysLeftText = 'N/A';
-                    print('Error parsing expiry date: $e');
                   }
                 }
 
@@ -372,13 +449,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Expanded(
                         child: CustomRowSingleColumn(
                           leftText: 'Subscription Plan',
-                          leftTextStyle: TextStyle(
+                          leftTextStyle: const TextStyle(
                             color: wawuColors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                           rightText: planName ?? 'N/A',
-                          rightTextStyle: TextStyle(
+                          rightTextStyle: const TextStyle(
                             color: wawuColors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -388,13 +465,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Expanded(
                         child: CustomRowSingleColumn(
                           leftText: 'Expires On',
-                          leftTextStyle: TextStyle(
+                          leftTextStyle: const TextStyle(
                             color: wawuColors.white,
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
                           rightText: '$expiresAt ($daysLeftText)',
-                          rightTextStyle: TextStyle(
+                          rightTextStyle: const TextStyle(
                             color: wawuColors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
@@ -452,6 +529,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             Consumer<LinksProvider>(
               builder: (context, linksProvider, _) {
+                // Listen for errors from LinksProvider and display SnackBar
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (linksProvider.hasError &&
+                      linksProvider.errorMessage != null &&
+                      !_hasShownError) {
+                    CustomSnackBar.show(
+                      context,
+                      message: linksProvider.errorMessage!,
+                      isError: true,
+                      actionLabel: 'RETRY',
+                      onActionPressed: () {
+                        linksProvider.fetchLinks();
+                      },
+                    );
+                    _hasShownError = true;
+                    linksProvider.clearError(); // Clear error state
+                  } else if (!linksProvider.hasError && _hasShownError) {
+                    _hasShownError = false;
+                  }
+                });
+
                 final termsLink =
                     linksProvider.getLinkByName('hand book')?.link ?? '';
                 return SettingsButtonCard(
@@ -464,7 +562,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           uri,
                           mode: LaunchMode.externalApplication,
                         );
+                      } else {
+                        CustomSnackBar.show(
+                          context,
+                          message: 'Could not open About Us link.',
+                          isError: true,
+                        );
                       }
+                    } else {
+                      CustomSnackBar.show(
+                        context,
+                        message: 'About Us link is not available.',
+                        isError: true,
+                      );
                     }
                   },
                 );
@@ -484,7 +594,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           uri,
                           mode: LaunchMode.externalApplication,
                         );
+                      } else {
+                        CustomSnackBar.show(
+                          context,
+                          message: 'Could not open Terms of Use link.',
+                          isError: true,
+                        );
                       }
+                    } else {
+                      CustomSnackBar.show(
+                        context,
+                        message: 'Terms of Use link is not available.',
+                        isError: true,
+                      );
                     }
                   },
                 );
@@ -547,18 +669,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                       );
                       final success = await userProvider.deleteUserAccount();
-                      Navigator.of(context).pop();
+                      Navigator.of(context).pop(); // Dismiss loading dialog
                       if (success) {
                         await _handleLogoutAsync(context);
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
+                        CustomSnackBar.show(
+                          context,
+                          message:
                               userProvider.errorMessage ??
-                                  'Failed to delete account',
-                            ),
-                          ),
+                              'Failed to delete account',
+                          isError: true,
                         );
+                        userProvider.resetState(); // Clear error state
                       }
                     },
                   ),

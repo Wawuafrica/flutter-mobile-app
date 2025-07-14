@@ -21,6 +21,8 @@ import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class ProfileUpdate extends StatefulWidget {
   const ProfileUpdate({super.key});
@@ -82,6 +84,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
   bool _isLoading = true; // Start with loading state
 
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
+
   @override
   void initState() {
     super.initState();
@@ -107,9 +112,26 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
     final skillProvider = Provider.of<SkillProvider>(context, listen: false);
 
+    // Fetch initial data, handling potential errors for each provider
     await Future.wait([
-      dropdownProvider.fetchDropdownData(),
-      skillProvider.fetchSkills(), // Fetch skills
+      dropdownProvider.fetchDropdownData().catchError((e) {
+        // Handle error for dropdownProvider, show snackbar but don't block
+        CustomSnackBar.show(
+          context,
+          message: 'Failed to load dropdown data: $e',
+          isError: true,
+        );
+        dropdownProvider.clearError(); // Clear error state
+      }),
+      skillProvider.fetchSkills().catchError((e) {
+        // Handle error for skillProvider, show snackbar but don't block
+        CustomSnackBar.show(
+          context,
+          message: 'Failed to load skills: $e',
+          isError: true,
+        );
+        skillProvider.clearError(); // Clear error state
+      }),
     ]);
 
     final user = Provider.of<UserProvider>(context, listen: false).currentUser;
@@ -240,6 +262,18 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
         _selectedSkill = null; // Reset dropdown selection
         _onFieldChanged(); // Mark as dirty
       });
+    } else if (_selectedSkill == null || _selectedSkill!.trim().isEmpty) {
+      CustomSnackBar.show(
+        context,
+        message: 'Please select a skill to add.',
+        isError: true,
+      );
+    } else if (_skills.contains(_selectedSkill!.trim())) {
+      CustomSnackBar.show(
+        context,
+        message: 'Skill "${_selectedSkill!}" is already added.',
+        isError: false, // Not an error, but informative
+      );
     }
   }
 
@@ -262,12 +296,18 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
       setState(() {
         controller.text =
             "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+        _onFieldChanged(); // Mark as dirty
       });
     }
   }
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) {
+      CustomSnackBar.show(
+        context,
+        message: 'Please fill all required fields correctly.',
+        isError: true,
+      );
       return;
     }
 
@@ -359,30 +399,42 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
       if (userProvider.isSuccess) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully!')),
-          );
-          Navigator.push(
+          CustomSnackBar.show(
             context,
-            MaterialPageRoute(builder: (context) => const Plan()),
+            message: 'Profile updated successfully!',
+            isError: false,
           );
+          final role = userProvider.currentUser?.role?.toLowerCase();
+          if (role == 'buyer') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const Disclaimer()),
+            );
+          } else {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const Plan()),
+            );
+          }
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                userProvider.errorMessage ?? 'Failed to update profile',
-              ),
-            ),
+          CustomSnackBar.show(
+            context,
+            message: userProvider.errorMessage ?? 'Failed to update profile',
+            isError: true,
           );
+          userProvider.resetState(); // Clear error state
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
+        CustomSnackBar.show(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
+          message: 'Error updating profile: $e',
+          isError: true,
+        );
+        userProvider.resetState(); // Clear error state
       }
     } finally {
       if (mounted) {
@@ -418,6 +470,43 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     super.dispose();
   }
 
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -430,11 +519,12 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
     // Use the forced boolean for rendering logic
     final bool currentIsWeb = _forceIsWeb;
 
-    return Consumer4<
+    return Consumer5<
       CategoryProvider,
       UserProvider,
       DropdownDataProvider,
-      SkillProvider
+      SkillProvider,
+      LocationProvider
     >(
       builder: (
         context,
@@ -442,8 +532,95 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
         userProvider,
         dropdownProvider,
         skillProvider,
+        locationProvider,
         child,
       ) {
+        // Listen for errors from UserProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userProvider.hasError &&
+              userProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: userProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                // Assuming userProvider has a method to refresh user data
+                userProvider.fetchCurrentUser();
+              },
+            );
+            _hasShownError = true;
+            userProvider.resetState(); // Clear error state
+          } else if (!userProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
+        // Listen for errors from DropdownDataProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (dropdownProvider.hasError &&
+              dropdownProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: dropdownProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                dropdownProvider.fetchDropdownData();
+              },
+            );
+            _hasShownError = true;
+            dropdownProvider.clearError(); // Clear error state
+          } else if (!dropdownProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
+        // Listen for errors from SkillProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (skillProvider.hasError &&
+              skillProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: skillProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                skillProvider.fetchSkills();
+              },
+            );
+            _hasShownError = true;
+            skillProvider.clearError(); // Clear error state
+          } else if (!skillProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
+        // Listen for errors from LocationProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (locationProvider.hasError &&
+              locationProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: locationProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                // Assuming fetchCountries also handles states for the selected country
+                locationProvider.fetchCountries();
+              },
+            );
+            _hasShownError = true;
+            locationProvider.clearError(); // Clear error state
+          } else if (!locationProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
         final selectedSubCategory = categoryProvider.selectedSubCategory;
         final user = userProvider.currentUser;
         final bool isBuyer = (user?.role?.toUpperCase() == 'BUYER');
@@ -679,6 +856,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 5,
+                  runSpacing: 5, // Added runSpacing for better wrap layout
                   alignment: WrapAlignment.center,
                   children: const [
                     Icon(
@@ -734,12 +912,24 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   const SizedBox(height: 10),
 
                   // Skills dropdown and loading/error handling
-                  if (skillProvider.isLoading)
+                  if (skillProvider.isLoading && skillProvider.skills.isEmpty)
                     const Center(child: CircularProgressIndicator())
-                  else if (skillProvider.error != null)
-                    Text(
-                      'Error loading skills: ${skillProvider.error}',
-                      style: const TextStyle(color: Colors.red),
+                  else if (skillProvider.hasError &&
+                      skillProvider.skills.isEmpty &&
+                      !skillProvider.isLoading)
+                    FullErrorDisplay(
+                      errorMessage:
+                          skillProvider.errorMessage ??
+                          'Failed to load skills. Please try again.',
+                      onRetry: () {
+                        skillProvider.fetchSkills();
+                      },
+                      onContactSupport: () {
+                        _showErrorSupportDialog(
+                          context,
+                          'If this problem persists, please contact our support team. We are here to help!',
+                        );
+                      },
                     )
                   else ...[
                     CustomDropdown(
@@ -965,6 +1155,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                         onImageChanged: (xfile) {
                           setState(() {
                             _professionalCertificationImage = xfile;
+                            _onFieldChanged(); // Mark as dirty
                           });
                         },
                       ),
@@ -980,6 +1171,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   onImageChanged: (xfile) {
                     setState(() {
                       _meansOfIdentification = xfile;
+                      _onFieldChanged(); // Mark as dirty
                     });
                   },
                 ),
@@ -1003,13 +1195,38 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     const SizedBox(height: 5),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
-                        if (locationProvider.isLoadingCountries) {
-                          return const CircularProgressIndicator();
-                        } else if (locationProvider.errorCountries != null) {
-                          return Text(
-                            'Error: \\${locationProvider.errorCountries}',
+                        // Display full error screen if country loading failed critically
+                        if (locationProvider.hasError &&
+                            locationProvider.countries.isEmpty &&
+                            !locationProvider.isLoading) {
+                          return FullErrorDisplay(
+                            errorMessage:
+                                locationProvider.errorMessage ??
+                                'Failed to load countries. Please try again.',
+                            onRetry: () {
+                              locationProvider.fetchCountries();
+                            },
+                            onContactSupport: () {
+                              _showErrorSupportDialog(
+                                context,
+                                'If this problem persists, please contact our support team. We are here to help!',
+                              );
+                            },
                           );
                         }
+
+                        if (locationProvider.isLoading &&
+                            locationProvider.countries.isEmpty) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        // Removed the old inline error Text widget for locationProvider.
+                        // else if (locationProvider.errorMessage != null) {
+                        //   return Text(
+                        //     'Error: \\${locationProvider.errorMessage}',
+                        //   );
+                        // }
                         return CustomDropdown<Country>(
                           options: locationProvider.countries,
                           label: 'Select Country',
@@ -1018,6 +1235,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                             setState(() {
                               _selectedCountry = value;
                               _selectedState = null;
+                              _onFieldChanged(); // Mark as dirty
                             });
                             final countries = locationProvider.countries;
                             final selected = countries.firstWhere(
@@ -1032,7 +1250,8 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                               locationProvider.fetchStates(selected.id);
                             }
                           },
-                          isDisabled: true,
+                          isDisabled:
+                              false, // Changed to false as it should be selectable
                           itemBuilder:
                               (context, country, isSelected) => Row(
                                 children: [
@@ -1043,8 +1262,10 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                                       width: 24,
                                       height: 24,
                                       errorBuilder:
-                                          (_, __, ___) =>
-                                              SizedBox(width: 24, height: 24),
+                                          (_, __, ___) => const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                          ),
                                     ),
                                   const SizedBox(width: 8),
                                   Text(country.name),
@@ -1062,6 +1283,37 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                     const SizedBox(height: 5),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
+                        // Display full error screen if state loading failed critically
+                        if (locationProvider.hasError &&
+                            locationProvider.states.isEmpty &&
+                            !locationProvider.isLoading) {
+                          return FullErrorDisplay(
+                            errorMessage:
+                                locationProvider.errorMessage ??
+                                'Failed to load states. Please try again.',
+                            onRetry: () {
+                              if (_selectedCountry != null) {
+                                locationProvider.fetchStates(
+                                  _selectedCountry!.id,
+                                );
+                              } else {
+                                CustomSnackBar.show(
+                                  context,
+                                  message:
+                                      'Please select a country first to load states.',
+                                  isError: true,
+                                );
+                              }
+                            },
+                            onContactSupport: () {
+                              _showErrorSupportDialog(
+                                context,
+                                'If this problem persists, please contact our support team. We are here to help!',
+                              );
+                            },
+                          );
+                        }
+
                         if (_selectedCountry == null) {
                           return AbsorbPointer(
                             child: CustomDropdown(
@@ -1069,17 +1321,21 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                               options: const [],
                               selectedValue: null,
                               onChanged: (_) {},
-                              isDisabled: false,
+                              isDisabled: true,
                             ),
                           );
                         }
-                        if (locationProvider.isLoadingStates) {
-                          return const CircularProgressIndicator();
-                        } else if (locationProvider.errorStates != null) {
-                          return Text(
-                            'Error: \\${locationProvider.errorStates}',
+                        if (locationProvider.isLoading) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
                           );
                         }
+                        // Removed the old inline error Text widget for locationProvider.
+                        // else if (locationProvider.errorMessage != null) {
+                        //   return Text(
+                        //     'Error: \\${locationProvider.errorMessage}',
+                        //   );
+                        // }
                         return CustomDropdown(
                           label: 'Select State',
                           options:
@@ -1090,6 +1346,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                           onChanged: (value) {
                             setState(() {
                               _selectedState = value;
+                              _onFieldChanged(); // Mark as dirty
                             });
                           },
                           isDisabled: locationProvider.states.isEmpty,

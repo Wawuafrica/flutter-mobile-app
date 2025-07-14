@@ -10,6 +10,8 @@ import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart'; // Import the package
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
@@ -21,6 +23,10 @@ class BlogScreen extends StatefulWidget {
 class _BlogScreenState extends State<BlogScreen> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
+
+  // Flags to prevent showing multiple snackbars for the same error
+  bool _hasShownAdError = false;
+  bool _hasShownBlogError = false;
 
   @override
   void initState() {
@@ -42,18 +48,6 @@ class _BlogScreenState extends State<BlogScreen> {
     });
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   Future<void> _refreshData() async {
     try {
       final blogProvider = context.read<BlogProvider>();
@@ -70,19 +64,31 @@ class _BlogScreenState extends State<BlogScreen> {
 
       // Show success message
       if (mounted) {
-        _showSnackBar('Content refreshed successfully');
+        CustomSnackBar.show(
+          context,
+          message: 'Content refreshed successfully',
+          isError: false,
+        );
       }
     } catch (error) {
       // Show error message
       if (mounted) {
-        _showSnackBar('Failed to refresh data: $error', isError: true);
+        CustomSnackBar.show(
+          context,
+          message: 'Failed to refresh data: $error',
+          isError: true,
+        );
       }
     }
   }
 
   Future<void> _handleAdTap(String adLink) async {
     if (adLink.isEmpty) {
-      _showSnackBar('Ad link is not available', isError: true);
+      CustomSnackBar.show(
+        context,
+        message: 'Ad link is not available',
+        isError: false, // Informative, not an error
+      );
       return;
     }
 
@@ -92,16 +98,82 @@ class _BlogScreenState extends State<BlogScreen> {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        _showSnackBar('Could not open the ad link', isError: true);
+        CustomSnackBar.show(
+          context,
+          message: 'Could not open the ad link',
+          isError: true,
+        );
       }
     } catch (e) {
-      _showSnackBar('Invalid ad link format', isError: true);
+      CustomSnackBar.show(
+        context,
+        message: 'Invalid ad link format',
+        isError: true,
+      );
     }
+  }
+
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildAdCarousel() {
     return Consumer<AdProvider>(
       builder: (context, adProvider, child) {
+        // Listen for errors from AdProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (adProvider.hasError &&
+              adProvider.errorMessage != null &&
+              !_hasShownAdError) {
+            CustomSnackBar.show(
+              context,
+              message: adProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                adProvider.fetchAds();
+              },
+            );
+            _hasShownAdError = true;
+            adProvider.clearError(); // Clear error state
+          } else if (!adProvider.hasError && _hasShownAdError) {
+            _hasShownAdError = false;
+          }
+        });
+
         // Loading state
         if (adProvider.isLoading && adProvider.ads.isEmpty) {
           return Container(
@@ -127,48 +199,23 @@ class _BlogScreenState extends State<BlogScreen> {
           );
         }
 
-        // Error state
-        if (adProvider.errorMessage != null && adProvider.ads.isEmpty) {
-          return Container(
-            width: double.infinity,
-            height: 220,
-            decoration: BoxDecoration(
-              color: wawuColors.borderPrimary.withAlpha(50),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                const SizedBox(height: 8),
-                Text(
-                  'Failed to load ads',
-                  style: TextStyle(
-                    color: Colors.red[300],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  adProvider.errorMessage ?? 'Unknown error',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: () => adProvider.refresh(),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  label: const Text('Retry'),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        // Error state with FullErrorDisplay
+        if (adProvider.hasError &&
+            adProvider.ads.isEmpty &&
+            !adProvider.isLoading) {
+          return FullErrorDisplay(
+            errorMessage:
+                adProvider.errorMessage ??
+                'Failed to load ads. Please try again.',
+            onRetry: () {
+              adProvider.fetchAds();
+            },
+            onContactSupport: () {
+              _showErrorSupportDialog(
+                context,
+                'If this problem persists, please contact our support team. We are here to help!',
+              );
+            },
           );
         }
 
@@ -289,6 +336,27 @@ class _BlogScreenState extends State<BlogScreen> {
   Widget _buildBlogContent() {
     return Consumer<BlogProvider>(
       builder: (context, blogProvider, child) {
+        // Listen for errors from BlogProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (blogProvider.hasError &&
+              blogProvider.errorMessage != null &&
+              !_hasShownBlogError) {
+            CustomSnackBar.show(
+              context,
+              message: blogProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                blogProvider.fetchPosts(refresh: true);
+              },
+            );
+            _hasShownBlogError = true;
+            blogProvider.clearError(); // Clear error state
+          } else if (!blogProvider.hasError && _hasShownBlogError) {
+            _hasShownBlogError = false;
+          }
+        });
+
         // Loading state
         if (blogProvider.isLoading && blogProvider.posts.isEmpty) {
           return const Center(
@@ -308,38 +376,23 @@ class _BlogScreenState extends State<BlogScreen> {
           );
         }
 
-        // Error state
-        if (blogProvider.errorMessage != null && blogProvider.posts.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40.0),
-              child: Column(
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: Colors.red[300]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Failed to load blog posts',
-                    style: TextStyle(
-                      color: Colors.red[300],
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    blogProvider.errorMessage ?? 'Unknown error',
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => blogProvider.fetchPosts(refresh: true),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
+        // Error state with FullErrorDisplay
+        if (blogProvider.hasError &&
+            blogProvider.posts.isEmpty &&
+            !blogProvider.isLoading) {
+          return FullErrorDisplay(
+            errorMessage:
+                blogProvider.errorMessage ??
+                'Failed to load blog posts. Please try again.',
+            onRetry: () {
+              blogProvider.fetchPosts(refresh: true);
+            },
+            onContactSupport: () {
+              _showErrorSupportDialog(
+                context,
+                'If this problem persists, please contact our support team. We are here to help!',
+              );
+            },
           );
         }
 
@@ -426,8 +479,9 @@ class _BlogScreenState extends State<BlogScreen> {
                   blogPost.uuid,
                 );
                 if (!success) {
-                  _showSnackBar(
-                    'Failed to like post. Please try again.',
+                  CustomSnackBar.show(
+                    context,
+                    message: 'Failed to like post. Please try again.',
                     isError: true,
                   );
                 }

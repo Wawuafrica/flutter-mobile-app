@@ -4,6 +4,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/models/user.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/dropdown_data_provider.dart';
@@ -21,6 +22,8 @@ import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
 import 'package:wawu_mobile/models/country.dart';
 import 'package:wawu_mobile/providers/location_provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -72,6 +75,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   late final ApiService apiService;
   late final AuthService authService;
+
+  // Flags to prevent showing multiple snackbars for the same error
+  bool _hasShownUserError = false;
+  bool _hasShownDropdownError = false;
+  bool _hasShownSkillError = false;
+  bool _hasShownLocationError = false;
 
   @override
   void initState() {
@@ -197,12 +206,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isLoading = true;
     });
 
-    await Future.wait([
-      dropdownProvider.fetchDropdownData(),
-      skillProvider.fetchSkills(),
-      locationProvider.fetchCountries(),
-      userProvider.fetchCurrentUser(), // Ensure current user is fetched
-    ]);
+    try {
+      await Future.wait([
+        dropdownProvider.fetchDropdownData().catchError((e) {
+          CustomSnackBar.show(
+            context,
+            message: 'Failed to load dropdown data: $e',
+            isError: true,
+          );
+          dropdownProvider.clearError();
+        }),
+        skillProvider.fetchSkills().catchError((e) {
+          CustomSnackBar.show(
+            context,
+            message: 'Failed to load skills: $e',
+            isError: true,
+          );
+          skillProvider.clearError();
+        }),
+        locationProvider.fetchCountries().catchError((e) {
+          CustomSnackBar.show(
+            context,
+            message: 'Failed to load countries: $e',
+            isError: true,
+          );
+          locationProvider.clearError();
+        }),
+        userProvider.fetchCurrentUser().catchError((e) {
+          CustomSnackBar.show(
+            context,
+            message: 'Failed to load user profile: $e',
+            isError: true,
+          );
+          userProvider.resetState();
+        }),
+      ]);
+    } catch (e) {
+      // Catch-all for any unhandled errors during Future.wait
+      CustomSnackBar.show(
+        context,
+        message: 'An unexpected error occurred during initial data load: $e',
+        isError: true,
+      );
+    }
 
     _initializeControllersFromUser(); // Initialize controllers after data is fetched
 
@@ -258,6 +304,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
         _isDirty = true;
       });
+    } else {
+      CustomSnackBar.show(
+        context,
+        message: 'No image selected.',
+        isError: false, // Informative, not an error
+      );
     }
   }
 
@@ -277,6 +329,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _selectedSkill = null;
         _isDirty = true;
       });
+    } else if (skillToAdd.isEmpty) {
+      CustomSnackBar.show(
+        context,
+        message: 'Please select or enter a skill to add.',
+        isError: true,
+      );
+    } else if (_skills.contains(skillToAdd)) {
+      CustomSnackBar.show(
+        context,
+        message: 'Skill "$skillToAdd" is already added.',
+        isError: false, // Not an error, but informative
+      );
     }
   }
 
@@ -298,6 +362,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) {
+      CustomSnackBar.show(
+        context,
+        message: 'Please fill all required fields correctly.',
+        isError: true,
+      );
       return;
     }
 
@@ -394,8 +463,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (userProvider.isSuccess) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully!')),
+          CustomSnackBar.show(
+            context,
+            message: 'Profile updated successfully!',
+            isError: false,
           );
           // Clear file selections after successful upload
           setState(() {
@@ -409,26 +480,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                userProvider.errorMessage ?? 'Failed to update profile',
-              ),
-            ),
+          CustomSnackBar.show(
+            context,
+            message: userProvider.errorMessage ?? 'Failed to update profile',
+            isError: true,
           );
+          userProvider.resetState(); // Clear error state
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
+        CustomSnackBar.show(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error updating profile: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDirty = false;
-        });
+          message: 'Error updating profile: $e',
+          isError: true,
+        );
+        userProvider.resetState(); // Clear error state
       }
     }
   }
@@ -450,6 +517,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
+  }
+
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildEducationCard(Education education) {
@@ -520,7 +624,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withAlpha(50), // Adjusted alpha
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check, color: Colors.white, size: 12),
@@ -564,12 +668,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 if (cert.file?.link != null) ...[
                   const SizedBox(height: 8),
-                  Text(
-                    'Document: ${cert.file!.name ?? 'View Document'}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      decoration: TextDecoration.underline,
+                  GestureDetector(
+                    onTap: () async {
+                      final uri = Uri.parse(cert.file!.link!);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } else {
+                        CustomSnackBar.show(
+                          context,
+                          message: 'Could not open document link.',
+                          isError: true,
+                        );
+                      }
+                    },
+                    child: Text(
+                      'Document: ${cert.file!.name ?? 'View Document'}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        decoration: TextDecoration.underline,
+                      ),
                     ),
                   ),
                 ],
@@ -580,7 +701,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withAlpha(50), // Adjusted alpha
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.check, color: Colors.white, size: 12),
@@ -598,11 +719,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    return Consumer4<
+    return Consumer5<
       CategoryProvider,
       UserProvider,
       DropdownDataProvider,
-      SkillProvider
+      SkillProvider,
+      LocationProvider
     >(
       builder: (
         context,
@@ -610,8 +732,93 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userProvider,
         dropdownProvider,
         skillProvider,
+        locationProvider,
         child,
       ) {
+        // Listen for errors from UserProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userProvider.hasError &&
+              userProvider.errorMessage != null &&
+              !_hasShownUserError) {
+            CustomSnackBar.show(
+              context,
+              message: userProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                userProvider.fetchCurrentUser();
+              },
+            );
+            _hasShownUserError = true;
+            userProvider.resetState(); // Clear error state
+          } else if (!userProvider.hasError && _hasShownUserError) {
+            _hasShownUserError = false;
+          }
+        });
+
+        // Listen for errors from DropdownDataProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (dropdownProvider.hasError &&
+              dropdownProvider.errorMessage != null &&
+              !_hasShownDropdownError) {
+            CustomSnackBar.show(
+              context,
+              message: dropdownProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                dropdownProvider.fetchDropdownData();
+              },
+            );
+            _hasShownDropdownError = true;
+            dropdownProvider.clearError(); // Clear error state
+          } else if (!dropdownProvider.hasError && _hasShownDropdownError) {
+            _hasShownDropdownError = false;
+          }
+        });
+
+        // Listen for errors from SkillProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (skillProvider.hasError &&
+              skillProvider.errorMessage != null &&
+              !_hasShownSkillError) {
+            CustomSnackBar.show(
+              context,
+              message: skillProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                skillProvider.fetchSkills();
+              },
+            );
+            _hasShownSkillError = true;
+            skillProvider.clearError(); // Clear error state
+          } else if (!skillProvider.hasError && _hasShownSkillError) {
+            _hasShownSkillError = false;
+          }
+        });
+
+        // Listen for errors from LocationProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (locationProvider.hasError &&
+              locationProvider.errorMessage != null &&
+              !_hasShownLocationError) {
+            CustomSnackBar.show(
+              context,
+              message: locationProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                locationProvider.fetchCountries();
+              },
+            );
+            _hasShownLocationError = true;
+            locationProvider.clearError(); // Clear error state
+          } else if (!locationProvider.hasError && _hasShownLocationError) {
+            _hasShownLocationError = false;
+          }
+        });
+
         final user = userProvider.currentUser;
         final fullName =
             '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
@@ -627,8 +834,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             user!.additionalInfo!.professionalCertification!.isNotEmpty;
 
         // Determine if means of ID inputs should be hidden (assuming one-time update)
-        // final hasMeansOfIdentification =
-        //     user?.additionalInfo?.meansOfIdentification?.file?.link != null;
+        final hasMeansOfIdentification =
+            user?.additionalInfo?.meansOfIdentification?.file?.link != null;
 
         return Scaffold(
           appBar: AppBar(title: const Text('Profile'), centerTitle: true),
@@ -960,33 +1167,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 20),
                   const CustomIntroText(text: 'Skills'),
                   const SizedBox(height: 10),
-                  CustomDropdown(
-                    options:
-                        skillProvider.skills
-                            .map((skill) => skill.name)
-                            .toList(),
-                    label: 'Select Skill',
-                    selectedValue: _selectedSkill,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedSkill = value;
-                        _skillController.clear();
-                        _isDirty = true;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  InkWell(
-                    onTap: _addSkill,
-                    child: CustomButton(
-                      widget: const Text(
-                        'Add Skill',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      color: wawuColors.buttonPrimary,
-                      textColor: Colors.white,
+                  // Skill dropdown and loading/error handling
+                  if (skillProvider.isLoading && skillProvider.skills.isEmpty)
+                    const Center(child: CircularProgressIndicator())
+                  else if (skillProvider.hasError &&
+                      skillProvider.skills.isEmpty &&
+                      !skillProvider.isLoading)
+                    FullErrorDisplay(
+                      errorMessage:
+                          skillProvider.errorMessage ??
+                          'Failed to load skills. Please try again.',
+                      onRetry: () {
+                        skillProvider.fetchSkills();
+                      },
+                      onContactSupport: () {
+                        _showErrorSupportDialog(
+                          context,
+                          'If this problem persists, please contact our support team. We are here to help!',
+                        );
+                      },
+                    )
+                  else ...[
+                    CustomDropdown(
+                      options:
+                          skillProvider.skills
+                              .map((skill) => skill.name)
+                              .toList(),
+                      label: 'Select Skill',
+                      selectedValue: _selectedSkill,
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSkill = value;
+                          _skillController.clear();
+                          _isDirty = true;
+                        });
+                      },
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    InkWell(
+                      onTap: _addSkill,
+                      child: CustomButton(
+                        widget: const Text(
+                          'Add Skill',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        color: wawuColors.buttonPrimary,
+                        textColor: Colors.white,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Wrap(
                     spacing: 10,
@@ -999,7 +1228,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: wawuColors.primary.withValues(alpha: 0.2),
+                              color: wawuColors.primary.withAlpha(
+                                50,
+                              ), // Adjusted alpha
                               borderRadius: BorderRadius.circular(5),
                             ),
                             child: Row(
@@ -1030,8 +1261,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildEducationCard(edu),
                   if (user?.additionalInfo?.education == null ||
                       user!.additionalInfo!.education!.isEmpty)
-                    // const Text('No education available'),
-                    // const SizedBox(height: 10),
                     // Education Input Fields (conditionally hidden after first entry)
                     if (!hasEducation)
                       Column(
@@ -1161,8 +1390,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildCertificationCard(cert),
                   if (user?.additionalInfo?.professionalCertification == null ||
                       user!.additionalInfo!.professionalCertification!.isEmpty)
-                    // const Text('No certifications available'),
-                    // const SizedBox(height: 10),
                     // Professional Certification Input Fields (conditionally hidden after first entry)
                     if (!hasProfessionalCertification)
                       Column(
@@ -1210,8 +1437,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const CustomIntroText(text: 'Means Of Identification'),
                 const SizedBox(height: 20),
                 // Display existing means of identification
-                if (user?.additionalInfo?.meansOfIdentification?.file?.link !=
-                    null)
+                if (hasMeansOfIdentification)
                   Container(
                     margin: const EdgeInsets.only(bottom: 10),
                     height: 150,
@@ -1270,6 +1496,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 5),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, child) {
+                        // Display full error screen if country loading failed critically
+                        if (locationProvider.hasError &&
+                            locationProvider.countries.isEmpty &&
+                            !locationProvider.isLoading) {
+                          return FullErrorDisplay(
+                            errorMessage:
+                                locationProvider.errorMessage ??
+                                'Failed to load countries. Please try again.',
+                            onRetry: () {
+                              locationProvider.fetchCountries();
+                            },
+                            onContactSupport: () {
+                              _showErrorSupportDialog(
+                                context,
+                                'If this problem persists, please contact our support team. We are here to help!',
+                              );
+                            },
+                          );
+                        }
+
+                        if (locationProvider.isLoading &&
+                            locationProvider.countries.isEmpty) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
                         return CustomDropdown<Country>(
                           options: locationProvider.countries,
                           label: 'Select Country',
@@ -1323,27 +1576,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 8),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
+                        // Display full error screen if state loading failed critically
+                        if (locationProvider.hasError &&
+                            locationProvider.states.isEmpty &&
+                            !locationProvider.isLoading) {
+                          return FullErrorDisplay(
+                            errorMessage:
+                                locationProvider.errorMessage ??
+                                'Failed to load states. Please try again.',
+                            onRetry: () {
+                              if (_selectedCountry != null) {
+                                locationProvider.fetchStates(
+                                  _selectedCountry!.id,
+                                );
+                              } else {
+                                CustomSnackBar.show(
+                                  context,
+                                  message:
+                                      'Please select a country first to load states.',
+                                  isError: true,
+                                );
+                              }
+                            },
+                            onContactSupport: () {
+                              _showErrorSupportDialog(
+                                context,
+                                'If this problem persists, please contact our support team. We are here to help!',
+                              );
+                            },
+                          );
+                        }
+
                         // Ensure options are not null and handle loading/error states
                         final List<String> stateOptions =
                             locationProvider.states.map((s) => s.name).toList();
 
                         if (_selectedCountry == null ||
                             locationProvider.countries.isEmpty) {
-                          return CustomDropdown(
-                            label: 'Select your state',
-                            options:
-                                const [], // Empty options if no country selected
-                            selectedValue: null,
-                            onChanged: (_) {},
-                            isDisabled: true,
+                          return AbsorbPointer(
+                            // Make it un-interactable if no country selected
+                            child: CustomDropdown(
+                              label: 'Select your state',
+                              options:
+                                  const [], // Empty options if no country selected
+                              selectedValue: null,
+                              onChanged: (_) {},
+                              isDisabled: true,
+                            ),
                           );
                         }
-                        if (locationProvider.isLoadingStates) {
+                        if (locationProvider.isLoading) {
                           return const Center(
                             child: CircularProgressIndicator(),
                           );
-                        } else if (locationProvider.errorStates != null) {
-                          return Text('Error: ${locationProvider.errorStates}');
                         }
                         return CustomDropdown(
                           label: 'Select your state',
@@ -1414,7 +1699,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: Colors.white,
                             ),
                           ),
-                  function: userProvider.isLoading ? null : _saveProfile,
+                  function: (userProvider.isLoading) ? null : _saveProfile,
                   color: wawuColors.primary,
                 ),
               ],

@@ -3,23 +3,27 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import 'package:wawu_mobile/models/gig.dart';
+import 'package:wawu_mobile/providers/base_provider.dart'; // Import BaseProvider
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/pusher_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 
-class GigProvider extends ChangeNotifier {
+// GigProvider now extends BaseProvider for standardized state management.
+class GigProvider extends BaseProvider {
   final ApiService _apiService;
   final PusherService _pusherService;
   final UserProvider _userProvider;
   final Logger _logger = Logger();
 
-  bool _isLoading = false;
-  String? _error;
+  // Removed _isLoading and _error fields as BaseProvider handles them.
+  // bool _isLoading = false;
+  // String? _error;
 
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  // Getters for isLoading and error are now inherited from BaseProvider.
+  // bool get isLoading => _isLoading;
+  // String? get error => _error;
 
   final Map<String, List<Gig>> _gigsByStatus = {
     'all': [],
@@ -34,7 +38,7 @@ class GigProvider extends ChangeNotifier {
   final List<Gig> _recentlyViewedGigs = [];
   final String _recentGigsKey = 'recently_viewed_gigs';
   bool _isRecentlyViewedLoading = false;
-  bool _isDisposed = false;
+  bool _isDisposed = false; // Keep this for safeDispose pattern
 
   List<Gig> get recentlyViewedGigs => List.unmodifiable(_recentlyViewedGigs);
   bool get isRecentlyViewedLoading => _isRecentlyViewedLoading;
@@ -47,26 +51,30 @@ class GigProvider extends ChangeNotifier {
   GigProvider({
     ApiService? apiService,
     PusherService? pusherService,
-    required UserProvider userProvider, // Make it required
+    required UserProvider userProvider,
   }) : _apiService = apiService ?? ApiService(),
        _pusherService = pusherService ?? PusherService(),
        _userProvider = userProvider {
-    // Initialize it
     debugPrint('[RecentlyViewed] GigProvider constructor called.');
     _loadRecentlyViewedGigs();
   }
-  void _setLoading(bool loading) {
-    if (_isDisposed) return;
-    _isLoading = loading;
-    notifyListeners();
-  }
 
-  void _setError(String? error) {
-    if (_isDisposed) return;
-    _error = error;
-    notifyListeners();
-  }
+  // Removed _setLoading and _setError as BaseProvider provides these.
+  // void _setLoading(bool loading) {
+  //   if (_isDisposed) return;
+  //   _isLoading = loading;
+  //   notifyListeners();
+  // }
 
+  // void _setError(String? error) {
+  //   if (_isDisposed) return;
+  //   _error = error;
+  //   notifyListeners();
+  // }
+
+  // _safeNotifyListeners is still useful for state changes not managed by BaseProvider methods,
+  // or for ensuring listeners are notified when BaseProvider's notifyListeners might not be called
+  // (e.g., if _state doesn't change but other data does).
   void _safeNotifyListeners() {
     if (_isDisposed) return;
     notifyListeners();
@@ -77,7 +85,7 @@ class GigProvider extends ChangeNotifier {
 
     debugPrint('[RecentlyViewed] _loadRecentlyViewedGigs called.');
     _isRecentlyViewedLoading = true;
-    _safeNotifyListeners();
+    _safeNotifyListeners(); // Notify listeners about loading state for recently viewed gigs
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -133,10 +141,11 @@ class GigProvider extends ChangeNotifier {
       debugPrint('[RecentlyViewed][ERROR] Error loading gigs: $e');
       debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
       _recentlyViewedGigs.clear();
+      // No setError here as this is internal loading, not a primary API call error for the UI.
     } finally {
       if (!_isDisposed) {
         _isRecentlyViewedLoading = false;
-        _safeNotifyListeners();
+        _safeNotifyListeners(); // Notify listeners that loading is complete
       }
     }
   }
@@ -213,8 +222,11 @@ class GigProvider extends ChangeNotifier {
     } catch (e, stackTrace) {
       debugPrint('[RecentlyViewed][ERROR] Exception saving gigs: $e');
       debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+      // No setError here as this is internal saving, not a primary API call error for the UI.
     }
   }
+
+  void fetchRecentlyViewedGigs() {}
 
   Future<void> addRecentlyViewedGig(Gig? gig) async {
     debugPrint('[RecentlyViewed] addRecentlyViewedGig called');
@@ -256,13 +268,14 @@ class GigProvider extends ChangeNotifier {
         debugPrint('[RecentlyViewed][ERROR] Failed to save: $error');
       });
 
-      _safeNotifyListeners();
+      _safeNotifyListeners(); // Notify listeners about changes to recently viewed gigs
       debugPrint('[RecentlyViewed] Successfully added gig');
     } catch (e, stackTrace) {
       debugPrint(
         '[RecentlyViewed][ERROR] Exception in addRecentlyViewedGig: $e',
       );
       debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+      // No setError here as this is internal state management.
     }
   }
 
@@ -279,9 +292,10 @@ class GigProvider extends ChangeNotifier {
       debugPrint(
         '[RecentlyViewed][ERROR] Failed to clear from SharedPreferences: $e',
       );
+      // No setError here as this is internal state management.
     }
 
-    _safeNotifyListeners();
+    _safeNotifyListeners(); // Notify listeners about changes to recently viewed gigs
   }
 
   // Method to be called on logout
@@ -306,19 +320,18 @@ class GigProvider extends ChangeNotifier {
     }
     _specificGigChannels.clear();
 
-    // Reset loading states
-    _isLoading = false;
-    _error = null;
-    _isRecentlyViewedLoading = false;
+    // Reset loading states using BaseProvider's resetState
+    resetState(); // Resets _state to idle and _errorMessage to null
+    _isRecentlyViewedLoading = false; // This is a separate loading flag
 
-    _safeNotifyListeners();
+    _safeNotifyListeners(); // Notify listeners about the overall data clear
     debugPrint('[GigProvider] User data cleared successfully');
   }
 
   // Fetch a single gig by its UUID, update selectedGig, and notify listeners
   Future<Gig?> fetchGigById(String gigId) async {
     if (_isDisposed) return null;
-    _setLoading(true);
+    setLoading(); // Use BaseProvider's setLoading
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/seller/gig/$gigId',
@@ -328,19 +341,17 @@ class GigProvider extends ChangeNotifier {
         _logger.i('GigProvider: Fetch gig response: ${response['data']}');
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         selectGig(gig);
-        _safeNotifyListeners();
+        // _safeNotifyListeners(); // selectGig already calls _safeNotifyListeners
         // Subscribe to this specific gig's channel for real-time updates
         await subscribeToSpecificGigChannel(gig.uuid);
-        _setLoading(false);
+        setSuccess(); // Use BaseProvider's setSuccess
         return gig;
       } else {
-        _setLoading(false);
-        _setError('Failed to fetch gig details.');
+        setError('Failed to fetch gig details.'); // Use BaseProvider's setError
         return null;
       }
     } catch (e) {
-      _setLoading(false);
-      _setError('Failed to fetch gig details: $e');
+      setError(e.toString()); // Use BaseProvider's setError with e.toString()
       return null;
     }
   }
@@ -348,8 +359,8 @@ class GigProvider extends ChangeNotifier {
   Future<List<Gig>> fetchGigs({String? status}) async {
     if (_isDisposed) return [];
 
-    _setLoading(true);
-    _setError(null);
+    setLoading(); // Use BaseProvider's setLoading
+    // setError(null); // setLoading already sets errorMessage to null
 
     try {
       final Map<String, dynamic> queryParams =
@@ -391,18 +402,17 @@ class GigProvider extends ChangeNotifier {
           await _subscribeToGeneralGigsChannel();
         }
 
-        _setLoading(false);
+        setSuccess(); // Use BaseProvider's setSuccess
         return gigs;
       } else {
-        final errorMessage = 'Invalid response format from /seller/gig';
-        _setError(errorMessage);
-        _setLoading(false);
+        final errorMessage =
+            response['message'] as String? ??
+            'Invalid response format from /seller/gig';
+        setError(errorMessage); // Use BaseProvider's setError
         return [];
       }
     } catch (e) {
-      final errorMessage = 'Failed to fetch gigs: $e';
-      _setError(errorMessage);
-      _setLoading(false);
+      setError(e.toString()); // Use BaseProvider's setError with e.toString()
       return [];
     }
   }
@@ -410,7 +420,7 @@ class GigProvider extends ChangeNotifier {
   Future<Gig?> createGig(FormData payload) async {
     if (_isDisposed) return null;
 
-    _setLoading(true);
+    setLoading(); // Use BaseProvider's setLoading
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
         '/seller/gig',
@@ -423,25 +433,27 @@ class GigProvider extends ChangeNotifier {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         _gigsByStatus['all']!.insert(0, gig);
         _gigsByStatus['PENDING']!.insert(0, gig);
-        _safeNotifyListeners();
-        _setLoading(false);
+        _safeNotifyListeners(); // Notify about data change
+        setSuccess(); // Use BaseProvider's setSuccess
         return gig;
       }
-      _setLoading(false);
+      setError(
+        response['message'] ?? 'Failed to create gig',
+      ); // Use BaseProvider's setError
       return null;
     } catch (e) {
-      debugPrint('Failed to create gig: $e');
-      _setLoading(false);
+      debugPrint('Failed to create gig: $e'); // Keep debug log
+      setError(e.toString()); // Use BaseProvider's setError with e.toString()
       return null;
     }
   }
 
-  // FIXED: The improved postReview method
   Future<bool> postReview(String gigId, Map<String, dynamic> reviewData) async {
     if (_isDisposed) return false;
 
-    // We no longer need a global loading state here, the UI will handle its own.
-    // _setLoading(true);
+    // No need for setLoading here as per the original comment, UI handles its own.
+    // However, if the UI relies on the provider's isLoading, you might want to call setLoading().
+    // For now, adhering to the comment.
 
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
@@ -450,25 +462,21 @@ class GigProvider extends ChangeNotifier {
       );
 
       if (response['statusCode'] == 200) {
-        // The review was successfully posted to the server.
-        // Now, we create the review object locally for an instant UI update.
         Review newReview;
 
-        // Ideal case: The server returns the created review object
         if (response['data'] != null) {
           newReview = Review.fromJson(response['data'] as Map<String, dynamic>);
         } else {
-          // Fallback: Create the review object manually from local data
           final currentUser = _userProvider.currentUser;
           if (currentUser == null) {
-            _setError('User not logged in.');
+            setError(
+              'User not logged in to post review.',
+            ); // Use BaseProvider's setError
             return false;
           }
 
           newReview = Review(
-            uuid:
-                DateTime.now().millisecondsSinceEpoch
-                    .toString(), // Temporary UUID
+            uuid: DateTime.now().millisecondsSinceEpoch.toString(),
             rating: reviewData['rating'] as int,
             review: reviewData['review'] as String,
             user: ReviewUser(
@@ -476,31 +484,26 @@ class GigProvider extends ChangeNotifier {
               firstName: currentUser.firstName ?? '',
               lastName: currentUser.lastName ?? '',
               email: currentUser.email ?? '',
-              profilePicture:
-                  currentUser
-                      .profileImage, // Assuming profileImage on your User model
+              profilePicture: currentUser.profileImage,
             ),
             createdAt: DateTime.now().toIso8601String(),
           );
         }
 
-        // Add the newly created review to the gig in our local state
         _addReviewToGig(gigId, newReview);
-
-        // _setLoading(false);
+        setSuccess(); // Indicate success for the review posting operation
         return true;
       } else {
-        // Handle API error
         final errorMsg =
             response['message'] as String? ?? 'Failed to submit review';
-        _setError(errorMsg);
-        // _setLoading(false);
+        setError(errorMsg); // Use BaseProvider's setError
         return false;
       }
     } catch (e) {
-      debugPrint('Failed to post review: $e');
-      _setError('An unexpected error occurred: $e');
-      // _setLoading(false);
+      debugPrint('Failed to post review: $e'); // Keep debug log
+      setError(
+        'An unexpected error occurred: ${e.toString()}',
+      ); // Use BaseProvider's setError
       return false;
     }
   }
@@ -508,7 +511,7 @@ class GigProvider extends ChangeNotifier {
   Future<List<Gig>> fetchGigsBySubCategory(String subCategoryId) async {
     if (_isDisposed) return [];
 
-    _setLoading(true);
+    setLoading(); // Use BaseProvider's setLoading
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/services/$subCategoryId/gigs',
@@ -523,14 +526,16 @@ class GigProvider extends ChangeNotifier {
             gigsJson
                 .map((json) => Gig.fromJson(json as Map<String, dynamic>))
                 .toList();
-        _setLoading(false);
+        setSuccess(); // Use BaseProvider's setSuccess
         return gigs;
       }
-      _setLoading(false);
+      setError(
+        response['message'] ?? 'Failed to fetch gigs by subcategory',
+      ); // Use BaseProvider's setError
       return [];
     } catch (e) {
-      debugPrint('Failed to fetch gigs by subcategory: $e');
-      _setLoading(false);
+      debugPrint('Failed to fetch gigs by subcategory: $e'); // Keep debug log
+      setError(e.toString()); // Use BaseProvider's setError with e.toString()
       return [];
     }
   }
@@ -538,13 +543,13 @@ class GigProvider extends ChangeNotifier {
   void selectGig(Gig gig) {
     if (_isDisposed) return;
     _selectedGig = gig;
-    _safeNotifyListeners();
+    setSuccess(); // Use setSuccess to notify listeners about the selection change
   }
 
   void clearSelectedGig() {
     if (_isDisposed) return;
     _selectedGig = null;
-    _safeNotifyListeners();
+    setSuccess(); // Use setSuccess to notify listeners about the clear
   }
 
   Future<void> _subscribeToGeneralGigsChannel() async {
@@ -555,6 +560,7 @@ class GigProvider extends ChangeNotifier {
       final success = await _pusherService.subscribeToChannel(channelName);
       if (!success) {
         debugPrint('Failed to subscribe to general gigs channel');
+        // Consider calling setError if this is a critical failure for the UI
         return;
       }
 
@@ -577,11 +583,14 @@ class GigProvider extends ChangeNotifier {
               _gigsByStatus[newGig.status]!.insert(0, newGig);
             }
 
-            _safeNotifyListeners();
+            setSuccess(); // Notify listeners about the new gig
             debugPrint('Successfully added new gig: ${newGig.uuid}');
           }
         } catch (e) {
           debugPrint('GigProvider: Error processing gig.created event: $e');
+          setError(
+            'Error processing gig creation event: ${e.toString()}',
+          ); // Report error
         }
       });
 
@@ -609,29 +618,33 @@ class GigProvider extends ChangeNotifier {
                 _selectedGig = null;
               }
 
-              _safeNotifyListeners();
+              setSuccess(); // Notify listeners about the deleted gig
               debugPrint('Successfully removed gig: $gigUuid');
             }
           }
         } catch (e) {
           debugPrint('GigProvider: Error processing gig.deleted event: $e');
+          setError(
+            'Error processing gig deletion event: ${e.toString()}',
+          ); // Report error
         }
       });
     } catch (e) {
       debugPrint(
         'GigProvider: Failed to subscribe to general gigs channel: $e',
       );
+      setError(
+        'Failed to subscribe to general gigs channel: ${e.toString()}',
+      ); // Report error
     }
   }
 
-  // FIXED: Corrected channel subscription for real-time updates
   Future<void> subscribeToSpecificGigChannel(String gigUuid) async {
     if (_isDisposed) return;
 
     final channelName = 'gig.approved.$gigUuid';
     final rejectedChannelName = 'gig.rejected.$gigUuid';
-    final reviewChannelName =
-        'gig.review.$gigUuid'; // Fixed: Correct channel name
+    final reviewChannelName = 'gig.review.$gigUuid';
 
     try {
       // Subscribe to gig approved channel
@@ -648,6 +661,9 @@ class GigProvider extends ChangeNotifier {
           });
         } else {
           debugPrint('Failed to subscribe to channel: $channelName');
+          setError(
+            'Failed to subscribe to approved channel: $channelName',
+          ); // Report error
         }
       }
 
@@ -671,10 +687,13 @@ class GigProvider extends ChangeNotifier {
           });
         } else {
           debugPrint('Failed to subscribe to channel: $rejectedChannelName');
+          setError(
+            'Failed to subscribe to rejected channel: $rejectedChannelName',
+          ); // Report error
         }
       }
 
-      // FIXED: Subscribe to gig review channel with proper error handling
+      // Subscribe to gig review channel with proper error handling
       if (!_specificGigChannels.contains(reviewChannelName)) {
         final success = await _pusherService.subscribeToChannel(
           reviewChannelName,
@@ -690,12 +709,18 @@ class GigProvider extends ChangeNotifier {
           });
         } else {
           debugPrint('Failed to subscribe to channel: $reviewChannelName');
+          setError(
+            'Failed to subscribe to review channel: $reviewChannelName',
+          ); // Report error
         }
       }
     } catch (e) {
       debugPrint(
         'Failed to subscribe to specific gig channels for $gigUuid: $e',
       );
+      setError(
+        'Failed to subscribe to specific gig channels: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -706,17 +731,20 @@ class GigProvider extends ChangeNotifier {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
 
-        // Extract the gig data from the event
         if (eventData['data'] is Map<String, dynamic>) {
           final updatedGig = Gig.fromJson(
             eventData['data'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
+          setSuccess(); // Notify listeners about the update
           debugPrint('Successfully updated gig status to VERIFIED: $gigUuid');
         }
       }
     } catch (e) {
       debugPrint('GigProvider: Error processing gig.approved event: $e');
+      setError(
+        'Error processing gig approval event: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -727,21 +755,23 @@ class GigProvider extends ChangeNotifier {
       if (event.data is String) {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
 
-        // Extract the gig data from the event
         if (eventData['data'] is Map<String, dynamic>) {
           final updatedGig = Gig.fromJson(
             eventData['data'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
+          setSuccess(); // Notify listeners about the update
           debugPrint('Successfully updated gig status to REJECTED: $gigUuid');
         }
       }
     } catch (e) {
       debugPrint('GigProvider: Error processing gig.rejected event: $e');
+      setError(
+        'Error processing gig rejection event: ${e.toString()}',
+      ); // Report error
     }
   }
 
-  // FIXED: Improved review event handling with better error handling and logging
   void _handleGigReviewEvent(PusherEvent event, String gigUuid) {
     if (_isDisposed) return;
 
@@ -754,7 +784,6 @@ class GigProvider extends ChangeNotifier {
         final eventData = jsonDecode(event.data) as Map<String, dynamic>;
         debugPrint('Decoded event data: $eventData');
 
-        // Handle different possible structures of the review data
         Review? newReview;
 
         if (eventData['review'] is Map<String, dynamic>) {
@@ -768,25 +797,34 @@ class GigProvider extends ChangeNotifier {
           );
         } else if (eventData.containsKey('uuid') &&
             eventData.containsKey('rating')) {
-          // The event data itself is the review
           newReview = Review.fromJson(eventData);
         }
 
         if (newReview != null) {
           _addReviewToGig(gigUuid, newReview);
+          setSuccess(); // Notify listeners about the new review
           debugPrint('Successfully added new review to gig: $gigUuid');
           debugPrint(
             'Review rating: ${newReview.rating}, Review text: ${newReview.review}',
           );
         } else {
           debugPrint('Could not extract review data from event');
+          setError(
+            'Could not extract review data from event for gig: $gigUuid',
+          ); // Report error
         }
       } else {
         debugPrint('Event data is not a string, received: ${event.data}');
+        setError(
+          'Unexpected event data type for gig review: ${event.data.runtimeType}',
+        ); // Report error
       }
     } catch (e, stackTrace) {
       debugPrint('GigProvider: Error processing gig.review event: $e');
       debugPrint('Stack trace: $stackTrace');
+      setError(
+        'Error processing gig review event: ${e.toString()}',
+      ); // Report error
     }
   }
 
@@ -795,7 +833,6 @@ class GigProvider extends ChangeNotifier {
 
     bool gigUpdated = false;
 
-    // Update gig in all status lists
     for (final status in _gigsByStatus.keys) {
       final index = _gigsByStatus[status]!.indexWhere(
         (gig) => gig.uuid == gigUuid,
@@ -806,7 +843,6 @@ class GigProvider extends ChangeNotifier {
       }
     }
 
-    // If gig wasn't found in any list, add it
     if (!gigUpdated) {
       _gigsByStatus['all']!.insert(0, updatedGig);
       if (_gigsByStatus.containsKey(updatedGig.status)) {
@@ -814,27 +850,23 @@ class GigProvider extends ChangeNotifier {
       }
     }
 
-    // Remove gig from inappropriate status lists
     for (final status in _gigsByStatus.keys) {
       if (status != 'all' && status != updatedGig.status) {
         _gigsByStatus[status]!.removeWhere((gig) => gig.uuid == gigUuid);
       }
     }
 
-    // Re-sort all lists
     for (final status in _gigsByStatus.keys) {
       _gigsByStatus[status]!.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     }
 
-    // Update selected gig if it's the same one
     if (_selectedGig?.uuid == gigUuid) {
       _selectedGig = updatedGig;
     }
 
-    _safeNotifyListeners();
+    _safeNotifyListeners(); // Notify listeners about the gig list update
   }
 
-  // FIXED: Improved review addition with better error handling and validation
   void _addReviewToGig(String gigUuid, Review newReview) {
     if (_isDisposed) return;
 
@@ -843,7 +875,6 @@ class GigProvider extends ChangeNotifier {
       'Review details: rating=${newReview.rating}, uuid=${newReview.uuid}',
     );
 
-    // Update gig in all status lists
     for (final status in _gigsByStatus.keys) {
       final index = _gigsByStatus[status]!.indexWhere(
         (gig) => gig.uuid == gigUuid,
@@ -871,7 +902,6 @@ class GigProvider extends ChangeNotifier {
       }
     }
 
-    // Update selected gig if it's the same one
     if (_selectedGig?.uuid == gigUuid) {
       final g = _selectedGig!;
       final updatedReviews = [...g.reviews, newReview];
@@ -892,7 +922,7 @@ class GigProvider extends ChangeNotifier {
       );
     }
 
-    _safeNotifyListeners();
+    _safeNotifyListeners(); // Notify listeners about the review addition
   }
 
   void unsubscribeFromSpecificGigChannel(String gigUuid) {
@@ -913,7 +943,10 @@ class GigProvider extends ChangeNotifier {
     }
   }
 
-  // Deprecated - use clearUserData() instead
+  void clearError() {
+    resetState();
+  }
+
   @Deprecated('Use clearUserData() instead')
   Future<void> clearAll() async {
     await clearUserData();

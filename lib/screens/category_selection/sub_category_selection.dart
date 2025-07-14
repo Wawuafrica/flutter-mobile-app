@@ -5,11 +5,13 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/update_profile/update_profile.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-import 'package:wawu_mobile/utils/error_utils.dart';
+// import 'package:wawu_mobile/utils/error_utils.dart'; // This utility might be replaced or integrated
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/selectable_category_grid/selectable_category_grid.dart';
 import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class SubCategorySelection extends StatefulWidget {
   final String categoryId;
@@ -22,6 +24,9 @@ class SubCategorySelection extends StatefulWidget {
 
 class _SubCategorySelectionState extends State<SubCategorySelection> {
   String? _selectedSubCategoryId;
+
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
 
   @override
   void initState() {
@@ -48,49 +53,115 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
     });
   }
 
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<CategoryProvider, UserProvider>(
       builder: (context, categoryProvider, userProvider, child) {
-        if (categoryProvider.isLoading) {
+        // Listen for errors from CategoryProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (categoryProvider.hasError &&
+              categoryProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: categoryProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                categoryProvider.fetchSubCategories(widget.categoryId);
+              },
+            );
+            _hasShownError = true;
+            categoryProvider.clearError(); // Clear error state
+          } else if (!categoryProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
+        // Listen for errors from UserProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userProvider.hasError &&
+              userProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: userProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                // Assuming userProvider has a method to refresh user data if needed
+                // userProvider.fetchCurrentUser();
+              },
+            );
+            _hasShownError = true;
+            userProvider.resetState(); // Clear error state
+          } else if (!userProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
+        if (categoryProvider.isLoading &&
+            categoryProvider.subCategories.isEmpty) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        if (categoryProvider.hasError) {
+        // Display full error screen if subcategory loading failed critically
+        if (categoryProvider.hasError &&
+            categoryProvider.subCategories.isEmpty &&
+            !categoryProvider.isLoading) {
           return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Error loading subcategories: ${categoryProvider.errorMessage}',
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      categoryProvider.fetchSubCategories(widget.categoryId);
-                    },
-                    child: const Text('Retry'),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.mail_outline),
-                    label: const Text('Contact Support'),
-                    onPressed: () {
-                      showErrorSupportDialog(
-                        context: context,
-                        title: 'Contact Support',
-                        message:
-                            'If this problem persists, please contact our support team. We are here to help!',
-                      );
-                    },
-                  ),
-                ],
-              ),
+            body: FullErrorDisplay(
+              errorMessage:
+                  categoryProvider.errorMessage ??
+                  'Failed to load subcategories. Please try again.',
+              onRetry: () {
+                categoryProvider.fetchSubCategories(widget.categoryId);
+              },
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'If this problem persists, please contact our support team. We are here to help!',
+                );
+              },
             ),
           );
         }
@@ -154,33 +225,45 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                             child: CircularProgressIndicator(),
                           ),
                         ),
-                      if (userProvider.hasError)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10.0),
-                          child: Text(
-                            userProvider.errorMessage ?? 'An error occurred',
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      SelectableCategoryGrid(
-                        categories:
-                            categoryProvider.subCategories
-                                .map((subCategory) => subCategory.name)
-                                .toList(),
-                        onCategorySelected: (subCategoryName) {
-                          final selectedSubCategory = categoryProvider
-                              .subCategories
-                              .firstWhere(
-                                (subCategory) =>
-                                    subCategory.name == subCategoryName,
+                      // Removed the old inline error Text widget for userProvider.
+                      // if (userProvider.hasError)
+                      //   Padding(
+                      //     padding: const EdgeInsets.symmetric(vertical: 10.0),
+                      //     child: Text(
+                      //       userProvider.errorMessage ?? 'An error occurred',
+                      //       style: const TextStyle(color: Colors.red),
+                      //       textAlign: TextAlign.center,
+                      //     ),
+                      //   ),
+                      categoryProvider.subCategories.isEmpty &&
+                              !categoryProvider.isLoading &&
+                              !categoryProvider.hasError
+                          ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20.0),
+                              child: Text(
+                                'No subcategories available for this category.',
+                              ),
+                            ),
+                          )
+                          : SelectableCategoryGrid(
+                            categories:
+                                categoryProvider.subCategories
+                                    .map((subCategory) => subCategory.name)
+                                    .toList(),
+                            onCategorySelected: (subCategoryName) {
+                              final selectedSubCategory = categoryProvider
+                                  .subCategories
+                                  .firstWhere(
+                                    (subCategory) =>
+                                        subCategory.name == subCategoryName,
+                                  );
+                              _toggleSelection(selectedSubCategory.uuid);
+                              categoryProvider.selectSubCategory(
+                                selectedSubCategory,
                               );
-                          _toggleSelection(selectedSubCategory.uuid);
-                          categoryProvider.selectSubCategory(
-                            selectedSubCategory,
-                          );
-                        },
-                      ),
+                            },
+                          ),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -201,10 +284,10 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                     child: CustomButton(
                       function: () async {
                         if (_selectedSubCategoryId == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select a subcategory.'),
-                            ),
+                          CustomSnackBar.show(
+                            context,
+                            message: 'Please select a subcategory.',
+                            isError: true,
                           );
                           return;
                         }

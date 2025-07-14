@@ -45,12 +45,14 @@ class CategoryProvider extends BaseProvider {
         return _categories;
       } else {
         _categories = [];
-        setError('Invalid response structure');
+        setError(
+          response['message'] ?? 'Invalid response structure',
+        ); // Simplified error message
         return [];
       }
     } catch (e) {
       _categories = [];
-      setError('Failed to fetch categories: $e');
+      setError(e.toString()); // Simplified error message
       return [];
     }
   }
@@ -70,12 +72,14 @@ class CategoryProvider extends BaseProvider {
         return _selectedCategory;
       } else {
         _selectedCategory = null;
-        setError('Invalid response structure');
+        setError(
+          response['message'] ?? 'Invalid response structure',
+        ); // Simplified error message
         return null;
       }
     } catch (e) {
       _selectedCategory = null;
-      setError('Failed to fetch category: $e');
+      setError(e.toString()); // Simplified error message
       return null;
     }
   }
@@ -87,7 +91,7 @@ class CategoryProvider extends BaseProvider {
         '/categories/$categoryId/subcategories',
       );
 
-      print('sub_cat data with id $categoryId and response is $response');
+      // print('sub_cat data with id $categoryId and response is $response');
 
       if (response.containsKey('data') && response['data'] is List) {
         final subCategoriesJson = response['data'] as List;
@@ -101,12 +105,14 @@ class CategoryProvider extends BaseProvider {
         return _subCategories;
       } else {
         _subCategories = [];
-        setError('Invalid response data');
+        setError(
+          response['message'] ?? 'Invalid response data',
+        ); // Simplified error message
         return [];
       }
     } catch (e) {
       _subCategories = [];
-      setError('Failed to fetch sub-categories: $e');
+      setError(e.toString()); // Simplified error message
       return [];
     }
   }
@@ -144,7 +150,9 @@ class CategoryProvider extends BaseProvider {
             hasMorePages = false;
           }
         } else {
-          setError('Invalid response structure');
+          setError(
+            response['message'] ?? 'Invalid response structure',
+          ); // Simplified error message
           return [];
         }
       }
@@ -154,38 +162,42 @@ class CategoryProvider extends BaseProvider {
       return _services;
     } catch (e) {
       _services = [];
-      setError('Failed to fetch services: $e');
+      setError(e.toString()); // Simplified error message
       return [];
     }
   }
 
+  void clearError() {
+    resetState();
+  }
+
   void clearSelectedCategory() {
     _selectedCategory = null;
-    setSuccess();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   void clearSelectedSubCategory() {
     _selectedSubCategory = null;
-    setSuccess();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   void clearSelectedService() {
     _selectedService = null;
-    setSuccess();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   void selectCategory(CategoryModel category) {
     _selectedCategory = category;
-    setSuccess();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   void selectSubCategory(SubCategory subCategory) {
     _selectedSubCategory = subCategory;
-    setSuccess();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 
   void selectService(Service service) {
     _selectedService = service;
-    setSuccess();
+    setSuccess(); // Use setSuccess to notify listeners
   }
 }

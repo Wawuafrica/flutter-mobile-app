@@ -1,46 +1,20 @@
 // lib/services/auth_service.dart
 
 import 'dart:convert';
-import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:logger/logger.dart'; // Make sure you have the logger package in pubspec.yaml
+import 'package:logger/logger.dart';
 
 import '../models/user.dart';
 import 'api_service.dart';
 
-// Define custom exceptions for more specific error handling
-class AuthException implements Exception {
-  final String message;
-  final DioException? dioException;
-
-  AuthException(this.message, {this.dioException});
-
-  @override
-  String toString() {
-    if (dioException != null) {
-      switch (dioException!.type) {
-        case DioExceptionType.connectionTimeout:
-        case DioExceptionType.sendTimeout:
-        case DioExceptionType.receiveTimeout:
-          return 'Connection timed out. Please check your internet connection and try again.';
-        case DioExceptionType.connectionError:
-          return 'Network error. Please check your internet connection.';
-        case DioExceptionType.badResponse:
-          // The message from extractErrorMessage should be sufficient here
-          return message;
-        default:
-          return 'An unexpected network error occurred. Please try again later.';
-      }
-    }
-    return message;
-  }
-}
+// Removed custom AuthException class as per architectural guidelines.
+// Providers should catch generic Exception and use the message from ApiService.
 
 class AuthService {
   final ApiService _apiService;
   static const String _authTokenKey = 'authToken';
   static const String _userDataKey = 'userData';
-  final Logger _logger = Logger(); // Initialize logger
+  final Logger _logger = Logger();
 
   String? _token;
   User? _currentUser; // Internal state for the current user
@@ -90,6 +64,7 @@ class AuthService {
       }
     } catch (e) {
       _logger.e('Error loading auth data: $e');
+      // No rethrow here as this is internal loading, not an API call.
     }
   }
 
@@ -102,7 +77,8 @@ class AuthService {
       _logger.d('Token saved successfully');
     } catch (e) {
       _logger.e('Error saving token: $e');
-      throw AuthException('Failed to save authentication token.');
+      // Rethrow as generic Exception, ApiService handles DioException.
+      throw Exception('Failed to save authentication token: ${e.toString()}');
     }
   }
 
@@ -115,6 +91,7 @@ class AuthService {
       _logger.d('Token cleared successfully');
     } catch (e) {
       _logger.e('Error clearing token: $e');
+      // No rethrow here as this is internal cleanup.
     }
   }
 
@@ -129,7 +106,8 @@ class AuthService {
       );
     } catch (e) {
       _logger.e('Error saving user data: $e');
-      throw AuthException('Failed to save user profile locally.');
+      // Rethrow as generic Exception.
+      throw Exception('Failed to save user profile locally: ${e.toString()}');
     }
   }
 
@@ -141,34 +119,11 @@ class AuthService {
       _logger.d('User data cleared successfully');
     } catch (e) {
       _logger.e('Error clearing user data: $e');
+      // No rethrow here as this is internal cleanup.
     }
   }
 
-  // Helper to extract error message
-  (String, DioException?) extractErrorMessage(dynamic error) {
-    _logger.e('Extracting error message from: $error');
-    if (error is DioException) {
-      if (error.response?.data != null && error.response!.data is Map) {
-        final responseData = error.response!.data as Map<String, dynamic>;
-        if (responseData.containsKey('message')) {
-          return (responseData['message'].toString(), error);
-        }
-        if (responseData.containsKey('error')) {
-          return (responseData['error'].toString(), error);
-        }
-        if (responseData.containsKey('errors')) {
-          final errors = responseData['errors'] as Map<String, dynamic>;
-          return (errors.values.first.join('\n'), error);
-        }
-      }
-      // For other Dio errors (like timeouts), AuthException.toString() will provide the message.
-      return (error.message ?? 'An unknown network error occurred.', error);
-    }
-    if (error is AuthException) {
-      return (error.message, error.dioException);
-    }
-    return ('An unexpected error occurred. Please try again.', null);
-  }
+  // Removed extractErrorMessage method as per architectural guidelines.
 
   // Renamed from 'login' to 'signIn' if more appropriate for authentication
   Future<User> signIn(String email, String password) async {
@@ -197,12 +152,12 @@ class AuthService {
             response['message'] as String? ??
             'Sign-in failed: Invalid response.';
         _logger.w(errorMessage);
-        throw AuthException(errorMessage);
+        // Throw generic Exception, ApiService has already handled DioException.
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      final (message, dioException) = extractErrorMessage(e);
-      _logger.e('Sign-in failed: $message');
-      throw AuthException(message, dioException: dioException);
+      _logger.e('Sign-in failed: $e');
+      rethrow; // Rethrow the exception with the message from ApiService
     }
   }
 
@@ -229,12 +184,12 @@ class AuthService {
             response['message'] as String? ??
             'Registration failed: Invalid response.';
         _logger.w(errorMessage);
-        throw AuthException(errorMessage);
+        // Throw generic Exception, ApiService has already handled DioException.
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      final (message, dioException) = extractErrorMessage(e);
-      _logger.e('Registration failed: $message');
-      throw AuthException(message, dioException: dioException);
+      _logger.e('Registration failed: $e');
+      rethrow; // Rethrow the exception with the message from ApiService
     }
   }
 
@@ -249,6 +204,7 @@ class AuthService {
       _logger.e(
         'Server logout failed (might be network issue or token invalidation): $e',
       );
+      // No rethrow here, as logout should attempt to clear local data regardless of server response.
     } finally {
       await _clearToken();
       await _clearUser();
@@ -261,7 +217,9 @@ class AuthService {
       if (!isAuthenticated ||
           _currentUser == null ||
           _currentUser!.uuid.isEmpty) {
-        throw AuthException('Not authenticated. No token or user found.');
+        throw Exception(
+          'Not authenticated. No token or user found.',
+        ); // Throw generic Exception
       }
 
       final userId = _currentUser!.uuid; // <-- EXTRACING THE USER'S UUID HERE
@@ -285,13 +243,13 @@ class AuthService {
             response['message'] as String? ??
             'Failed to fetch user profile: Invalid response structure.';
         _logger.w(errorMessage);
-        throw AuthException(errorMessage);
+        // Throw generic Exception, ApiService has already handled DioException.
+        throw Exception(errorMessage);
       }
     } catch (e) {
-      final (message, dioException) = extractErrorMessage(e);
-      _logger.e('Failed to get user profile: $message');
+      _logger.e('Failed to get user profile: $e');
       // await logout(); // Invalidate local session if profile cannot be fetched (e.g., token expired)
-      throw AuthException(message, dioException: dioException);
+      rethrow; // Rethrow the exception with the message from ApiService
     }
   }
 
@@ -303,9 +261,8 @@ class AuthService {
       await _apiService.post('/user/otp/send', data: data);
       _logger.d('OTP sent successfully for email: $email');
     } catch (e) {
-      final (message, dioException) = extractErrorMessage(e);
-      _logger.e('Send OTP failed: $message');
-      throw AuthException(message, dioException: dioException);
+      _logger.e('Send OTP failed: $e');
+      rethrow; // Rethrow the exception with the message from ApiService
     }
   }
 
@@ -316,9 +273,8 @@ class AuthService {
       await _apiService.post('/user/otp/verify', data: data);
       _logger.d('OTP verified successfully for email: $email');
     } catch (e) {
-      final (message, dioException) = extractErrorMessage(e);
-      _logger.e('Verify OTP failed: $message');
-      throw AuthException(message, dioException: dioException);
+      _logger.e('Verify OTP failed: $e');
+      rethrow; // Rethrow the exception with the message from ApiService
     }
   }
 
@@ -327,9 +283,8 @@ class AuthService {
       await _apiService.post('/user/password/forgot', data: {'email': email});
       _logger.d('Forgot password request sent successfully for email: $email');
     } catch (e) {
-      final (message, dioException) = extractErrorMessage(e);
-      _logger.e('Forgot password failed: $message');
-      throw AuthException(message, dioException: dioException);
+      _logger.e('Forgot password failed: $e');
+      rethrow; // Rethrow the exception with the message from ApiService
     }
   }
 
@@ -349,9 +304,8 @@ class AuthService {
       );
       _logger.d('Password reset successfully for email: $email');
     } catch (e) {
-      final (message, dioException) = extractErrorMessage(e);
-      _logger.e('Reset password failed: $message');
-      throw AuthException(message, dioException: dioException);
+      _logger.e('Reset password failed: $e');
+      rethrow; // Rethrow the exception with the message from ApiService
     }
   }
 }

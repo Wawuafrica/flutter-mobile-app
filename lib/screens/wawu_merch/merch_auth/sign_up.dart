@@ -14,6 +14,7 @@ import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/models/country.dart';
 import 'package:wawu_mobile/providers/location_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
 
 class SignUpMerch extends StatefulWidget {
   const SignUpMerch({super.key});
@@ -35,12 +36,16 @@ class _SignUpMerchState extends State<SignUpMerch> {
   // Add a GlobalKey for the form to manage validation state
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
+
   @override
   void dispose() {
     emailController.dispose();
     firstNameController.dispose();
     lastNameController.dispose();
     passwordController.dispose();
+    phoneController.dispose(); // Dispose phoneController
     super.dispose();
   }
 
@@ -48,9 +53,29 @@ class _SignUpMerchState extends State<SignUpMerch> {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
+        // Listen for errors from UserProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userProvider.hasError &&
+              userProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: userProvider.errorMessage!,
+              isError: true,
+            );
+            _hasShownError = true; // Set flag to true after showing
+            // It's crucial to clear the error state in the provider
+            // after it has been displayed to the user.
+            // Assuming UserProvider has a resetState() or clearError() method.
+            userProvider.resetState(); // Or userProvider.clearError();
+          } else if (!userProvider.hasError && _hasShownError) {
+            // Reset flag if error is cleared in provider
+            _hasShownError = false;
+          }
+        });
+
         return Scaffold(
           appBar: AppBar(),
-
           body: SingleChildScrollView(
             child: Container(
               width: double.infinity,
@@ -86,7 +111,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'First Name',
                       hintText: 'Enter your first name',
@@ -100,7 +125,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'Last Name',
                       hintText: 'Enter your last name',
@@ -114,7 +139,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'Phone Number',
                       hintText: 'Enter your phone number',
@@ -129,7 +154,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'Password',
                       hintText: 'Enter your password',
@@ -148,8 +173,8 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 20),
-                    Text(
+                    const SizedBox(height: 20),
+                    const Text(
                       'Gender',
                       style: TextStyle(
                         fontSize: 14,
@@ -157,11 +182,11 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         color: Colors.black87,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
                     // Replace CustomTextfield with CustomDropdown for country
                     CustomDropdown(
-                      options: ['Male', 'Female'],
+                      options: const ['Male', 'Female'],
                       label: 'Select your gender',
                       selectedValue: selectedGender,
                       enableSearch: false,
@@ -172,8 +197,8 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       },
                       isDisabled: userProvider.isLoading,
                     ),
-                    SizedBox(height: 20),
-                    Text(
+                    const SizedBox(height: 20),
+                    const Text(
                       'Country',
                       style: TextStyle(
                         fontSize: 14,
@@ -181,12 +206,35 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         color: Colors.black87,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
+                        // Listen for errors from LocationProvider and display SnackBar
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (locationProvider.hasError &&
+                              locationProvider.errorMessage != null &&
+                              !_hasShownError) {
+                            CustomSnackBar.show(
+                              context,
+                              message: locationProvider.errorMessage!,
+                              isError: true,
+                              actionLabel: 'Retry',
+                              onActionPressed: () {
+                                locationProvider.fetchCountries();
+                              },
+                            );
+                            _hasShownError = true;
+                            locationProvider
+                                .clearError(); // Assuming resetState or clearError
+                          } else if (!locationProvider.hasError &&
+                              _hasShownError) {
+                            _hasShownError = false;
+                          }
+                        });
+
                         // If not loading, not error, and no data, trigger fetch
-                        if (!locationProvider.isLoadingCountries &&
-                            locationProvider.errorCountries == null &&
+                        if (!locationProvider.isLoading &&
+                            locationProvider.errorMessage == null &&
                             locationProvider.countries.isEmpty) {
                           Future.microtask(
                             () => locationProvider.fetchCountries(),
@@ -209,7 +257,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                             ),
                           );
                         }
-                        if (locationProvider.isLoadingCountries) {
+                        if (locationProvider.isLoading) {
                           return Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -227,15 +275,21 @@ class _SignUpMerchState extends State<SignUpMerch> {
                               ],
                             ),
                           );
-                        } else if (locationProvider.errorCountries != null) {
-                          return Text(
-                            'Error: ${locationProvider.errorCountries}',
-                            style: const TextStyle(color: Colors.red),
-                          );
                         }
+                        // Removed the inline error Text widget for locationProvider.
+                        // Errors are now handled by CustomSnackBar.
+                        // else if (locationProvider.errorMessage != null) {
+                        //   return Text(
+                        //     'Error: ${locationProvider.errorMessage}',
+                        //     style: const TextStyle(color: Colors.red),
+                        //   );
+                        // }
                         final countryOptions = locationProvider.countries;
                         if (countryOptions.isEmpty) {
-                          return Text(
+                          // This is an empty state, not necessarily an error,
+                          // unless fetchCountries() failed and set an error.
+                          // If there's an error, the SnackBar above will handle it.
+                          return const Text(
                             'No countries available',
                             style: TextStyle(color: Colors.red),
                           );
@@ -293,9 +347,32 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         );
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     Consumer<LinksProvider>(
                       builder: (context, linksProvider, _) {
+                        // Listen for errors from LinksProvider and display SnackBar
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (linksProvider.hasError &&
+                              linksProvider.errorMessage != null &&
+                              !_hasShownError) {
+                            CustomSnackBar.show(
+                              context,
+                              message: linksProvider.errorMessage!,
+                              isError: true,
+                              actionLabel: 'Retry',
+                              onActionPressed: () {
+                                linksProvider.fetchLinks();
+                              },
+                            );
+                            _hasShownError = true;
+                            linksProvider
+                                .clearError(); // Assuming resetState or clearError
+                          } else if (!linksProvider.hasError &&
+                              _hasShownError) {
+                            _hasShownError = false;
+                          }
+                        });
+
                         final termsLink =
                             linksProvider.getLinkByName('terms of use')?.link ??
                             '';
@@ -334,12 +411,26 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                             mode:
                                                 LaunchMode.externalApplication,
                                           );
+                                        } else {
+                                          CustomSnackBar.show(
+                                            context,
+                                            message:
+                                                'Could not open Terms of Use link.',
+                                            isError: true,
+                                          );
                                         }
+                                      } else {
+                                        CustomSnackBar.show(
+                                          context,
+                                          message:
+                                              'Terms of Use link is not available.',
+                                          isError: true,
+                                        );
                                       }
                                     },
-                                    child: Text(
+                                    child: const Text(
                                       'Terms of Use',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: wawuColors.primary,
                                         decoration: TextDecoration.underline,
                                       ),
@@ -356,12 +447,26 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                             mode:
                                                 LaunchMode.externalApplication,
                                           );
+                                        } else {
+                                          CustomSnackBar.show(
+                                            context,
+                                            message:
+                                                'Could not open Privacy Policy link.',
+                                            isError: true,
+                                          );
                                         }
+                                      } else {
+                                        CustomSnackBar.show(
+                                          context,
+                                          message:
+                                              'Privacy Policy link is not available.',
+                                          isError: true,
+                                        );
                                       }
                                     },
-                                    child: Text(
+                                    child: const Text(
                                       'Privacy Policy',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         color: wawuColors.primary,
                                         decoration: TextDecoration.underline,
                                       ),
@@ -374,19 +479,19 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         );
                       },
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                    // Show error message if registration failed
-                    if (userProvider.hasError &&
-                        userProvider.errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10.0),
-                        child: Text(
-                          userProvider.errorMessage!,
-                          style: TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
+                    // Removed the old inline error Text widget for userProvider.
+                    // if (userProvider.hasError &&
+                    //     userProvider.errorMessage != null)
+                    //   Padding(
+                    //     padding: const EdgeInsets.only(bottom: 10.0),
+                    //     child: Text(
+                    //       userProvider.errorMessage!,
+                    //       style: TextStyle(color: Colors.red),
+                    //       textAlign: TextAlign.center,
+                    //     ),
+                    //   ),
 
                     // Conditionally render CircularProgressIndicator or CustomButton
                     if (userProvider.isLoading)
@@ -409,13 +514,11 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         function: () async {
                           // Validate form fields first
                           if (!_formKey.currentState!.validate()) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
+                            CustomSnackBar.show(
+                              context,
+                              message:
                                   'Please fill all required fields correctly.',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
+                              isError: true,
                             );
                             return;
                           }
@@ -423,36 +526,30 @@ class _SignUpMerchState extends State<SignUpMerch> {
                           // Validate country selection
                           if (selectedCountry == null ||
                               selectedCountry!.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Please select your country.'),
-                                backgroundColor: Colors.red,
-                              ),
+                            CustomSnackBar.show(
+                              context,
+                              message: 'Please select your country.',
+                              isError: true,
                             );
                             return;
                           }
 
                           if (!isChecked) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
+                            CustomSnackBar.show(
+                              context,
+                              message:
                                   'Please agree to the terms and conditions',
-                                ),
-                                backgroundColor:
-                                    Colors
-                                        .orange, // Differentiate from validation errors
-                              ),
+                              isError: true, // Changed to error for consistency
                             );
                             return;
                           }
 
                           if (selectedGender == null ||
                               selectedGender!.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Please select your gender.'),
-                                backgroundColor: Colors.red,
-                              ),
+                            CustomSnackBar.show(
+                              context,
+                              message: 'Please select your gender.',
+                              isError: true,
                             );
                             return;
                           }
@@ -478,12 +575,12 @@ class _SignUpMerchState extends State<SignUpMerch> {
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => WawuMerchMain(),
+                                builder: (context) => const WawuMerchMain(),
                               ),
                             );
                           }
                         },
-                        widget: Text(
+                        widget: const Text(
                           'Sign Up',
                           style: TextStyle(
                             color: Colors.white,
@@ -493,15 +590,15 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         color: wawuColors.buttonPrimary,
                         textColor: Colors.white,
                       ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
+                        const Text(
                           'Already have an account?',
                           style: TextStyle(fontSize: 13),
                         ),
-                        SizedBox(width: 5),
+                        const SizedBox(width: 5),
                         GestureDetector(
                           onTap:
                               userProvider.isLoading
@@ -510,11 +607,12 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => SignInMerch(),
+                                        builder:
+                                            (context) => const SignInMerch(),
                                       ),
                                     );
                                   },
-                          child: Text(
+                          child: const Text(
                             'Login',
                             style: TextStyle(
                               color: wawuColors.buttonSecondary,
@@ -524,7 +622,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),

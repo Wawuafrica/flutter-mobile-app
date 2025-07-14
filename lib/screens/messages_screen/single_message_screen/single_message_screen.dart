@@ -14,6 +14,8 @@ import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
 import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
 import 'package:wawu_mobile/screens/user_profile/user_profile_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
 
 class SingleMessageScreen extends StatefulWidget {
   const SingleMessageScreen({super.key});
@@ -39,8 +41,8 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   MessageProvider? _messageProvider;
   UserProvider? _userProvider;
 
-  // Store scaffold messenger reference safely
-  ScaffoldMessengerState? _scaffoldMessenger;
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
 
   // Track previous message count for scroll optimization
   int _previousMessageCount = 0;
@@ -54,9 +56,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    // Store scaffold messenger reference safely
-    _scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
 
     // Store provider references safely
     _messageProvider = Provider.of<MessageProvider>(context, listen: false);
@@ -83,22 +82,41 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
     _previousMessageCount = currentMessageCount;
   }
 
-  void _showErrorSnackbar(String message) {
-    // Use the safely stored reference and check if still mounted
-    if (mounted && _scaffoldMessenger != null) {
-      _scaffoldMessenger!.showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  void _showSnackbar(String message, {Color? backgroundColor}) {
-    // Use the safely stored reference and check if still mounted
-    if (mounted && _scaffoldMessenger != null) {
-      _scaffoldMessenger!.showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: backgroundColor),
-      );
-    }
+  // Function to show the support dialog (can be reused)
+  void _showErrorSupportDialog(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Contact Support',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'OK',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _initializeConversation() async {
@@ -138,7 +156,11 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           );
         }
       } catch (e) {
-        _showErrorSnackbar('Error initializing conversation: $e');
+        CustomSnackBar.show(
+          context,
+          message: 'Error initializing conversation: $e',
+          isError: true,
+        );
       }
     } else {
       // For existing conversations, initialize message count
@@ -174,7 +196,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
     // Clear provider references
     _messageProvider = null;
     _userProvider = null;
-    _scaffoldMessenger = null;
 
     super.dispose();
   }
@@ -198,7 +219,11 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       final recipientId = _messageProvider!.currentRecipientId;
 
       if (currentUserId.isEmpty || recipientId.isEmpty) {
-        _showSnackbar('User not authenticated or recipient not selected');
+        CustomSnackBar.show(
+          context,
+          message: 'User not authenticated or recipient not selected',
+          isError: true,
+        );
         return;
       }
 
@@ -215,7 +240,11 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           _scrollToBottom();
         }
       } catch (e) {
-        _showErrorSnackbar('Failed to send message: $e');
+        CustomSnackBar.show(
+          context,
+          message: 'Failed to send message: $e',
+          isError: true,
+        );
       }
     }
   }
@@ -225,7 +254,11 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
 
     final status = await Permission.microphone.request();
     if (!status.isGranted) {
-      _showSnackbar('Microphone permission denied');
+      CustomSnackBar.show(
+        context,
+        message: 'Microphone permission denied',
+        isError: true,
+      );
       return;
     }
 
@@ -255,7 +288,11 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       });
     } catch (e) {
       print('Recording error: $e');
-      _showErrorSnackbar('Failed to start recording: $e');
+      CustomSnackBar.show(
+        context,
+        message: 'Failed to start recording: $e',
+        isError: true,
+      );
     }
   }
 
@@ -271,7 +308,11 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
         final recipientId = _messageProvider!.currentRecipientId;
 
         if (currentUserId.isEmpty || recipientId.isEmpty) {
-          _showSnackbar('User not authenticated or recipient not selected');
+          CustomSnackBar.show(
+            context,
+            message: 'User not authenticated or recipient not selected',
+            isError: true,
+          );
           return;
         }
 
@@ -290,7 +331,11 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       }
     } catch (e) {
       print('Stop recording error: $e');
-      _showErrorSnackbar('Failed to stop recording: $e');
+      CustomSnackBar.show(
+        context,
+        message: 'Failed to stop recording: $e',
+        isError: true,
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -340,13 +385,50 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
     final currentUserId = _userProvider?.currentUser?.uuid ?? '';
 
     if (currentUserId.isEmpty) {
-      return const Scaffold(
-        body: Center(child: Text('Please log in to view messages')),
+      return Scaffold(
+        body: FullErrorDisplay(
+          errorMessage: 'Please log in to view messages.',
+          onRetry: () {
+            // Potentially navigate to login or show a dialog
+            Navigator.of(context).pop(); // Go back to a previous screen
+          },
+          onContactSupport: () {
+            _showErrorSupportDialog(
+              context,
+              'You need to be logged in to use the messaging feature. If you are facing issues logging in, please contact support.',
+            );
+          },
+        ),
       );
     }
 
     return Consumer<MessageProvider>(
       builder: (context, messageProvider, child) {
+        // Listen for errors from MessageProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (messageProvider.hasError &&
+              messageProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: messageProvider.errorMessage!,
+              isError: true,
+              actionLabel: 'RETRY',
+              onActionPressed: () {
+                // Retry initializing conversation
+                _initializeConversation();
+              },
+            );
+            _hasShownError = true;
+            // It's crucial to clear the error state in the provider
+            // after it has been displayed to the user.
+            messageProvider
+                .clearError(); // Assuming resetState() or clearError()
+          } else if (!messageProvider.hasError && _hasShownError) {
+            _hasShownError = false;
+          }
+        });
+
         // Show loading while initializing conversation
         // Only show CircularProgressIndicator if _currentMessages is empty
         if (messageProvider.isLoading &&
@@ -356,43 +438,49 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           );
         }
 
-        // Show error if conversation failed to load and there are no messages
+        // Show full error screen if conversation failed to load and there are no messages
         if (messageProvider.hasError &&
             messageProvider.currentConversationId.isEmpty &&
-            messageProvider.currentMessages.isEmpty) {
+            messageProvider.currentMessages.isEmpty &&
+            !messageProvider.isLoading) {
           return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Error: ${messageProvider.errorMessage}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
+            body: FullErrorDisplay(
+              errorMessage:
+                  messageProvider.errorMessage ??
+                  'Failed to load conversation. Please try again.',
+              onRetry: () {
+                _initializeConversation();
+              },
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'If this problem persists, please contact our support team. We are here to help!',
+                );
+              },
             ),
           );
         }
 
         // Check if we have a valid conversation, if not, show "No conversation selected"
+        // This case is for when no recipient is passed, or conversation is empty after loading
         if (messageProvider.currentConversationId.isEmpty &&
-            !messageProvider.isLoading) {
+            !messageProvider.isLoading &&
+            !messageProvider.hasError) {
           return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('No conversation selected'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Go Back'),
-                  ),
-                ],
-              ),
+            body: FullErrorDisplay(
+              errorMessage:
+                  'No conversation selected. Please select a user to chat with.',
+              onRetry: () {
+                Navigator.of(
+                  context,
+                ).pop(); // Go back to a screen where users can be selected
+              },
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'You need to select a user to start a conversation. If you believe this is an error, please contact support.',
+                );
+              },
             ),
           );
         }
@@ -460,7 +548,9 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                       placeholder:
                           (context, url) => Container(
                             color: Colors.grey[200],
-                            child: Center(child: CircularProgressIndicator()),
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
                           ),
                       errorWidget:
                           (context, url, error) => Image.asset(
@@ -539,17 +629,31 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                   if (mounted) {
                     Navigator.pop(context);
                     if (_messageProvider != null) {
-                      _messageProvider!.deleteMessage(
-                        message.id,
-                        // message.senderId, // senderId is not needed here
-                      );
-                      _messageProvider!.sendMessage(
-                        senderId: message.senderId,
-                        receiverId: message.receiverId,
-                        content: message.content,
-                        mediaFilePath: message.attachmentUrl,
-                        mediaType: message.attachmentType,
-                      );
+                      // Attempt to resend the message
+                      _messageProvider!
+                          .sendMessage(
+                            senderId: message.senderId,
+                            receiverId: message.receiverId,
+                            content: message.content,
+                            mediaFilePath: message.attachmentUrl,
+                            mediaType: message.attachmentType,
+                          )
+                          .then((_) {
+                            // On success, delete the old failed message
+                            _messageProvider!.deleteMessage(message.id);
+                            CustomSnackBar.show(
+                              context,
+                              message: 'Message resent successfully!',
+                              isError: false,
+                            );
+                          })
+                          .catchError((e) {
+                            CustomSnackBar.show(
+                              context,
+                              message: 'Failed to resend message: $e',
+                              isError: true,
+                            );
+                          });
                     }
                   }
                 },
@@ -558,11 +662,16 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
               TextButton(
                 onPressed: () {
                   if (mounted) {
-                    Navigator.pop(context);
+                    Navigator.pop(context); // Close the dialog
                     if (_messageProvider != null) {
-                      _messageProvider!.deleteMessage(
-                        message.id,
-                        // message.senderId, // senderId is not needed here
+                      // Delete the message from the UI immediately
+                      _messageProvider!.deleteMessage(message.id);
+
+                      // Show success feedback
+                      CustomSnackBar.show(
+                        context,
+                        message: 'Message deleted',
+                        isError: false,
                       );
                     }
                   }

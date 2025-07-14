@@ -7,6 +7,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_bar/custom_intro_bar.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
 
 class SignInMerch extends StatefulWidget {
   const SignInMerch({super.key});
@@ -20,6 +21,9 @@ class _SignInMerchState extends State<SignInMerch> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  // Flag to prevent showing multiple snackbars for the same error
+  bool _hasShownError = false;
+
   @override
   void dispose() {
     emailController.dispose();
@@ -31,6 +35,26 @@ class _SignInMerchState extends State<SignInMerch> {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
+        // Listen for errors from UserProvider and display SnackBar
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (userProvider.hasError &&
+              userProvider.errorMessage != null &&
+              !_hasShownError) {
+            CustomSnackBar.show(
+              context,
+              message: userProvider.errorMessage!,
+              isError: true,
+            );
+            _hasShownError = true; // Set flag to true after showing
+            // It's crucial to clear the error state in the provider
+            // after it has been displayed to the user.
+            userProvider.resetState(); // Assuming resetState() or clearError()
+          } else if (!userProvider.hasError && _hasShownError) {
+            // Reset flag if error is cleared in provider
+            _hasShownError = false;
+          }
+        });
+
         return Scaffold(
           appBar: AppBar(),
           body: SingleChildScrollView(
@@ -53,7 +77,7 @@ class _SignInMerchState extends State<SignInMerch> {
                     labelTextStyle2: true,
                     controller: emailController,
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   CustomTextfield(
                     labelText: 'Password',
                     hintText: 'Enter your password',
@@ -61,12 +85,12 @@ class _SignInMerchState extends State<SignInMerch> {
                     controller: passwordController,
                     obscureText: true,
                   ),
-                  SizedBox(height: 20),
-                  Text(
+                  const SizedBox(height: 20),
+                  const Text(
                     'Forgot Password',
                     style: TextStyle(color: wawuColors.buttonSecondary),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Show loading indicator when authentication is in progress
                   if (userProvider.isLoading)
@@ -83,40 +107,51 @@ class _SignInMerchState extends State<SignInMerch> {
                       ),
                     ),
 
-                  // Show error message if login failed
-                  if (userProvider.hasError)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10.0),
-                      child: Text(
-                        userProvider.errorMessage ?? 'An error occurred',
-                        style: TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-
+                  // Removed the old inline error Text widget for userProvider.
+                  // if (userProvider.hasError)
+                  //   Padding(
+                  //     padding: const EdgeInsets.only(bottom: 10.0),
+                  //     child: Text(
+                  //       userProvider.errorMessage ?? 'An error occurred',
+                  //       style: TextStyle(color: Colors.red),
+                  //       textAlign: TextAlign.center,
+                  //     ),
+                  //   ),
                   if (!userProvider
                       .isLoading) // Show button only when not loading
                     CustomButton(
                       function: () async {
+                        // Basic validation for empty fields
+                        if (emailController.text.isEmpty ||
+                            passwordController.text.isEmpty) {
+                          CustomSnackBar.show(
+                            context,
+                            message: 'Please enter your email and password.',
+                            isError: true,
+                          );
+                          return;
+                        }
+
                         // Call login method from provider
                         await userProvider.login(
                           emailController.text,
                           passwordController.text,
                         );
 
-                        // Navigate on success
-                        if (userProvider.isSuccess &&
+                        // Only navigate if the widget is still mounted and login was successful
+                        if (mounted &&
+                            userProvider.isSuccess &&
                             userProvider.currentUser != null) {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => WawuMerchMain(),
+                              builder: (context) => const WawuMerchMain(),
                             ),
                             (Route<dynamic> route) => false,
                           );
                         }
                       },
-                      widget: Text(
+                      widget: const Text(
                         'Sign In',
                         style: TextStyle(
                           color: Colors.white,
@@ -126,15 +161,15 @@ class _SignInMerchState extends State<SignInMerch> {
                       color: wawuColors.buttonPrimary,
                       textColor: Colors.white,
                     ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         "Don't have an account?",
                         style: TextStyle(fontSize: 13),
                       ),
-                      SizedBox(width: 5),
+                      const SizedBox(width: 5),
                       GestureDetector(
                         onTap:
                             userProvider.isLoading
@@ -143,11 +178,11 @@ class _SignInMerchState extends State<SignInMerch> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => SignUpMerch(),
+                                      builder: (context) => const SignUpMerch(),
                                     ),
                                   );
                                 },
-                        child: Text(
+                        child: const Text(
                           'Sign Up',
                           style: TextStyle(
                             color: wawuColors.buttonSecondary,
@@ -157,7 +192,7 @@ class _SignInMerchState extends State<SignInMerch> {
                       ),
                     ],
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
