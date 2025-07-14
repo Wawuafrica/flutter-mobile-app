@@ -426,6 +426,7 @@ class GigProvider extends BaseProvider {
         '/seller/gig',
         data: payload,
       );
+      print(response['data']);
 
       if (_isDisposed) return null;
 

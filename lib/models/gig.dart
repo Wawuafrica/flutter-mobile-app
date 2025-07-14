@@ -180,6 +180,15 @@ class Gig {
       reviews = [];
     }
 
+    // Handle assets with extra safety
+    Assets assets;
+    try {
+      assets = Assets.fromJson(json['assets'] as Map<String, dynamic>?);
+    } catch (e) {
+      debugPrint('Error parsing assets: $e');
+      assets = Assets.fromJson(null);
+    }
+
     return Gig(
       uuid: json['uuid']?.toString() ?? '',
       title: json['title']?.toString() ?? 'No Title',
@@ -190,7 +199,7 @@ class Gig {
       services: services,
       pricings: pricings,
       faqs: faqs,
-      assets: Assets.fromJson(json['assets'] as Map<String, dynamic>?),
+      assets: assets,
       status: json['status']?.toString() ?? 'PENDING',
       reviews: reviews,
     );
@@ -644,22 +653,36 @@ class Assets {
       photos = [];
     }
 
-    // Handle video with extra safety
+    // Handle video with extra safety - can be string, object, or null
     Video? video;
     try {
-      if (json['video'] != null && json['video'] is Map<String, dynamic>) {
-        video = Video.fromJson(json['video'] as Map<String, dynamic>);
+      if (json['video'] != null) {
+        if (json['video'] is String) {
+          // If video is a string (URL), create Video object with the URL
+          final videoUrl = json['video'] as String;
+          video = Video(name: 'video', link: videoUrl);
+        } else if (json['video'] is Map<String, dynamic>) {
+          // If video is an object, parse it normally
+          video = Video.fromJson(json['video'] as Map<String, dynamic>);
+        }
       }
     } catch (e) {
       debugPrint('Error parsing video: $e');
       video = null;
     }
 
-    // Handle pdf with extra safety
+    // Handle pdf with extra safety - can be string, object, or null
     Pdf? pdf;
     try {
-      if (json['pdf'] != null && json['pdf'] is Map<String, dynamic>) {
-        pdf = Pdf.fromJson(json['pdf'] as Map<String, dynamic>);
+      if (json['pdf'] != null) {
+        if (json['pdf'] is String) {
+          // If pdf is a string (URL), create Pdf object with the URL
+          final pdfUrl = json['pdf'] as String;
+          pdf = Pdf(name: 'document', link: pdfUrl);
+        } else if (json['pdf'] is Map<String, dynamic>) {
+          // If pdf is an object, parse it normally
+          pdf = Pdf.fromJson(json['pdf'] as Map<String, dynamic>);
+        }
       }
     } catch (e) {
       debugPrint('Error parsing pdf: $e');

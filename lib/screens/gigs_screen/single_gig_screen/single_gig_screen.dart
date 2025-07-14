@@ -12,7 +12,9 @@ import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/package_grid_component/package_grid_component.dart';
 import 'package:wawu_mobile/models/gig.dart';
 import 'package:wawu_mobile/widgets/review_component/review_component.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Import CachedNetworkImage
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 class SingleGigScreen extends StatefulWidget {
   const SingleGigScreen({super.key});
@@ -26,11 +28,26 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
   final _formKey = GlobalKey<FormState>();
   int _selectedRating = 0;
   bool _isSubmittingReview = false;
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
 
   @override
   void dispose() {
     _reviewController.dispose();
+    _videoController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeVideo(String videoUrl) async {
+    try {
+      _videoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      await _videoController!.initialize();
+      setState(() {
+        _isVideoInitialized = true;
+      });
+    } catch (e) {
+      print('Error initializing video: $e');
+    }
   }
 
   Future<void> _navigateToMessageScreen(
@@ -72,6 +89,81 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     }
   }
 
+  Future<void> _launchPDF(String pdfUrl) async {
+    try {
+      final Uri url = Uri.parse(pdfUrl);
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch $pdfUrl');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to open PDF: $e')));
+      }
+    }
+  }
+
+  void _showFullscreenImage(String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Stack(
+              children: [
+                Center(
+                  child: InteractiveViewer(
+                    panEnabled: true,
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                      placeholder:
+                          (context, url) => const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          ),
+                      errorWidget:
+                          (context, url, error) => const Center(
+                            child: Icon(
+                              Icons.error,
+                              color: Colors.white,
+                              size: 50,
+                            ),
+                          ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 40,
+                  right: 20,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+    );
+  }
+
+  void _showFullscreenVideo(String videoUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder: (context) => _FullscreenVideoDialog(videoUrl: videoUrl),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,6 +200,11 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
   }
 
   Widget _buildImageCarousel(BuildContext context, Gig gig) {
+    // Calculate total item count (video + photos) with null safety
+    final hasVideo = gig.assets.video?.link.isNotEmpty ?? false;
+    final photoCount = gig.assets.photos.length;
+    final totalItems = (hasVideo ? 1 : 0) + (photoCount > 0 ? photoCount : 1);
+
     return Container(
       width: double.infinity,
       height: 200,
@@ -117,40 +214,55 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
         children: [
           ListView.builder(
             scrollDirection: Axis.horizontal,
-            itemCount:
-                gig.assets.photos.isNotEmpty ? gig.assets.photos.length : 1,
+            itemCount: totalItems,
             itemBuilder: (context, index) {
+              // First item is video if available
+              if (hasVideo && index == 0) {
+                return _buildVideoItem(context, gig);
+              }
+
+              // Adjust index for photos
+              final photoIndex = hasVideo ? index - 1 : index;
+              final photos = gig.assets.photos;
               final photo =
-                  gig.assets.photos.isNotEmpty
-                      ? gig.assets.photos[index]
+                  photos.isNotEmpty && photoIndex < photos.length
+                      ? photos[photoIndex]
                       : null;
-              return Container(
-                width: MediaQuery.of(context).size.width,
-                color: Colors.black,
-                child: Opacity(
-                  opacity: 0.7,
-                  child:
-                      photo != null && photo.link.isNotEmpty
-                          ? CachedNetworkImage(
-                            imageUrl: photo.link,
-                            fit: BoxFit.cover,
-                            placeholder:
-                                (context, url) => Container(
-                                  color: wawuColors.primary.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
+
+              return GestureDetector(
+                onTap: () {
+                  if (photo?.link.isNotEmpty == true) {
+                    _showFullscreenImage(photo!.link);
+                  }
+                },
+                child: Container(
+                  width: MediaQuery.of(context).size.width,
+                  color: Colors.black,
+                  child: Opacity(
+                    opacity: 0.7,
+                    child:
+                        photo?.link.isNotEmpty == true
+                            ? CachedNetworkImage(
+                              imageUrl: photo!.link,
+                              fit: BoxFit.cover,
+                              placeholder:
+                                  (context, url) => Container(
+                                    color: wawuColors.primary.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                   ),
-                                ),
-                            errorWidget:
-                                (context, url, error) =>
-                                    Container(color: Colors.black),
-                          )
-                          : Container(color: Colors.black),
+                              errorWidget:
+                                  (context, url, error) =>
+                                      Container(color: Colors.black),
+                            )
+                            : Container(color: Colors.black),
+                  ),
                 ),
               );
             },
@@ -199,6 +311,81 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 
+  Widget _buildVideoItem(BuildContext context, Gig gig) {
+    final videoUrl = gig.assets.video?.link ?? '';
+
+    return GestureDetector(
+      onTap: () {
+        if (videoUrl.isNotEmpty) {
+          _showFullscreenVideo(videoUrl);
+        }
+      },
+      child: Container(
+        width: MediaQuery.of(context).size.width,
+        color: Colors.black,
+        child: Stack(
+          children: [
+            if (_videoController != null && _isVideoInitialized)
+              Opacity(
+                opacity: 0.7,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: double.infinity,
+                  child: VideoPlayer(_videoController!),
+                ),
+              )
+            else
+              Container(
+                color: Colors.black,
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            // Play button overlay
+            Positioned.fill(
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_videoController == null && videoUrl.isNotEmpty) {
+                      _initializeVideo(videoUrl);
+                    } else if (_videoController != null &&
+                        _isVideoInitialized) {
+                      setState(() {
+                        if (_videoController!.value.isPlaying) {
+                          _videoController!.pause();
+                        } else {
+                          _videoController!.play();
+                        }
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      (_videoController?.value.isPlaying ?? false)
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileSection(BuildContext context, Gig gig) {
     return Container(
       color: Colors.transparent,
@@ -208,27 +395,32 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
         children: [
           Positioned(
             top: -40,
-            left: 0,
-            right: 0,
+            left:
+                MediaQuery.of(context).size.width / 2 -
+                45, // Center the profile image
             child: Container(
               width: 90,
               height: 90,
-              clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
-                border: Border.all(color: wawuColors.primary),
+                border: Border.all(color: wawuColors.white, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-              padding: const EdgeInsets.all(2.0),
-              child: Container(
-                clipBehavior: Clip.hardEdge,
-                decoration: const BoxDecoration(shape: BoxShape.circle),
+              child: ClipOval(
                 child:
-                    gig.seller.profileImage != null &&
-                            gig.seller.profileImage!.isNotEmpty
+                    gig.seller.profileImage?.isNotEmpty == true
                         ? CachedNetworkImage(
                           imageUrl: gig.seller.profileImage!,
                           fit: BoxFit.cover,
+                          width: 90,
+                          height: 90,
                           placeholder:
                               (context, url) => Container(
                                 width: 90,
@@ -246,18 +438,24 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                               (context, url, error) => Image.asset(
                                 'assets/images/other/avatar.webp',
                                 fit: BoxFit.cover,
+                                width: 90,
+                                height: 90,
                               ),
                         )
                         : Image.asset(
                           'assets/images/other/avatar.webp',
                           fit: BoxFit.cover,
+                          width: 90,
+                          height: 90,
                         ),
               ),
             ),
           ),
           Positioned(
             bottom: 20,
-            right: 140,
+            right:
+                MediaQuery.of(context).size.width / 2 -
+                45, // Position message button next to profile
             child: GestureDetector(
               onTap: () => _navigateToMessageScreen(context, gig.seller.uuid),
               child: Container(
@@ -266,6 +464,13 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: wawuColors.primary,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: const Center(
                   child: FaIcon(
@@ -318,7 +523,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
-                      keyword,
+                      keyword.trim(),
                       style: TextStyle(color: wawuColors.primary, fontSize: 12),
                     ),
                   );
@@ -328,6 +533,31 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
           const CustomIntroText(text: 'About This Gig'),
           const SizedBox(height: 10),
           Text(gig.about, style: const TextStyle(fontSize: 14)),
+          // Add PDF button if PDF link exists
+          if (gig.assets.pdf?.link.isNotEmpty == true) ...[
+            const SizedBox(height: 15),
+            Center(
+              child: CustomButton(
+                widget: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.picture_as_pdf,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'View PDF',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+                color: wawuColors.primary,
+                function: () => _launchPDF(gig.assets.pdf!.link),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -396,34 +626,112 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
 
     // Add features to packageData
     for (final featureName in featureNames) {
-      final row = {
-        'label': featureName,
-        'isCheckbox': true,
-        'values': [
-          gig.pricings.isNotEmpty &&
-                  gig.pricings[0].features.any((f) => f.name == featureName)
-              ? gig.pricings[0].features
-                      .firstWhere((f) => f.name == featureName)
-                      .value ==
-                  'yes'
-              : false,
-          gig.pricings.length > 1 &&
-                  gig.pricings[1].features.any((f) => f.name == featureName)
-              ? gig.pricings[1].features
-                      .firstWhere((f) => f.name == featureName)
-                      .value ==
-                  'yes'
-              : false,
-          gig.pricings.length > 2 &&
-                  gig.pricings[2].features.any((f) => f.name == featureName)
-              ? gig.pricings[2].features
-                      .firstWhere((f) => f.name == featureName)
-                      .value ==
-                  'yes'
-              : false,
-        ],
-      };
-      packageData.add(row);
+      // Check if this feature has only "yes"/"no" values across all packages
+      bool isYesNoFeature = true;
+      List<String> featureValues = [];
+
+      // Collect all values for this feature across all packages
+      for (int i = 0; i < 3; i++) {
+        if (i < gig.pricings.length) {
+          final featureIndex = gig.pricings[i].features.indexWhere(
+            (f) => f.name == featureName,
+          );
+          if (featureIndex != -1) {
+            featureValues.add(
+              gig.pricings[i].features[featureIndex].value.toLowerCase(),
+            );
+          } else {
+            featureValues.add('');
+          }
+        } else {
+          featureValues.add('');
+        }
+      }
+
+      // Check if all non-empty values are either "yes" or "no"
+      for (final value in featureValues) {
+        if (value.isNotEmpty && value != 'yes' && value != 'no') {
+          isYesNoFeature = false;
+          break;
+        }
+      }
+
+      if (isYesNoFeature) {
+        // Use checkbox format for yes/no features
+        final row = {
+          'label': featureName,
+          'isCheckbox': true,
+          'values': [
+            gig.pricings.isNotEmpty &&
+                    gig.pricings[0].features.any((f) => f.name == featureName)
+                ? gig.pricings[0].features
+                        .firstWhere((f) => f.name == featureName)
+                        .value
+                        .toLowerCase() ==
+                    'yes'
+                : false,
+            gig.pricings.length > 1 &&
+                    gig.pricings[1].features.any((f) => f.name == featureName)
+                ? gig.pricings[1].features
+                        .firstWhere((f) => f.name == featureName)
+                        .value
+                        .toLowerCase() ==
+                    'yes'
+                : false,
+            gig.pricings.length > 2 &&
+                    gig.pricings[2].features.any((f) => f.name == featureName)
+                ? gig.pricings[2].features
+                        .firstWhere((f) => f.name == featureName)
+                        .value
+                        .toLowerCase() ==
+                    'yes'
+                : false,
+          ],
+        };
+        packageData.add(row);
+      } else {
+        // Use text field format for other features
+        final row = {
+          'label': featureName,
+          'isCheckbox': false,
+          'controllers': [
+            TextEditingController(
+              text:
+                  gig.pricings.isNotEmpty &&
+                          gig.pricings[0].features.any(
+                            (f) => f.name == featureName,
+                          )
+                      ? gig.pricings[0].features
+                          .firstWhere((f) => f.name == featureName)
+                          .value
+                      : '',
+            ),
+            TextEditingController(
+              text:
+                  gig.pricings.length > 1 &&
+                          gig.pricings[1].features.any(
+                            (f) => f.name == featureName,
+                          )
+                      ? gig.pricings[1].features
+                          .firstWhere((f) => f.name == featureName)
+                          .value
+                      : '',
+            ),
+            TextEditingController(
+              text:
+                  gig.pricings.length > 2 &&
+                          gig.pricings[2].features.any(
+                            (f) => f.name == featureName,
+                          )
+                      ? gig.pricings[2].features
+                          .firstWhere((f) => f.name == featureName)
+                          .value
+                      : '',
+            ),
+          ],
+        };
+        packageData.add(row);
+      }
     }
 
     return Padding(
@@ -596,7 +904,6 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                                 listen: false,
                               );
 
-                              // The postReview method now handles the local update.
                               final result = await gigProvider
                                   .postReview(gig.uuid, {
                                     'rating': _selectedRating,
@@ -605,10 +912,6 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
 
                               if (context.mounted) {
                                 if (result) {
-                                  // SUCCESS! The UI will update automatically.
-                                  // WE DO NOT NEED THE LINE BELOW ANYMORE.
-                                  // await gigProvider.fetchGigById(gig.uuid); // <-- REMOVE THIS LINE
-
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text(
@@ -619,7 +922,6 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                                   _reviewController.clear();
                                   setState(() => _selectedRating = 0);
                                 } else {
-                                  // Failure case
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -641,5 +943,181 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
         ],
       ),
     );
+  }
+}
+
+// Fullscreen Video Dialog Widget
+class _FullscreenVideoDialog extends StatefulWidget {
+  final String videoUrl;
+
+  const _FullscreenVideoDialog({required this.videoUrl});
+
+  @override
+  State<_FullscreenVideoDialog> createState() => _FullscreenVideoDialogState();
+}
+
+class _FullscreenVideoDialogState extends State<_FullscreenVideoDialog> {
+  VideoPlayerController? _controller;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeVideo();
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.videoUrl),
+      );
+      await _controller!.initialize();
+      setState(() {
+        _isInitialized = true;
+      });
+      // Auto-play the video when initialized
+      _controller!.play();
+    } catch (e) {
+      print('Error initializing fullscreen video: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: Colors.black,
+        child: Stack(
+          children: [
+            // Video player
+            if (_controller != null && _isInitialized)
+              Center(
+                child: AspectRatio(
+                  aspectRatio: _controller!.value.aspectRatio,
+                  child: VideoPlayer(_controller!),
+                ),
+              )
+            else
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              ),
+
+            // Close button
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+              ),
+            ),
+
+            // Play/Pause button overlay
+            if (_controller != null && _isInitialized)
+              Positioned.fill(
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (_controller!.value.isPlaying) {
+                          _controller!.pause();
+                        } else {
+                          _controller!.play();
+                        }
+                      });
+                    },
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _controller!.value.isPlaying
+                            ? Icons.pause
+                            : Icons.play_arrow,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Video controls (optional - you can remove this if you want simpler controls)
+            if (_controller != null && _isInitialized)
+              Positioned(
+                bottom: 20,
+                left: 20,
+                right: 20,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Progress bar
+                      VideoProgressIndicator(
+                        _controller!,
+                        allowScrubbing: true,
+                        colors: VideoProgressColors(
+                          playedColor: Colors.white,
+                          bufferedColor: Colors.white.withOpacity(0.3),
+                          backgroundColor: Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Time display
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _formatDuration(_controller!.value.position),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            _formatDuration(_controller!.value.duration),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 }

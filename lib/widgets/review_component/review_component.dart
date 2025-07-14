@@ -12,10 +12,10 @@ class ReviewComponent extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: wawuColors.primary.withValues(alpha: 0.3),
+        color: wawuColors.primary.withValues(alpha: 0.1),
         border: Border.all(
           width: 0.5,
-          color: wawuColors.primary.withValues(alpha: 0.2),
+          color: wawuColors.primary.withValues(alpha: 0.1),
         ),
         borderRadius: BorderRadius.circular(10.0),
       ),
@@ -24,6 +24,7 @@ class ReviewComponent extends StatelessWidget {
       padding: const EdgeInsets.all(20.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,6 +83,7 @@ class ReviewComponent extends StatelessWidget {
           ),
           Text(
             review.review,
+            textAlign: TextAlign.start,
             style: const TextStyle(
               fontSize: 12,
               overflow: TextOverflow.ellipsis,

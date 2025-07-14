@@ -287,7 +287,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
     if (!hasAtLeastOneFeature) {
       CustomSnackBar.show(
         context,
-        message: 'Please add at least one feature to any of your packages.',
+        message: 'Please add at least one feature to the packages.',
         isError: true,
       );
       return;

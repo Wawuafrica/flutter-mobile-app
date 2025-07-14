@@ -666,20 +666,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             );
                           }
-                          return SizedBox(
-                            height: 150,
-                            child: ListView.builder(
-                              scrollDirection: Axis.vertical,
-                              itemCount: gigProvider.recentlyViewedGigs.length,
-                              itemBuilder: (context, index) {
-                                final gig =
-                                    gigProvider.recentlyViewedGigs[index];
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 10),
-                                  child: GigCard(gig: gig),
-                                );
-                              },
-                            ),
+                          return Column(
+                            children:
+                                gigProvider.recentlyViewedGigs.map((gig) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: GigCard(gig: gig),
+                                  );
+                                }).toList(),
                           );
                         },
                       ),
