@@ -180,13 +180,13 @@ jobs:
         # Execute Fastlane with explicit platform
         fastlane ios beta
 
-    - name: Upload IPA artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ios-app
-        path: ios/build/ios/ipa/*.ipa
-        retention-days: 30
-      if: always()
+    # - name: Upload IPA artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: ios-app
+    #     path: ios/build/ios/ipa/*.ipa
+    #     retention-days: 30
+    #   if: always()
 
     - name: Clean up
       if: always()
