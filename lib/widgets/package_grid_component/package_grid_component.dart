@@ -68,15 +68,15 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
         ? Row(
           children: [
             Container(
-              width: 100,
-              height: 50,
+              width: 145,
+              height: 70,
               padding: const EdgeInsets.all(10.0),
               decoration: BoxDecoration(border: Border.all()),
               child: Center(child: Text(title)),
             ),
             Expanded(
               child: Container(
-                height: 50,
+                height: 70,
                 padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(border: Border.all()),
                 child: Center(
@@ -89,7 +89,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
             ),
             Expanded(
               child: Container(
-                height: 50,
+                height: 70,
                 padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(border: Border.all()),
                 child: Center(
@@ -102,7 +102,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
             ),
             Expanded(
               child: Container(
-                height: 50,
+                height: 70,
                 padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(border: Border.all()),
                 child: Center(
@@ -118,15 +118,15 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
         : Row(
           children: [
             Container(
-              width: 100,
-              height: 50,
+              width: 145,
+              height: 70,
               padding: const EdgeInsets.all(10.0),
               decoration: BoxDecoration(border: Border.all()),
               child: Center(child: Text(title)),
             ),
             Expanded(
               child: Container(
-                height: 50,
+                height: 70,
                 padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(border: Border.all()),
                 child: Center(
@@ -141,7 +141,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
             ),
             Expanded(
               child: Container(
-                height: 50,
+                height: 70,
                 padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(border: Border.all()),
                 child: Center(
@@ -156,7 +156,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
             ),
             Expanded(
               child: Container(
-                height: 50,
+                height: 70,
                 padding: const EdgeInsets.all(2.0),
                 decoration: BoxDecoration(border: Border.all()),
                 child: Center(
