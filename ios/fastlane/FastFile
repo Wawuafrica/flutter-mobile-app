@@ -288,7 +288,14 @@ platform :ios do
       skip_binary_upload: false, # IMPORTANT: Changed to false so it uploads the binary
       ipa: "./build/ios/ipa/Runner.ipa", # Explicitly specify the IPA path
       precheck_include_in_app_purchases: false, # Disable in-app purchase checks
-      run_precheck_before_submit: false # Disable precheck entirely for API key compatibility
+      run_precheck_before_submit: false, # Disable precheck entirely for API key compatibility
+      submission_information: {
+        export_compliance_uses_encryption: false, # Most Flutter apps using standard HTTPS/auth are exempt
+        export_compliance_is_exempt: true, # Standard system encryption is exempt
+        export_compliance_contains_third_party_cryptography: false,
+        export_compliance_contains_proprietary_cryptography: false,
+        export_compliance_available_on_french_store: true
+      }
     )
     UI.message("Submitted to App Store for review.")
 
