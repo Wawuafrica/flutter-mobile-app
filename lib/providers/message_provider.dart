@@ -609,11 +609,11 @@ class MessageProvider extends BaseProvider {
         // For media messages (voice notes, images, etc.)
         formData = FormData.fromMap({
           'message': content,
-          'media[file]': await MultipartFile.fromFile(
+          'media[1][file]': await MultipartFile.fromFile(
             mediaFilePath,
             // filename: path.basename(mediaFilePath),
           ),
-          'media[fileName]': path.basename(mediaFilePath),
+          'media[1][fileName]': path.basename(mediaFilePath),
         });
         // print(formData);
       } else {
