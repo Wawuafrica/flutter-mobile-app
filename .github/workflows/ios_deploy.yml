@@ -178,7 +178,7 @@ jobs:
         fi
 
         # Execute Fastlane with explicit platform
-        fastlane ios beta
+        # fastlane ios beta
         fastlane ios release
 
     # - name: Upload IPA artifact
