@@ -15,9 +15,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
 import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Import for CachedNetworkImage
-import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
-import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,12 +29,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
-
-  // Flags to prevent showing multiple snackbars for the same error
-  bool _hasShownAdError = false;
-  bool _hasShownCategoryError = false;
-  bool _hasShownProductError = false;
-  bool _hasShownGigError = false;
 
   @override
   void initState() {
@@ -55,10 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       listen: false,
     );
-    final gigProvider = Provider.of<GigProvider>(
-      context,
-      listen: false,
-    ); // Uncommented
+    final gigProvider = Provider.of<GigProvider>(context, listen: false);
 
     // Initialize categories
     if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
@@ -94,18 +85,12 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         listen: false,
       );
-      // final gigProvider = Provider.of<GigProvider>(
-      //   context,
-      //   listen: false,
-      // ); // Uncommented
 
       // Create a list of futures to run in parallel
       final futures = <Future>[
         categoryProvider.fetchCategories(),
-        adProvider
-            .refresh(), // Use refresh() instead of fetchAds() to reset state
+        adProvider.refresh(),
         productProvider.fetchFeaturedProducts(),
-        // gigProvider.fetchRecentlyViewedGigs(), // Uncommented
       ];
 
       // Wait for all futures to complete
@@ -137,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
       CustomSnackBar.show(
         context,
         message: 'This ad has no link',
-        isError: false, // Informative, not an error
+        isError: false,
       );
       return;
     }
@@ -166,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Function to show the support dialog (can be reused)
+  // Function to show the support dialog
   void _showErrorSupportDialog(BuildContext context, String message) {
     showDialog(
       context: context,
@@ -203,6 +188,291 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Check if any provider has a critical error (empty data + error + not loading)
+  bool _hasCriticalError(
+    CategoryProvider categoryProvider,
+    AdProvider adProvider,
+    ProductProvider productProvider,
+    GigProvider gigProvider,
+  ) {
+    return (categoryProvider.hasError &&
+            categoryProvider.categories.isEmpty &&
+            !categoryProvider.isLoading) ||
+        (adProvider.hasError &&
+            adProvider.ads.isEmpty &&
+            !adProvider.isLoading) ||
+        (productProvider.hasError &&
+            productProvider.featuredProducts.isEmpty &&
+            !productProvider.isLoading) ||
+        (gigProvider.hasError &&
+            gigProvider.recentlyViewedGigs.isEmpty &&
+            !gigProvider.isRecentlyViewedLoading);
+  }
+
+  /// Get the primary error message and retry function
+  Map<String, dynamic> _getPrimaryError(
+    CategoryProvider categoryProvider,
+    AdProvider adProvider,
+    ProductProvider productProvider,
+    GigProvider gigProvider,
+  ) {
+    // Priority: Categories > Ads > Products > Gigs
+    if (categoryProvider.hasError &&
+        categoryProvider.categories.isEmpty &&
+        !categoryProvider.isLoading) {
+      return {
+        'message': categoryProvider.errorMessage ?? 'Failed to load categories',
+        'retry': () => categoryProvider.fetchCategories(),
+      };
+    }
+
+    if (adProvider.hasError &&
+        adProvider.ads.isEmpty &&
+        !adProvider.isLoading) {
+      return {
+        'message': adProvider.errorMessage ?? 'Failed to load updates',
+        'retry': () => adProvider.fetchAds(),
+      };
+    }
+
+    if (productProvider.hasError &&
+        productProvider.featuredProducts.isEmpty &&
+        !productProvider.isLoading) {
+      return {
+        'message': productProvider.errorMessage ?? 'Failed to load products',
+        'retry': () => productProvider.fetchFeaturedProducts(),
+      };
+    }
+
+    if (gigProvider.hasError &&
+        gigProvider.recentlyViewedGigs.isEmpty &&
+        !gigProvider.isRecentlyViewedLoading) {
+      return {
+        'message':
+            gigProvider.errorMessage ?? 'Failed to load recently viewed gigs',
+        'retry': () => gigProvider.fetchRecentlyViewedGigs(),
+      };
+    }
+
+    return {
+      'message': 'Something went wrong',
+      'retry': () => _initializeData(),
+    };
+  }
+
+  /// Check if any provider is loading (for overall loading state)
+  bool _isAnyProviderLoading(
+    CategoryProvider categoryProvider,
+    AdProvider adProvider,
+    ProductProvider productProvider,
+    GigProvider gigProvider,
+  ) {
+    return (categoryProvider.isLoading &&
+            categoryProvider.categories.isEmpty) ||
+        (adProvider.isLoading && adProvider.ads.isEmpty) ||
+        (productProvider.isLoading &&
+            productProvider.featuredProducts.isEmpty) ||
+        (gigProvider.isRecentlyViewedLoading &&
+            gigProvider.recentlyViewedGigs.isEmpty);
+  }
+
+  /// Build ads section with inline error handling
+  Widget _buildAdsSection(AdProvider adProvider) {
+    // Show loading placeholder if loading and no data
+    if (adProvider.isLoading && adProvider.ads.isEmpty) {
+      return Container(
+        width: double.infinity,
+        height: 250,
+        decoration: BoxDecoration(
+          color: wawuColors.borderPrimary.withAlpha(50),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Show empty state if no ads and no error
+    if (adProvider.ads.isEmpty && !adProvider.hasError) {
+      return Container(
+        width: double.infinity,
+        height: 250,
+        decoration: BoxDecoration(
+          color: wawuColors.borderPrimary.withAlpha(50),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.announcement_outlined, color: Colors.grey, size: 48),
+              SizedBox(height: 16),
+              Text(
+                'No ads available',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Show ads carousel if data is available
+    if (adProvider.ads.isNotEmpty) {
+      final List<Widget> carouselItems =
+          adProvider.ads.map((ad) {
+            return GestureDetector(
+              onTap: () => _handleAdTap(ad.link),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: CachedNetworkImage(
+                  imageUrl: ad.media.link,
+                  fit: BoxFit.cover,
+                  placeholder:
+                      (context, url) => Container(
+                        color: wawuColors.borderPrimary.withAlpha(50),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                  errorWidget:
+                      (context, url, error) => Container(
+                        color: wawuColors.borderPrimary.withAlpha(50),
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                                size: 48,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Failed to load image',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                ),
+              ),
+            );
+          }).toList();
+
+      return FadingCarousel(height: 220, children: carouselItems);
+    }
+
+    // Fallback empty container
+    return Container(
+      width: double.infinity,
+      height: 250,
+      decoration: BoxDecoration(
+        color: wawuColors.borderPrimary.withAlpha(50),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: const Center(
+        child: Text(
+          'No updates available',
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  /// Build categories section with inline error handling
+  Widget _buildCategoriesSection(CategoryProvider categoryProvider) {
+    // Asset paths to map to the first three categories (in order)
+    final List<String> assetPaths = [
+      'assets/images/section/programming.png',
+      'assets/images/section/photography.png',
+      'assets/images/section/sales.png',
+    ];
+
+    if (categoryProvider.isLoading && categoryProvider.categories.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (categoryProvider.categories.isEmpty) {
+      return const Center(child: Text('No categories available'));
+    }
+
+    return ListView.separated(
+      separatorBuilder: (context, index) => const SizedBox(width: 10),
+      scrollDirection: Axis.horizontal,
+      itemCount: categoryProvider.categories.take(3).length,
+      itemBuilder: (context, index) {
+        final category = categoryProvider.categories[index];
+        return ImageTextCard(
+          function: () {
+            categoryProvider.selectCategory(category);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SubCategoriesAndServices(),
+              ),
+            );
+          },
+          text: category.name,
+          asset: assetPaths[index],
+        );
+      },
+    );
+  }
+
+  /// Build products section with inline error handling
+  Widget _buildProductsSection(ProductProvider productProvider) {
+    if (productProvider.isLoading && productProvider.featuredProducts.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (productProvider.featuredProducts.isEmpty) {
+      return const Center(
+        child: Text('No products available', style: TextStyle(fontSize: 14)),
+      );
+    }
+
+    return ListView(
+      scrollDirection: Axis.horizontal,
+      children:
+          productProvider.featuredProducts
+              .take(5)
+              .map((product) => ECard(product: product))
+              .toList(),
+    );
+  }
+
+  /// Build gigs section with inline error handling
+  Widget _buildGigsSection(GigProvider gigProvider) {
+    if (gigProvider.isRecentlyViewedLoading &&
+        gigProvider.recentlyViewedGigs.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 32.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (gigProvider.recentlyViewedGigs.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.0),
+        child: Text(
+          'No recently viewed gigs yet',
+          style: TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      );
+    }
+
+    return Column(
+      children:
+          gigProvider.recentlyViewedGigs.map((gig) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: GigCard(gig: gig),
+            );
+          }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer5<
@@ -221,97 +491,52 @@ class _HomeScreenState extends State<HomeScreen> {
         adProvider,
         child,
       ) {
-        // Listen for errors from AdProvider and display SnackBar
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (adProvider.hasError &&
-              adProvider.errorMessage != null &&
-              !_hasShownAdError) {
-            CustomSnackBar.show(
-              context,
-              message: adProvider.errorMessage!,
-              isError: true,
-              actionLabel: 'RETRY',
-              onActionPressed: () {
-                adProvider.fetchAds();
+        // Check for critical errors that should show full screen error
+        bool hasCriticalError = _hasCriticalError(
+          categoryProvider,
+          adProvider,
+          productProvider,
+          gigProvider,
+        );
+
+        bool isLoading = _isAnyProviderLoading(
+          categoryProvider,
+          adProvider,
+          productProvider,
+          gigProvider,
+        );
+
+        // Show full screen error if there's a critical error
+        if (hasCriticalError) {
+          final errorInfo = _getPrimaryError(
+            categoryProvider,
+            adProvider,
+            productProvider,
+            gigProvider,
+          );
+
+          return Scaffold(
+            body: FullErrorDisplay(
+              errorMessage: errorInfo['message'],
+              onRetry: errorInfo['retry'],
+              onContactSupport: () {
+                _showErrorSupportDialog(
+                  context,
+                  'If this problem persists, please contact our support team. We are here to help!',
+                );
               },
-            );
-            _hasShownAdError = true;
-            adProvider.clearError(); // Clear error state
-          } else if (!adProvider.hasError && _hasShownAdError) {
-            _hasShownAdError = false;
-          }
-        });
+            ),
+          );
+        }
 
-        // Listen for errors from CategoryProvider and display SnackBar
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (categoryProvider.hasError &&
-              categoryProvider.errorMessage != null &&
-              !_hasShownCategoryError) {
-            CustomSnackBar.show(
-              context,
-              message: categoryProvider.errorMessage!,
-              isError: true,
-              actionLabel: 'RETRY',
-              onActionPressed: () {
-                categoryProvider.fetchCategories();
-              },
-            );
-            _hasShownCategoryError = true;
-            categoryProvider.clearError(); // Clear error state
-          } else if (!categoryProvider.hasError && _hasShownCategoryError) {
-            _hasShownCategoryError = false;
-          }
-        });
+        // Show loading screen if critical data is still loading
+        if (isLoading) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-        // Listen for errors from ProductProvider and display SnackBar
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (productProvider.hasError &&
-              productProvider.errorMessage != null &&
-              !_hasShownProductError) {
-            CustomSnackBar.show(
-              context,
-              message: productProvider.errorMessage!,
-              isError: true,
-              actionLabel: 'RETRY',
-              onActionPressed: () {
-                productProvider.fetchFeaturedProducts();
-              },
-            );
-            _hasShownProductError = true;
-            productProvider.clearError(); // Clear error state
-          } else if (!productProvider.hasError && _hasShownProductError) {
-            _hasShownProductError = false;
-          }
-        });
-
-        // Listen for errors from GigProvider and display SnackBar
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (gigProvider.hasError &&
-              gigProvider.errorMessage != null &&
-              !_hasShownGigError) {
-            CustomSnackBar.show(
-              context,
-              message: gigProvider.errorMessage!,
-              isError: true,
-              actionLabel: 'RETRY',
-              onActionPressed: () {
-                gigProvider.fetchRecentlyViewedGigs();
-              },
-            );
-            _hasShownGigError = true;
-            gigProvider.clearError(); // Clear error state
-          } else if (!gigProvider.hasError && _hasShownGigError) {
-            _hasShownGigError = false;
-          }
-        });
-
-        // Asset paths to map to the first three categories (in order)
-        final List<String> assetPaths = [
-          'assets/images/section/programming.png',
-          'assets/images/section/photography.png',
-          'assets/images/section/sales.png',
-        ];
-
+        // Show normal content with inline error handling for individual sections
         return Scaffold(
           body: RefreshIndicator(
             key: _refreshIndicatorKey,
@@ -330,133 +555,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 20),
                       const CustomIntroText(text: 'Updates'),
                       const SizedBox(height: 10),
-                      // Real-time Ads Section
-                      Consumer<AdProvider>(
-                        builder: (context, adProvider, child) {
-                          // Loading state
-                          if (adProvider.isLoading && adProvider.ads.isEmpty) {
-                            return Container(
-                              width: double.infinity,
-                              height: 250,
-                              decoration: BoxDecoration(
-                                color: wawuColors.borderPrimary.withAlpha(50),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          }
-
-                          // Error state with FullErrorDisplay
-                          if (adProvider.hasError &&
-                              adProvider.ads.isEmpty &&
-                              !adProvider.isLoading) {
-                            return FullErrorDisplay(
-                              errorMessage:
-                                  adProvider.errorMessage ??
-                                  'Failed to load ads. Please try again.',
-                              onRetry: () {
-                                adProvider.fetchAds();
-                              },
-                              onContactSupport: () {
-                                _showErrorSupportDialog(
-                                  context,
-                                  'If this problem persists, please contact our support team. We are here to help!',
-                                );
-                              },
-                            );
-                          }
-
-                          // Empty state
-                          if (adProvider.ads.isEmpty) {
-                            return Container(
-                              width: double.infinity,
-                              height: 250,
-                              decoration: BoxDecoration(
-                                color: wawuColors.borderPrimary.withAlpha(50),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.announcement_outlined,
-                                      color: Colors.grey,
-                                      size: 48,
-                                    ),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'No ads available',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-
-                          // Success state - Show ads carousel
-                          final List<Widget> carouselItems =
-                              adProvider.ads.map((ad) {
-                                return GestureDetector(
-                                  onTap: () => _handleAdTap(ad.link),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: CachedNetworkImage(
-                                      imageUrl: ad.media.link,
-                                      fit: BoxFit.cover,
-                                      placeholder:
-                                          (context, url) => Container(
-                                            color: wawuColors.borderPrimary
-                                                .withAlpha(50),
-                                            child: const Center(
-                                              child:
-                                                  CircularProgressIndicator(),
-                                            ),
-                                          ),
-                                      errorWidget:
-                                          (context, url, error) => Container(
-                                            color: wawuColors.borderPrimary
-                                                .withAlpha(50),
-                                            child: const Center(
-                                              child: Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.broken_image,
-                                                    color: Colors.grey,
-                                                    size: 48,
-                                                  ),
-                                                  SizedBox(height: 8),
-                                                  Text(
-                                                    'Failed to load image',
-                                                    style: TextStyle(
-                                                      color: Colors.grey,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                    ),
-                                  ),
-                                );
-                              }).toList();
-
-                          return FadingCarousel(
-                            height: 220,
-                            children: carouselItems,
-                          );
-                        },
-                      ),
-
+                      // Ads Section
+                      _buildAdsSection(adProvider),
                       const SizedBox(height: 20),
+                      // Categories Section
                       CustomIntroText(
                         text: 'Popular Services',
                         isRightText: true,
@@ -473,94 +575,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       SizedBox(
                         width: double.infinity,
                         height: 160,
-                        child:
-                            categoryProvider.isLoading &&
-                                    categoryProvider.categories.isEmpty
-                                ? const Center(
-                                  child: CircularProgressIndicator(),
-                                )
-                                : categoryProvider.hasError &&
-                                    categoryProvider.categories.isEmpty &&
-                                    !categoryProvider.isLoading
-                                ? FullErrorDisplay(
-                                  errorMessage:
-                                      categoryProvider.errorMessage ??
-                                      'Failed to load categories. Please try again.',
-                                  onRetry: () {
-                                    categoryProvider.fetchCategories();
-                                  },
-                                  onContactSupport: () {
-                                    _showErrorSupportDialog(
-                                      context,
-                                      'If this problem persists, please contact our support team. We are here to help!',
-                                    );
-                                  },
-                                )
-                                : categoryProvider.categories.isEmpty
-                                ? const Center(
-                                  child: Text('No categories available'),
-                                )
-                                : ListView.separated(
-                                  separatorBuilder:
-                                      (context, index) =>
-                                          const SizedBox(width: 10),
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount:
-                                      categoryProvider.categories
-                                          .take(3)
-                                          .length,
-                                  itemBuilder: (context, index) {
-                                    final category =
-                                        categoryProvider.categories[index];
-                                    return ImageTextCard(
-                                      function: () {
-                                        categoryProvider.selectCategory(
-                                          category,
-                                        );
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder:
-                                                (context) =>
-                                                    const SubCategoriesAndServices(),
-                                          ),
-                                        );
-                                      },
-                                      text: category.name,
-                                      asset: assetPaths[index],
-                                    );
-                                  },
-                                  // children:
-                                  //     categoryProvider.categories
-                                  //         .take(3)
-                                  //         .toList()
-                                  //         .asMap()
-                                  //         .entries
-                                  //         .map((entry) {
-                                  //           final index = entry.key;
-                                  //           final category = entry.value;
-                                  //           return ImageTextCard(
-                                  //             function: () {
-                                  //               categoryProvider.selectCategory(
-                                  //                 category,
-                                  //               );
-                                  //               Navigator.push(
-                                  //                 context,
-                                  //                 MaterialPageRoute(
-                                  //                   builder:
-                                  //                       (context) =>
-                                  //                           const SubCategoriesAndServices(),
-                                  //                 ),
-                                  //               );
-                                  //             },
-                                  //             text: category.name,
-                                  //             asset: assetPaths[index],
-                                  //           );
-                                  //         })
-                                  //         .toList(),
-                                ),
+                        child: _buildCategoriesSection(categoryProvider),
                       ),
                       const SizedBox(height: 30),
+                      // Products Section
                       CustomIntroText(
                         text: 'WAWUAfrica E-commerce',
                         isRightText: true,
@@ -577,106 +595,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       SizedBox(
                         width: double.infinity,
                         height: 180,
-                        child:
-                            productProvider.isLoading &&
-                                    productProvider.featuredProducts.isEmpty
-                                ? const Center(
-                                  child: CircularProgressIndicator(),
-                                )
-                                : productProvider.hasError &&
-                                    productProvider.featuredProducts.isEmpty &&
-                                    !productProvider.isLoading
-                                ? FullErrorDisplay(
-                                  errorMessage:
-                                      productProvider.errorMessage ??
-                                      'Failed to load products. Please try again.',
-                                  onRetry: () {
-                                    productProvider.fetchFeaturedProducts();
-                                  },
-                                  onContactSupport: () {
-                                    _showErrorSupportDialog(
-                                      context,
-                                      'If this problem persists, please contact our support team. We are here to help!',
-                                    );
-                                  },
-                                )
-                                : productProvider.featuredProducts.isEmpty
-                                ? const Center(
-                                  child: Text(
-                                    'No products available',
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-                                )
-                                : ListView(
-                                  scrollDirection: Axis.horizontal,
-                                  children:
-                                      productProvider.featuredProducts
-                                          .take(5)
-                                          .map(
-                                            (product) =>
-                                                ECard(product: product),
-                                          )
-                                          .toList(),
-                                ),
+                        child: _buildProductsSection(productProvider),
                       ),
                       const SizedBox(height: 40),
+                      // Gigs Section
                       const CustomIntroText(text: 'Recently Viewed'),
                       const SizedBox(height: 20),
-                      Consumer<GigProvider>(
-                        builder: (context, gigProvider, child) {
-                          debugPrint(
-                            '[HomeScreen] Recently Viewed section built. isLoading: ${gigProvider.isRecentlyViewedLoading}, count: ${gigProvider.recentlyViewedGigs.length}',
-                          );
-                          if (gigProvider.isRecentlyViewedLoading &&
-                              gigProvider.recentlyViewedGigs.isEmpty) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 32.0),
-                                child: CircularProgressIndicator(),
-                              ),
-                            );
-                          }
-                          if (gigProvider.hasError &&
-                              gigProvider.recentlyViewedGigs.isEmpty &&
-                              !gigProvider.isRecentlyViewedLoading) {
-                            return FullErrorDisplay(
-                              errorMessage:
-                                  gigProvider.errorMessage ??
-                                  'Failed to load recently viewed gigs. Please try again.',
-                              onRetry: () {
-                                gigProvider.fetchRecentlyViewedGigs();
-                              },
-                              onContactSupport: () {
-                                _showErrorSupportDialog(
-                                  context,
-                                  'If this problem persists, please contact our support team. We are here to help!',
-                                );
-                              },
-                            );
-                          }
-                          if (gigProvider.recentlyViewedGigs.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16.0),
-                              child: Text(
-                                'No recently viewed gigs yet',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            );
-                          }
-                          return Column(
-                            children:
-                                gigProvider.recentlyViewedGigs.map((gig) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: GigCard(gig: gig),
-                                  );
-                                }).toList(),
-                          );
-                        },
-                      ),
+                      _buildGigsSection(gigProvider),
                       const SizedBox(height: 20),
                     ]),
                   ),

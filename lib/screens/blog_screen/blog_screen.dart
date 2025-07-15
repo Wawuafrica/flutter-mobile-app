@@ -9,9 +9,9 @@ import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Import the package
-import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
-import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
@@ -153,11 +153,13 @@ class _BlogScreenState extends State<BlogScreen> {
   Widget _buildAdCarousel() {
     return Consumer<AdProvider>(
       builder: (context, adProvider, child) {
-        // Listen for errors from AdProvider and display SnackBar
+        // Only show snackbar errors when there's existing data and a transient error occurs
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (adProvider.hasError &&
               adProvider.errorMessage != null &&
-              !_hasShownAdError) {
+              !_hasShownAdError &&
+              adProvider.ads.isNotEmpty) {
+            // Only show snackbar if there's existing data
             CustomSnackBar.show(
               context,
               message: adProvider.errorMessage!,
@@ -199,7 +201,7 @@ class _BlogScreenState extends State<BlogScreen> {
           );
         }
 
-        // Error state with FullErrorDisplay
+        // Error state with FullErrorDisplay - only when there's no data
         if (adProvider.hasError &&
             adProvider.ads.isEmpty &&
             !adProvider.isLoading) {
@@ -336,11 +338,13 @@ class _BlogScreenState extends State<BlogScreen> {
   Widget _buildBlogContent() {
     return Consumer<BlogProvider>(
       builder: (context, blogProvider, child) {
-        // Listen for errors from BlogProvider and display SnackBar
+        // Only show snackbar errors when there's existing data and a transient error occurs
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (blogProvider.hasError &&
               blogProvider.errorMessage != null &&
-              !_hasShownBlogError) {
+              !_hasShownBlogError &&
+              blogProvider.posts.isNotEmpty) {
+            // Only show snackbar if there's existing data
             CustomSnackBar.show(
               context,
               message: blogProvider.errorMessage!,
@@ -376,7 +380,7 @@ class _BlogScreenState extends State<BlogScreen> {
           );
         }
 
-        // Error state with FullErrorDisplay
+        // Error state with FullErrorDisplay - only when there's no data
         if (blogProvider.hasError &&
             blogProvider.posts.isEmpty &&
             !blogProvider.isLoading) {

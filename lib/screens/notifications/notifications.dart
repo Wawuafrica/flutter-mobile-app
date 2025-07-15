@@ -2,11 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-// import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/notifications_card/notifications_card.dart';
 
-class Notifications extends StatelessWidget {
+class Notifications extends StatefulWidget {
   const Notifications({super.key});
+
+  @override
+  State<Notifications> createState() => _NotificationsState();
+}
+
+class _NotificationsState extends State<Notifications> {
+  bool _hasInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize notifications only once
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeNotifications();
+    });
+  }
+
+  Future<void> _initializeNotifications() async {
+    if (_hasInitialized) return;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final notificationProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
+
+    if (userProvider.currentUser?.uuid != null) {
+      _hasInitialized = true;
+      await notificationProvider.fetchNotifications(
+        userProvider.currentUser!.uuid,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +48,7 @@ class Notifications extends StatelessWidget {
           'Notifications',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
+        // Uncomment this section when you want to enable "Mark all as read"
         // actions: [
         //   Consumer<UserProvider>(
         //     builder: (context, userProvider, child) {
@@ -45,13 +78,14 @@ class Notifications extends StatelessWidget {
 
           return Consumer<NotificationProvider>(
             builder: (context, provider, child) {
-              if (provider.notifications.isEmpty && !provider.hasMore) {
-                return const Center(child: Text('No notifications found'));
+              // Show loading indicator only when initially loading
+              if (!_hasInitialized && provider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
               }
 
-              if (provider.notifications.isEmpty) {
-                provider.fetchNotifications(userProvider.currentUser!.uuid);
-                return const Center(child: CircularProgressIndicator());
+              // Show empty state
+              if (provider.notifications.isEmpty && !provider.hasMore) {
+                return const Center(child: Text('No notifications found'));
               }
 
               return RefreshIndicator(
@@ -68,12 +102,18 @@ class Notifications extends StatelessWidget {
                     itemBuilder: (context, index) {
                       if (index == provider.notifications.length &&
                           provider.hasMore) {
-                        provider.fetchNotifications(
-                          userProvider.currentUser!.uuid,
-                          loadMore: true,
-                        );
+                        // Load more notifications when reaching the end
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!provider.isLoading) {
+                            provider.fetchNotifications(
+                              userProvider.currentUser!.uuid,
+                              loadMore: true,
+                            );
+                          }
+                        });
                         return const Center(child: CircularProgressIndicator());
                       }
+
                       final notification = provider.notifications[index];
                       return NotificationsCard(notification: notification);
                     },

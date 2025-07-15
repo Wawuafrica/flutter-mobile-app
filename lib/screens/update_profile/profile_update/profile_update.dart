@@ -90,7 +90,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   @override
   void initState() {
     super.initState();
-    _loadInitialData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
   }
 
   // Helper function to extract the social media handle from a full URL
@@ -112,9 +114,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
     final skillProvider = Provider.of<SkillProvider>(context, listen: false);
 
-    // Fetch initial data, handling potential errors for each provider
+    // Wrap the async calls in Future.microtask to avoid setState during build
     await Future.wait([
-      dropdownProvider.fetchDropdownData().catchError((e) {
+      Future.microtask(() => dropdownProvider.fetchDropdownData()).catchError((
+        e,
+      ) {
         // Handle error for dropdownProvider, show snackbar but don't block
         CustomSnackBar.show(
           context,
@@ -123,7 +127,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
         );
         dropdownProvider.clearError(); // Clear error state
       }),
-      skillProvider.fetchSkills().catchError((e) {
+      Future.microtask(() => skillProvider.fetchSkills()).catchError((e) {
         // Handle error for skillProvider, show snackbar but don't block
         CustomSnackBar.show(
           context,

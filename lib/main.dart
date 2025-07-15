@@ -401,17 +401,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (!_isInitialized) return; // Only process after initial app load
 
     if (!networkStatus.isOnline && !_isOfflineNotificationShown) {
-      // Show "No internet" banner
-      setState(() {
-        _isOfflineNotificationShown = true;
+      // Show "No internet" banner - defer setState until after build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _isOfflineNotificationShown = true;
+          });
+        }
       });
       _logger.i(
         'MyApp: Network went offline. Displaying "No internet" banner.',
       );
     } else if (networkStatus.isOnline && _isOfflineNotificationShown) {
-      // Hide "No internet" banner when back online
-      setState(() {
-        _isOfflineNotificationShown = false;
+      // Hide "No internet" banner when back online - defer setState until after build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _isOfflineNotificationShown = false;
+          });
+        }
       });
       _logger.i('MyApp: Network is back online. Hiding "No internet" banner.');
     }

@@ -159,11 +159,15 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
 
     return Consumer<GigProvider>(
       builder: (context, provider, child) {
-        // Listen for errors from GigProvider and display SnackBar
+        // Only show snackbar for errors when there's existing data
+        // This prevents conflict with FullErrorDisplay
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          final gigs = provider.gigsForStatus(widget.status);
           if (provider.hasError &&
               provider.errorMessage != null &&
-              !_hasShownError) {
+              !_hasShownError &&
+              gigs.isNotEmpty) {
+            // Only show snackbar when there's existing data
             CustomSnackBar.show(
               context,
               message: provider.errorMessage!,
@@ -174,7 +178,12 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
               },
             );
             _hasShownError = true;
-            provider.clearError(); // Clear error state
+            // Clear error state with delay
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                provider.clearError();
+              }
+            });
           } else if (!provider.hasError && _hasShownError) {
             _hasShownError = false;
           }

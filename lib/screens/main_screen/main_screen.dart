@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Add this import
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/blog_screen/blog_screen.dart';
 import 'package:wawu_mobile/screens/gigs_screen/gigs_screen.dart';
@@ -27,10 +27,9 @@ class MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   bool _isSearchOpen = false;
   final TextEditingController _searchController = TextEditingController();
+  bool _hasInitializedNotifications = false; // Add this flag
 
-  // Define screens dynamically based on user role
   List<Widget> _screens = [];
-  // Define custom nav items dynamically
   List<CustomNavItem> _customNavItems = [];
 
   @override
@@ -41,10 +40,20 @@ class MainScreenState extends State<MainScreen> {
     });
   }
 
-  void _initializeScreensAndNavItems() {
+  void _initializeScreensAndNavItems() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final notificationsProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
     final currentUser = userProvider.currentUser;
     final isBuyer = currentUser?.role?.toUpperCase() == 'BUYER';
+
+    // Only fetch notifications once during initialization
+    if (!_hasInitializedNotifications && currentUser != null) {
+      _hasInitializedNotifications = true;
+      await notificationsProvider.fetchNotifications(currentUser.uuid);
+    }
 
     setState(() {
       _screens = [
@@ -76,7 +85,6 @@ class MainScreenState extends State<MainScreen> {
     });
   }
 
-  // Extract profile image widget to a separate method for better reusability
   Widget _buildProfileImage(String? profileImageUrl) {
     if (profileImageUrl != null && profileImageUrl.startsWith('http')) {
       return CachedNetworkImage(
@@ -257,68 +265,11 @@ class MainScreenState extends State<MainScreen> {
   Widget _buildNotificationsButton() {
     return Consumer2<NotificationProvider, UserProvider>(
       builder: (context, notificationProvider, userProvider, _) {
+        // REMOVED THE INFINITE LOOP CODE
+        // No longer fetching notifications here
+
         final unreadCount = notificationProvider.unreadCount;
         final hasUnread = unreadCount > 0;
-        if (notificationProvider.notifications.isEmpty) {
-          notificationProvider.fetchNotifications(
-            userProvider.currentUser!.uuid,
-          );
-          return Container(
-            decoration: BoxDecoration(
-              color: wawuColors.purpleDarkestContainer,
-              shape: BoxShape.circle,
-            ),
-            margin: const EdgeInsets.only(right: 10),
-            height: 36,
-            width: 36,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                IconButton(
-                  icon: const Icon(
-                    Icons.notifications,
-                    size: 17,
-                    color: Colors.white,
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const Notifications(),
-                      ),
-                    );
-                  },
-                ),
-                if (hasUnread)
-                  Positioned(
-                    right: -2,
-                    top: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: wawuColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Text(
-                        unreadCount > 9 ? '9+' : '$unreadCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          height: 1,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          );
-        }
 
         return Container(
           decoration: BoxDecoration(

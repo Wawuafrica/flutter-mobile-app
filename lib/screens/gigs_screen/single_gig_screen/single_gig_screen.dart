@@ -189,7 +189,7 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
               _buildProfileSection(context, currentGig),
               _buildGigDetails(context, currentGig),
               _buildPackagesSection(context, currentGig),
-              _buildPortfolioSection(context),
+              // _buildPortfolioSection(context),
               _buildFaqSection(context, currentGig),
               _buildReviewsSection(context, currentGig),
             ],
@@ -747,19 +747,19 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 
-  Widget _buildPortfolioSection(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomIntroText(text: 'My Portfolio'),
-          SizedBox(height: 10),
-          Text('Portfolio items will be displayed here'),
-        ],
-      ),
-    );
-  }
+  // Widget _buildPortfolioSection(BuildContext context) {
+  //   return const Padding(
+  //     padding: EdgeInsets.all(20.0),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         CustomIntroText(text: 'My Portfolio'),
+  //         SizedBox(height: 10),
+  //         Text('Portfolio items will be displayed here'),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildFaqSection(BuildContext context, Gig gig) {
     return Padding(

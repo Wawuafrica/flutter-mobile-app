@@ -72,6 +72,16 @@ class ReviewComponent extends StatelessWidget {
                         );
                       }),
                     ),
+                    const SizedBox(height: 5.0),
+                    Text(
+                      review.review,
+                      textAlign: TextAlign.start,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      maxLines: 5,
+                    ),
                   ],
                 ),
               ),
@@ -80,15 +90,6 @@ class ReviewComponent extends StatelessWidget {
                 style: const TextStyle(color: Colors.grey, fontSize: 11),
               ),
             ],
-          ),
-          Text(
-            review.review,
-            textAlign: TextAlign.start,
-            style: const TextStyle(
-              fontSize: 12,
-              overflow: TextOverflow.ellipsis,
-            ),
-            maxLines: 5,
           ),
         ],
       ),

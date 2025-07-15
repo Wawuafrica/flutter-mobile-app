@@ -29,12 +29,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_isInit) {
-      _messageProvider = Provider.of<MessageProvider>(context, listen: false);
-      _userProvider = Provider.of<UserProvider>(context, listen: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshConversations();
-    }
-    _isInit = false;
+      if (_isInit) {
+        _messageProvider = Provider.of<MessageProvider>(context, listen: false);
+        _userProvider = Provider.of<UserProvider>(context, listen: false);
+        _refreshConversations();
+      }
+      _isInit = false;
+    });
   }
 
   @override
@@ -129,7 +132,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
         message: 'Failed to open conversation. Please try again.',
         isError: true,
       );
-      _messageProvider?.clearError(); // Clear error state in provider
     }
   }
 
@@ -145,7 +147,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
         message: 'Failed to refresh conversations. Please try again.',
         isError: true,
       );
-      _messageProvider?.clearError(); // Clear error state in provider
     }
   }
 
@@ -156,11 +157,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return Scaffold(
       body: Consumer<MessageProvider>(
         builder: (context, messageProvider, child) {
-          // Listen for errors from MessageProvider and display SnackBar
+          // Only show snackbar for errors when there's existing data
+          // This prevents conflict with FullErrorDisplay
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (messageProvider.hasError &&
                 messageProvider.errorMessage != null &&
-                !_hasShownError) {
+                !_hasShownError &&
+                messageProvider.allConversations.isNotEmpty) {
+              // Only show snackbar when there's existing data
               CustomSnackBar.show(
                 context,
                 message: messageProvider.errorMessage!,
@@ -171,7 +175,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 },
               );
               _hasShownError = true;
-              messageProvider.clearError(); // Clear error state
+
+              // Clear error state AFTER showing the snackbar, with a delay to avoid setState during build
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted) {
+                  messageProvider.clearError();
+                }
+              });
             } else if (!messageProvider.hasError && _hasShownError) {
               _hasShownError = false;
             }

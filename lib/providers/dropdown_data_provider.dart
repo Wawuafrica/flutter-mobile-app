@@ -35,7 +35,10 @@ class DropdownDataProvider extends BaseProvider {
         _certifications =
             certData.map((json) => Certification.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to fetch certifications');
+        _logger.e('Failed to fetch certifications: ${certResponse['message']}');
+        throw Exception(
+          'Failed to fetch certifications: ${certResponse['message']}',
+        );
       }
 
       // Fetch institutions
@@ -45,7 +48,10 @@ class DropdownDataProvider extends BaseProvider {
         _institutions =
             instData.map((json) => Institution.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to fetch institutions');
+        _logger.e('Failed to fetch institutions: ${instResponse['message']}');
+        throw Exception(
+          'Failed to fetch institutions: ${instResponse['message']}',
+        );
       }
 
       setSuccess();
@@ -55,7 +61,7 @@ class DropdownDataProvider extends BaseProvider {
     }
   }
 
-    void clearError() {
+  void clearError() {
     resetState();
   }
 }
