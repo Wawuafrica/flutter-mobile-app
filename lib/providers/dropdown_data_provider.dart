@@ -29,7 +29,7 @@ class DropdownDataProvider extends BaseProvider {
 
     try {
       // Fetch certifications
-      final certResponse = await _apiService.get('/certifications');
+      final certResponse = await _apiService.get('/certification');
       if (certResponse['statusCode'] == 200 && certResponse['data'] != null) {
         final List<dynamic> certData = certResponse['data'];
         _certifications =
@@ -42,7 +42,7 @@ class DropdownDataProvider extends BaseProvider {
       }
 
       // Fetch institutions
-      final instResponse = await _apiService.get('/institutions');
+      final instResponse = await _apiService.get('/institution');
       if (instResponse['statusCode'] == 200 && instResponse['data'] != null) {
         final List<dynamic> instData = instResponse['data'];
         _institutions =
