@@ -286,7 +286,9 @@ platform :ios do
       skip_metadata: true,
       skip_screenshots: true,
       skip_binary_upload: false, # IMPORTANT: Changed to false so it uploads the binary
-      ipa: "./build/ios/ipa/Runner.ipa" # Explicitly specify the IPA path
+      ipa: "./build/ios/ipa/Runner.ipa", # Explicitly specify the IPA path
+      precheck_include_in_app_purchases: false, # Disable in-app purchase checks
+      run_precheck_before_submit: false # Disable precheck entirely for API key compatibility
     )
     UI.message("Submitted to App Store for review.")
 
