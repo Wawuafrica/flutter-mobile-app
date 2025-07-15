@@ -29,12 +29,14 @@ class BaseProvider extends ChangeNotifier {
   void setSuccess() {
     _errorMessage = null;
     _setState(LoadingState.success);
+    notifyListeners();
   }
 
   @protected
   void resetState() {
     _errorMessage = null;
     _setState(LoadingState.idle);
+    notifyListeners();
   }
 
   void _setState(LoadingState newState) {

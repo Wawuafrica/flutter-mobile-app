@@ -114,11 +114,9 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
 
     final skillProvider = Provider.of<SkillProvider>(context, listen: false);
 
-    // Wrap the async calls in Future.microtask to avoid setState during build
+    // Fetch initial data, handling potential errors for each provider
     await Future.wait([
-      Future.microtask(() => dropdownProvider.fetchDropdownData()).catchError((
-        e,
-      ) {
+      dropdownProvider.fetchDropdownData().catchError((e) {
         // Handle error for dropdownProvider, show snackbar but don't block
         CustomSnackBar.show(
           context,
@@ -127,7 +125,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
         );
         dropdownProvider.clearError(); // Clear error state
       }),
-      Future.microtask(() => skillProvider.fetchSkills()).catchError((e) {
+      skillProvider.fetchSkills().catchError((e) {
         // Handle error for skillProvider, show snackbar but don't block
         CustomSnackBar.show(
           context,

@@ -88,7 +88,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     apiService = Provider.of<ApiService>(context, listen: false);
     authService = AuthService(apiService: apiService);
     _addListeners();
-    _loadInitialData(); // Initial load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
   }
 
   // Call this method whenever the widget is rebuilt with new data (e.g., after a profile update)

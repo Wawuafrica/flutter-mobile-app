@@ -9,6 +9,7 @@ import 'package:wawu_mobile/services/pusher_service.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/providers/base_provider.dart'; // Import BaseProvider
 import 'package:path/path.dart' as path;
+import 'dart:convert'; // Add this import at the top of your file
 
 // MessageProvider now extends BaseProvider for standardized state management.
 class MessageProvider extends BaseProvider {
@@ -437,7 +438,11 @@ class MessageProvider extends BaseProvider {
       final Map<String, dynamic> eventData = event.data as Map<String, dynamic>;
       if (!eventData.containsKey('message')) return;
 
-      final messageData = eventData['message'] as Map<String, dynamic>;
+      // Parse the JSON string to get the actual message data
+      final messageDataString = eventData['message'] as String;
+      final Map<String, dynamic> messageData =
+          json.decode(messageDataString) as Map<String, dynamic>;
+
       final newMessage = Message.fromJson(messageData);
       final currentUserId = _userProvider.currentUser?.uuid ?? '';
 
