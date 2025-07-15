@@ -27,7 +27,7 @@ class ApiService {
   // Base URL from environment with default value
   static final String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://staging.wawuafrica.com/api',
+    defaultValue: 'https://production.wawuafrica.com/api',
   );
 
   // Auth service for token management
