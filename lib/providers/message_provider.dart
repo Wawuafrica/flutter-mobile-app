@@ -602,13 +602,24 @@ class MessageProvider extends BaseProvider {
     }
 
     try {
-      final formData = FormData.fromMap({
-        'message': content,
-        if (mediaFilePath != null)
-          'media[file]': await MultipartFile.fromFile(mediaFilePath),
-        if (mediaFilePath != null)
+      // Create FormData based on whether media is present
+      FormData formData;
+
+      if (mediaFilePath != null && mediaFilePath.isNotEmpty) {
+        // For media messages (voice notes, images, etc.)
+        formData = FormData.fromMap({
+          'message': content,
+          'media[file]': await MultipartFile.fromFile(
+            mediaFilePath,
+            // filename: path.basename(mediaFilePath),
+          ),
           'media[fileName]': path.basename(mediaFilePath),
-      });
+        });
+        // print(formData);
+      } else {
+        // For text-only messages
+        formData = FormData.fromMap({'message': content});
+      }
 
       final response = await _apiService.post(
         '/chats/$targetConversationId/messages',

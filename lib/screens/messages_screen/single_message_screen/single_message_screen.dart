@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,8 +15,8 @@ import 'package:wawu_mobile/widgets/message_bubbles/message_bubbles.dart';
 import 'package:wawu_mobile/widgets/voice_note_bubble/voice_note_bubble.dart';
 import 'package:wawu_mobile/screens/user_profile/user_profile_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
-import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class SingleMessageScreen extends StatefulWidget {
   const SingleMessageScreen({super.key});
@@ -228,18 +229,35 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       }
 
       final message = _messageController.text.trim();
+
+      // Clear the text field immediately for better UX
+      _messageController.clear();
+
+      // Update the state to reflect empty text field
+      setState(() {
+        _isTextFieldEmpty = true;
+      });
+
       try {
         await _messageProvider!.sendMessage(
           senderId: currentUserId,
           receiverId: recipientId,
           content: message,
         );
+
+        // Scroll to bottom after sending message
         if (mounted) {
-          _messageController.clear();
-          // Scroll to bottom after sending message
           _scrollToBottom();
         }
       } catch (e) {
+        // If sending fails, restore the message in the text field
+        if (mounted) {
+          _messageController.text = message;
+          setState(() {
+            _isTextFieldEmpty = false;
+          });
+        }
+
         CustomSnackBar.show(
           context,
           message: 'Failed to send message: $e',
@@ -304,6 +322,27 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       await _audioRecorder.stop();
 
       if (_currentAudioPath != null) {
+        // Check if the file exists and has content
+        final file = File(_currentAudioPath!);
+        if (!await file.exists()) {
+          CustomSnackBar.show(
+            context,
+            message: 'Recording file not found',
+            isError: true,
+          );
+          return;
+        }
+
+        final fileSize = await file.length();
+        if (fileSize == 0) {
+          CustomSnackBar.show(
+            context,
+            message: 'Recording is empty',
+            isError: true,
+          );
+          return;
+        }
+
         final currentUserId = _userProvider!.currentUser?.uuid ?? '';
         final recipientId = _messageProvider!.currentRecipientId;
 
@@ -316,17 +355,36 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           return;
         }
 
-        final message = await _messageProvider!.sendMessage(
-          senderId: currentUserId,
-          receiverId: recipientId,
-          content: 'Voice message',
-          mediaFilePath: _currentAudioPath!,
-          mediaType: 'audio',
-        );
-        if (message != null && mounted) {
-          _voiceMessageDurations[message.id] = _recordingDuration;
-          // Scroll to bottom after sending voice message
-          _scrollToBottom();
+        // Store the current recording duration before clearing state
+        final currentDuration = _recordingDuration;
+
+        // Clear recording state immediately
+        setState(() {
+          _isRecording = false;
+          _recordingDuration = Duration.zero;
+        });
+
+        // Send the voice message
+        try {
+          final message = await _messageProvider!.sendMessage(
+            senderId: currentUserId,
+            receiverId: recipientId,
+            content: 'Voice message',
+            mediaFilePath: _currentAudioPath!,
+            mediaType: 'audio',
+          );
+
+          if (message != null && mounted) {
+            _voiceMessageDurations[message.id] = currentDuration;
+            // Scroll to bottom after sending voice message
+            _scrollToBottom();
+          }
+        } catch (e) {
+          CustomSnackBar.show(
+            context,
+            message: 'Failed to send voice message: $e',
+            isError: true,
+          );
         }
       }
     } catch (e) {
@@ -389,8 +447,7 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
         body: FullErrorDisplay(
           errorMessage: 'Please log in to view messages.',
           onRetry: () {
-            // Potentially navigate to login or show a dialog
-            Navigator.of(context).pop(); // Go back to a previous screen
+            Navigator.of(context).pop();
           },
           onContactSupport: () {
             _showErrorSupportDialog(
@@ -415,22 +472,17 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
               isError: true,
               actionLabel: 'RETRY',
               onActionPressed: () {
-                // Retry initializing conversation
                 _initializeConversation();
               },
             );
             _hasShownError = true;
-            // It's crucial to clear the error state in the provider
-            // after it has been displayed to the user.
-            messageProvider
-                .clearError(); // Assuming resetState() or clearError()
+            messageProvider.clearError();
           } else if (!messageProvider.hasError && _hasShownError) {
             _hasShownError = false;
           }
         });
 
         // Show loading while initializing conversation
-        // Only show CircularProgressIndicator if _currentMessages is empty
         if (messageProvider.isLoading &&
             messageProvider.currentMessages.isEmpty) {
           return const Scaffold(
@@ -461,8 +513,7 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
           );
         }
 
-        // Check if we have a valid conversation, if not, show "No conversation selected"
-        // This case is for when no recipient is passed, or conversation is empty after loading
+        // Check if we have a valid conversation
         if (messageProvider.currentConversationId.isEmpty &&
             !messageProvider.isLoading &&
             !messageProvider.hasError) {
@@ -471,9 +522,7 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
               errorMessage:
                   'No conversation selected. Please select a user to chat with.',
               onRetry: () {
-                Navigator.of(
-                  context,
-                ).pop(); // Go back to a screen where users can be selected
+                Navigator.of(context).pop();
               },
               onContactSupport: () {
                 _showErrorSupportDialog(
@@ -576,7 +625,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
   ) {
     final messages = messageProvider.currentMessages;
 
-    // Only show "No messages yet" if not loading and messages are truly empty
     if (messages.isEmpty && !messageProvider.isLoading) {
       return const Center(child: Text('No messages yet'));
     }
@@ -629,7 +677,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                   if (mounted) {
                     Navigator.pop(context);
                     if (_messageProvider != null) {
-                      // Attempt to resend the message
                       _messageProvider!
                           .sendMessage(
                             senderId: message.senderId,
@@ -639,7 +686,6 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
                             mediaType: message.attachmentType,
                           )
                           .then((_) {
-                            // On success, delete the old failed message
                             _messageProvider!.deleteMessage(message.id);
                             CustomSnackBar.show(
                               context,
@@ -662,12 +708,9 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
               TextButton(
                 onPressed: () {
                   if (mounted) {
-                    Navigator.pop(context); // Close the dialog
+                    Navigator.pop(context);
                     if (_messageProvider != null) {
-                      // Delete the message from the UI immediately
                       _messageProvider!.deleteMessage(message.id);
-
-                      // Show success feedback
                       CustomSnackBar.show(
                         context,
                         message: 'Message deleted',
