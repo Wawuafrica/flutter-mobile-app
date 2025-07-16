@@ -17,8 +17,7 @@ import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wawu_mobile/models/country.dart';
 import 'package:wawu_mobile/providers/location_provider.dart';
-import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
-import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 
 class SignUp extends StatefulWidget {
   const SignUp({super.key});
@@ -38,22 +37,35 @@ class _SignUpState extends State<SignUp> {
   String? selectedState;
   String? selectedGender;
 
-  // Declare services without initialization
   late final ApiService apiService;
   late final AuthService authService;
-
-  // Add a GlobalKey for the form to manage validation state
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  // Flag to prevent showing multiple snackbars for the same error
-  bool _hasShownError = false;
+  // Separate flags for different error types
+  bool _hasShownUserError = false;
+  bool _hasShownLocationError = false;
+  bool _hasShownLinksError = false;
+  bool _hasInitializedCountries = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize services in initState
     apiService = ApiService();
     authService = AuthService(apiService: apiService);
+
+    // Initialize countries fetch on first load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hasInitializedCountries) {
+        final locationProvider = Provider.of<LocationProvider>(
+          context,
+          listen: false,
+        );
+        if (locationProvider.countries.isEmpty && !locationProvider.isLoading) {
+          locationProvider.fetchCountries();
+        }
+        _hasInitializedCountries = true;
+      }
+    });
   }
 
   @override
@@ -66,40 +78,59 @@ class _SignUpState extends State<SignUp> {
     super.dispose();
   }
 
-  // Function to show the support dialog (can be reused)
-  void _showErrorSupportDialog(BuildContext context, String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
+  Widget _buildLoadingContainer(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: wawuColors.grey),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            text,
+            style: const TextStyle(fontSize: 16, color: wawuColors.grey),
           ),
-          title: const Text(
-            'Contact Support',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: wawuColors.primary,
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorContainer(String text, VoidCallback onRetry) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.red.shade300),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.red.shade50,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 16, color: Colors.red.shade700),
             ),
           ),
-          content: Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[700]),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text(
-                'OK',
-                style: TextStyle(color: wawuColors.buttonSecondary),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(
+              'Retry',
+              style: TextStyle(
+                color: Colors.red.shade700,
+                fontWeight: FontWeight.w600,
               ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -107,23 +138,20 @@ class _SignUpState extends State<SignUp> {
   Widget build(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, child) {
-        // Listen for errors from UserProvider and display SnackBar
+        // Handle UserProvider errors
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (userProvider.hasError &&
               userProvider.errorMessage != null &&
-              !_hasShownError) {
+              !_hasShownUserError) {
             CustomSnackBar.show(
               context,
               message: userProvider.errorMessage!,
               isError: true,
             );
-            _hasShownError = true; // Set flag to true after showing
-            // It's crucial to clear the error state in the provider
-            // after it has been displayed to the user.
-            userProvider.resetState(); // Assuming resetState() or clearError()
-          } else if (!userProvider.hasError && _hasShownError) {
-            // Reset flag if error is cleared in provider
-            _hasShownError = false;
+            _hasShownUserError = true;
+            userProvider.resetState();
+          } else if (!userProvider.hasError && _hasShownUserError) {
+            _hasShownUserError = false;
           }
         });
 
@@ -137,7 +165,6 @@ class _SignUpState extends State<SignUp> {
                 vertical: 35.0,
               ),
               child: Form(
-                // Wrap with Form widget for validation
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,10 +178,8 @@ class _SignUpState extends State<SignUp> {
                       hintText: 'Enter your email address',
                       labelTextStyle2: true,
                       controller: emailController,
-                      keyboardType:
-                          TextInputType.emailAddress, // Add keyboard type
+                      keyboardType: TextInputType.emailAddress,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Email cannot be empty';
                         }
@@ -171,7 +196,6 @@ class _SignUpState extends State<SignUp> {
                       labelTextStyle2: true,
                       controller: firstNameController,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'First name cannot be empty';
                         }
@@ -185,7 +209,6 @@ class _SignUpState extends State<SignUp> {
                       labelTextStyle2: true,
                       controller: lastNameController,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Last name cannot be empty';
                         }
@@ -200,7 +223,6 @@ class _SignUpState extends State<SignUp> {
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Phone number cannot be empty';
                         }
@@ -215,12 +237,10 @@ class _SignUpState extends State<SignUp> {
                       controller: passwordController,
                       obscureText: true,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Password cannot be empty';
                         }
                         if (value.length < 6) {
-                          // Example: minimum password length
                           return 'Password must be at least 6 characters';
                         }
                         return null;
@@ -228,7 +248,7 @@ class _SignUpState extends State<SignUp> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Add label for the country dropdown
+                    // Gender Dropdown
                     const Text(
                       'Gender',
                       style: TextStyle(
@@ -238,8 +258,6 @@ class _SignUpState extends State<SignUp> {
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Replace CustomTextfield with CustomDropdown for country
                     CustomDropdown(
                       options: const ['Male', 'Female'],
                       label: 'Select your gender',
@@ -266,11 +284,11 @@ class _SignUpState extends State<SignUp> {
                     const SizedBox(height: 8),
                     Consumer<LocationProvider>(
                       builder: (context, locationProvider, _) {
-                        // Listen for errors from LocationProvider and display SnackBar
+                        // Handle LocationProvider errors
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (locationProvider.hasError &&
                               locationProvider.errorMessage != null &&
-                              !_hasShownError) {
+                              !_hasShownLocationError) {
                             CustomSnackBar.show(
                               context,
                               message: locationProvider.errorMessage!,
@@ -280,95 +298,38 @@ class _SignUpState extends State<SignUp> {
                                 locationProvider.fetchCountries();
                               },
                             );
-                            _hasShownError = true;
-                            locationProvider.clearError(); // Clear error state
+                            _hasShownLocationError = true;
+                            locationProvider.clearError();
                           } else if (!locationProvider.hasError &&
-                              _hasShownError) {
-                            _hasShownError = false;
+                              _hasShownLocationError) {
+                            _hasShownLocationError = false;
                           }
                         });
 
-                        // Display full error screen for critical loading failures for countries
+                        // Show loading state
+                        if (locationProvider.isLoading) {
+                          return _buildLoadingContainer('Loading countries...');
+                        }
+
+                        // Show error state with retry option
                         if (locationProvider.hasError &&
-                            locationProvider.countries.isEmpty &&
-                            !locationProvider.isLoading) {
-                          return FullErrorDisplay(
-                            errorMessage:
-                                locationProvider.errorMessage ??
-                                'Failed to load countries. Please try again.',
-                            onRetry: () {
-                              locationProvider.fetchCountries();
-                            },
-                            onContactSupport: () {
-                              _showErrorSupportDialog(
-                                context,
-                                'If this problem persists, please contact our support team. We are here to help!',
-                              );
-                            },
+                            locationProvider.countries.isEmpty) {
+                          return _buildErrorContainer(
+                            'Failed to load countries',
+                            () => locationProvider.fetchCountries(),
                           );
                         }
 
-                        // If not loading, not error, and no data, trigger fetch
-                        if (!locationProvider.isLoading &&
-                            locationProvider.errorMessage == null &&
-                            locationProvider.countries.isEmpty) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            () => locationProvider.fetchCountries();
-                          });
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 28,
-                                  height: 28,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: wawuColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                            ),
-                          );
-                        }
-                        if (locationProvider.isLoading) {
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 32,
-                                  height: 32,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    color: wawuColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text('Loading countries...'),
-                              ],
-                            ),
-                          );
-                        }
-                        // Removed the inline error Text widget for locationProvider.
-                        // Errors are now handled by CustomSnackBar or FullErrorDisplay.
-                        // else if (locationProvider.errorMessage != null) {
-                        //   return Text(
-                        //     'Error: ${locationProvider.errorMessage}',
-                        //     style: const TextStyle(color: Colors.red),
-                        //   );
-                        // }
-                        final countryOptions = locationProvider.countries;
-                        if (countryOptions.isEmpty) {
-                          // This is an empty state, not necessarily an error,
-                          // unless fetchCountries() failed and set an error.
-                          // If there's an error, the SnackBar or FullErrorDisplay above will handle it.
-                          return const Text(
+                        // Show empty state
+                        if (locationProvider.countries.isEmpty) {
+                          return _buildErrorContainer(
                             'No countries available',
-                            style: TextStyle(color: Colors.red),
+                            () => locationProvider.fetchCountries(),
                           );
                         }
+
+                        // Show dropdown with countries
+                        final countryOptions = locationProvider.countries;
                         return CustomDropdown<Country>(
                           label: 'Select your country',
                           options: countryOptions,
@@ -378,11 +339,9 @@ class _SignUpState extends State<SignUp> {
                           getLabel: (c) => c.name,
                           itemBuilder: (
                             context,
-                            Country country, // CHANGE 'dynamic' TO 'Country'
+                            Country country,
                             bool isSelected,
                           ) {
-                            // No need for 'final c = country as Country;' now
-                            // You can directly use 'country' here.
                             return Row(
                               children: [
                                 if (country.flag != null &&
@@ -423,57 +382,15 @@ class _SignUpState extends State<SignUp> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    // State Dropdown (commented out in original, keeping it commented)
-                    // Text(
-                    //   'State/Province',
-                    //   style: TextStyle(
-                    //     fontSize: 14,
-                    //     fontWeight: FontWeight.w500,
-                    //     color: Colors.black87,
-                    //   ),
-                    // ),
-                    // SizedBox(height: 8),
-                    // Consumer<LocationProvider>(
-                    //   builder: (context, locationProvider, _) {
-                    //     if (selectedCountry == null) {
-                    //       return AbsorbPointer(
-                    //         child: CustomDropdown(
-                    //           label: 'Select your state',
-                    //           options: const [],
-                    //           selectedValue: null,
-                    //           onChanged: (_) {},
-                    //           isDisabled: true,
-                    //         ),
-                    //       );
-                    //     }
-                    //     if (locationProvider.isLoadingStates) {
-                    //       return const CircularProgressIndicator();
-                    //     } else if (locationProvider.errorStates != null) {
-                    //       return Text('Error: ${locationProvider.errorStates}');
-                    //     }
-                    //     return CustomDropdown(
-                    //       label: 'Select your state',
-                    //       options: locationProvider.states.map((s) => s.name).toList(),
-                    //       selectedValue: selectedState,
-                    //       onChanged: (value) {
-                    //         setState(() {
-                    //           selectedState = value;
-                    //         });
-                    //       },
-                    //       isDisabled: userProvider.isLoading || locationProvider.states.isEmpty,
-                    //     );
-                    //   },
-                    // ),
 
-                    // SizedBox(height: 20),
-                    const SizedBox(height: 20),
+                    // Terms and Conditions
                     Consumer<LinksProvider>(
                       builder: (context, linksProvider, _) {
-                        // Listen for errors from LinksProvider and display SnackBar
+                        // Handle LinksProvider errors
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (linksProvider.hasError &&
                               linksProvider.errorMessage != null &&
-                              !_hasShownError) {
+                              !_hasShownLinksError) {
                             CustomSnackBar.show(
                               context,
                               message: linksProvider.errorMessage!,
@@ -483,11 +400,11 @@ class _SignUpState extends State<SignUp> {
                                 linksProvider.fetchLinks();
                               },
                             );
-                            _hasShownError = true;
-                            linksProvider.clearError(); // Clear error state
+                            _hasShownLinksError = true;
+                            linksProvider.clearError();
                           } else if (!linksProvider.hasError &&
-                              _hasShownError) {
-                            _hasShownError = false;
+                              _hasShownLinksError) {
+                            _hasShownLinksError = false;
                           }
                         });
 
@@ -499,6 +416,7 @@ class _SignUpState extends State<SignUp> {
                                 .getLinkByName('privacy policy')
                                 ?.link ??
                             '';
+
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -599,24 +517,12 @@ class _SignUpState extends State<SignUp> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Removed the old inline error Text widget for userProvider.
-                    // if (userProvider.hasError &&
-                    //     userProvider.errorMessage != null)
-                    //   Padding(
-                    //     padding: const EdgeInsets.only(bottom: 10.0),
-                    //     child: Text(
-                    //       userProvider.errorMessage!,
-                    //       style: TextStyle(color: Colors.red),
-                    //       textAlign: TextAlign.center,
-                    //     ),
-                    //   ),
-
-                    // Conditionally render CircularProgressIndicator or CustomButton
+                    // Sign Up Button
                     if (userProvider.isLoading)
                       CustomButton(
                         color: wawuColors.buttonPrimary,
-                        function: () {}, // Empty function when loading
-                        widget: Center(
+                        function: () {},
+                        widget: const Center(
                           child: SizedBox(
                             width: 20,
                             height: 20,
@@ -629,7 +535,6 @@ class _SignUpState extends State<SignUp> {
                     else
                       CustomButton(
                         function: () async {
-                          // Validate form fields first
                           if (!_formKey.currentState!.validate()) {
                             CustomSnackBar.show(
                               context,
@@ -640,7 +545,6 @@ class _SignUpState extends State<SignUp> {
                             return;
                           }
 
-                          // Validate country selection
                           if (selectedCountry == null ||
                               selectedCountry!.isEmpty) {
                             CustomSnackBar.show(
@@ -671,7 +575,6 @@ class _SignUpState extends State<SignUp> {
                             return;
                           }
 
-                          // Prepare user data for registration
                           final userData = {
                             'email': emailController.text,
                             'firstName': firstNameController.text,
@@ -679,18 +582,14 @@ class _SignUpState extends State<SignUp> {
                             'password': passwordController.text,
                             'phoneNumber': phoneController.text,
                             'gender': selectedGender!,
-                            'country':
-                                selectedCountry!, // Use selected country name
+                            'country': selectedCountry!,
                             'termsAccepted': isChecked,
-                            'role':
-                                1, // Ensure this role ID is correct as per your backend
+                            'role': 1,
                           };
 
                           await userProvider.register(userData);
 
-                          // Only navigate if the widget is still mounted and registration was successful
                           if (mounted && userProvider.isSuccess) {
-                            // Store onboarding progress: user started onboarding and is at OTP step.
                             await OnboardingStateService.saveStep('otp');
                             await authService.sendOtp(
                               emailController.text.trim(),
@@ -718,6 +617,8 @@ class _SignUpState extends State<SignUp> {
                         textColor: Colors.white,
                       ),
                     const SizedBox(height: 20),
+
+                    // Login Link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

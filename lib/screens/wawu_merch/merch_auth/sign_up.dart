@@ -14,7 +14,7 @@ import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/models/country.dart';
 import 'package:wawu_mobile/providers/location_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 
 class SignUpMerch extends StatefulWidget {
   const SignUpMerch({super.key});
@@ -33,11 +33,27 @@ class _SignUpMerchState extends State<SignUpMerch> {
   String? selectedCountry;
   String? selectedGender;
 
-  // Add a GlobalKey for the form to manage validation state
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  // Flag to prevent showing multiple snackbars for the same error
-  bool _hasShownError = false;
+  // Separate error flags for different providers
+  bool _hasShownUserError = false;
+  bool _hasShownLocationError = false;
+  bool _hasShownLinksError = false;
+
+  // Flag to track if countries have been fetched
+  bool _countriesFetched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch countries once when the widget initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_countriesFetched) {
+        context.read<LocationProvider>().fetchCountries();
+        _countriesFetched = true;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -45,8 +61,61 @@ class _SignUpMerchState extends State<SignUpMerch> {
     firstNameController.dispose();
     lastNameController.dispose();
     passwordController.dispose();
-    phoneController.dispose(); // Dispose phoneController
+    phoneController.dispose();
     super.dispose();
+  }
+
+  Widget _buildLoadingContainer(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: wawuColors.grey),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            text,
+            style: const TextStyle(fontSize: 16, color: wawuColors.grey),
+          ),
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorContainer(String text, VoidCallback onRetry) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(8),
+        color: Colors.red.withOpacity(0.05),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 16, color: Colors.red),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text(
+              'Retry',
+              style: TextStyle(color: wawuColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -57,20 +126,16 @@ class _SignUpMerchState extends State<SignUpMerch> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (userProvider.hasError &&
               userProvider.errorMessage != null &&
-              !_hasShownError) {
+              !_hasShownUserError) {
             CustomSnackBar.show(
               context,
               message: userProvider.errorMessage!,
               isError: true,
             );
-            _hasShownError = true; // Set flag to true after showing
-            // It's crucial to clear the error state in the provider
-            // after it has been displayed to the user.
-            // Assuming UserProvider has a resetState() or clearError() method.
-            userProvider.resetState(); // Or userProvider.clearError();
-          } else if (!userProvider.hasError && _hasShownError) {
-            // Reset flag if error is cleared in provider
-            _hasShownError = false;
+            _hasShownUserError = true;
+            userProvider.resetState();
+          } else if (!userProvider.hasError && _hasShownUserError) {
+            _hasShownUserError = false;
           }
         });
 
@@ -84,24 +149,18 @@ class _SignUpMerchState extends State<SignUpMerch> {
                 vertical: 35.0,
               ),
               child: Form(
-                // Wrap with Form widget for validation
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CustomIntroBar(
-                      text: 'Sign Up',
-                      // desc: 'Wanna show off your superpower?  Start here.',
-                    ),
+                    CustomIntroBar(text: 'Sign Up'),
                     CustomTextfield(
                       labelText: 'Email Address',
                       hintText: 'Enter your email address',
                       labelTextStyle2: true,
                       controller: emailController,
-                      keyboardType:
-                          TextInputType.emailAddress, // Add keyboard type
+                      keyboardType: TextInputType.emailAddress,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Email cannot be empty';
                         }
@@ -118,7 +177,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       labelTextStyle2: true,
                       controller: firstNameController,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'First name cannot be empty';
                         }
@@ -132,7 +190,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       labelTextStyle2: true,
                       controller: lastNameController,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Last name cannot be empty';
                         }
@@ -147,7 +204,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Phone number cannot be empty';
                         }
@@ -162,12 +218,10 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       controller: passwordController,
                       obscureText: true,
                       validator: (value) {
-                        // Add validation
                         if (value == null || value.isEmpty) {
                           return 'Password cannot be empty';
                         }
                         if (value.length < 6) {
-                          // Example: minimum password length
                           return 'Password must be at least 6 characters';
                         }
                         return null;
@@ -183,8 +237,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       ),
                     ),
                     const SizedBox(height: 8),
-
-                    // Replace CustomTextfield with CustomDropdown for country
                     CustomDropdown(
                       options: const ['Male', 'Female'],
                       label: 'Select your gender',
@@ -213,7 +265,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (locationProvider.hasError &&
                               locationProvider.errorMessage != null &&
-                              !_hasShownError) {
+                              !_hasShownLocationError) {
                             CustomSnackBar.show(
                               context,
                               message: locationProvider.errorMessage!,
@@ -223,77 +275,41 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                 locationProvider.fetchCountries();
                               },
                             );
-                            _hasShownError = true;
-                            locationProvider
-                                .clearError(); // Assuming resetState or clearError
+                            _hasShownLocationError = true;
+                            locationProvider.clearError();
                           } else if (!locationProvider.hasError &&
-                              _hasShownError) {
-                            _hasShownError = false;
+                              _hasShownLocationError) {
+                            _hasShownLocationError = false;
                           }
                         });
 
-                        // If not loading, not error, and no data, trigger fetch
-                        if (!locationProvider.isLoading &&
-                            locationProvider.errorMessage == null &&
-                            locationProvider.countries.isEmpty) {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            locationProvider.fetchCountries();
-                          });
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 32,
-                                  height: 32,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    color: wawuColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text('Loading countries...'),
-                              ],
-                            ),
-                          );
-                        }
+                        // Loading state
                         if (locationProvider.isLoading) {
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 32,
-                                  height: 32,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    color: wawuColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text('Loading countries...'),
-                              ],
-                            ),
+                          return _buildLoadingContainer('Loading countries...');
+                        }
+
+                        // Error state with fallback UI
+                        if (locationProvider.hasError) {
+                          return _buildErrorContainer(
+                            'Failed to load countries',
+                            () {
+                              locationProvider.fetchCountries();
+                            },
                           );
                         }
-                        // Removed the inline error Text widget for locationProvider.
-                        // Errors are now handled by CustomSnackBar.
-                        // else if (locationProvider.errorMessage != null) {
-                        //   return Text(
-                        //     'Error: ${locationProvider.errorMessage}',
-                        //     style: const TextStyle(color: Colors.red),
-                        //   );
-                        // }
-                        final countryOptions = locationProvider.countries;
-                        if (countryOptions.isEmpty) {
-                          // This is an empty state, not necessarily an error,
-                          // unless fetchCountries() failed and set an error.
-                          // If there's an error, the SnackBar above will handle it.
-                          return const Text(
+
+                        // Empty state
+                        if (locationProvider.countries.isEmpty) {
+                          return _buildErrorContainer(
                             'No countries available',
-                            style: TextStyle(color: Colors.red),
+                            () {
+                              locationProvider.fetchCountries();
+                            },
                           );
                         }
+
+                        // Success state
+                        final countryOptions = locationProvider.countries;
                         return CustomDropdown<Country>(
                           label: 'Select your country',
                           options: countryOptions,
@@ -303,11 +319,9 @@ class _SignUpMerchState extends State<SignUpMerch> {
                           getLabel: (c) => c.name,
                           itemBuilder: (
                             context,
-                            Country country, // CHANGE 'dynamic' TO 'Country'
+                            Country country,
                             bool isSelected,
                           ) {
-                            // No need for 'final c = country as Country;' now
-                            // You can directly use 'country' here.
                             return Row(
                               children: [
                                 if (country.flag != null &&
@@ -337,7 +351,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                   : (Country? country) {
                                     setState(() {
                                       selectedCountry = country?.name;
-                                      // selectedState = null;
                                     });
                                     if (country != null && country.id != 0) {
                                       locationProvider.fetchStates(country.id);
@@ -354,7 +367,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (linksProvider.hasError &&
                               linksProvider.errorMessage != null &&
-                              !_hasShownError) {
+                              !_hasShownLinksError) {
                             CustomSnackBar.show(
                               context,
                               message: linksProvider.errorMessage!,
@@ -364,12 +377,11 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                 linksProvider.fetchLinks();
                               },
                             );
-                            _hasShownError = true;
-                            linksProvider
-                                .clearError(); // Assuming resetState or clearError
+                            _hasShownLinksError = true;
+                            linksProvider.clearError();
                           } else if (!linksProvider.hasError &&
-                              _hasShownError) {
-                            _hasShownError = false;
+                              _hasShownLinksError) {
+                            _hasShownLinksError = false;
                           }
                         });
 
@@ -381,6 +393,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                                 .getLinkByName('privacy policy')
                                 ?.link ??
                             '';
+
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -480,26 +493,11 @@ class _SignUpMerchState extends State<SignUpMerch> {
                       },
                     ),
                     const SizedBox(height: 20),
-
-                    // Removed the old inline error Text widget for userProvider.
-                    // if (userProvider.hasError &&
-                    //     userProvider.errorMessage != null)
-                    //   Padding(
-                    //     padding: const EdgeInsets.only(bottom: 10.0),
-                    //     child: Text(
-                    //       userProvider.errorMessage!,
-                    //       style: TextStyle(color: Colors.red),
-                    //       textAlign: TextAlign.center,
-                    //     ),
-                    //   ),
-
-                    // Conditionally render CircularProgressIndicator or CustomButton
                     if (userProvider.isLoading)
                       CustomButton(
                         color: wawuColors.buttonPrimary,
-                        // textColor: Colors.white,
-                        function: () {}, // Empty function when loading
-                        widget: Center(
+                        function: () {},
+                        widget: const Center(
                           child: SizedBox(
                             width: 20,
                             height: 20,
@@ -512,7 +510,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                     else
                       CustomButton(
                         function: () async {
-                          // Validate form fields first
                           if (!_formKey.currentState!.validate()) {
                             CustomSnackBar.show(
                               context,
@@ -523,7 +520,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                             return;
                           }
 
-                          // Validate country selection
                           if (selectedCountry == null ||
                               selectedCountry!.isEmpty) {
                             CustomSnackBar.show(
@@ -539,7 +535,7 @@ class _SignUpMerchState extends State<SignUpMerch> {
                               context,
                               message:
                                   'Please agree to the terms and conditions',
-                              isError: true, // Changed to error for consistency
+                              isError: true,
                             );
                             return;
                           }
@@ -554,7 +550,6 @@ class _SignUpMerchState extends State<SignUpMerch> {
                             return;
                           }
 
-                          // Prepare user data for registration
                           final userData = {
                             'email': emailController.text,
                             'firstName': firstNameController.text,
@@ -564,13 +559,11 @@ class _SignUpMerchState extends State<SignUpMerch> {
                             'gender': selectedGender,
                             'country': selectedCountry,
                             'termsAccepted': isChecked,
-                            'role':
-                                5, // Ensure this role ID is correct as per your backend
+                            'role': 5,
                           };
 
                           await userProvider.register(userData);
 
-                          // Only navigate if the widget is still mounted and registration was successful
                           if (mounted && userProvider.isSuccess) {
                             Navigator.pushReplacement(
                               context,
