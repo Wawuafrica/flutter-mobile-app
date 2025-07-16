@@ -312,9 +312,9 @@ class _SignUpState extends State<SignUp> {
                         if (!locationProvider.isLoading &&
                             locationProvider.errorMessage == null &&
                             locationProvider.countries.isEmpty) {
-                          Future.microtask(
-                            () => locationProvider.fetchCountries(),
-                          );
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            () => locationProvider.fetchCountries();
+                          });
                           return Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
@@ -415,7 +415,7 @@ class _SignUpState extends State<SignUp> {
                                       selectedState = null;
                                     });
                                     if (country != null && country.id != 0) {
-                                      locationProvider.fetchStates(country.id);
+                                      // locationProvider.fetchStates(country.id);
                                     }
                                   },
                           isDisabled: userProvider.isLoading,

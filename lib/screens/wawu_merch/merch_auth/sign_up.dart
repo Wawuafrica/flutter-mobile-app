@@ -236,9 +236,9 @@ class _SignUpMerchState extends State<SignUpMerch> {
                         if (!locationProvider.isLoading &&
                             locationProvider.errorMessage == null &&
                             locationProvider.countries.isEmpty) {
-                          Future.microtask(
-                            () => locationProvider.fetchCountries(),
-                          );
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            locationProvider.fetchCountries();
+                          });
                           return Center(
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
