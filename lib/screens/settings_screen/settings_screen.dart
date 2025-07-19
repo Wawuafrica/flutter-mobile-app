@@ -613,18 +613,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            // const SizedBox(height: 10),
-            // FloatingActionButton(
-            //   onPressed: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(
-            //         builder: (context) => const NotificationTestPage(),
-            //       ),
-            //     );
-            //   },
-            //   child: const Icon(Icons.bug_report),
-            // ),
+            const SizedBox(height: 10),
+             FloatingActionButton(
+             onPressed: () {
+            Navigator.push(
+             context,
+             MaterialPageRoute(
+             builder: (context) => const NotificationTestPage(),
+               ),
+               );
+            },
+              child: const Icon(Icons.bug_report),
+             ),
             const SizedBox(height: 40),
             // Action Buttons
             Center(
