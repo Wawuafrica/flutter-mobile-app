@@ -13,7 +13,7 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
 import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
 import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
-// import 'package:wawu_mobile/screens/notifications_test.dart';
+import 'package:wawu_mobile/screens/notifications_test.dart';
 import 'package:wawu_mobile/screens/profile/profile_screen.dart';
 import 'package:wawu_mobile/providers/links_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
