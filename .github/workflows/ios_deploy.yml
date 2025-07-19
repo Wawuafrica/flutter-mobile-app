@@ -1,59 +1,78 @@
 name: iOS Build and Deploy
 
 on:
-  # push:
-  #   branches: [ main ]
-  # pull_request:
-  #   branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
-    runs-on: macos-latest # Or self-hosted runner if preferred
+    runs-on: macos-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # Clear all caches first - this forces fresh builds
+    - name: Clear GitHub Actions Cache
+      run: |
+        echo "Clearing all caches to ensure fresh build"
+        rm -rf ~/.pub-cache
+        rm -rf ~/.gradle/caches
+        rm -rf ~/Library/Caches/CocoaPods
+        rm -rf ~/Library/Developer/Xcode/DerivedData
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         channel: 'stable'
-        cache: true
+        cache: false # DISABLE CACHE to force fresh Flutter installation
 
     - name: Create .env file
       run: |
         echo "PUSHER_APP_KEY=${{ secrets.PUSHER_APP_KEY }}" > .env
         echo "PUSHER_CLUSTER=${{ secrets.PUSHER_CLUSTER }}" >> .env
 
-    - name: Install dependencies
-      run: flutter pub get
-
-    # - name: Run tests
-    #   run: flutter test
+    # Force clean and get fresh dependencies
+    - name: Clean and install dependencies
+      run: |
+        flutter clean
+        rm -rf pubspec.lock
+        flutter pub get
+        flutter pub deps
 
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: '16.1' # Ensure this matches the version in your Fastfile or desired version
+        xcode-version: '16.1'
 
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: '3.1'
-        bundler-cache: true # This will run bundle install and cache gems
+        bundler-cache: false # DISABLE BUNDLER CACHE
 
     - name: Install Fastlane
-      run: gem install fastlane # Or bundle install if you have a Gemfile for Fastlane
+      run: |
+        gem uninstall fastlane -x || true
+        gem install fastlane
 
     - name: Setup Git credentials for Match
       run: |
         git config --global user.email "ci@github.com"
         git config --global user.name "GitHub Actions"
 
-    # Fix iOS deployment target and CocoaPods
-    - name: Fix iOS deployment target and CocoaPods
+    # Clean iOS completely before fixing deployment target
+    - name: Clean iOS completely and fix deployment target
       run: |
+        # Remove all iOS build artifacts and caches
+        rm -rf ios/Pods
+        rm -rf ios/.symlinks
+        rm -rf ios/Flutter/Flutter.framework
+        rm -rf ios/Flutter/Flutter.podspec
+        rm -rf ios/Podfile.lock
+        rm -rf ios/build
+        rm -rf ios/.flutter-plugins
+        rm -rf ios/.flutter-plugins-dependencies
+        
         # Create a proper Podfile with post_install script
         cat > ios/Podfile << 'EOF'
         # Minimum iOS deployment target
@@ -110,18 +129,10 @@ jobs:
         # Update Runner Info.plist
         /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 13.0" ios/Runner/Info.plist || true
 
-    # Set basic Xcode project configuration
-    - name: Set Xcode project team
-      run: |
+        # Force pod repo update and install
         cd ios
-        # This will be handled by fastlane's update_project_team action
-        echo "Team ID will be set by fastlane: ${{ secrets.APPLE_TEAM_ID }}"
-
-    # Create Fastfile in the ios directory
-    - name: Create Fastfile
-      run: |
-        mkdir -p ios/fastlane
-        # The Fastfile content will be created here or should already exist in your repo
+        pod repo update
+        pod install --repo-update
 
     - name: Deploy to TestFlight
       env:
@@ -129,65 +140,38 @@ jobs:
         APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
         APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-        MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }} # This is for decrypting .p12 from match repo
+        MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
         MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         FASTLANE_SKIP_UPDATE_CHECK: true
         FASTLANE_HIDE_GITHUB_ISSUES: true
         FASTLANE_DISABLE_ANIMATION: true
         MATCH_KEYCHAIN_NAME: signing_keychain
-        # Ensure this password matches the one in Fastfile's create_keychain action
-        MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_UNLOCK_PASSWORD }} # This is for unlocking the *created keychain*
-        FL_UNLOCK_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_UNLOCK_PASSWORD }} # General Fastlane keychain unlock env
+        MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_UNLOCK_PASSWORD }}
+        FL_UNLOCK_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_UNLOCK_PASSWORD }}
         MATCH_TYPE: appstore
-        MATCH_READONLY: true
+        MATCH_READONLY: false # Allow match to update profiles if needed
         MATCH_STORAGE_MODE: git
         MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_TOKEN }}
         MATCH_SKIP_CONFIRMATION: true
         MATCH_VERBOSE: true
+        MATCH_FORCE_FOR_NEW_DEVICES: true
+        # Add timestamp to force unique builds
+        BUILD_TIMESTAMP: ${{ github.run_number }}-${{ github.run_id }}
       run: |
         cd ios
         echo "$APP_STORE_CONNECT_API_KEY" | base64 --decode > AuthKey.p8
 
-        # --- DIAGNOSTIC COMMANDS START ---
-        echo "--- Keychain Diagnostics Pre-Fastlane ---"
-        echo "Listing Keychains on the system:"
-        security list-keychains
-        echo "Listing default keychain:"
-        security list-keychains -d user
-        echo "Attempting to list identities in the expected keychain path:"
-        # Replace the literal path with the expected path for the runner.
-        # GitHub Actions macos runners typically use /Users/runner/Library/Keychains/
-        security find-identity -p codesigning -v "${HOME}/Library/Keychains/signing_keychain-db" || echo "signing_keychain-db not found or no identities (expected for now)."
-        security find-identity -p codesigning -v "${HOME}/Library/Keychains/signing_keychain" || echo "signing_keychain not found or no identities (older path format - expected for now)."
-        echo "--- End Keychain Diagnostics Pre-Fastlane ---"
+        # Clean any existing keychains
+        security delete-keychain signing_keychain || true
 
-        # Check if Fastfile exists
-        echo "--- Checking Fastfile structure ---"
-        if [ -f "fastlane/Fastfile" ]; then
-          echo "Fastfile found in ios/fastlane/"
-          echo "Available lanes:"
-          fastlane lanes
-        else
-          echo "Fastfile not found in ios/fastlane/"
-          echo "Current directory contents:"
-          ls -la
-          echo "Fastlane directory contents:"
-          ls -la fastlane/ || echo "No fastlane directory found"
-          exit 1
-        fi
+        echo "--- Starting Fresh Build Process ---"
+        echo "Build Timestamp: ${BUILD_TIMESTAMP}"
+        echo "GitHub Run Number: ${{ github.run_number }}"
+        echo "GitHub Run ID: ${{ github.run_id }}"
 
         # Execute Fastlane with explicit platform
         fastlane ios beta
-        # fastlane ios release
-
-    # - name: Upload IPA artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: ios-app
-    #     path: ios/build/ios/ipa/*.ipa
-    #     retention-days: 30
-    #   if: always()
 
     - name: Clean up
       if: always()
@@ -195,3 +179,6 @@ jobs:
         rm -f ios/AuthKey.p8
         # Clean up any remaining keychains
         security delete-keychain signing_keychain || true
+        # Clean up any remaining build artifacts
+        rm -rf ios/build
+        rm -rf build
