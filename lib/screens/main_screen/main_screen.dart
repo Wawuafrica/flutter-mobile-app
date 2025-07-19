@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/blog_screen/blog_screen.dart';
 import 'package:wawu_mobile/screens/gigs_screen/gigs_screen.dart';
@@ -8,11 +9,13 @@ import 'package:wawu_mobile/screens/home_screen/home_screen.dart';
 import 'package:wawu_mobile/screens/messages_screen/messages_screen.dart';
 import 'package:wawu_mobile/screens/notifications/notifications.dart';
 import 'package:wawu_mobile/screens/settings_screen/settings_screen.dart';
+import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
 import 'package:wawu_mobile/widgets/blocked_account_overlay.dart';
-import 'package:wawu_mobile/providers/user_provider.dart' show UserProvider;
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class MainScreen extends StatefulWidget {
   final bool isAdmin;
@@ -27,7 +30,8 @@ class MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   bool _isSearchOpen = false;
   final TextEditingController _searchController = TextEditingController();
-  bool _hasInitializedNotifications = false; // Add this flag
+  bool _hasInitializedNotifications = false;
+  bool _hasCheckedSubscription = false;
 
   List<Widget> _screens = [];
   List<CustomNavItem> _customNavItems = [];
@@ -37,7 +41,74 @@ class MainScreenState extends State<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreensAndNavItems();
+      _fetchSubscriptionDetails();
     });
+  }
+
+  void _fetchSubscriptionDetails() async {
+    if (_hasCheckedSubscription) return;
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          message: 'No internet connection. Please check your network.',
+          isError: true,
+        );
+      }
+      return;
+    }
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
+    final userId = userProvider.currentUser?.uuid;
+    final userType = userProvider.currentUser?.role?.toLowerCase();
+    int role = 0;
+
+    if (userType == 'artisan') {
+      role = 3;
+    } else if (userType == 'professional') {
+      role = 2;
+    } else {
+      role = 1;
+    }
+
+    if (userId != null) {
+      _hasCheckedSubscription = true;
+      await planProvider.fetchUserSubscriptionDetails(userId, role);
+
+      // Only redirect if there's no network error
+      if (mounted && !planProvider.hasError) {
+        // Check if user has no subscription or subscription is inactive
+        if (planProvider.subscription == null ||
+            planProvider.subscription?.status?.toLowerCase() != 'active') {
+          // Navigate to Plan screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const Plan()),
+          );
+        }
+      } else if (planProvider.hasError) {
+        // Handle network error - maybe show a retry option or let user continue
+        // You could show a snackbar or dialog here
+        print(
+          'Network error fetching subscription: ${planProvider.errorMessage}',
+        );
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            message:
+                'Error fetching subscription: ${planProvider.errorMessage}',
+            isError: true,
+            actionLabel: 'Retry',
+            onActionPressed: () async {
+              await planProvider.fetchUserSubscriptionDetails(userId, role);
+            },
+          );
+        }
+        // Optionally reset the check flag to allow retry
+        _hasCheckedSubscription = false;
+      }
+    }
   }
 
   void _initializeScreensAndNavItems() async {
@@ -265,9 +336,6 @@ class MainScreenState extends State<MainScreen> {
   Widget _buildNotificationsButton() {
     return Consumer2<NotificationProvider, UserProvider>(
       builder: (context, notificationProvider, userProvider, _) {
-        // REMOVED THE INFINITE LOOP CODE
-        // No longer fetching notifications here
-
         final unreadCount = notificationProvider.unreadCount;
         final hasUnread = unreadCount > 0;
 
@@ -340,6 +408,8 @@ class MainScreenState extends State<MainScreen> {
       builder: (context, userProvider, _) {
         final isBlocked = userProvider.currentUser?.status == 'BLOCKED';
 
+        if (isBlocked) return const BlockedAccountOverlay();
+
         return Stack(
           children: [
             Scaffold(
@@ -370,7 +440,6 @@ class MainScreenState extends State<MainScreen> {
                 items: _customNavItems,
               ),
             ),
-            if (isBlocked) const BlockedAccountOverlay(),
           ],
         );
       },
