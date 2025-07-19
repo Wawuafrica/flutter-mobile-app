@@ -36,7 +36,7 @@ class ApiService {
   Future<void> initialize({
     String? apiBaseUrl,
     Map<String, String>? defaultHeaders,
-    int timeoutSeconds = 30,
+    int timeoutSeconds = 60,
     required AuthService authService,
   }) async {
     _authService = authService;

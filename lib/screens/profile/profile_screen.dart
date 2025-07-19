@@ -161,15 +161,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           (c) => c.name.toLowerCase() == user.country!.toLowerCase(),
           orElse: () => Country(id: 0, name: user.country!, flag: ''),
         );
-        // Fetch states for the selected country if not already fetched or if country changed
-        // Ensure states are fetched when the country is initially set from user data
-        if (_selectedCountry != null && user.state != null) {
-          locationProvider.fetchStates(_selectedCountry!.id);
+        if (_selectedCountry != null && _selectedCountry!.id != 0) {
+          // Fetch states and set the user's state
+          locationProvider.fetchStates(_selectedCountry!.id).then((_) {
+            if (mounted) {
+              setState(() {
+                _selectedState = user.state;
+              });
+            }
+          });
         }
       } else {
         _selectedCountry = null;
+        _selectedState = null;
       }
-      _selectedState = user.state; // Directly assign user's state
 
       // Social Handles
       _facebookController.text =
@@ -1534,10 +1539,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               _selectedCountry = value;
                               _selectedState =
                                   null; // Reset state when country changes
-                              if (value != null) {
-                                locationProvider.fetchStates(
-                                  value.id,
-                                ); // Fetch states for new country
+                              final countries = locationProvider.countries;
+                              final selected = countries.firstWhere(
+                                (c) => c.name == value?.name,
+                                orElse:
+                                    () =>
+                                        countries.isNotEmpty
+                                            ? countries.first
+                                            : Country(id: 0, name: ''),
+                              );
+                              if (selected.id != 0) {
+                                locationProvider.fetchStates(selected.id);
                               }
                               _isDirty = true;
                             });
@@ -1622,7 +1634,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   const [], // Empty options if no country selected
                               selectedValue: null,
                               onChanged: (_) {},
-                              isDisabled: true,
+                              isDisabled: false,
                             ),
                           );
                         }

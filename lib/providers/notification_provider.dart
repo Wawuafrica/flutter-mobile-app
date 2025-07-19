@@ -8,6 +8,19 @@ import 'package:wawu_mobile/providers/base_provider.dart';
 import 'package:logger/logger.dart';
 import 'package:pusher_channels_flutter/pusher_channels_flutter.dart';
 import 'dart:convert';
+import 'package:wawu_mobile/utils/constants/colors.dart';
+
+// TOP-LEVEL FUNCTION - This is required for background notifications
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse response) {
+  // Handle background notification tap
+  final logger = Logger();
+  logger.i('Background notification tapped: ${response.payload}');
+
+  // You can add navigation logic here if needed
+  // For example, you might want to store the notification data
+  // in shared preferences to handle when the app becomes active
+}
 
 class NotificationProvider extends BaseProvider {
   final ApiService _apiService;
@@ -17,10 +30,11 @@ class NotificationProvider extends BaseProvider {
   final Logger _logger = Logger();
 
   List<NotificationModel> _notifications = [];
-  bool _isSubscribedToGeneralChannel = false;
+  bool _isSubscribedToUserChannel = false;
   int _currentPage = 1;
   bool _hasMore = true;
   String? _currentUserId; // Store current user ID for filtering
+  String? _currentChannelName; // Store current channel name
 
   List<NotificationModel> get notifications => _notifications;
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
@@ -34,26 +48,36 @@ class NotificationProvider extends BaseProvider {
 
   Future<void> _initializeNotifications() async {
     try {
+      // Request permissions first
+      bool permissionGranted = false;
+
       if (Platform.isAndroid) {
         final androidPlugin =
             _notificationsPlugin
                 .resolvePlatformSpecificImplementation<
                   AndroidFlutterLocalNotificationsPlugin
                 >();
+
+        // Create notification channel first
         await androidPlugin?.createNotificationChannel(
           const AndroidNotificationChannel(
             'notification_channel',
             'Notifications',
             description: 'Channel for app notifications',
             importance: Importance.high,
+            enableVibration: true,
+            playSound: true,
           ),
         );
+
+        // Request permission
         final granted = await androidPlugin?.requestNotificationsPermission();
-        if (granted == null || !granted) {
+        permissionGranted = granted ?? false;
+
+        if (!permissionGranted) {
           _logger.w(
             'NotificationProvider: Android notification permission not granted',
           );
-          // No setError here as it's a permission issue, not a provider data error.
           return;
         }
       } else if (Platform.isIOS) {
@@ -62,60 +86,97 @@ class NotificationProvider extends BaseProvider {
                 .resolvePlatformSpecificImplementation<
                   IOSFlutterLocalNotificationsPlugin
                 >();
-        await iosPlugin?.requestPermissions(
+
+        final granted = await iosPlugin?.requestPermissions(
           alert: true,
           badge: true,
           sound: true,
         );
+        permissionGranted = granted ?? false;
+
+        if (!permissionGranted) {
+          _logger.w(
+            'NotificationProvider: iOS notification permission not granted',
+          );
+          return;
+        }
       }
 
+      // Initialize notifications
       const initializationSettings = InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
         iOS: DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
+          requestAlertPermission: false, // Already requested above
+          requestBadgePermission: false, // Already requested above
+          requestSoundPermission: false, // Already requested above
         ),
       );
+
       await _notificationsPlugin.initialize(
         initializationSettings,
-        onDidReceiveNotificationResponse: (
-          NotificationResponse response,
-        ) async {
-          _logger.i('Notification tapped: ${response.payload}');
-          // Handle notification tap (e.g., navigate to a specific screen)
-        },
-        onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+        onDidReceiveNotificationResponse: _handleNotificationTap,
+        onDidReceiveBackgroundNotificationResponse:
+            notificationTapBackground, // Use top-level function
       );
+
       _logger.i(
         'NotificationProvider: Local notifications initialized successfully',
       );
-      // No setSuccess here as this is an internal initialization, not a primary data operation.
     } catch (e) {
       _logger.e(
         'NotificationProvider: Failed to initialize local notifications: $e',
       );
-      // No setError here as this is an internal initialization, not a primary data operation.
     }
   }
 
-  @pragma('vm:entry-point')
-  void notificationTapBackground(NotificationResponse response) {
-    // Handle background notification tap
-    _logger.i('Background notification tapped: ${response.payload}');
+  // Instance method for handling foreground notification taps
+  void _handleNotificationTap(NotificationResponse response) {
+    _logger.i('Notification tapped: ${response.payload}');
+
+    // Handle notification tap (e.g., navigate to a specific screen)
+    // You can parse the payload and navigate accordingly
+    try {
+      if (response.payload != null) {
+        final payload = jsonDecode(response.payload!);
+        // Handle navigation based on payload
+        _logger.d('Notification payload: $payload');
+      }
+    } catch (e) {
+      _logger.e('Error parsing notification payload: $e');
+    }
   }
 
   Future<void> _showPushNotification(NotificationModel notification) async {
     try {
+      // Create payload with notification data
+      final payload = jsonEncode({
+        'id': notification.id,
+        'type': notification.type,
+        'data': notification.data,
+      });
+
       const androidDetails = AndroidNotificationDetails(
         'notification_channel',
         'Notifications',
+        channelDescription: 'Channel for app notifications',
         importance: Importance.high,
         priority: Priority.high,
+        enableVibration: true,
+        playSound: true,
+        icon: '@mipmap/ic_launcher',
+        color: wawuColors.primary,
+        colorized: true,
       );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
       const platformDetails = NotificationDetails(
         android: androidDetails,
-        iOS: DarwinNotificationDetails(),
+        iOS: iosDetails,
       );
 
       await _notificationsPlugin.show(
@@ -123,6 +184,7 @@ class NotificationProvider extends BaseProvider {
         _getNotificationTitle(notification.type),
         notification.data['message']?.toString() ?? 'New notification',
         platformDetails,
+        payload: payload,
       );
 
       _logger.i(
@@ -130,7 +192,6 @@ class NotificationProvider extends BaseProvider {
       );
     } catch (e) {
       _logger.e('NotificationProvider: Failed to show local notification: $e');
-      // No setError here as this is an internal display function.
     }
   }
 
@@ -154,22 +215,14 @@ class NotificationProvider extends BaseProvider {
     String userId, {
     bool loadMore = false,
   }) async {
-    // Use BaseProvider's isLoading. If already loading for a primary operation, return.
-    // _isLoadingMore is removed, so we check BaseProvider's isLoading.
     if (isLoading && loadMore) return _notifications;
 
-    // Set loading state for the primary operation.
-    // If loadMore is true, we are "loading more" but the main state is still "loading".
-    // If loadMore is false, it's a fresh fetch, so it's a new loading cycle.
     if (!loadMore) {
-      setLoading(); // Set BaseProvider's loading state for initial fetch
+      setLoading();
     }
-    // For loadMore, we don't set the main loading state, as it's a background fetch.
-    // The UI might have a separate indicator for "loading more".
 
     try {
-      // _isLoadingMore = loadMore; // Removed
-      _currentUserId = userId; // Store current user ID
+      _currentUserId = userId;
 
       if (!loadMore) {
         _currentPage = 1;
@@ -213,11 +266,9 @@ class NotificationProvider extends BaseProvider {
             _logger.w(
               'NotificationProvider: Invalid response format from $endpoint',
             );
-            // Don't set global error for partial failure, just log.
           }
         } catch (e) {
           _logger.e('NotificationProvider: Error fetching from $endpoint: $e');
-          // Don't set global error for partial failure, just log.
         }
       }
 
@@ -228,28 +279,25 @@ class NotificationProvider extends BaseProvider {
               : allNotifications;
       _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-      // Subscribe to notifications channel if not already subscribed
-      if (!_isSubscribedToGeneralChannel) {
+      // Subscribe to user-specific notifications channel if not already subscribed
+      if (!_isSubscribedToUserChannel) {
         await _subscribeToNotificationsChannel(userId);
       }
 
       _logger.i(
         'NotificationProvider: Total notifications loaded: ${_notifications.length}',
       );
-      setSuccess(); // Use BaseProvider's setSuccess
+      setSuccess();
       return _notifications;
     } catch (e) {
       _logger.e('NotificationProvider: Failed to fetch notifications: $e');
-      setError(e.toString()); // Use BaseProvider's setError
+      setError(e.toString());
       return [];
-    } finally {
-      // _isLoadingMore = false; // Removed
-      // BaseProvider's state is handled by setLoading/setSuccess/setError
     }
   }
 
   Future<bool> markAsRead(String notificationId) async {
-    setLoading(); // Indicate loading for this specific operation
+    setLoading();
     try {
       final response = await _apiService.patch<Map<String, dynamic>>(
         '/notifications/$notificationId/mark-as-read',
@@ -268,19 +316,17 @@ class NotificationProvider extends BaseProvider {
         _logger.i(
           'NotificationProvider: Marked notification $notificationId as read',
         );
-        setSuccess(); // Use BaseProvider's setSuccess
+        setSuccess();
         return true;
       }
 
-      setError(
-        response['message'] ?? 'Failed to mark notification as read',
-      ); // Use BaseProvider's setError
+      setError(response['message'] ?? 'Failed to mark notification as read');
       _logger.w(
         'NotificationProvider: Failed to mark notification as read - Status: ${response['statusCode']}',
       );
       return false;
     } catch (e) {
-      setError(e.toString()); // Use BaseProvider's setError
+      setError(e.toString());
       _logger.e(
         'NotificationProvider: Failed to mark notification as read: $e',
       );
@@ -289,7 +335,7 @@ class NotificationProvider extends BaseProvider {
   }
 
   Future<bool> markAllAsRead(String userId) async {
-    setLoading(); // Indicate loading for this specific operation
+    setLoading();
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
         '/notifications/mark-all-as-read',
@@ -305,19 +351,19 @@ class NotificationProvider extends BaseProvider {
         _logger.i(
           'NotificationProvider: Marked all notifications as read for user $userId',
         );
-        setSuccess(); // Use BaseProvider's setSuccess
+        setSuccess();
         return true;
       }
 
       setError(
         response['message'] ?? 'Failed to mark all notifications as read',
-      ); // Use BaseProvider's setError
+      );
       _logger.w(
         'NotificationProvider: Failed to mark all notifications as read - Status: ${response['statusCode']}',
       );
       return false;
     } catch (e) {
-      setError(e.toString()); // Use BaseProvider's setError
+      setError(e.toString());
       _logger.e(
         'NotificationProvider: Failed to mark all notifications as read: $e',
       );
@@ -332,58 +378,54 @@ class NotificationProvider extends BaseProvider {
       );
       setError(
         'PusherService not initialized, cannot subscribe to notifications.',
-      ); // Report error
+      );
       return;
     }
 
-    const channelName = 'notifications';
+    // Create user-specific channel name
+    final channelName = 'NotificationsCreated.$userId';
+    _currentChannelName = channelName;
 
     try {
       final success = await _pusherService.subscribeToChannel(channelName);
       if (success) {
-        _isSubscribedToGeneralChannel = true;
+        _isSubscribedToUserChannel = true;
         _logger.i(
-          'NotificationProvider: Successfully subscribed to notifications channel',
+          'NotificationProvider: Successfully subscribed to user-specific notifications channel: $channelName',
         );
 
-        // Bind to NotificationCreated event
+        // Bind to NotificationCreated event on the user-specific channel
         _pusherService.bindToEvent(channelName, 'NotificationCreated', (
           PusherEvent event,
         ) {
-          _handleNotificationCreated(event, userId);
+          _handleNotificationCreated(event);
         });
 
         _logger.i(
-          'NotificationProvider: Successfully bound to all notification events',
+          'NotificationProvider: Successfully bound to NotificationCreated event on channel: $channelName',
         );
-        setSuccess(); // Indicate success for subscription
+        setSuccess();
       } else {
         _logger.e(
-          'NotificationProvider: Failed to subscribe to notifications channel',
+          'NotificationProvider: Failed to subscribe to user-specific notifications channel: $channelName',
         );
-        setError(
-          'Failed to subscribe to notifications channel.',
-        ); // Report error
+        setError('Failed to subscribe to notifications channel.');
       }
     } catch (e) {
       _logger.e(
         'NotificationProvider: Failed to subscribe to notifications: $e',
       );
-      setError(
-        'Error subscribing to notifications: ${e.toString()}',
-      ); // Report error
+      setError('Error subscribing to notifications: ${e.toString()}');
     }
   }
 
-  void _handleNotificationCreated(PusherEvent event, String userId) async {
+  void _handleNotificationCreated(PusherEvent event) async {
     try {
       if (event.data is! String) {
         _logger.w(
           'NotificationProvider: Invalid NotificationCreated event data. Expected String, got ${event.data.runtimeType}',
         );
-        setError(
-          'Invalid NotificationCreated event data received.',
-        ); // Report error
+        setError('Invalid NotificationCreated event data received.');
         return;
       }
 
@@ -391,37 +433,32 @@ class NotificationProvider extends BaseProvider {
       final notification = NotificationModel.fromJson(jsonData);
 
       _logger.i(
-        'NotificationProvider: Received NotificationCreated event for user ${notification.notifiableId}',
+        'NotificationProvider: Received NotificationCreated event for notification ${notification.id}',
       );
 
-      // Only add notification if it's for the current user
-      if (notification.notifiableId.toString() == userId) {
-        // Check if notification already exists to avoid duplicates
-        final existingIndex = _notifications.indexWhere(
-          (n) => n.id == notification.id,
-        );
-        if (existingIndex == -1) {
-          _notifications.add(notification);
-          _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      // Check if notification already exists to avoid duplicates
+      final existingIndex = _notifications.indexWhere(
+        (n) => n.id == notification.id,
+      );
+      if (existingIndex == -1) {
+        _notifications.add(notification);
+        _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-          await _showPushNotification(notification);
-          setSuccess(); // Use setSuccess to notify listeners
-          _logger.i(
-            'NotificationProvider: Added new notification ${notification.id} for current user',
-          );
-        } else {
-          _logger.d(
-            'NotificationProvider: Notification ${notification.id} already exists, skipping',
-          );
-        }
+        await _showPushNotification(notification);
+        setSuccess();
+        _logger.i(
+          'NotificationProvider: Added new notification ${notification.id}',
+        );
+      } else {
+        _logger.d(
+          'NotificationProvider: Notification ${notification.id} already exists, skipping',
+        );
       }
     } catch (e) {
       _logger.e(
         'NotificationProvider: Error processing NotificationCreated event: $e',
       );
-      setError(
-        'Error processing new notification event: ${e.toString()}',
-      ); // Report error
+      setError('Error processing new notification event: ${e.toString()}');
     }
   }
 
@@ -434,10 +471,25 @@ class NotificationProvider extends BaseProvider {
 
   // Method to load more notifications
   Future<void> loadMoreNotifications() async {
-    // Check BaseProvider's isLoading to prevent concurrent primary operations.
-    // _isLoadingMore is removed.
     if (_currentUserId != null && _hasMore && !isLoading) {
       await fetchNotifications(_currentUserId!, loadMore: true);
+    }
+  }
+
+  // Method to clear notification badge (call this when user opens notifications screen)
+  Future<void> clearNotificationBadge() async {
+    try {
+      await _notificationsPlugin.cancelAll();
+      if (Platform.isIOS) {
+        final iosPlugin =
+            _notificationsPlugin
+                .resolvePlatformSpecificImplementation<
+                  IOSFlutterLocalNotificationsPlugin
+                >();
+        await iosPlugin?.requestPermissions(badge: false);
+      }
+    } catch (e) {
+      _logger.e('Error clearing notification badge: $e');
     }
   }
 
@@ -445,30 +497,29 @@ class NotificationProvider extends BaseProvider {
     _notifications = [];
     _currentPage = 1;
     _hasMore = true;
-    _isSubscribedToGeneralChannel = false;
+    _isSubscribedToUserChannel = false;
     _currentUserId = null;
+    _currentChannelName = null;
     _logger.i('NotificationProvider: Cleared all notifications data');
-    resetState(); // Use resetState to clear error and set to idle, which also calls notifyListeners
+    resetState();
   }
 
   // Method to unsubscribe from notifications (useful for logout)
   Future<void> unsubscribeFromNotifications() async {
-    if (_isSubscribedToGeneralChannel) {
-      await _pusherService.unsubscribeFromChannel('notifications');
-      _isSubscribedToGeneralChannel = false;
+    if (_isSubscribedToUserChannel && _currentChannelName != null) {
+      await _pusherService.unsubscribeFromChannel(_currentChannelName!);
+      _isSubscribedToUserChannel = false;
+      _currentChannelName = null;
       _logger.i(
-        'NotificationProvider: Unsubscribed from notifications channel',
+        'NotificationProvider: Unsubscribed from user-specific notifications channel',
       );
-      setSuccess(); // Indicate success for unsubscription
+      setSuccess();
     }
   }
 
   @override
   void dispose() {
-    // It's generally better to await async operations in dispose if possible,
-    // but if the app is shutting down, it might not complete.
-    // For now, keep it as is, but be aware of potential uncompleted async ops.
-    unsubscribeFromNotifications();
+    unawaited(unsubscribeFromNotifications());
     _logger.i('NotificationProvider: Disposed');
     super.dispose();
   }

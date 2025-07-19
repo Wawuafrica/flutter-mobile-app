@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart' as dio; // Still needed for MultipartFile
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
-
+import 'dart:convert';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -589,18 +589,51 @@ class UserProvider extends ChangeNotifier {
             );
             if (event.data == null) {
               _logger.w('UserProvider: Event data is null, skipping update');
-              setError(
-                'User profile update event data is null.',
-              ); // Report error
+              setError('User profile update event data is null.');
               return;
             }
 
             final eventData = event.data as Map<String, dynamic>;
-            final updatedUser = User.fromJson(eventData['user']);
+
+            // Check if 'user' field exists and handle both String and Map cases
+            if (!eventData.containsKey('user')) {
+              _logger.e('UserProvider: Event data does not contain user field');
+              setError('Event data missing user information.');
+              return;
+            }
+
+            final userData = eventData['user'];
+            Map<String, dynamic> userMap;
+
+            // Handle both String (JSON) and Map cases
+            if (userData is String) {
+              // Parse JSON string to Map
+              try {
+                userMap = jsonDecode(userData) as Map<String, dynamic>;
+              } catch (parseError) {
+                _logger.e(
+                  'UserProvider: Failed to parse user JSON string: $parseError',
+                );
+                setError('Failed to parse user data from event.');
+                return;
+              }
+            } else if (userData is Map<String, dynamic>) {
+              // Already a Map
+              userMap = userData;
+            } else {
+              _logger.e(
+                'UserProvider: Unexpected user data type: ${userData.runtimeType}',
+              );
+              setError('Unexpected user data format in event.');
+              return;
+            }
+
+            // Create User object from the parsed/extracted Map
+            final updatedUser = User.fromJson(userMap);
 
             _currentUser = updatedUser;
             _authService.saveUser(_currentUser!);
-            setSuccess(); // Use setSuccess to notify listeners
+            setSuccess();
             _logger.i(
               'UserProvider: User profile updated: ${_currentUser!.uuid}',
             );
@@ -608,7 +641,7 @@ class UserProvider extends ChangeNotifier {
             _logger.e(
               'UserProvider: Error processing user.profile.updated event: $e. Data: ${event.data}',
             );
-            setError(e.toString()); // Use e.toString() directly
+            setError(e.toString());
           }
         });
         _logger.i(

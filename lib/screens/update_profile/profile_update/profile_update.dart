@@ -1351,7 +1351,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                               _onFieldChanged(); // Mark as dirty
                             });
                           },
-                          isDisabled: locationProvider.states.isEmpty,
+                          // isDisabled: locationProvider.states.isEmpty,
                         );
                       },
                     ),
