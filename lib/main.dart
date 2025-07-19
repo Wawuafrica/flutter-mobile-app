@@ -366,11 +366,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               'MyApp: User authenticated with role $userRole. Navigating to MainScreen.',
             );
             initialScreen = const MainScreen();
-          } else {
+          } else if (userRole == 'ECOMMERCE_USER') {
             _logger.i(
               'MyApp: User authenticated with role $userRole. Navigating to WawuMerchMain.',
             );
             initialScreen = const WawuMerchMain();
+          } else {
+            _logger.i(
+              'MyApp: User authenticated with role $userRole. Navigating to Wawu.',
+            );
+            initialScreen = const Wawu();
           }
         }
       }

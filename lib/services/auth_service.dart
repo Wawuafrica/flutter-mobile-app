@@ -7,30 +7,23 @@ import 'package:logger/logger.dart';
 import '../models/user.dart';
 import 'api_service.dart';
 
-// Removed custom AuthException class as per architectural guidelines.
-// Providers should catch generic Exception and use the message from ApiService.
-
 class AuthService {
   final ApiService _apiService;
   static const String _authTokenKey = 'authToken';
   static const String _userDataKey = 'userData';
+  static const String _userDataBackupKey = 'userData_backup'; // Backup key
   final Logger _logger = Logger();
 
   String? _token;
-  User? _currentUser; // Internal state for the current user
+  User? _currentUser;
 
-  AuthService({required ApiService apiService}) : _apiService = apiService {
-    // This needs to be asynchronous, so it's often called once in main or a wrapper widget
-    // _loadAuthData(); // Don't call async in constructor directly
-  }
+  AuthService({required ApiService apiService}) : _apiService = apiService;
 
-  // A getter for currentUser (this was the missing part)
   User? get currentUser => _currentUser;
   String? get token => _token;
   bool get isAuthenticated =>
       _token != null && _currentUser != null && _currentUser!.uuid.isNotEmpty;
 
-  // Call this method explicitly after AuthService is instantiated
   Future<void> init() async {
     await _loadAuthData();
   }
@@ -38,33 +31,69 @@ class AuthService {
   Future<void> _loadAuthData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Load token
       _token = prefs.getString(_authTokenKey);
       if (_token != null) {
-        _apiService.setAuthToken(
-          _token!,
-        ); // Ensure ApiService also gets the token
+        _apiService.setAuthToken(_token!);
         _logger.d('Token loaded successfully');
       } else {
         _apiService.clearAuthToken();
         _logger.d('No token found');
       }
 
-      final userDataString = prefs.getString(_userDataKey);
-      if (userDataString != null) {
-        try {
-          _currentUser = User.fromJson(jsonDecode(userDataString));
-          _logger.d('User data loaded successfully from local storage');
-        } catch (e) {
-          _logger.e('Error decoding user data from local storage: $e');
-          await prefs.remove(_userDataKey); // Clear corrupted data
-          _currentUser = null;
-        }
-      } else {
-        _logger.d('No user data found in local storage');
-      }
+      // Load user data with better error handling
+      await _loadUserData(prefs);
     } catch (e) {
-      _logger.e('Error loading auth data: $e');
-      // No rethrow here as this is internal loading, not an API call.
+      _logger.e('Critical error loading auth data: $e');
+      // Don't clear data on critical errors, just log them
+    }
+  }
+
+  Future<void> _loadUserData(SharedPreferences prefs) async {
+    final userDataString = prefs.getString(_userDataKey);
+
+    if (userDataString == null) {
+      _logger.d('No user data found in local storage');
+      return;
+    }
+
+    // First, try to parse the current user data
+    try {
+      final userJson = jsonDecode(userDataString) as Map<String, dynamic>;
+      _currentUser = User.fromJson(userJson);
+      _logger.d('User data loaded successfully from local storage');
+
+      // Create backup of successfully parsed data
+      await prefs.setString(_userDataBackupKey, userDataString);
+      return;
+    } catch (parseError) {
+      _logger.e('Error decoding current user data: $parseError');
+
+      // Try to load from backup
+      final backupUserDataString = prefs.getString(_userDataBackupKey);
+      if (backupUserDataString != null) {
+        try {
+          final backupUserJson =
+              jsonDecode(backupUserDataString) as Map<String, dynamic>;
+          _currentUser = User.fromJson(backupUserJson);
+          _logger.i('User data restored from backup');
+
+          // Restore the backup as current data
+          await prefs.setString(_userDataKey, backupUserDataString);
+          return;
+        } catch (backupError) {
+          _logger.e('Error decoding backup user data: $backupError');
+        }
+      }
+
+      // Only delete corrupted data if we've tried everything
+      _logger.w(
+        'Corrupted user data detected. Clearing only after backup attempts failed.',
+      );
+      await prefs.remove(_userDataKey);
+      await prefs.remove(_userDataBackupKey);
+      _currentUser = null;
     }
   }
 
@@ -77,7 +106,6 @@ class AuthService {
       _logger.d('Token saved successfully');
     } catch (e) {
       _logger.e('Error saving token: $e');
-      // Rethrow as generic Exception, ApiService handles DioException.
       throw Exception('Failed to save authentication token: ${e.toString()}');
     }
   }
@@ -91,22 +119,42 @@ class AuthService {
       _logger.d('Token cleared successfully');
     } catch (e) {
       _logger.e('Error clearing token: $e');
-      // No rethrow here as this is internal cleanup.
     }
   }
 
-  // Made public so UserProvider can update the locally stored user
+  // Enhanced saveUser with backup mechanism
   Future<void> saveUser(User user) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_userDataKey, jsonEncode(user.toJson()));
-      _currentUser = user; // Update internal current user
+      final userJsonString = jsonEncode(user.toJson());
+
+      // Validate the JSON by trying to parse it back
+      try {
+        final testJson = jsonDecode(userJsonString) as Map<String, dynamic>;
+        User.fromJson(testJson); // This will throw if the data is invalid
+      } catch (validationError) {
+        _logger.e(
+          'User data validation failed before saving: $validationError',
+        );
+        throw Exception(
+          'Invalid user data structure: ${validationError.toString()}',
+        );
+      }
+
+      // Create backup of existing data before overwriting
+      final existingData = prefs.getString(_userDataKey);
+      if (existingData != null) {
+        await prefs.setString(_userDataBackupKey, existingData);
+      }
+
+      // Save new data
+      await prefs.setString(_userDataKey, userJsonString);
+      _currentUser = user;
       _logger.d(
         'User data saved successfully to local storage and internal state',
       );
     } catch (e) {
       _logger.e('Error saving user data: $e');
-      // Rethrow as generic Exception.
       throw Exception('Failed to save user profile locally: ${e.toString()}');
     }
   }
@@ -115,21 +163,46 @@ class AuthService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_userDataKey);
+      await prefs.remove(_userDataBackupKey);
       _currentUser = null;
       _logger.d('User data cleared successfully');
     } catch (e) {
       _logger.e('Error clearing user data: $e');
-      // No rethrow here as this is internal cleanup.
     }
   }
 
-  // Removed extractErrorMessage method as per architectural guidelines.
+  // Add a method to manually recover user data
+  Future<bool> attemptUserDataRecovery() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _loadUserData(prefs);
+      return _currentUser != null;
+    } catch (e) {
+      _logger.e('User data recovery failed: $e');
+      return false;
+    }
+  }
 
-  // Renamed from 'login' to 'signIn' if more appropriate for authentication
+  // Add debugging method to inspect stored data
+  Future<Map<String, dynamic>> debugStoredData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return {
+        'hasToken': prefs.getString(_authTokenKey) != null,
+        'hasUserData': prefs.getString(_userDataKey) != null,
+        'hasBackupData': prefs.getString(_userDataBackupKey) != null,
+        'userDataRaw': prefs.getString(_userDataKey),
+        'tokenRaw': prefs.getString(_authTokenKey),
+      };
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   Future<User> signIn(String email, String password) async {
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
-        '/user/login', // Adjust endpoint as needed
+        '/user/login',
         data: {'email': email, 'password': password},
       );
 
@@ -137,14 +210,11 @@ class AuthService {
       if (response['statusCode'] == 200 &&
           data != null &&
           data is Map<String, dynamic>) {
-        final String token = data['token']; // Ensure token exists in response
-        final user = User.fromJson(
-          data['user'],
-        ); // If user data is at root of 'data'
-        // If user data is nested: final user = User.fromJson(data['user'] as Map<String, dynamic>);
+        final String token = data['token'];
+        final user = User.fromJson(data['user']);
 
         await saveToken(token);
-        await saveUser(user); // Save full user object
+        await saveUser(user);
         _logger.d('Sign-in successful for user: ${user.email}');
         return user;
       } else {
@@ -152,19 +222,18 @@ class AuthService {
             response['message'] as String? ??
             'Sign-in failed: Invalid response.';
         _logger.w(errorMessage);
-        // Throw generic Exception, ApiService has already handled DioException.
         throw Exception(errorMessage);
       }
     } catch (e) {
       _logger.e('Sign-in failed: $e');
-      rethrow; // Rethrow the exception with the message from ApiService
+      rethrow;
     }
   }
 
   Future<User> register(Map<String, dynamic> userData) async {
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
-        '/user/register', // Adjust endpoint as needed
+        '/user/register',
         data: userData,
       );
 
@@ -173,7 +242,7 @@ class AuthService {
           data != null &&
           data is Map<String, dynamic>) {
         final String token = data['token'];
-        final user = User.fromJson(data); // If user data is at root of 'data'
+        final user = User.fromJson(data);
 
         await saveToken(token);
         await saveUser(user);
@@ -184,19 +253,17 @@ class AuthService {
             response['message'] as String? ??
             'Registration failed: Invalid response.';
         _logger.w(errorMessage);
-        // Throw generic Exception, ApiService has already handled DioException.
         throw Exception(errorMessage);
       }
     } catch (e) {
       _logger.e('Registration failed: $e');
-      rethrow; // Rethrow the exception with the message from ApiService
+      rethrow;
     }
   }
 
   Future<void> logout() async {
     try {
       if (_token != null) {
-        // Assuming your backend has a logout endpoint to invalidate token
         await _apiService.post('/user/logout');
         _logger.d('Server logout successful');
       }
@@ -204,7 +271,6 @@ class AuthService {
       _logger.e(
         'Server logout failed (might be network issue or token invalidation): $e',
       );
-      // No rethrow here, as logout should attempt to clear local data regardless of server response.
     } finally {
       await _clearToken();
       await _clearUser();
@@ -217,43 +283,41 @@ class AuthService {
       if (!isAuthenticated ||
           _currentUser == null ||
           _currentUser!.uuid.isEmpty) {
-        throw Exception(
-          'Not authenticated. No token or user found.',
-        ); // Throw generic Exception
+        throw Exception('Not authenticated. No token or user found.');
       }
 
-      final userId = _currentUser!.uuid; // <-- EXTRACING THE USER'S UUID HERE
-      print('AuthService: Attempting to fetch user profile for UUID: $userId');
+      final userId = _currentUser!.uuid;
+      _logger.d(
+        'AuthService: Attempting to fetch user profile for UUID: $userId',
+      );
 
       final response = await _apiService.get<Map<String, dynamic>>(
         '/user/$userId',
-      ); // Or /user/profile
-      // Assuming 'data' key contains the user object, or the response itself is the user object
+      );
       final userMap = response['data'] ?? response;
-      print('THIS IS THE user data $userMap');
+
+      _logger.d('AuthService: Received user data: $userMap');
+
       if (response['statusCode'] == 200 &&
           userMap != null &&
           userMap is Map<String, dynamic>) {
         final user = User.fromJson(userMap);
-        await saveUser(user); // Update local storage with fresh profile data
-        _logger.d('User profile fetched successfully');
+        await saveUser(user);
+        _logger.d('User profile fetched and saved successfully');
         return user;
       } else {
         final errorMessage =
             response['message'] as String? ??
             'Failed to fetch user profile: Invalid response structure.';
         _logger.w(errorMessage);
-        // Throw generic Exception, ApiService has already handled DioException.
         throw Exception(errorMessage);
       }
     } catch (e) {
       _logger.e('Failed to get user profile: $e');
-      // await logout(); // Invalidate local session if profile cannot be fetched (e.g., token expired)
-      rethrow; // Rethrow the exception with the message from ApiService
+      rethrow;
     }
   }
 
-  // Keeping these here as they are part of typical auth flows
   Future<void> sendOtp(String email, {String? type}) async {
     try {
       final data = {'email': email};
@@ -262,7 +326,7 @@ class AuthService {
       _logger.d('OTP sent successfully for email: $email');
     } catch (e) {
       _logger.e('Send OTP failed: $e');
-      rethrow; // Rethrow the exception with the message from ApiService
+      rethrow;
     }
   }
 
@@ -274,7 +338,7 @@ class AuthService {
       _logger.d('OTP verified successfully for email: $email');
     } catch (e) {
       _logger.e('Verify OTP failed: $e');
-      rethrow; // Rethrow the exception with the message from ApiService
+      rethrow;
     }
   }
 
@@ -284,7 +348,7 @@ class AuthService {
       _logger.d('Forgot password request sent successfully for email: $email');
     } catch (e) {
       _logger.e('Forgot password failed: $e');
-      rethrow; // Rethrow the exception with the message from ApiService
+      rethrow;
     }
   }
 
@@ -305,7 +369,7 @@ class AuthService {
       _logger.d('Password reset successfully for email: $email');
     } catch (e) {
       _logger.e('Reset password failed: $e');
-      rethrow; // Rethrow the exception with the message from ApiService
+      rethrow;
     }
   }
 }
