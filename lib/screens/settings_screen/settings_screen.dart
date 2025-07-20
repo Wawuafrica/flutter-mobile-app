@@ -50,6 +50,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final userType = userProvider.currentUser?.role?.toLowerCase();
     int role = 0;
 
+    if (userType == 'buyer') {
+      return;
+    }
+
     if (userType == 'artisan') {
       role = 3;
     } else if (userType == 'professional') {
