@@ -20,6 +20,7 @@ import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
 import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/widgets/upload_image/upload_image.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
@@ -1409,7 +1410,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   onPressed:
                       _isSavingProfile
                           ? null
-                          : () {
+                          : () async {
                             final userProvider = Provider.of<UserProvider>(
                               context,
                               listen: false,
@@ -1419,6 +1420,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                             if (!_isDirty) {
                               // Skip: Navigate to the next screen or back
                               if (role == 'buyer') {
+                                await OnboardingStateService.setComplete();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
