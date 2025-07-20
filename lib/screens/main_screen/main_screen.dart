@@ -47,6 +47,17 @@ class MainScreenState extends State<MainScreen> {
 
   void _fetchSubscriptionDetails() async {
     if (_hasCheckedSubscription) return;
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final currentUser = userProvider.currentUser;
+    final userType = currentUser?.role?.toLowerCase();
+
+    // Skip subscription check for BUYER role
+    if (userType == 'buyer') {
+      _hasCheckedSubscription = true;
+      return;
+    }
+
     final connectivityResult = await (Connectivity().checkConnectivity());
     if (connectivityResult == ConnectivityResult.none) {
       if (mounted) {
@@ -59,10 +70,8 @@ class MainScreenState extends State<MainScreen> {
       return;
     }
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    final userId = userProvider.currentUser?.uuid;
-    final userType = userProvider.currentUser?.role?.toLowerCase();
+    final userId = currentUser?.uuid;
     int role = 0;
 
     if (userType == 'artisan') {
