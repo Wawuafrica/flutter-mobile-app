@@ -99,9 +99,9 @@ class MainScreenState extends State<MainScreen> {
       } else if (planProvider.hasError) {
         // Handle network error - maybe show a retry option or let user continue
         // You could show a snackbar or dialog here
-        print(
-          'Network error fetching subscription: ${planProvider.errorMessage}',
-        );
+        // print(
+        //   'Network error fetching subscription: ${planProvider.errorMessage}',
+        // );
         if (mounted) {
           CustomSnackBar.show(
             context,
