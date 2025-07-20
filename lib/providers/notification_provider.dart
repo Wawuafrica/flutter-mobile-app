@@ -217,6 +217,7 @@ class NotificationProvider extends BaseProvider {
   }) async {
     if (isLoading && loadMore) return _notifications;
 
+    setLoading();
     if (!loadMore) {
       setLoading();
     }
