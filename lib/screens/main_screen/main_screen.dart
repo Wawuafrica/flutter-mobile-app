@@ -87,7 +87,8 @@ class MainScreenState extends State<MainScreen> {
       await planProvider.fetchUserSubscriptionDetails(userId, role);
 
       // Only redirect if there's no network error
-      if (mounted && !planProvider.hasError) {
+      if (mounted &&
+          planProvider.errorMessage == 'Success getting subscription details') {
         // Check if user has no subscription or subscription is inactive
         if (planProvider.subscription == null ||
             planProvider.subscription?.status?.toLowerCase() != 'active') {
