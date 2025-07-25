@@ -170,7 +170,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                 (context) => PaymentWebView(
                   paymentUrl: planProvider.paymentLink!.link,
                   redirectUrl:
-                      'https://production.wawuafrica.com/api/payment/callback', // Replace with your actual redirect URL
+                      'https://staging.wawuafrica.com/api/payment/callback', // Replace with your actual redirect URL
                 ),
           ),
         );

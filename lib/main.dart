@@ -103,7 +103,7 @@ void main() async {
     _logger.d('Main: Initializing ApiService...');
     await apiService.initialize(
       apiBaseUrl:
-          dotenv.env['API_BASE_URL'] ?? 'https://production.wawuafrica.com/api',
+          dotenv.env['API_BASE_URL'] ?? 'https://staging.wawuafrica.com/api',
       authService: authService,
     );
     _logger.i('Main: ApiService initialized.');
