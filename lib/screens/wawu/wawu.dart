@@ -106,12 +106,12 @@ class Wawu extends StatelessWidget {
             Expanded(
               flex: 5,
               child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => SignUpMerch()),
-                  );
-                },
+                // onTap: () {
+                //   Navigator.push(
+                //     context,
+                //     MaterialPageRoute(builder: (context) => SignUpMerch()),
+                //   );
+                // },
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -174,7 +174,7 @@ class Wawu extends StatelessWidget {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Looking and feeling good is empowering',
+                        'Coming Soon',
                         style: TextStyle(color: Colors.white, fontSize: 13),
                         textAlign: TextAlign.center,
                       ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
-import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
@@ -198,9 +197,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return (categoryProvider.hasError &&
             categoryProvider.categories.isEmpty &&
             !categoryProvider.isLoading) ||
-        (adProvider.hasError &&
-            adProvider.ads.isEmpty &&
-            !adProvider.isLoading) ||
+        // (adProvider.hasError &&
+        //     adProvider.ads.isEmpty &&
+        //     !adProvider.isLoading) ||
         (productProvider.hasError &&
             productProvider.featuredProducts.isEmpty &&
             !productProvider.isLoading) ||
@@ -475,9 +474,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer5<
+    return Consumer4<
       CategoryProvider,
-      UserProvider,
+      // UserProvider,
       ProductProvider,
       GigProvider,
       AdProvider
@@ -485,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (
         context,
         categoryProvider,
-        userProvider,
+        // userProvider,
         productProvider,
         gigProvider,
         adProvider,

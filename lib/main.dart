@@ -103,7 +103,7 @@ void main() async {
     _logger.d('Main: Initializing ApiService...');
     await apiService.initialize(
       apiBaseUrl:
-          dotenv.env['API_BASE_URL'] ?? 'https://staging.wawuafrica.com/api',
+          dotenv.env['API_BASE_URL'] ?? 'https://production.wawuafrica.com/api',
       authService: authService,
     );
     _logger.i('Main: ApiService initialized.');
@@ -293,7 +293,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         _logger.i(
           'MyApp: User not authenticated or missing UUID. Showing Wawu screen.',
         );
-        initialScreen = const Wawu();
+        initialScreen = const MainScreen();
       } else {
         final userRole = currentUser.role?.toUpperCase();
         final shouldShowOnboarding =
@@ -366,16 +366,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               'MyApp: User authenticated with role $userRole. Navigating to MainScreen.',
             );
             initialScreen = const MainScreen();
-          } else if (userRole == 'ECOMMERCE_USER') {
-            _logger.i(
-              'MyApp: User authenticated with role $userRole. Navigating to WawuMerchMain.',
-            );
-            initialScreen = const WawuMerchMain();
+          // } else if (userRole == 'ECOMMERCE_USER') {
+          //   _logger.i(
+          //     'MyApp: User authenticated with role $userRole. Navigating to WawuMerchMain.',
+          //   );
+          //   initialScreen = const WawuMerchMain();
           } else {
             _logger.i(
               'MyApp: User authenticated with role $userRole. Navigating to Wawu.',
             );
-            initialScreen = const Wawu();
+            initialScreen = const MainScreen();
           }
         }
       }
@@ -394,7 +394,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
       if (mounted) {
         setState(() {
-          _currentScreen = const Wawu();
+          _currentScreen = const MainScreen();
           _isInitialized = true;
         });
       }

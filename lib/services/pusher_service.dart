@@ -6,26 +6,34 @@ import 'package:http/http.dart' as http;
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:async';
+import 'package:flutter/foundation.dart'; // For compute()
 
 class PusherService {
   static final PusherService _instance = PusherService._internal();
   factory PusherService() => _instance;
   PusherService._internal();
 
-  final Logger _logger = Logger();
+  final Logger _logger = Logger(
+    printer: PrettyPrinter(
+      methodCount: 0,
+      errorMethodCount: 5,
+      lineLength: 50,
+      colors: true,
+      printEmojis: true,
+      printTime: false,
+    ),
+    filter: ProductionFilter(), // Only log errors in production
+  );
+  
   PusherChannelsFlutter? _pusher;
   final Map<String, bool> _subscribedChannels = {};
   final Map<String, Map<String, Function(PusherEvent)>> _eventBindings = {};
-  final Map<String, Map<String, Function(PusherEvent)>>
-  _persistentEventBindings = {};
   bool _isInitialized = false;
   String? _currentUserId;
   final StreamController<bool> _initStreamController =
       StreamController<bool>.broadcast();
-  Timer? _reconnectTimer;
   bool _isReconnecting = false;
 
-  // Pusher internal events that don't need custom handlers
   static const Set<String> _internalPusherEvents = {
     'pusher:subscription_succeeded',
     'pusher:subscription_error',
@@ -42,47 +50,41 @@ class PusherService {
   bool get isInitialized => _isInitialized;
   Stream<bool> get onInitialized => _initStreamController.stream;
 
-  // Parse event data to ensure it's a Map<String, dynamic>, handling nested JSON strings
-  Map<String, dynamic> _parseEventData(dynamic eventData) {
+  // Moved to top-level function for isolate compatibility
+  static Map<String, dynamic> _parseEventDataInIsolate(dynamic eventData) {
     try {
       if (eventData is String) {
         return jsonDecode(eventData) as Map<String, dynamic>;
       } else if (eventData is Map<String, dynamic>) {
-        // Handle nested JSON strings within the map
         return eventData.map((key, value) {
           if (value is String) {
             try {
-              // Attempt to decode nested JSON strings (e.g., eventData['user'])
               return MapEntry(key, jsonDecode(value));
             } catch (_) {
-              // If not a valid JSON string, keep the original value
               return MapEntry(key, value);
             }
           } else if (value is Map) {
-            // Recursively parse nested maps
-            return MapEntry(key, _parseEventData(value));
+            return MapEntry(key, _parseEventDataInIsolate(value));
           } else if (value is List) {
-            // Handle lists, parsing any nested maps
             return MapEntry(
               key,
               value
-                  .map((item) => item is Map ? _parseEventData(item) : item)
+                  .map((item) => item is Map ? _parseEventDataInIsolate(item) : item)
                   .toList(),
             );
           }
           return MapEntry(key, value);
         });
       } else if (eventData is Map) {
-        // Handle LinkedMap<Object?, Object?> by converting to Map<String, dynamic>
         return Map<String, dynamic>.from(
           eventData.map((key, value) {
             if (value is Map) {
-              return MapEntry(key.toString(), _parseEventData(value));
+              return MapEntry(key.toString(), _parseEventDataInIsolate(value));
             } else if (value is List) {
               return MapEntry(
                 key.toString(),
                 value
-                    .map((item) => item is Map ? _parseEventData(item) : item)
+                    .map((item) => item is Map ? _parseEventDataInIsolate(item) : item)
                     .toList(),
               );
             } else if (value is String) {
@@ -98,6 +100,18 @@ class PusherService {
       }
       throw Exception('Unexpected event data type: ${eventData.runtimeType}');
     } catch (e) {
+      throw Exception('Error parsing event data: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> _parseEventData(dynamic eventData) async {
+    try {
+      if (eventData is String && eventData.length > 1024) {
+        // Offload large JSON parsing to isolate
+        return await compute(_parseEventDataInIsolate, eventData);
+      }
+      return _parseEventDataInIsolate(eventData);
+    } catch (e) {
       _logger.e('PusherService: Error parsing event data: $e');
       rethrow;
     }
@@ -105,15 +119,15 @@ class PusherService {
 
   Future<void> initialize() async {
     if (_isInitialized) {
-      _logger.d('PusherService: Already initialized. Skipping initialization.');
+      _logger.d('PusherService: Already initialized');
       _initStreamController.add(true);
       return;
     }
 
-    _logger.i('PusherService: Attempting to initialize...');
+    _logger.i('PusherService: Initializing...');
 
     try {
-      await dotenv.load();
+      // Assume env is loaded before PusherService initialization
       final appKey = dotenv.env['PUSHER_APP_KEY'];
       final cluster = dotenv.env['PUSHER_CLUSTER'];
       final authEndpoint =
@@ -121,25 +135,14 @@ class PusherService {
           'https://your-backend.com/pusher/auth';
 
       if (appKey == null || appKey.isEmpty) {
-        throw Exception(
-          'PusherService: PUSHER_APP_KEY is not set in .env file',
-        );
+        throw Exception('PusherService: PUSHER_APP_KEY is not set');
       }
 
       if (cluster == null || cluster.isEmpty) {
         throw Exception('PusherService: Cluster not set in env');
       }
 
-      if (kIsWeb) {
-        _logger.d('PusherService: Running on Web platform');
-        await Future.delayed(const Duration(milliseconds: 1000));
-      } else {
-        _logger.d('PusherService: Running on ${Platform.operatingSystem}');
-      }
-
-      _logger.d(
-        'PusherService: Initializing with appKey: $appKey, cluster: $cluster',
-      );
+      _logger.d('Initializing with appKey: $appKey, cluster: $cluster');
 
       _pusher = PusherChannelsFlutter.getInstance();
 
@@ -152,287 +155,213 @@ class PusherService {
         onEvent: _onGlobalEvent,
         onSubscriptionSucceeded: _onSubscriptionSucceeded,
         onSubscriptionError: _onSubscriptionError,
-        onAuthorizer: (
-          String channelName,
-          String socketId,
-          dynamic options,
-        ) async {
-          _logger.d(
-            'PusherService: Authorizing channel $channelName with socketId $socketId',
-          );
-          try {
-            final response = await http.post(
-              Uri.parse(authEndpoint),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'socket_id': socketId,
-                'channel_name': channelName,
-              }),
-            );
-            if (response.statusCode == 200) {
-              return jsonDecode(response.body);
-            } else {
-              _logger.e(
-                'PusherService: Authorization failed for $channelName: ${response.body}',
-              );
-              throw Exception('Authorization failed: ${response.statusCode}');
-            }
-          } catch (e) {
-            _logger.e(
-              'PusherService: Authorization error for $channelName: $e',
-            );
-            rethrow;
-          }
-        },
+        onAuthorizer: _onAuthorizer,
       );
 
-      _logger.d(
-        'PusherService: Pusher init completed, attempting to connect...',
-      );
-
-      for (int attempt = 1; attempt <= 3; attempt++) {
-        try {
-          await _pusher!.connect();
-          _logger.i('PusherService: Connection successful');
-          break;
-        } catch (e) {
-          _logger.e('PusherService: Connection attempt $attempt failed: $e');
-          if (attempt == 3) {
-            throw Exception('Failed to connect to Pusher after 3 attempts');
-          }
-          await Future.delayed(Duration(milliseconds: 1000 * attempt));
-        }
-      }
+      await _connectWithRetry();
 
       _isInitialized = true;
       _initStreamController.add(true);
-      _logger.i('PusherService: Initialization successful and connected');
+      _logger.i('PusherService: Initialization successful');
 
-      _logger.d('PusherService: Subscribing to general channels...');
-      await Future.wait([
-        subscribeToChannel('ads'),
-        subscribeToChannel('posts'),
-        subscribeToChannel('gigs'),
-        subscribeToChannel('products'),
-        subscribeToChannel('notifications'),
-      ]);
-
+      // Subscribe to channels concurrently
+      await _subscribeToDefaultChannels();
+      
       if (_currentUserId != null) {
         await _subscribeToUserChannel(_currentUserId!);
       }
     } catch (e, stackTrace) {
-      _logger.e(
-        'PusherService: FATAL ERROR during initialization: $e\nStack trace: $stackTrace',
-      );
-      if (kIsWeb) {
-        _logger.e(
-          'PusherService: Web platform error - ensure Pusher JS library is included in index.html',
-        );
-      }
+      _logger.e('PusherService: Initialization failed: $e\n$stackTrace');
       _isInitialized = false;
       _initStreamController.add(false);
       rethrow;
     }
   }
 
+  void _onError(String message, int? code, dynamic e) {
+  _logger.e(
+    'PusherService Error - Message: $message, Code: $code, Exception: $e',
+  );
+  // You could add additional error handling logic here if needed
+  // For example, triggering a reconnection on certain error codes
+  if (code != null && code >= 4000) {
+    _logger.w('PusherService: Critical error detected, attempting to reconnect...');
+    if (!_isReconnecting && _pusher != null) {
+      _isReconnecting = true;
+      _pusher!.connect();
+    }
+  }
+}
+
+  Future<void> _connectWithRetry() async {
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await _pusher!.connect();
+        _logger.i('PusherService: Connection successful');
+        return;
+      } catch (e) {
+        _logger.e('Connection attempt $attempt failed: $e');
+        if (attempt == 3) throw Exception('Failed to connect after 3 attempts');
+        await Future.delayed(Duration(seconds: attempt));
+      }
+    }
+  }
+
+  Future<void> _subscribeToDefaultChannels() async {
+    _logger.d('PusherService: Subscribing to general channels...');
+    try {
+      await Future.wait([
+        'ads',
+        'posts',
+        'gigs',
+        'products',
+        'notifications',
+      ].map((channel) => subscribeToChannel(channel)));
+    } catch (e) {
+      _logger.e('Error subscribing to default channels: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> _onAuthorizer(
+    String channelName,
+    String socketId,
+    dynamic options,
+  ) async {
+    _logger.d('Authorizing channel $channelName with socketId $socketId');
+    try {
+      final authEndpoint = dotenv.env['PUSHER_AUTH_ENDPOINT'] ??
+          'https://your-backend.com/pusher/auth';
+      
+      final response = await http.post(
+        Uri.parse(authEndpoint),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'socket_id': socketId,
+          'channel_name': channelName,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        _logger.e('Authorization failed for $channelName: ${response.body}');
+        throw Exception('Authorization failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      _logger.e('Authorization error for $channelName: $e');
+      rethrow;
+    }
+  }
+
   void _onConnectionStateChange(dynamic currentState, dynamic previousState) {
-    _logger.i(
-      'PusherService: Connection state changed from $previousState to $currentState',
-    );
+    _logger.i('Connection state changed from $previousState to $currentState');
 
     if (currentState == 'CONNECTED') {
       _isInitialized = true;
       _initStreamController.add(true);
       _isReconnecting = false;
-      _reconnectTimer?.cancel();
-      _logger.i('PusherService: Connected. Resubscribing to channels...');
-      // Add delay to ensure connection is stable before resubscribing
-      Future.delayed(const Duration(milliseconds: 500), () {
-        resubscribeToChannels();
-      });
+      _logger.i('PusherService: Connected');
+      // Let Pusher handle automatic resubscription
     } else if (currentState == 'DISCONNECTED') {
       _isInitialized = false;
       _initStreamController.add(false);
-      _logger.w('PusherService: Disconnected. Channels inactive.');
-      _scheduleReconnect();
-    } else if (currentState == 'CONNECTING') {
-      _logger.d('PusherService: Connecting...');
+      _logger.w('PusherService: Disconnected');
     } else if (currentState == 'RECONNECTING') {
-      _logger.i('PusherService: Reconnecting...');
       _isReconnecting = true;
+      _logger.i('PusherService: Reconnecting...');
     }
   }
 
-  void _scheduleReconnect() {
-    if (_isReconnecting) return;
-
-    _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 5), () async {
-      if (!_isInitialized && _pusher != null) {
-        _logger.i('PusherService: Attempting automatic reconnection...');
-        try {
-          await _pusher!.connect();
-        } catch (e) {
-          _logger.e('PusherService: Automatic reconnection failed: $e');
-          _scheduleReconnect(); // Schedule another attempt
-        }
-      }
-    });
-  }
-
-  void _onError(String message, int? code, dynamic e) {
-    _logger.e(
-      'PusherService: Error - Message: $message, Code: $code, Exception: $e',
-    );
-  }
-
-  void _onGlobalEvent(PusherEvent event) {
-    // Skip logging and handler lookup for internal Pusher events
+  Future<void> _onGlobalEvent(PusherEvent event) async {
     if (_internalPusherEvents.contains(event.eventName)) {
-      _logger.d(
-        'PusherService: Received internal event "${event.eventName}" on channel "${event.channelName}"',
-      );
+      _logger.d('Received internal event "${event.eventName}"');
       return;
     }
 
-    _logger.i(
-      'PusherService: Received event "${event.eventName}" on channel "${event.channelName}". Raw data: ${event.data}',
-    );
+    _logger.i('Received event "${event.eventName}" on "${event.channelName}"');
 
-    // Check both current and persistent event bindings
-    Map<String, Function(PusherEvent)>? channelBindings =
-        _eventBindings[event.channelName] ??
-        _persistentEventBindings[event.channelName];
-
-    if (channelBindings != null &&
-        channelBindings.containsKey(event.eventName)) {
+    final channelBindings = _eventBindings[event.channelName];
+    if (channelBindings != null && channelBindings.containsKey(event.eventName)) {
       try {
-        // Parse the event data before dispatching
-        final parsedData = _parseEventData(event.data);
-        // Create a new PusherEvent with parsed data
+        final parsedData = await _parseEventData(event.data);
         final modifiedEvent = PusherEvent(
           channelName: event.channelName,
           eventName: event.eventName,
           data: parsedData,
         );
-        _logger.d(
-          'PusherService: Dispatching to handler for ${event.eventName}',
-        );
         channelBindings[event.eventName]!(modifiedEvent);
       } catch (e) {
-        _logger.e(
-          'PusherService: Error parsing event data for ${event.eventName} on ${event.channelName}: $e',
-        );
+        _logger.e('Error processing ${event.eventName}: $e');
       }
     } else {
-      _logger.w(
-        'PusherService: No handler found for ${event.eventName} on ${event.channelName}',
-      );
+      _logger.w('No handler for ${event.eventName} on ${event.channelName}');
     }
   }
 
   void _onSubscriptionSucceeded(String channelName, dynamic data) {
-    _logger.i(
-      'PusherService: Successfully subscribed to channel: $channelName',
-    );
+    _logger.i('Subscribed to channel: $channelName');
     _subscribedChannels[channelName] = true;
   }
 
   void _onSubscriptionError(String message, dynamic e) {
-    _logger.e(
-      'PusherService: Subscription error - Message: $message, Exception: $e',
-    );
+    _logger.e('Subscription error: $message, Exception: $e');
   }
 
   Future<void> _subscribeToUserChannel(String userId) async {
     final userChannelName = 'user.profile.$userId';
     await subscribeToChannel(userChannelName);
     _bindUserProfileEvents(userChannelName);
-    _logger.d('PusherService: Subscribed to user channel: $userChannelName');
   }
 
   void _bindUserProfileEvents(String userChannelName) {
-    _logger.d(
-      'PusherService: Binding user.profile.updated event for channel: $userChannelName',
-    );
-    bindToEvent(userChannelName, 'user.profile.updated', (event) {
+    bindToEvent(userChannelName, 'user.profile.updated', (event) async {
       try {
-        final eventData = _parseEventData(event.data);
-        _logger.i(
-          'PusherService: Received user.profile.updated event: $eventData',
-        );
+        final eventData = await _parseEventData(event.data);
+        _logger.i('Received user.profile.updated: $eventData');
       } catch (e, stackTrace) {
-        _logger.e(
-          'PusherService: Error processing user.profile.updated event: $e\nStack trace: $stackTrace',
-        );
+        _logger.e('Error processing user.profile.updated: $e\n$stackTrace');
       }
     });
   }
 
   Future<void> subscribeToUserChannels(String userId) async {
     if (!_isInitialized || _pusher == null) {
-      _logger.w(
-        'PusherService: Not initialized. Cannot subscribe to user channels for user: $userId.',
-      );
+      _logger.w('Not initialized. Cannot subscribe to user channels');
       return;
     }
     _currentUserId = userId;
-    _logger.i(
-      'PusherService: Subscribing to user-specific channels for user ID: $userId',
-    );
     await _subscribeToUserChannel(userId);
   }
 
   Future<void> unsubscribeFromUserChannels() async {
-    if (!_isInitialized || _pusher == null || _currentUserId == null) {
-      _logger.w(
-        'PusherService: Not initialized or no user channel subscribed. Cannot unsubscribe.',
-      );
-      return;
-    }
+    if (_currentUserId == null) return;
     final userChannelName = 'user.profile.$_currentUserId';
     await unsubscribeFromChannel(userChannelName);
     _currentUserId = null;
-    _logger.d(
-      'PusherService: Unsubscribed from user channels and cleared user ID.',
-    );
   }
 
   Future<bool> subscribeToChannel(String channelName) async {
     if (!_isInitialized || _pusher == null) {
-      _logger.e(
-        'PusherService: Not initialized. Cannot subscribe to channel: $channelName',
-      );
+      _logger.e('Not initialized. Cannot subscribe to $channelName');
       return false;
+    }
+
+    if (_subscribedChannels[channelName] == true) {
+      _logger.d('Already subscribed to $channelName');
+      return true;
     }
 
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
-        if (_subscribedChannels.containsKey(channelName) &&
-            _subscribedChannels[channelName] == true) {
-          _logger.d(
-            'PusherService: Already subscribed to channel: $channelName.',
-          );
-          return true;
-        }
-
         await _pusher!.subscribe(channelName: channelName);
-        _logger.i(
-          'PusherService: Subscription request sent for channel: $channelName',
-        );
-
-        // Wait a bit for subscription to be confirmed
-        await Future.delayed(const Duration(milliseconds: 100));
         return true;
       } catch (e) {
-        _logger.e(
-          'PusherService: Attempt $attempt failed for channel $channelName: $e',
-        );
+        _logger.e('Subscription attempt $attempt failed: $e');
         if (attempt == 3) {
           _subscribedChannels[channelName] = false;
           return false;
         }
-        await Future.delayed(Duration(milliseconds: 1000 * attempt));
+        await Future.delayed(Duration(seconds: attempt));
       }
     }
     return false;
@@ -443,106 +372,53 @@ class PusherService {
     String eventName,
     void Function(PusherEvent) onEvent,
   ) {
-    if (!_eventBindings.containsKey(channelName)) {
-      _eventBindings[channelName] = {};
-    }
-    if (!_persistentEventBindings.containsKey(channelName)) {
-      _persistentEventBindings[channelName] = {};
-    }
-
-    _eventBindings[channelName]![eventName] = onEvent;
-    _persistentEventBindings[channelName]![eventName] = onEvent;
-
-    _logger.i(
-      'PusherService: Bound to event "$eventName" on channel "$channelName"',
-    );
+    _eventBindings.putIfAbsent(channelName, () => {})[eventName] = onEvent;
+    _logger.i('Bound to $eventName on $channelName');
   }
 
   Future<void> unsubscribeFromChannel(String channelName) async {
     if (!_isInitialized || _pusher == null) {
-      _logger.w(
-        'PusherService: Not initialized. Cannot unsubscribe from channel: $channelName',
-      );
+      _logger.w('Not initialized. Cannot unsubscribe from $channelName');
       return;
     }
 
-    if (_subscribedChannels.containsKey(channelName) &&
-        _subscribedChannels[channelName] == true) {
+    if (_subscribedChannels[channelName] == true) {
       try {
         await _pusher!.unsubscribe(channelName: channelName);
         _subscribedChannels.remove(channelName);
         _eventBindings.remove(channelName);
-        _persistentEventBindings.remove(channelName);
-        _logger.i('PusherService: Unsubscribed from channel: $channelName');
+        _logger.i('Unsubscribed from $channelName');
       } catch (e) {
-        _logger.e(
-          'PusherService: Error unsubscribing from channel $channelName: $e',
-        );
+        _logger.e('Error unsubscribing from $channelName: $e');
       }
-    } else {
-      _logger.d(
-        'PusherService: Channel $channelName not found in active subscriptions.',
-      );
     }
   }
 
   Future<void> disconnect() async {
     _logger.i('PusherService: Disconnecting...');
-    _reconnectTimer?.cancel();
     _subscribedChannels.clear();
     _eventBindings.clear();
-    _persistentEventBindings.clear();
     if (_pusher != null) {
       await _pusher!.disconnect();
     }
     _isInitialized = false;
     _currentUserId = null;
     _initStreamController.add(false);
-    _logger.d('PusherService: Disconnected and state reset.');
   }
 
   Future<void> resubscribeToChannels() async {
-    if (!_isInitialized || _pusher == null) {
-      _logger.w('PusherService: Not initialized. Cannot resubscribe.');
-      return;
-    }
+    if (!_isInitialized || _pusher == null) return;
 
-    _logger.i('PusherService: Resubscribing to channels...');
+    _logger.i('Resubscribing to channels...');
+    final channelsToResubscribe = _subscribedChannels.keys.toList();
+    
+    await Future.wait(channelsToResubscribe.map((channel) => 
+      subscribeToChannel(channel)
+    ));
 
-    // Get channels that were previously subscribed
-    final channelsToResubscribe =
-        _subscribedChannels.keys
-            .where((channel) => _subscribedChannels[channel] == true)
-            .toList();
-
-    // Clear current subscription status but keep persistent bindings
-    _subscribedChannels.clear();
-    _eventBindings.clear();
-
-    // Resubscribe to all channels
-    for (final channelName in channelsToResubscribe) {
-      _logger.d('PusherService: Resubscribing to channel: $channelName');
-      await subscribeToChannel(channelName);
-
-      // Restore event bindings from persistent storage
-      if (_persistentEventBindings.containsKey(channelName)) {
-        _eventBindings[channelName] = Map.from(
-          _persistentEventBindings[channelName]!,
-        );
-        _logger.d(
-          'PusherService: Restored ${_eventBindings[channelName]!.length} event bindings for $channelName',
-        );
-      }
-    }
-
-    // Resubscribe to user channel if needed
     if (_currentUserId != null) {
       await _subscribeToUserChannel(_currentUserId!);
     }
-
-    _logger.i(
-      'PusherService: Resubscription completed for ${channelsToResubscribe.length} channels.',
-    );
   }
 
   Future<Channel?> subscribeToChannelCompat(String channelName) async {
@@ -551,7 +427,6 @@ class PusherService {
   }
 
   void dispose() {
-    _reconnectTimer?.cancel();
     _initStreamController.close();
   }
 }

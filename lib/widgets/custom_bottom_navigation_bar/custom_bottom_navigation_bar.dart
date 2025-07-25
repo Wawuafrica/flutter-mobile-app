@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
@@ -24,26 +25,34 @@ class CustomBottomNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 90,
-      padding: EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: const Color.fromARGB(31, 98, 98, 98),
-            blurRadius: 10,
-            offset: Offset(0, -2),
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: 7.0,
+          sigmaY: 7.0
+        ),
+        child: Container(
+          height: 90,
+          padding: EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.3),
+            boxShadow: [
+              BoxShadow(
+                color: const Color.fromARGB(31, 98, 98, 98),
+                blurRadius: 10,
+                offset: Offset(0, -2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        // Iterate through the provided items to build the navigation
-        children: List.generate(items.length, (index) {
-          final item = items[index];
-          return _buildNavItem(index, item.iconPath, item.label);
-        }),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            // Iterate through the provided items to build the navigation
+            children: List.generate(items.length, (index) {
+              final item = items[index];
+              return _buildNavItem(index, item.iconPath, item.label);
+            }),
+          ),
+        ),
       ),
     );
   }

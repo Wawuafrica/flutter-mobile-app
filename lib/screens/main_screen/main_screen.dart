@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -14,8 +16,126 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
 import 'package:wawu_mobile/widgets/blocked_account_overlay.dart';
+import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+
+// Define the AuthModalScreen as a separate widget for the modal
+class AuthModalScreen extends StatelessWidget {
+  const AuthModalScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return  BackdropFilter(
+      filter: ImageFilter.blur(
+        sigmaX: 7.0,
+        sigmaY: 7.0
+      ),
+      child: SizedBox(
+    height: 400,
+    child: Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 20),
+            const Text(
+              'Sign In Required',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+              child: Text(
+                'Please sign in or sign up to access this feature.',
+                style: TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: [
+                  CustomButton(
+                    color: wawuColors.primary,
+                    function: () {
+                      Navigator.of(context).pop();
+                      Navigator.pushNamed(context, '/signin');
+                    },
+                    widget: const Text('Sign In', style: TextStyle(color: Colors.white),),
+                  ),
+                  const SizedBox(height: 10),
+                  CustomButton(
+                    color: wawuColors.white,
+                    border: Border.all(color: wawuColors.primary),
+                    function: () {
+                      Navigator.of(context).pop();
+                      Navigator.pushNamed(context, '/signin');
+                    },
+                    widget: const Text('Sign Up', style: TextStyle(color: Colors.black),),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    ),
+        )
+      );}
+}
+
+// Custom route to apply background scaling
+class CustomModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
+  CustomModalBottomSheetRoute({
+    required super.builder,
+    required super.backgroundColor,
+    required barrierColor,
+    super.barrierLabel,
+    super.elevation,
+    super.shape,
+    super.clipBehavior,
+    super.isDismissible,
+    super.modalBarrierColor,
+    super.enableDrag,
+    super.settings,
+    super.transitionAnimationController, required super.isScrollControlled,
+  });
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    // Scale down the background screen
+    final scale = 0.95 + (0.05 * (1 - animation.value)); // Scale from 1.0 to 0.95
+    final opacity = 0.4 + (0.6 * animation.value); // Fade modal in
+    return Transform.scale(
+      scale: scale,
+      child: Opacity(
+        opacity: opacity,
+        child: child,
+      ),
+    );
+  }
+}
 
 class MainScreen extends StatefulWidget {
   final bool isAdmin;
@@ -52,8 +172,8 @@ class MainScreenState extends State<MainScreen> {
     final currentUser = userProvider.currentUser;
     final userType = currentUser?.role?.toLowerCase();
 
-    // Skip subscription check for BUYER role
-    if (userType == 'buyer') {
+    // Skip subscription check for BUYER role or unauthenticated users
+    if (userType == 'buyer' || currentUser == null) {
       _hasCheckedSubscription = true;
       return;
     }
@@ -86,28 +206,19 @@ class MainScreenState extends State<MainScreen> {
       _hasCheckedSubscription = true;
       await planProvider.fetchUserSubscriptionDetails(userId, role);
 
-      // Only redirect if there's no network error
       if (mounted &&
           planProvider.errorMessage == 'Success getting subscription details') {
-        // Check if user has no subscription or subscription is inactive
         if (planProvider.subscription == null ||
             planProvider.subscription?.status?.toLowerCase() != 'active') {
-          // Navigate to Plan screen
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const Plan()),
           );
         }
       } else if (planProvider.hasError) {
-        // Handle network error - maybe show a retry option or let user continue
-        // You could show a snackbar or dialog here
-        // print(
-        //   'Network error fetching subscription: ${planProvider.errorMessage}',
-        // );
         if (mounted) {
           CustomSnackBar.show(
             context,
-            message:
-                'Error fetching subscription: ${planProvider.errorMessage}',
+            message: 'Error fetching subscription: ${planProvider.errorMessage}',
             isError: true,
             actionLabel: 'Retry',
             onActionPressed: () async {
@@ -115,7 +226,6 @@ class MainScreenState extends State<MainScreen> {
             },
           );
         }
-        // Optionally reset the check flag to allow retry
         _hasCheckedSubscription = false;
       }
     }
@@ -130,7 +240,6 @@ class MainScreenState extends State<MainScreen> {
     final currentUser = userProvider.currentUser;
     final isBuyer = currentUser?.role?.toUpperCase() == 'BUYER';
 
-    // Only fetch notifications once during initialization
     if (!_hasInitializedNotifications && currentUser != null) {
       _hasInitializedNotifications = true;
       await notificationsProvider.fetchNotifications(currentUser.uuid);
@@ -139,7 +248,7 @@ class MainScreenState extends State<MainScreen> {
     setState(() {
       _screens = [
         const HomeScreen(),
-        BlogScreen(),
+        const BlogScreen(),
         const MessagesScreen(),
         if (!isBuyer) const GigsScreen(),
         const SettingsScreen(),
@@ -173,38 +282,35 @@ class MainScreenState extends State<MainScreen> {
         width: 40,
         height: 40,
         fit: BoxFit.cover,
-        placeholder:
-            (context, url) => Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[200],
-              ),
-              child: const Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
+        placeholder: (context, url) => Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.grey[200],
+          ),
+          child: const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
             ),
-        errorWidget:
-            (context, url, error) => Image.asset(
-              'assets/images/other/avatar.webp',
-              width: 40,
-              height: 40,
-              fit: BoxFit.cover,
-            ),
-        imageBuilder:
-            (context, imageProvider) => Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-              ),
-            ),
+          ),
+        ),
+        errorWidget: (context, url, error) => Image.asset(
+          'assets/images/other/avatar.webp',
+          width: 40,
+          height: 40,
+          fit: BoxFit.cover,
+        ),
+        imageBuilder: (context, imageProvider) => Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+          ),
+        ),
       );
     } else {
       return Container(
@@ -228,14 +334,17 @@ class MainScreenState extends State<MainScreen> {
 
     final List<Widget> titles = [
       Row(
-        spacing: 10.0,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           _buildProfileImage(userProvider.currentUser?.profileImage),
+          const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Hello ${userProvider.currentUser?.firstName}",
+                userProvider.currentUser != null
+                    ? "Hello ${userProvider.currentUser?.firstName}"
+                    : "Hello Guest",
                 style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
@@ -274,7 +383,7 @@ class MainScreenState extends State<MainScreen> {
     actualTitles.add(titles[0]); // Home
     actualTitles.add(titles[1]); // Blog
     actualTitles.add(titles[2]); // Messages
-    if (!isBuyer) {
+    if (!isBuyer && currentUser != null) {
       actualTitles.add(titles[3]); // Gigs
     }
     actualTitles.add(titles[4]); // Settings
@@ -283,19 +392,42 @@ class MainScreenState extends State<MainScreen> {
   }
 
   void _onItemTapped(int index) {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final currentUser = userProvider.currentUser;
+
+    // Allow Home (0) and Blog (1) for unauthenticated users
+    if (currentUser == null && index != 0 && index != 1) {
+      _showAuthModal();
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  void _showAuthModal() {
+    Navigator.of(context).push(
+      CustomModalBottomSheetRoute(
+        builder: (context) => const AuthModalScreen(),
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withOpacity(0.4),
+        isDismissible: true,
+        enableDrag: false,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), 
+        isScrollControlled: true,
+      ),
+    );
   }
 
   List<Widget> _getAppBarActions() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUser = userProvider.currentUser;
 
-    if (currentUser?.role?.toUpperCase() == 'BUYER') {
+    if (currentUser != null) {
       return [_buildNotificationsButton()];
     } else {
-      return [_buildNotificationsButton()];
+      return [];
     }
   }
 
@@ -312,31 +444,30 @@ class MainScreenState extends State<MainScreen> {
               horizontal: 15.0,
               vertical: 15.0,
             ),
-            child:
-                _isSearchOpen
-                    ? TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: "Search...",
-                        hintStyle: const TextStyle(fontSize: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        filled: true,
-                        fillColor: wawuColors.primary.withAlpha(30),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(
-                            color: wawuColors.primary.withAlpha(60),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: wawuColors.primary),
+            child: _isSearchOpen
+                ? TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "Search...",
+                      hintStyle: const TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: wawuColors.primary.withAlpha(30),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: wawuColors.primary.withAlpha(60),
                         ),
                       ),
-                    )
-                    : null,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: wawuColors.primary),
+                      ),
+                    ),
+                  )
+                : null,
           ),
         ),
       ),
@@ -367,12 +498,16 @@ class MainScreenState extends State<MainScreen> {
                   color: Colors.white,
                 ),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const Notifications(),
-                    ),
-                  );
+                  if (userProvider.currentUser == null) {
+                    _showAuthModal();
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const Notifications(),
+                      ),
+                    );
+                  }
                 },
               ),
               if (hasUnread)
