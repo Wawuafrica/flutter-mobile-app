@@ -284,14 +284,7 @@ class GigCard extends StatelessWidget {
   Widget _buildPlaceholderImage() {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.grey[300]!,
-            Colors.grey[400]!,
-          ],
-        ),
+        color: wawuColors.primary.withValues(alpha: 0.2)
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
