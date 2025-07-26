@@ -260,24 +260,27 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
           );
         }
 
-        // Show content with pull-to-refresh
+        // Show content with pull-to-refresh using GridView.builder
         return RefreshIndicator(
           onRefresh: _onRefresh,
           color: wawuColors.primary,
           child: Stack(
             children: [
-              ListView.builder(
+              GridView.builder( // Changed from ListView.builder to GridView.builder
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 20.0,
-                  vertical: 20.0,
+                  horizontal: 16.0, // Adjusted padding to match search screen
+                  vertical: 16.0,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, // Two items per row
+                  crossAxisSpacing: 5.0, // Spacing between columns
+                  mainAxisSpacing: 5.0, // Spacing between rows
+                  childAspectRatio: 0.75, // Adjust as needed to fit the GigCard
                 ),
                 itemCount: gigs.length,
                 itemBuilder: (context, index) {
                   final gig = gigs[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12.0),
-                    child: GigCard(gig: gig),
-                  );
+                  return GigCard(gig: gig); // No extra Padding widget needed here
                 },
               ),
               if (_isRefreshing)
