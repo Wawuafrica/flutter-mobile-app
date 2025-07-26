@@ -363,7 +363,7 @@ class AuthService {
         data: {
           'email': email,
           'password': newPassword,
-          'password_confirmation': confirmPassword,
+          'passwordConfirmation': confirmPassword,
         },
       );
       _logger.d('Password reset successfully for email: $email');

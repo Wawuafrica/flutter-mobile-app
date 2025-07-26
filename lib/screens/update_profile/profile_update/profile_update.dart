@@ -79,7 +79,7 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
   // --- IMPORTANT DEBUGGING FLAG ---
   // Set this to `true` to force Web behavior (e.g., when debugging web on a mobile build).
   // Set this to `false` to force Mobile behavior (e.g., when debugging mobile on a web build).
-  // REMEMBER TO CHANGE THIS TO `kIsWeb` BEFORE DEPLOYING TO PRODUCTION.
+  // REMEMBER TO CHANGE THIS TO `kIsWeb` BEFORE DEPLOYING TO production.
   final bool _forceIsWeb =
       kIsWeb; // Default to kIsWeb, change to true/false for debugging
 

@@ -30,8 +30,8 @@ class ApiService {
     'API_BASE_URL',
     defaultValue:
         kIsWeb
-            ? 'https://cors-anywhere.herokuapp.com/https://staging.wawuafrica.com/api'
-            : 'https://staging.wawuafrica.com/api',
+            ? 'https://cors-anywhere.herokuapp.com/https://production.wawuafrica.com/api'
+            : 'https://production.wawuafrica.com/api',
   );
 
   // Auth service for token management
