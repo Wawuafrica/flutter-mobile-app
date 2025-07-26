@@ -37,6 +37,10 @@ class GigProvider extends BaseProvider {
   List<Gig> _suggestedGigs = [];
   bool _isSuggestedGigsLoading = false;
 
+  // New field for search results
+  List<Gig> _searchResults = [];
+  bool _isSearching = false;
+
   List<Gig> get recentlyViewedGigs => List.unmodifiable(_recentlyViewedGigs);
   bool get isRecentlyViewedLoading => _isRecentlyViewedLoading;
 
@@ -48,6 +52,10 @@ class GigProvider extends BaseProvider {
   // New getter for suggested gigs
   List<Gig> get suggestedGigs => List.unmodifiable(_suggestedGigs);
   bool get isSuggestedGigsLoading => _isSuggestedGigsLoading;
+
+  // New getters for search results
+  List<Gig> get searchResults => List.unmodifiable(_searchResults);
+  bool get isSearching => _isSearching;
 
   GigProvider({
     ApiService? apiService,
@@ -62,7 +70,7 @@ class GigProvider extends BaseProvider {
     // fetchSuggestedGigs();
   }
 
-  void _safeNotifyListeners() {
+  void safeNotifyListeners() {
     if (_isDisposed) return;
     notifyListeners();
   }
@@ -73,14 +81,14 @@ class GigProvider extends BaseProvider {
     if (_isDisposed) return;
     if (_userProvider.currentUser == null) {
       _recentlyViewedGigs.clear();
-      _safeNotifyListeners();
+      safeNotifyListeners();
       debugPrint('[RecentlyViewed] User not logged in, clearing local recently viewed gigs.');
       return;
     }
 
     debugPrint('[RecentlyViewed] _loadRecentlyViewedGigs called from local storage.');
     _isRecentlyViewedLoading = true;
-    _safeNotifyListeners();
+    safeNotifyListeners();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -137,7 +145,7 @@ class GigProvider extends BaseProvider {
     } finally {
       if (!_isDisposed) {
         _isRecentlyViewedLoading = false;
-        _safeNotifyListeners();
+        safeNotifyListeners();
       }
     }
   }
@@ -221,13 +229,13 @@ class GigProvider extends BaseProvider {
       debugPrint('[RecentlyViewed] Not fetching recently viewed gigs from API: User not logged in.');
       _recentlyViewedGigs.clear();
       _isRecentlyViewedLoading = false;
-      _safeNotifyListeners();
+      safeNotifyListeners();
       return;
     }
 
     debugPrint('[RecentlyViewed] fetchRecentlyViewedGigs called (from API).');
     _isRecentlyViewedLoading = true;
-    _safeNotifyListeners();
+    safeNotifyListeners();
 
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
@@ -276,7 +284,7 @@ class GigProvider extends BaseProvider {
     } finally {
       if (!_isDisposed) {
         _isRecentlyViewedLoading = false;
-        _safeNotifyListeners();
+        safeNotifyListeners();
       }
     }
   }
@@ -332,7 +340,7 @@ class GigProvider extends BaseProvider {
         debugPrint('[RecentlyViewed][ERROR] Failed to save locally: $error');
       });
 
-      _safeNotifyListeners();
+      safeNotifyListeners();
       debugPrint('[RecentlyViewed] Successfully added gig (local & API call initiated)');
     } catch (e, stackTrace) {
       debugPrint(
@@ -357,7 +365,7 @@ class GigProvider extends BaseProvider {
       );
     }
 
-    _safeNotifyListeners();
+    safeNotifyListeners();
   }
 
   Future<void> clearUserData() async {
@@ -366,6 +374,7 @@ class GigProvider extends BaseProvider {
     _gigsByStatus.forEach((key, _) => _gigsByStatus[key] = []);
     _selectedGig = null;
     _suggestedGigs = [];
+    _searchResults = []; // Clear search results on user data clear
 
     await clearRecentlyViewedGigs(); // This already handles local storage
 
@@ -382,8 +391,9 @@ class GigProvider extends BaseProvider {
     resetState();
     _isRecentlyViewedLoading = false;
     _isSuggestedGigsLoading = false;
+    _isSearching = false; // Reset search loading state
 
-    _safeNotifyListeners();
+    safeNotifyListeners();
     debugPrint('[GigProvider] User data cleared successfully');
   }
 
@@ -476,7 +486,7 @@ class GigProvider extends BaseProvider {
     if (_isDisposed) return;
 
     _isSuggestedGigsLoading = true;
-    _safeNotifyListeners();
+    safeNotifyListeners();
 
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
@@ -508,9 +518,64 @@ class GigProvider extends BaseProvider {
     } finally {
       if (!_isDisposed) {
         _isSuggestedGigsLoading = false;
-        _safeNotifyListeners();
+        safeNotifyListeners();
       }
     }
+  }
+
+  Future<List<Gig>> searchGigs(String keyword, {bool paginate = false, int pageNumber = 1}) async {
+    if (_isDisposed) return [];
+
+    if (keyword.length < 2) {
+      _searchResults = [];
+      _isSearching = false;
+      safeNotifyListeners();
+      return [];
+    }
+
+    _isSearching = true;
+    safeNotifyListeners();
+
+    try {
+      final Map<String, dynamic> queryParameters = {
+        'keyword': keyword,
+        'paginate': paginate,
+        'pageNumber': pageNumber,
+      };
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/gigs/search',
+        queryParameters: queryParameters,
+      );
+
+      if (_isDisposed) return [];
+
+      if (response['statusCode'] == 200 && response['data'] is List) {
+        final List<dynamic> gigsJson = response['data'] as List<dynamic>;
+        _searchResults = gigsJson
+            .map((json) => Gig.fromJson(json as Map<String, dynamic>))
+            .toList();
+        debugPrint(
+          '[GigProvider] Successfully fetched ${_searchResults.length} search results for keyword: $keyword',
+        );
+        setSuccess();
+      } else {
+        final errorMessage =
+            response['message'] as String? ?? 'Failed to fetch search results.';
+        setError(errorMessage);
+        _searchResults = [];
+      }
+    } catch (e) {
+      debugPrint('[GigProvider] Error searching gigs: $e');
+      setError(e.toString());
+      _searchResults = [];
+    } finally {
+      if (!_isDisposed) {
+        _isSearching = false;
+        safeNotifyListeners();
+      }
+    }
+    return _searchResults;
   }
 
   Future<Gig?> createGig(FormData payload) async {
@@ -530,7 +595,7 @@ class GigProvider extends BaseProvider {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         _gigsByStatus['all']!.insert(0, gig);
         _gigsByStatus['PENDING']!.insert(0, gig);
-        _safeNotifyListeners();
+        safeNotifyListeners();
         setSuccess();
         return gig;
       }
@@ -948,7 +1013,7 @@ class GigProvider extends BaseProvider {
       _selectedGig = updatedGig;
     }
 
-    _safeNotifyListeners();
+    safeNotifyListeners();
   }
 
   void _addReviewToGig(String gigUuid, Review newReview) {
@@ -1006,7 +1071,7 @@ class GigProvider extends BaseProvider {
       );
     }
 
-    _safeNotifyListeners();
+    safeNotifyListeners();
   }
 
   void unsubscribeFromSpecificGigChannel(String gigUuid) {

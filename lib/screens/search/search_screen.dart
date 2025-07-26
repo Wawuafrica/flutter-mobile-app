@@ -1,6 +1,9 @@
 // screens/search/search_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart'; // Assuming wawuColors is defined here
+import 'package:wawu_mobile/widgets/gig_card/gig_card.dart'; // Import the GigCard widget
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -11,7 +14,6 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  List<String> _searchResults = []; // Dummy list for search results
 
   @override
   void dispose() {
@@ -20,32 +22,13 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _performSearch(String query) {
-    // In a real application, you would call a provider or API to fetch results.
-    // For this example, we'll simulate some results.
-    setState(() {
-      if (query.isEmpty) {
-        _searchResults = [];
-      } else {
-        _searchResults =
-            [
-                  'Graphic Design gig for "$query"',
-                  'Web Development services with "$query"',
-                  'Content writing related to "$query"',
-                  'Video editing for "$query" projects',
-                  'Marketing strategies for "$query" businesses',
-                  'UI/UX design for "$query" apps',
-                  'Mobile app development for "$query" platforms',
-                  'Photography services for "$query" events',
-                  'Social media management for "$query" brands',
-                  'Data entry and analysis for "$query" reports',
-                ]
-                .where(
-                  (result) =>
-                      result.toLowerCase().contains(query.toLowerCase()),
-                )
-                .toList();
-      }
-    });
+    if (query.isNotEmpty) {
+      Provider.of<GigProvider>(context, listen: false).searchGigs(query);
+    } else {
+      // Clear search results if query is empty
+      Provider.of<GigProvider>(context, listen: false).searchResults.clear();
+      Provider.of<GigProvider>(context, listen: false).safeNotifyListeners(); // Notify to clear results
+    }
   }
 
   @override
@@ -77,16 +60,15 @@ class _SearchScreenState extends State<SearchScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search for gigs...',
                   prefixIcon: const Icon(Icons.search),
-                  suffixIcon:
-                      _searchController.text.isNotEmpty
-                          ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              _performSearch('');
-                            },
-                          )
-                          : null,
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            _performSearch(''); // Clear search results
+                          },
+                        )
+                      : null,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(
                       10.0,
@@ -114,10 +96,9 @@ class _SearchScreenState extends State<SearchScreen> {
                       10.0,
                     ), // Less border radius
                     borderSide: BorderSide(
-                      color:
-                          Theme.of(
-                            context,
-                          ).primaryColor, // Focused border color
+                      color: Theme.of(
+                        context,
+                      ).primaryColor, // Focused border color
                       width: 2.0,
                     ),
                   ),
@@ -132,69 +113,61 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body:
-          _searchResults.isEmpty && _searchController.text.isEmpty
-              ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.search, size: 60, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text(
-                      'Start typing to search for gigs!',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              )
-              : _searchResults.isEmpty && _searchController.text.isNotEmpty
-              ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.sentiment_dissatisfied,
-                      size: 60,
-                      color: Colors.grey,
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      'No gigs found for your search.',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              )
-              : ListView.builder(
-                padding: const EdgeInsets.all(16.0),
-                itemCount: _searchResults.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: ListTile(
-                      leading: const Icon(
-                        Icons.work_outline,
-                        color: wawuColors.primary,
-                      ),
-                      title: Text(_searchResults[index]),
-                      onTap: () {
-                        // In a real app, navigate to gig detail screen
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Tapped on: ${_searchResults[index]}',
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
+      body: Consumer<GigProvider>(
+        builder: (context, gigProvider, child) {
+          if (gigProvider.isSearching) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          } else if (gigProvider.searchResults.isEmpty && _searchController.text.isNotEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.sentiment_dissatisfied,
+                    size: 60,
+                    color: Colors.grey,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'No gigs found for your search.',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
               ),
+            );
+          } else if (gigProvider.searchResults.isEmpty && _searchController.text.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search, size: 60, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'Start typing to search for gigs!',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          } else {
+            return GridView.builder(
+              padding: const EdgeInsets.all(16.0),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2, // Two items per row
+                crossAxisSpacing: 5.0,
+                mainAxisSpacing: 5.0,
+                childAspectRatio: 0.75, // Adjust as needed to fit the GigCard
+              ),
+              itemCount: gigProvider.searchResults.length,
+              itemBuilder: (context, index) {
+                return GigCard(gig: gigProvider.searchResults[index]);
+              },
+            );
+          }
+        },
+      ),
     );
   }
 }
