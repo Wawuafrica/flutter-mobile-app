@@ -13,6 +13,7 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
 import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
 import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
+import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 // import 'package:wawu_mobile/screens/notifications_test.dart';
 import 'package:wawu_mobile/screens/profile/profile_screen.dart';
 import 'package:wawu_mobile/providers/links_provider.dart';
@@ -226,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const Wawu()),
+      MaterialPageRoute(builder: (context) => const MainScreen()),
       (Route<dynamic> route) => false,
     );
   }

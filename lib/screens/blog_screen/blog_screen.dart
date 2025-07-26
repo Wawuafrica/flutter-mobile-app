@@ -372,27 +372,28 @@ class _BlogListItemState extends State<BlogListItem> {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.15), // Slightly more visible shadow
+              color: Colors.grey.withOpacity(0.15),
               spreadRadius: 1,
-              blurRadius: 8, // Increased blur for a softer look
+              blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            children: [
-              // Blog Post Image
-              CachedNetworkImage(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
+              child: CachedNetworkImage(
                 imageUrl: widget.blogPost.coverImage?.link ?? '',
-                height: 260, // Increased height for a more impactful image
+                height: 180, // Reduced height
                 width: double.infinity,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
-                  height: 220,
+                  height: 180,
                   width: double.infinity,
-                  color: Colors.grey[200], // Lighter placeholder
+                  color: Colors.grey[200],
                   child: const Center(
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
@@ -402,7 +403,7 @@ class _BlogListItemState extends State<BlogListItem> {
                   ),
                 ),
                 errorWidget: (context, url, error) => Container(
-                  height: 220,
+                  height: 180,
                   width: double.infinity,
                   color: Colors.grey[200],
                   child: Icon(
@@ -412,149 +413,102 @@ class _BlogListItemState extends State<BlogListItem> {
                   ),
                 ),
               ),
-              // Gradient Overlay for readability
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.8), // Stronger dark overlay at the bottom
-                      ],
-                      stops: const [0.4, 1.0], // Start gradient higher
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.blogPost.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: wawuColors.primary.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: Text(
+                      widget.blogPost.category,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-              ),
-              // Content on top of the overlay (Title, Category, Likes, Comments)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Category Tag
-                      // Blog Post Title
-                      Text(
-                        widget.blogPost.title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: wawuColors.primary.withOpacity(0.8), // Solid primary color for tag
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: Text(
-                          widget.blogPost.category,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Author and Date (Optional, can be added if desired)
-                      // Row(
-                      //   children: [
-                      //     CircleAvatar(
-                      //       radius: 12,
-                      //       backgroundImage: CachedNetworkImageProvider(widget.blogPost.authorAvatar ?? ''),
-                      //     ),
-                      //     SizedBox(width: 8),
-                      //     Text(
-                      //       widget.blogPost.authorName ?? 'Unknown',
-                      //       style: TextStyle(fontSize: 12, color: Colors.white70),
-                      //     ),
-                      //     SizedBox(width: 8),
-                      //     Text(
-                      //       widget.blogPost.formattedDate,
-                      //       style: TextStyle(fontSize: 12, color: Colors.white70),
-                      //     ),
-                      //   ],
-                      // ),
-                      // const SizedBox(height: 8),
-
-                      // Like and Comment buttons
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              // Like button
-                              GestureDetector(
-                                onTap: _handleLike,
-                                child: _isLiking
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 1.5,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : Icon(
-                                        widget.blogPost.isLikedByCurrentUser
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        size: 18,
-                                        color: Colors.white,
-                                      ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _formatCount(widget.blogPost.likes),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          // Comment button
                           GestureDetector(
-                            onTap: widget.onComment,
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.chat_bubble_outline,
-                                  size: 18,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _formatCount(widget.blogPost.comments.length),
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
+                            onTap: _handleLike,
+                            child: _isLiking
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: wawuColors.primary,
+                                    ),
+                                  )
+                                : Icon(
+                                    widget.blogPost.isLikedByCurrentUser
+                                        ? Icons.thumb_up
+                                        : Icons.thumb_up_alt_outlined,
+                                    size: 18,
+                                    color: wawuColors.primary,
                                   ),
-                                ),
-                              ],
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _formatCount(widget.blogPost.likes),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
+                      GestureDetector(
+                        onTap: widget.onComment,
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.chat_bubble_outline,
+                              size: 18,
+                              color: Colors.black54,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _formatCount(widget.blogPost.comments.length),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
