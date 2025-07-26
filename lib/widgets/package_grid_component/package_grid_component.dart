@@ -42,18 +42,23 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children:
-          _rows.asMap().entries.map((entry) {
-            final row = entry.value;
-            return _buildRow(
-              row['isCheckbox'] as bool,
-              row['label'] as String,
-              row['isCheckbox'] ? '' : row['label'],
-              row['controllers'] as List<TextEditingController>?,
-              row['values'] as List<bool>?,
-            );
-          }).toList(),
+    return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+      child: IntrinsicWidth(
+        child: Column(
+          children:
+              _rows.asMap().entries.map((entry) {
+                final row = entry.value;
+                return _buildRow(
+                  row['isCheckbox'] as bool,
+                  row['label'] as String,
+                  row['isCheckbox'] ? '' : row['label'],
+                  row['controllers'] as List<TextEditingController>?,
+                  row['values'] as List<bool>?,
+                );
+              }).toList(),
+        ),
+      ),
     );
   }
 
