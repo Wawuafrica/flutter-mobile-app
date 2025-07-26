@@ -13,6 +13,9 @@ class GigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+    
     return GestureDetector(
       onTap: () {
         try {
@@ -49,8 +52,8 @@ class GigCard extends StatelessWidget {
         }
       },
       child: Container(
-        width: 280,
-        margin: const EdgeInsets.only(right: 16),
+        // Remove fixed width to make it responsive
+        margin: EdgeInsets.all(isSmallScreen ? 4 : 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: Colors.white,
@@ -64,8 +67,9 @@ class GigCard extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: SizedBox(
-            height: 220, // Fixed shorter height
+          child: AspectRatio(
+            // Use aspect ratio instead of fixed height for better responsiveness
+            aspectRatio: isSmallScreen ? 0.85 : 0.9, // Slightly taller on small screens
             child: Stack(
               children: [
                 // Gig Image (Full card height)
@@ -81,184 +85,201 @@ class GigCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
-                    errorWidget: (context, url, error) => _buildPlaceholderImage(),
+                    errorWidget: (context, url, error) => _buildPlaceholderImage(isSmallScreen),
                   ),
                 ),
               
-              // Gradient Overlay (Full height)
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                      stops: const [0.3, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-              
-              // Top Section - Seller Info
-              Positioned(
-                top: 16,
-                left: 16,
-                right: 16,
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      clipBehavior: Clip.hardEdge,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: _buildSellerImage(),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        gig.seller.fullName.isNotEmpty
-                            ? gig.seller.fullName
-                            : 'Unknown Seller',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              offset: Offset(0, 1),
-                              blurRadius: 3,
-                              color: Colors.black26,
-                            ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Rating Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.amber,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.star, size: 14, color: Colors.white),
-                          const SizedBox(width: 4),
-                          Text(
-                            gig.averageRating > 0
-                                ? gig.averageRating.toStringAsFixed(1)
-                                : '4.7',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
+                // Gradient Overlay (Full height)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
                         ],
+                        stops: const [0.3, 1.0],
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
               
-              // Bottom Section - Content
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Top Section - Seller Info
+                Positioned(
+                  top: isSmallScreen ? 8 : 12,
+                  left: isSmallScreen ? 8 : 12,
+                  right: isSmallScreen ? 8 : 12,
+                  child: Row(
                     children: [
-                      // Gig Title
-                      Text(
-                        gig.title.isNotEmpty ? gig.title : 'Untitled Gig',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          height: 1.3,
+                      Container(
+                        width: isSmallScreen ? 28 : 32,
+                        height: isSmallScreen ? 28 : 32,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                        child: _buildSellerImage(),
                       ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Price and Action Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Price Section
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Starting from',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white.withOpacity(0.8),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _getPriceText(),
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
+                      SizedBox(width: isSmallScreen ? 6 : 8),
+                      Expanded(
+                        child: Text(
+                          gig.seller.fullName.isNotEmpty
+                              ? gig.seller.fullName
+                              : 'Unknown Seller',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 10 : 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                            shadows: const [
+                              Shadow(
+                                offset: Offset(0, 1),
+                                blurRadius: 3,
+                                color: Colors.black26,
                               ),
                             ],
                           ),
-                          
-                          // Action Button
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Rating Badge
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 4 : 6,
+                          vertical: isSmallScreen ? 2 : 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.amber,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.star,
+                              size: isSmallScreen ? 10 : 12,
+                              color: Colors.white,
                             ),
-                            decoration: BoxDecoration(
-                              color: wawuColors.primary,
-                              borderRadius: BorderRadius.circular(25),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: wawuColors.primary.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Text(
-                              'View Details',
+                            const SizedBox(width: 2),
+                            Text(
+                              gig.averageRating > 0
+                                  ? gig.averageRating.toStringAsFixed(1)
+                                  : '4.7',
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontSize: isSmallScreen ? 8 : 9,
+                                fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              
+                // Bottom Section - Content
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Padding(
+                    padding: EdgeInsets.all(isSmallScreen ? 8.0 : 12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Gig Title
+                        Text(
+                          gig.title.isNotEmpty ? gig.title : 'Untitled Gig',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 11 : 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1.2,
+                          ),
+                          maxLines: isSmallScreen ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        
+                        SizedBox(height: isSmallScreen ? 8 : 12),
+                        
+                        // Price and Action Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            // Price Section
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Starting from',
+                                    style: TextStyle(
+                                      fontSize: isSmallScreen ? 8 : 9,
+                                      color: Colors.white.withOpacity(0.8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _getPriceText(),
+                                    style: TextStyle(
+                                      fontSize: isSmallScreen ? 12 : 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            
+                            const SizedBox(width: 8),
+                            
+                            // Action Button
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isSmallScreen ? 8 : 12,
+                                vertical: isSmallScreen ? 6 : 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: wawuColors.primary,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: wawuColors.primary.withOpacity(0.3),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Text(
+                                isSmallScreen ? 'View' : 'View Details',
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 9 : 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildSellerImage() {
@@ -281,7 +302,7 @@ class GigCard extends StatelessWidget {
     return Image.asset('assets/images/other/avatar.webp', fit: BoxFit.cover);
   }
 
-  Widget _buildPlaceholderImage() {
+  Widget _buildPlaceholderImage(bool isSmallScreen) {
     return Container(
       decoration: BoxDecoration(
         color: wawuColors.primary.withValues(alpha: 0.2)
@@ -292,16 +313,17 @@ class GigCard extends StatelessWidget {
           Icon(
             Icons.work_outline,
             color: Colors.grey[600],
-            size: 48,
+            size: isSmallScreen ? 32 : 40,
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: isSmallScreen ? 4 : 6),
           Text(
             'No Image Available',
             style: TextStyle(
               color: Colors.grey[600],
-              fontSize: 14,
+              fontSize: isSmallScreen ? 10 : 12,
               fontWeight: FontWeight.w500,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
