@@ -5,6 +5,7 @@ import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/providers/message_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/messages_screen/single_message_screen/single_message_screen.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
@@ -15,6 +16,7 @@ import 'package:wawu_mobile/widgets/review_component/review_component.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+// Import the SignUpScreen
 
 class SingleGigScreen extends StatefulWidget {
   const SingleGigScreen({super.key});
@@ -54,20 +56,25 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     BuildContext context,
     String sellerId,
   ) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     final messageProvider = Provider.of<MessageProvider>(
       context,
       listen: false,
     );
-    final currentUserId =
-        Provider.of<UserProvider>(context, listen: false).currentUser?.uuid ??
-        '';
 
-    if (currentUserId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to start a conversation')),
-      );
-      return;
+    // Check if the user is authenticated
+    if (userProvider.currentUser == null) {
+      // If not authenticated, navigate to the SignUpScreen
+      if (context.mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SignUp()),
+        );
+      }
+      return; // Stop execution here
     }
+
+    final currentUserId = userProvider.currentUser!.uuid;
 
     try {
       await messageProvider.startConversation(currentUserId, sellerId);
@@ -887,6 +894,23 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                       _isSubmittingReview
                           ? null
                           : () async {
+                            final userProvider = Provider.of<UserProvider>(
+                              context,
+                              listen: false,
+                            );
+                            // Check if the user is authenticated before submitting a review
+                            if (userProvider.currentUser == null) {
+                              if (context.mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SignUp(),
+                                  ),
+                                );
+                              }
+                              return; // Stop execution here
+                            }
+
                             if (_formKey.currentState!.validate()) {
                               if (_selectedRating == 0) {
                                 ScaffoldMessenger.of(context).showSnackBar(
