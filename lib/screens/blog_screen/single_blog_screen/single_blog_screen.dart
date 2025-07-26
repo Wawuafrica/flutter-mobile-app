@@ -7,6 +7,7 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_html/flutter_html.dart'; // Import the flutter_html package
 
 class SingleBlogScreen extends StatefulWidget {
   const SingleBlogScreen({super.key});
@@ -159,15 +160,31 @@ class _SingleBlogScreenState extends State<SingleBlogScreen> {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 10),
+                // Use Html widget to render the content
                 Container(
                   padding: EdgeInsets.all(15.0),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10.0),
                     color: wawuColors.primary.withAlpha(40),
                   ),
-                  child: Text(
-                    selectedPost.content.replaceAll(RegExp(r'<[^>]*>'), ''),
-                    style: TextStyle(fontSize: 14),
+                  child: Html(
+                    data: selectedPost.content, // Pass the HTML string directly
+                    // You can customize the styling of HTML elements here
+                    // style: {
+                    //   "p": Style(
+                    //     fontSize: FontSize(14.0),
+                    //     lineHeight: LineHeight.em(1.5),
+                    //   ),
+                    //   "strong": Style(
+                    //     fontWeight: FontWeight.bold,
+                    //   ),
+                    //   "ul": Style(
+                    //     margin: Margins.only(left: 10.0),
+                    //   ),
+                    //   "li": Style(
+                    //     margin: Margins.only(bottom: 5.0),
+                    //   ),
+                    // },
                   ),
                 ),
                 SizedBox(height: 10),

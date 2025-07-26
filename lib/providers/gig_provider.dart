@@ -1,3 +1,4 @@
+// gig_provider.dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -17,14 +18,6 @@ class GigProvider extends BaseProvider {
   final UserProvider _userProvider;
   final Logger _logger = Logger();
 
-  // Removed _isLoading and _error fields as BaseProvider handles them.
-  // bool _isLoading = false;
-  // String? _error;
-
-  // Getters for isLoading and error are now inherited from BaseProvider.
-  // bool get isLoading => _isLoading;
-  // String? get error => _error;
-
   final Map<String, List<Gig>> _gigsByStatus = {
     'all': [],
     'PENDING': [],
@@ -40,6 +33,10 @@ class GigProvider extends BaseProvider {
   bool _isRecentlyViewedLoading = false;
   bool _isDisposed = false; // Keep this for safeDispose pattern
 
+  // New field for suggested gigs
+  List<Gig> _suggestedGigs = [];
+  bool _isSuggestedGigsLoading = false;
+
   List<Gig> get recentlyViewedGigs => List.unmodifiable(_recentlyViewedGigs);
   bool get isRecentlyViewedLoading => _isRecentlyViewedLoading;
 
@@ -47,6 +44,10 @@ class GigProvider extends BaseProvider {
   List<Gig> gigsForStatus(String? status) =>
       List.unmodifiable(_gigsByStatus[status ?? 'all'] ?? []);
   Gig? get selectedGig => _selectedGig;
+
+  // New getter for suggested gigs
+  List<Gig> get suggestedGigs => List.unmodifiable(_suggestedGigs);
+  bool get isSuggestedGigsLoading => _isSuggestedGigsLoading;
 
   GigProvider({
     ApiService? apiService,
@@ -56,36 +57,30 @@ class GigProvider extends BaseProvider {
        _pusherService = pusherService ?? PusherService(),
        _userProvider = userProvider {
     debugPrint('[RecentlyViewed] GigProvider constructor called.');
-    _loadRecentlyViewedGigs();
+    // _loadRecentlyViewedGigs(); // Moved to _initializeData in HomeScreen
+    // Optionally fetch suggested gigs on initialization
+    // fetchSuggestedGigs();
   }
 
-  // Removed _setLoading and _setError as BaseProvider provides these.
-  // void _setLoading(bool loading) {
-  //   if (_isDisposed) return;
-  //   _isLoading = loading;
-  //   notifyListeners();
-  // }
-
-  // void _setError(String? error) {
-  //   if (_isDisposed) return;
-  //   _error = error;
-  //   notifyListeners();
-  // }
-
-  // _safeNotifyListeners is still useful for state changes not managed by BaseProvider methods,
-  // or for ensuring listeners are notified when BaseProvider's notifyListeners might not be called
-  // (e.g., if _state doesn't change but other data does).
   void _safeNotifyListeners() {
     if (_isDisposed) return;
     notifyListeners();
   }
 
-  Future<void> _loadRecentlyViewedGigs() async {
+  // This method now only handles local loading from SharedPreferences.
+  // The API fetch logic is moved to fetchRecentlyViewedGigs().
+  Future<void> loadRecentlyViewedGigs() async {
     if (_isDisposed) return;
+    if (_userProvider.currentUser == null) {
+      _recentlyViewedGigs.clear();
+      _safeNotifyListeners();
+      debugPrint('[RecentlyViewed] User not logged in, clearing local recently viewed gigs.');
+      return;
+    }
 
-    debugPrint('[RecentlyViewed] _loadRecentlyViewedGigs called.');
+    debugPrint('[RecentlyViewed] _loadRecentlyViewedGigs called from local storage.');
     _isRecentlyViewedLoading = true;
-    _safeNotifyListeners(); // Notify listeners about loading state for recently viewed gigs
+    _safeNotifyListeners();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -104,7 +99,6 @@ class GigProvider extends BaseProvider {
 
             final Map<String, dynamic> json = jsonDecode(jsonStr);
 
-            // More robust validation
             if (!_isValidGigJson(json)) {
               debugPrint('[RecentlyViewed][WARNING] Skipping invalid gig data');
               continue;
@@ -112,7 +106,6 @@ class GigProvider extends BaseProvider {
 
             final gig = Gig.fromJson(json);
 
-            // Additional validation after creating Gig object
             if (!_isValidGig(gig)) {
               debugPrint(
                 '[RecentlyViewed][WARNING] Skipping invalid gig object',
@@ -132,27 +125,25 @@ class GigProvider extends BaseProvider {
         }
 
         debugPrint(
-          '[RecentlyViewed] Successfully loaded ${_recentlyViewedGigs.length} gigs',
+          '[RecentlyViewed] Successfully loaded ${_recentlyViewedGigs.length} gigs from local storage',
         );
       } else {
-        debugPrint('[RecentlyViewed] No saved gigs found');
+        debugPrint('[RecentlyViewed] No saved gigs found locally');
       }
     } catch (e, stackTrace) {
-      debugPrint('[RecentlyViewed][ERROR] Error loading gigs: $e');
+      debugPrint('[RecentlyViewed][ERROR] Error loading gigs from local storage: $e');
       debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
       _recentlyViewedGigs.clear();
-      // No setError here as this is internal loading, not a primary API call error for the UI.
     } finally {
       if (!_isDisposed) {
         _isRecentlyViewedLoading = false;
-        _safeNotifyListeners(); // Notify listeners that loading is complete
+        _safeNotifyListeners();
       }
     }
   }
 
   bool _isValidGigJson(Map<String, dynamic> json) {
     try {
-      // Check for required fields
       if (json['uuid'] == null ||
           json['title'] == null ||
           json['description'] == null ||
@@ -161,7 +152,6 @@ class GigProvider extends BaseProvider {
         return false;
       }
 
-      // Check if uuid and title are not empty strings
       if (json['uuid'].toString().trim().isEmpty ||
           json['title'].toString().trim().isEmpty) {
         return false;
@@ -186,7 +176,7 @@ class GigProvider extends BaseProvider {
   Future<void> _saveRecentlyViewedGigs() async {
     if (_isDisposed) return;
 
-    debugPrint('[RecentlyViewed] Saving ${_recentlyViewedGigs.length} gigs');
+    debugPrint('[RecentlyViewed] Saving ${_recentlyViewedGigs.length} gigs to local storage');
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -216,17 +206,80 @@ class GigProvider extends BaseProvider {
       if (!_isDisposed) {
         await prefs.setStringList(_recentGigsKey, gigJsons);
         debugPrint(
-          '[RecentlyViewed] Successfully saved ${gigJsons.length} gigs',
+          '[RecentlyViewed] Successfully saved ${gigJsons.length} gigs to local storage',
         );
       }
     } catch (e, stackTrace) {
-      debugPrint('[RecentlyViewed][ERROR] Exception saving gigs: $e');
+      debugPrint('[RecentlyViewed][ERROR] Exception saving gigs to local storage: $e');
       debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
-      // No setError here as this is internal saving, not a primary API call error for the UI.
     }
   }
 
-  void fetchRecentlyViewedGigs() {}
+  Future<void> fetchRecentlyViewedGigs() async {
+    if (_isDisposed) return;
+    if (_userProvider.currentUser == null) {
+      debugPrint('[RecentlyViewed] Not fetching recently viewed gigs from API: User not logged in.');
+      _recentlyViewedGigs.clear();
+      _isRecentlyViewedLoading = false;
+      _safeNotifyListeners();
+      return;
+    }
+
+    debugPrint('[RecentlyViewed] fetchRecentlyViewedGigs called (from API).');
+    _isRecentlyViewedLoading = true;
+    _safeNotifyListeners();
+
+    try {
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/gigs/recently-viewed', // New API endpoint
+      );
+
+      if (_isDisposed) return;
+
+      if (response['statusCode'] == 200 && response['data'] is List) {
+        final List<dynamic> gigsJson = response['data'] as List<dynamic>;
+        _recentlyViewedGigs.clear();
+        for (final json in gigsJson) {
+          try {
+            if (!_isValidGigJson(json)) {
+              debugPrint('[RecentlyViewed][WARNING] Skipping invalid gig data from API');
+              continue;
+            }
+            final gig = Gig.fromJson(json as Map<String, dynamic>);
+            if (!_isValidGig(gig)) {
+              debugPrint(
+                '[RecentlyViewed][WARNING] Skipping invalid gig object from API',
+              );
+              continue;
+            }
+            _recentlyViewedGigs.add(gig);
+          } catch (e, stackTrace) {
+            debugPrint('[RecentlyViewed][ERROR] Error decoding API gig: $e');
+            debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+          }
+        }
+        debugPrint(
+          '[RecentlyViewed] Successfully fetched ${_recentlyViewedGigs.length} recently viewed gigs from API.',
+        );
+        setSuccess(); // Indicate success for the operation
+      } else {
+        final errorMessage =
+            response['message'] as String? ?? 'Failed to fetch recently viewed gigs.';
+        setError(errorMessage);
+        _recentlyViewedGigs.clear(); // Clear on API error
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[RecentlyViewed][ERROR] Error fetching recently viewed gigs from API: $e');
+      debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
+      setError(e.toString());
+      _recentlyViewedGigs.clear(); // Clear on exception
+    } finally {
+      if (!_isDisposed) {
+        _isRecentlyViewedLoading = false;
+        _safeNotifyListeners();
+      }
+    }
+  }
 
   Future<void> addRecentlyViewedGig(Gig? gig) async {
     debugPrint('[RecentlyViewed] addRecentlyViewedGig called');
@@ -251,31 +304,41 @@ class GigProvider extends BaseProvider {
         '[RecentlyViewed] Adding gig: uuid=${gig.uuid}, title=${gig.title}',
       );
 
-      // Remove existing entry if it exists
-      _recentlyViewedGigs.removeWhere((g) => g.uuid == gig.uuid);
-
-      // Add to beginning of list
-      _recentlyViewedGigs.insert(0, gig);
-
-      // Keep only last 5 items
-      if (_recentlyViewedGigs.length > 5) {
-        final removed = _recentlyViewedGigs.removeLast();
-        debugPrint('[RecentlyViewed] Removed oldest gig: ${removed.uuid}');
+      // Record gig view on the backend
+      if (_userProvider.currentUser != null) {
+        try {
+          debugPrint('[RecentlyViewed] Recording gig view for ${gig.uuid} on backend.');
+          await _apiService.post<Map<String, dynamic>>(
+            '/gigs/${gig.uuid}/view', // New API endpoint
+            data: {}, // No request body required for this endpoint
+          );
+          debugPrint('[RecentlyViewed] Successfully recorded gig view on backend.');
+        } catch (e) {
+          debugPrint('[RecentlyViewed][WARNING] Failed to record gig view on backend: $e');
+          // Don't setError here as it's a secondary operation and shouldn't block the main flow.
+          // Could log this error differently if needed.
+        }
       }
 
-      // Save to storage asynchronously
+      // Local storage logic (keep for immediate UI updates and robustness)
+      _recentlyViewedGigs.removeWhere((g) => g.uuid == gig.uuid);
+      _recentlyViewedGigs.insert(0, gig);
+      if (_recentlyViewedGigs.length > 5) {
+        final removed = _recentlyViewedGigs.removeLast();
+        debugPrint('[RecentlyViewed] Removed oldest gig locally: ${removed.uuid}');
+      }
+
       _saveRecentlyViewedGigs().catchError((error) {
-        debugPrint('[RecentlyViewed][ERROR] Failed to save: $error');
+        debugPrint('[RecentlyViewed][ERROR] Failed to save locally: $error');
       });
 
-      _safeNotifyListeners(); // Notify listeners about changes to recently viewed gigs
-      debugPrint('[RecentlyViewed] Successfully added gig');
+      _safeNotifyListeners();
+      debugPrint('[RecentlyViewed] Successfully added gig (local & API call initiated)');
     } catch (e, stackTrace) {
       debugPrint(
         '[RecentlyViewed][ERROR] Exception in addRecentlyViewedGig: $e',
       );
       debugPrint('[RecentlyViewed][ERROR] Stack trace: $stackTrace');
-      // No setError here as this is internal state management.
     }
   }
 
@@ -292,24 +355,20 @@ class GigProvider extends BaseProvider {
       debugPrint(
         '[RecentlyViewed][ERROR] Failed to clear from SharedPreferences: $e',
       );
-      // No setError here as this is internal state management.
     }
 
-    _safeNotifyListeners(); // Notify listeners about changes to recently viewed gigs
+    _safeNotifyListeners();
   }
 
-  // Method to be called on logout
   Future<void> clearUserData() async {
     debugPrint('[GigProvider] Clearing all user data');
 
-    // Clear all gig data
     _gigsByStatus.forEach((key, _) => _gigsByStatus[key] = []);
     _selectedGig = null;
+    _suggestedGigs = [];
 
-    // Clear recently viewed gigs
-    await clearRecentlyViewedGigs();
+    await clearRecentlyViewedGigs(); // This already handles local storage
 
-    // Unsubscribe from channels
     if (_isGeneralChannelSubscribed) {
       _pusherService.unsubscribeFromChannel('gigs');
       _isGeneralChannelSubscribed = false;
@@ -320,18 +379,17 @@ class GigProvider extends BaseProvider {
     }
     _specificGigChannels.clear();
 
-    // Reset loading states using BaseProvider's resetState
-    resetState(); // Resets _state to idle and _errorMessage to null
-    _isRecentlyViewedLoading = false; // This is a separate loading flag
+    resetState();
+    _isRecentlyViewedLoading = false;
+    _isSuggestedGigsLoading = false;
 
-    _safeNotifyListeners(); // Notify listeners about the overall data clear
+    _safeNotifyListeners();
     debugPrint('[GigProvider] User data cleared successfully');
   }
 
-  // Fetch a single gig by its UUID, update selectedGig, and notify listeners
   Future<Gig?> fetchGigById(String gigId) async {
     if (_isDisposed) return null;
-    setLoading(); // Use BaseProvider's setLoading
+    setLoading();
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/seller/gig/$gigId',
@@ -341,17 +399,15 @@ class GigProvider extends BaseProvider {
         _logger.i('GigProvider: Fetch gig response: ${response['data']}');
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         selectGig(gig);
-        // _safeNotifyListeners(); // selectGig already calls _safeNotifyListeners
-        // Subscribe to this specific gig's channel for real-time updates
         await subscribeToSpecificGigChannel(gig.uuid);
-        setSuccess(); // Use BaseProvider's setSuccess
+        setSuccess();
         return gig;
       } else {
-        setError('Failed to fetch gig details.'); // Use BaseProvider's setError
+        setError('Failed to fetch gig details.');
         return null;
       }
     } catch (e) {
-      setError(e.toString()); // Use BaseProvider's setError with e.toString()
+      setError(e.toString());
       return null;
     }
   }
@@ -359,8 +415,7 @@ class GigProvider extends BaseProvider {
   Future<List<Gig>> fetchGigs({String? status}) async {
     if (_isDisposed) return [];
 
-    setLoading(); // Use BaseProvider's setLoading
-    // setError(null); // setLoading already sets errorMessage to null
+    setLoading();
 
     try {
       final Map<String, dynamic> queryParams =
@@ -402,25 +457,66 @@ class GigProvider extends BaseProvider {
           await _subscribeToGeneralGigsChannel();
         }
 
-        setSuccess(); // Use BaseProvider's setSuccess
+        setSuccess();
         return gigs;
       } else {
         final errorMessage =
             response['message'] as String? ??
             'Invalid response format from /seller/gig';
-        setError(errorMessage); // Use BaseProvider's setError
+        setError(errorMessage);
         return [];
       }
     } catch (e) {
-      setError(e.toString()); // Use BaseProvider's setError with e.toString()
+      setError(e.toString());
       return [];
+    }
+  }
+
+  Future<void> fetchSuggestedGigs() async {
+    if (_isDisposed) return;
+
+    _isSuggestedGigsLoading = true;
+    _safeNotifyListeners();
+
+    try {
+      final response = await _apiService.get<Map<String, dynamic>>(
+        '/gigs/you-may-like',
+      );
+
+      if (_isDisposed) return;
+
+      if (response['statusCode'] == 200 && response['data'] is List) {
+        final List<dynamic> gigsJson = response['data'] as List<dynamic>;
+        _suggestedGigs =
+            gigsJson
+                .map((json) => Gig.fromJson(json as Map<String, dynamic>))
+                .toList();
+        debugPrint(
+          '[GigProvider] Successfully fetched ${_suggestedGigs.length} suggested gigs.',
+        );
+        setSuccess();
+      } else {
+        final errorMessage =
+            response['message'] as String? ?? 'Failed to fetch suggested gigs.';
+        setError(errorMessage);
+        _suggestedGigs = [];
+      }
+    } catch (e) {
+      debugPrint('[GigProvider] Error fetching suggested gigs: $e');
+      setError(e.toString());
+      _suggestedGigs = [];
+    } finally {
+      if (!_isDisposed) {
+        _isSuggestedGigsLoading = false;
+        _safeNotifyListeners();
+      }
     }
   }
 
   Future<Gig?> createGig(FormData payload) async {
     if (_isDisposed) return null;
 
-    setLoading(); // Use BaseProvider's setLoading
+    setLoading();
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
         '/seller/gig',
@@ -434,27 +530,23 @@ class GigProvider extends BaseProvider {
         final gig = Gig.fromJson(response['data'] as Map<String, dynamic>);
         _gigsByStatus['all']!.insert(0, gig);
         _gigsByStatus['PENDING']!.insert(0, gig);
-        _safeNotifyListeners(); // Notify about data change
-        setSuccess(); // Use BaseProvider's setSuccess
+        _safeNotifyListeners();
+        setSuccess();
         return gig;
       }
       setError(
         response['message'] ?? 'Failed to create gig',
-      ); // Use BaseProvider's setError
+      );
       return null;
     } catch (e) {
-      debugPrint('Failed to create gig: $e'); // Keep debug log
-      setError(e.toString()); // Use BaseProvider's setError with e.toString()
+      debugPrint('Failed to create gig: $e');
+      setError(e.toString());
       return null;
     }
   }
 
   Future<bool> postReview(String gigId, Map<String, dynamic> reviewData) async {
     if (_isDisposed) return false;
-
-    // No need for setLoading here as per the original comment, UI handles its own.
-    // However, if the UI relies on the provider's isLoading, you might want to call setLoading().
-    // For now, adhering to the comment.
 
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
@@ -472,7 +564,7 @@ class GigProvider extends BaseProvider {
           if (currentUser == null) {
             setError(
               'User not logged in to post review.',
-            ); // Use BaseProvider's setError
+            );
             return false;
           }
 
@@ -492,19 +584,19 @@ class GigProvider extends BaseProvider {
         }
 
         _addReviewToGig(gigId, newReview);
-        setSuccess(); // Indicate success for the review posting operation
+        setSuccess();
         return true;
       } else {
         final errorMsg =
             response['message'] as String? ?? 'Failed to submit review';
-        setError(errorMsg); // Use BaseProvider's setError
+        setError(errorMsg);
         return false;
       }
     } catch (e) {
-      debugPrint('Failed to post review: $e'); // Keep debug log
+      debugPrint('Failed to post review: $e');
       setError(
         'An unexpected error occurred: ${e.toString()}',
-      ); // Use BaseProvider's setError
+      );
       return false;
     }
   }
@@ -512,7 +604,7 @@ class GigProvider extends BaseProvider {
   Future<List<Gig>> fetchGigsBySubCategory(String subCategoryId) async {
     if (_isDisposed) return [];
 
-    setLoading(); // Use BaseProvider's setLoading
+    setLoading();
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/services/$subCategoryId/gigs',
@@ -527,16 +619,16 @@ class GigProvider extends BaseProvider {
             gigsJson
                 .map((json) => Gig.fromJson(json as Map<String, dynamic>))
                 .toList();
-        setSuccess(); // Use BaseProvider's setSuccess
+        setSuccess();
         return gigs;
       }
       setError(
         response['message'] ?? 'Failed to fetch gigs by subcategory',
-      ); // Use BaseProvider's setError
+      );
       return [];
     } catch (e) {
-      debugPrint('Failed to fetch gigs by subcategory: $e'); // Keep debug log
-      setError(e.toString()); // Use BaseProvider's setError with e.toString()
+      debugPrint('Failed to fetch gigs by subcategory: $e');
+      setError(e.toString());
       return [];
     }
   }
@@ -544,13 +636,13 @@ class GigProvider extends BaseProvider {
   void selectGig(Gig gig) {
     if (_isDisposed) return;
     _selectedGig = gig;
-    setSuccess(); // Use setSuccess to notify listeners about the selection change
+    setSuccess();
   }
 
   void clearSelectedGig() {
     if (_isDisposed) return;
     _selectedGig = null;
-    setSuccess(); // Use setSuccess to notify listeners about the clear
+    setSuccess();
   }
 
   Future<void> _subscribeToGeneralGigsChannel() async {
@@ -561,14 +653,12 @@ class GigProvider extends BaseProvider {
       final success = await _pusherService.subscribeToChannel(channelName);
       if (!success) {
         debugPrint('Failed to subscribe to general gigs channel');
-        // Consider calling setError if this is a critical failure for the UI
         return;
       }
 
       _isGeneralChannelSubscribed = true;
       debugPrint('Successfully subscribed to general gigs channel');
 
-      // Bind to gig created event
       _pusherService.bindToEvent(channelName, 'gig.created', (event) {
         if (_isDisposed) return;
         debugPrint('Received gig.created event: ${event.data}');
@@ -578,24 +668,22 @@ class GigProvider extends BaseProvider {
             final gigData = jsonDecode(event.data) as Map<String, dynamic>;
             final newGig = Gig.fromJson(gigData);
 
-            // Add to appropriate lists
             _gigsByStatus['all']!.insert(0, newGig);
             if (_gigsByStatus.containsKey(newGig.status)) {
               _gigsByStatus[newGig.status]!.insert(0, newGig);
             }
 
-            setSuccess(); // Notify listeners about the new gig
+            setSuccess();
             debugPrint('Successfully added new gig: ${newGig.uuid}');
           }
         } catch (e) {
           debugPrint('GigProvider: Error processing gig.created event: $e');
           setError(
             'Error processing gig creation event: ${e.toString()}',
-          ); // Report error
+          );
         }
       });
 
-      // Bind to gig deleted event
       _pusherService.bindToEvent(channelName, 'gig.deleted', (event) {
         if (_isDisposed) return;
         debugPrint('Received gig.deleted event: ${event.data}');
@@ -607,19 +695,17 @@ class GigProvider extends BaseProvider {
             final gigUuid = deletedGigData['data']['uuid'] as String?;
 
             if (gigUuid != null) {
-              // Remove from all lists
               for (final status in _gigsByStatus.keys) {
                 _gigsByStatus[status]!.removeWhere(
                   (gig) => gig.uuid == gigUuid,
                 );
               }
 
-              // Clear selected gig if it's the deleted one
               if (_selectedGig?.uuid == gigUuid) {
                 _selectedGig = null;
               }
 
-              setSuccess(); // Notify listeners about the deleted gig
+              setSuccess();
               debugPrint('Successfully removed gig: $gigUuid');
             }
           }
@@ -627,7 +713,7 @@ class GigProvider extends BaseProvider {
           debugPrint('GigProvider: Error processing gig.deleted event: $e');
           setError(
             'Error processing gig deletion event: ${e.toString()}',
-          ); // Report error
+          );
         }
       });
     } catch (e) {
@@ -636,7 +722,7 @@ class GigProvider extends BaseProvider {
       );
       setError(
         'Failed to subscribe to general gigs channel: ${e.toString()}',
-      ); // Report error
+      );
     }
   }
 
@@ -648,7 +734,6 @@ class GigProvider extends BaseProvider {
     final reviewChannelName = 'gig.review.$gigUuid';
 
     try {
-      // Subscribe to gig approved channel
       if (!_specificGigChannels.contains(channelName)) {
         final success = await _pusherService.subscribeToChannel(channelName);
         if (success) {
@@ -664,11 +749,10 @@ class GigProvider extends BaseProvider {
           debugPrint('Failed to subscribe to channel: $channelName');
           setError(
             'Failed to subscribe to approved channel: $channelName',
-          ); // Report error
+          );
         }
       }
 
-      // Subscribe to gig rejected channel
       if (!_specificGigChannels.contains(rejectedChannelName)) {
         final success = await _pusherService.subscribeToChannel(
           rejectedChannelName,
@@ -690,11 +774,10 @@ class GigProvider extends BaseProvider {
           debugPrint('Failed to subscribe to channel: $rejectedChannelName');
           setError(
             'Failed to subscribe to rejected channel: $rejectedChannelName',
-          ); // Report error
+          );
         }
       }
 
-      // Subscribe to gig review channel with proper error handling
       if (!_specificGigChannels.contains(reviewChannelName)) {
         final success = await _pusherService.subscribeToChannel(
           reviewChannelName,
@@ -712,7 +795,7 @@ class GigProvider extends BaseProvider {
           debugPrint('Failed to subscribe to channel: $reviewChannelName');
           setError(
             'Failed to subscribe to review channel: $reviewChannelName',
-          ); // Report error
+          );
         }
       }
     } catch (e) {
@@ -721,7 +804,7 @@ class GigProvider extends BaseProvider {
       );
       setError(
         'Failed to subscribe to specific gig channels: ${e.toString()}',
-      ); // Report error
+      );
     }
   }
 
@@ -737,7 +820,7 @@ class GigProvider extends BaseProvider {
             eventData['data'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
-          setSuccess(); // Notify listeners about the update
+          setSuccess();
           debugPrint('Successfully updated gig status to VERIFIED: $gigUuid');
         }
       }
@@ -745,7 +828,7 @@ class GigProvider extends BaseProvider {
       debugPrint('GigProvider: Error processing gig.approved event: $e');
       setError(
         'Error processing gig approval event: ${e.toString()}',
-      ); // Report error
+      );
     }
   }
 
@@ -761,7 +844,7 @@ class GigProvider extends BaseProvider {
             eventData['data'] as Map<String, dynamic>,
           );
           _updateGigInAllLists(gigUuid, updatedGig);
-          setSuccess(); // Notify listeners about the update
+          setSuccess();
           debugPrint('Successfully updated gig status to REJECTED: $gigUuid');
         }
       }
@@ -769,7 +852,7 @@ class GigProvider extends BaseProvider {
       debugPrint('GigProvider: Error processing gig.rejected event: $e');
       setError(
         'Error processing gig rejection event: ${e.toString()}',
-      ); // Report error
+      );
     }
   }
 
@@ -803,7 +886,7 @@ class GigProvider extends BaseProvider {
 
         if (newReview != null) {
           _addReviewToGig(gigUuid, newReview);
-          setSuccess(); // Notify listeners about the new review
+          setSuccess();
           debugPrint('Successfully added new review to gig: $gigUuid');
           debugPrint(
             'Review rating: ${newReview.rating}, Review text: ${newReview.review}',
@@ -812,20 +895,20 @@ class GigProvider extends BaseProvider {
           debugPrint('Could not extract review data from event');
           setError(
             'Could not extract review data from event for gig: $gigUuid',
-          ); // Report error
+          );
         }
       } else {
         debugPrint('Event data is not a string, received: ${event.data}');
         setError(
           'Unexpected event data type for gig review: ${event.data.runtimeType}',
-        ); // Report error
+        );
       }
     } catch (e, stackTrace) {
       debugPrint('GigProvider: Error processing gig.review event: $e');
       debugPrint('Stack trace: $stackTrace');
       setError(
         'Error processing gig review event: ${e.toString()}',
-      ); // Report error
+      );
     }
   }
 
@@ -865,7 +948,7 @@ class GigProvider extends BaseProvider {
       _selectedGig = updatedGig;
     }
 
-    _safeNotifyListeners(); // Notify listeners about the gig list update
+    _safeNotifyListeners();
   }
 
   void _addReviewToGig(String gigUuid, Review newReview) {
@@ -923,7 +1006,7 @@ class GigProvider extends BaseProvider {
       );
     }
 
-    _safeNotifyListeners(); // Notify listeners about the review addition
+    _safeNotifyListeners();
   }
 
   void unsubscribeFromSpecificGigChannel(String gigUuid) {

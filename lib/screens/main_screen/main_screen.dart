@@ -12,6 +12,8 @@ import 'package:wawu_mobile/screens/messages_screen/messages_screen.dart';
 import 'package:wawu_mobile/screens/notifications/notifications.dart';
 import 'package:wawu_mobile/screens/settings_screen/settings_screen.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
@@ -26,80 +28,110 @@ class AuthModalScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return  BackdropFilter(
-      filter: ImageFilter.blur(
-        sigmaX: 7.0,
-        sigmaY: 7.0
-      ),
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 7.0, sigmaY: 7.0),
       child: SizedBox(
-    height: 400,
-    child: Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            const Text(
-              'Sign In Required',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-              child: Text(
-                'Please sign in or sign up to access this feature.',
-                style: TextStyle(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                children: [
-                  CustomButton(
+        height: 400,
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          child: SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 20),
+                const Text(
+                  'Sign In Required',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 16.0,
+                  ),
+                  child: Text(
+                    'Please sign in or sign up to access this feature.',
+                    style: TextStyle(fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const Spacer(),
+                
+                // Add icon before buttons
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: wawuColors.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock_outline,
+                    size: 48,
                     color: wawuColors.primary,
-                    function: () {
-                      Navigator.of(context).pop();
-                      Navigator.pushNamed(context, '/signin');
-                    },
-                    widget: const Text('Sign In', style: TextStyle(color: Colors.white),),
                   ),
-                  const SizedBox(height: 10),
-                  CustomButton(
-                    color: wawuColors.white,
-                    border: Border.all(color: wawuColors.primary),
-                    function: () {
-                      Navigator.of(context).pop();
-                      Navigator.pushNamed(context, '/signin');
-                    },
-                    widget: const Text('Sign Up', style: TextStyle(color: Colors.black),),
+                ),
+                const SizedBox(height: 24),
+                
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    children: [
+                      CustomButton(
+                        color: wawuColors.primary,
+                        function: () {
+                          Navigator.of(context).pop();
+                          // await OnboardingStateService.clear();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SignIn(),
+                            ),
+                          );
+                        },
+                        widget: const Text(
+                          'Sign In',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      CustomButton(
+                        color: wawuColors.white,
+                        border: Border.all(color: wawuColors.primary),
+                        function: () {
+                          Navigator.of(context).pop();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SignUp(),
+                            ),
+                          );
+                        },
+                        widget: const Text(
+                          'Sign Up',
+                          style: TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+              ],
             ),
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
-    ),
-        )
-      );}
+    );
+  }
 }
-
 // Custom route to apply background scaling
 class CustomModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
   CustomModalBottomSheetRoute({
@@ -114,7 +146,8 @@ class CustomModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
     super.modalBarrierColor,
     super.enableDrag,
     super.settings,
-    super.transitionAnimationController, required super.isScrollControlled,
+    super.transitionAnimationController,
+    required super.isScrollControlled,
   });
 
   @override
@@ -125,14 +158,12 @@ class CustomModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
     Widget child,
   ) {
     // Scale down the background screen
-    final scale = 0.95 + (0.05 * (1 - animation.value)); // Scale from 1.0 to 0.95
+    final scale =
+        0.95 + (0.05 * (1 - animation.value)); // Scale from 1.0 to 0.95
     final opacity = 0.4 + (0.6 * animation.value); // Fade modal in
     return Transform.scale(
       scale: scale,
-      child: Opacity(
-        opacity: opacity,
-        child: child,
-      ),
+      child: Opacity(opacity: opacity, child: child),
     );
   }
 }
@@ -218,7 +249,8 @@ class MainScreenState extends State<MainScreen> {
         if (mounted) {
           CustomSnackBar.show(
             context,
-            message: 'Error fetching subscription: ${planProvider.errorMessage}',
+            message:
+                'Error fetching subscription: ${planProvider.errorMessage}',
             isError: true,
             actionLabel: 'Retry',
             onActionPressed: () async {
@@ -282,35 +314,38 @@ class MainScreenState extends State<MainScreen> {
         width: 40,
         height: 40,
         fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.grey[200],
-          ),
-          child: const Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+        placeholder:
+            (context, url) => Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[200],
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             ),
-          ),
-        ),
-        errorWidget: (context, url, error) => Image.asset(
-          'assets/images/other/avatar.webp',
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-        ),
-        imageBuilder: (context, imageProvider) => Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-          ),
-        ),
+        errorWidget:
+            (context, url, error) => Image.asset(
+              'assets/images/other/avatar.webp',
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+            ),
+        imageBuilder:
+            (context, imageProvider) => Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+              ),
+            ),
       );
     } else {
       return Container(
@@ -414,7 +449,7 @@ class MainScreenState extends State<MainScreen> {
         barrierColor: Colors.black.withOpacity(0.4),
         isDismissible: true,
         enableDrag: false,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), 
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         isScrollControlled: true,
       ),
     );
@@ -444,30 +479,31 @@ class MainScreenState extends State<MainScreen> {
               horizontal: 15.0,
               vertical: 15.0,
             ),
-            child: _isSearchOpen
-                ? TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Search...",
-                      hintStyle: const TextStyle(fontSize: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: wawuColors.primary.withAlpha(30),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: wawuColors.primary.withAlpha(60),
+            child:
+                _isSearchOpen
+                    ? TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search...",
+                        hintStyle: const TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: wawuColors.primary.withAlpha(30),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: wawuColors.primary.withAlpha(60),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: wawuColors.primary),
                         ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: wawuColors.primary),
-                      ),
-                    ),
-                  )
-                : null,
+                    )
+                    : null,
           ),
         ),
       ),

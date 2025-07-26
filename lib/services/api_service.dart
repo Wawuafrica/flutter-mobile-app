@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import '../services/auth_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 // Custom exception for API errors
 class ApiException implements Exception {
@@ -27,7 +28,10 @@ class ApiService {
   // Base URL from environment with default value
   static final String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://production.wawuafrica.com/api',
+    defaultValue:
+        kIsWeb
+            ? 'https://cors-anywhere.herokuapp.com/https://staging.wawuafrica.com/api'
+            : 'https://staging.wawuafrica.com/api',
   );
 
   // Auth service for token management

@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/blog_provider.dart';
 import 'package:wawu_mobile/models/blog_post.dart';
 import 'package:wawu_mobile/screens/blog_screen/single_blog_screen/single_blog_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
-import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
@@ -24,8 +21,7 @@ class _BlogScreenState extends State<BlogScreen> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
-  // Flags to prevent showing multiple snackbars for the same error
-  bool _hasShownAdError = false;
+  // Flag to prevent showing multiple snackbars for the same error
   bool _hasShownBlogError = false;
 
   @override
@@ -38,29 +34,18 @@ class _BlogScreenState extends State<BlogScreen> {
     // Initialize data when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final blogProvider = context.read<BlogProvider>();
-      final adProvider = context.read<AdProvider>();
 
       // Fetch blog posts
       blogProvider.fetchPosts(refresh: true);
-
-      // Initialize ads (will fetch if not already loaded)
-      adProvider.refresh();
     });
   }
 
   Future<void> _refreshData() async {
     try {
       final blogProvider = context.read<BlogProvider>();
-      final adProvider = context.read<AdProvider>();
 
-      // Create a list of futures to run in parallel
-      final futures = <Future>[
-        blogProvider.fetchPosts(refresh: true),
-        adProvider.refresh(), // Use refresh instead of fetchAds
-      ];
-
-      // Wait for all futures to complete
-      await Future.wait(futures);
+      // Fetch blog posts
+      await blogProvider.fetchPosts(refresh: true);
 
       // Show success message
       if (mounted) {
@@ -79,37 +64,6 @@ class _BlogScreenState extends State<BlogScreen> {
           isError: true,
         );
       }
-    }
-  }
-
-  Future<void> _handleAdTap(String adLink) async {
-    if (adLink.isEmpty) {
-      CustomSnackBar.show(
-        context,
-        message: 'Ad link is not available',
-        isError: false, // Informative, not an error
-      );
-      return;
-    }
-
-    try {
-      final uri = Uri.parse(adLink);
-
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        CustomSnackBar.show(
-          context,
-          message: 'Could not open the ad link',
-          isError: true,
-        );
-      }
-    } catch (e) {
-      CustomSnackBar.show(
-        context,
-        message: 'Invalid ad link format',
-        isError: true,
-      );
     }
   }
 
@@ -146,191 +100,6 @@ class _BlogScreenState extends State<BlogScreen> {
             ),
           ],
         );
-      },
-    );
-  }
-
-  Widget _buildAdCarousel() {
-    return Consumer<AdProvider>(
-      builder: (context, adProvider, child) {
-        // Only show snackbar errors when there's existing data and a transient error occurs
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (adProvider.hasError &&
-              adProvider.errorMessage != null &&
-              !_hasShownAdError &&
-              adProvider.ads.isNotEmpty) {
-            // Only show snackbar if there's existing data
-            CustomSnackBar.show(
-              context,
-              message: adProvider.errorMessage!,
-              isError: true,
-              actionLabel: 'RETRY',
-              onActionPressed: () {
-                adProvider.fetchAds();
-              },
-            );
-            _hasShownAdError = true;
-            adProvider.clearError(); // Clear error state
-          } else if (!adProvider.hasError && _hasShownAdError) {
-            _hasShownAdError = false;
-          }
-        });
-
-        // Loading state
-        if (adProvider.isLoading && adProvider.ads.isEmpty) {
-          return Container(
-            width: double.infinity,
-            height: 220,
-            decoration: BoxDecoration(
-              color: wawuColors.borderPrimary.withAlpha(50),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 8),
-                  Text(
-                    'Loading ads...',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        // Error state with FullErrorDisplay - only when there's no data
-        if (adProvider.hasError &&
-            adProvider.ads.isEmpty &&
-            !adProvider.isLoading) {
-          return FullErrorDisplay(
-            errorMessage:
-                adProvider.errorMessage ??
-                'Failed to load ads. Please try again.',
-            onRetry: () {
-              adProvider.fetchAds();
-            },
-            onContactSupport: () {
-              _showErrorSupportDialog(
-                context,
-                'If this problem persists, please contact our support team. We are here to help!',
-              );
-            },
-          );
-        }
-
-        // Empty state
-        if (adProvider.ads.isEmpty) {
-          return Container(
-            width: double.infinity,
-            height: 220,
-            decoration: BoxDecoration(
-              color: wawuColors.borderPrimary.withAlpha(50),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.image_not_supported_outlined,
-                  size: 48,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'No ads available',
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Check back later for promotions',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                ),
-              ],
-            ),
-          );
-        }
-
-        // Success state with ads
-        final List<Widget> carouselItems =
-            adProvider.ads.map((ad) {
-              return GestureDetector(
-                onTap: () => _handleAdTap(ad.link),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: CachedNetworkImage(
-                    imageUrl: ad.media.link,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: 220,
-                    placeholder:
-                        (context, url) => Container(
-                          width: double.infinity,
-                          height: 220,
-                          decoration: BoxDecoration(
-                            color: wawuColors.borderPrimary.withAlpha(50),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    wawuColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Loading ad...',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    errorWidget:
-                        (context, url, error) => Container(
-                          width: double.infinity,
-                          height: 220,
-                          decoration: BoxDecoration(
-                            color: wawuColors.borderPrimary.withAlpha(50),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.broken_image_outlined,
-                                size: 48,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Failed to load ad',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                  ),
-                ),
-              );
-            }).toList();
-
-        return FadingCarousel(height: 220, children: carouselItems);
       },
     );
   }
@@ -434,23 +203,22 @@ class _BlogScreenState extends State<BlogScreen> {
 
         // Success state with posts
         // Convert BlogPost list to Map format for FilterableWidgetList
-        final blogPostsAsMap =
-            blogProvider.posts
-                .map(
-                  (post) => {
-                    'uuid': post.uuid,
-                    'title': post.title,
-                    'content': post.content,
-                    'category': post.category,
-                    'likes': post.likes.toString(),
-                    'comments': post.comments.length.toString(),
-                    'coverImage': post.coverImage?.link ?? '',
-                    'authorName': post.authorName,
-                    'authorAvatar': post.authorAvatar ?? '',
-                    'createdAt': post.formattedDate,
-                  },
-                )
-                .toList();
+        final blogPostsAsMap = blogProvider.posts
+            .map(
+              (post) => {
+                'uuid': post.uuid,
+                'title': post.title,
+                'content': post.content,
+                'category': post.category,
+                'likes': post.likes.toString(),
+                'comments': post.comments.length.toString(),
+                'coverImage': post.coverImage?.link ?? '',
+                'authorName': post.authorName,
+                'authorAvatar': post.authorAvatar ?? '',
+                'createdAt': post.formattedDate,
+              },
+            )
+            .toList();
 
         // Get unique categories for filter
         final categories = ['All'];
@@ -525,12 +293,16 @@ class _BlogScreenState extends State<BlogScreen> {
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   const SizedBox(height: 20),
-                  const CustomIntroText(text: 'Latest Today'),
-                  const SizedBox(height: 10),
-                  _buildAdCarousel(),
-                  const SizedBox(height: 20),
+                  Text(
+                    'Exploring New Articles',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
                   _buildBlogContent(),
-                  const SizedBox(height: 20), // Add bottom padding
+                  const SizedBox(height: 20),
                 ]),
               ),
             ),
@@ -594,202 +366,195 @@ class _BlogListItemState extends State<BlogListItem> {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
-        width: double.infinity,
-        height: 90,
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        margin: const EdgeInsets.only(bottom: 8.0),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: CachedNetworkImage(
-                imageUrl: widget.blogPost.coverImage?.link ?? '',
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-                placeholder:
-                    (context, url) => Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            wawuColors.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                errorWidget:
-                    (context, url, error) => Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.image_not_supported_outlined,
-                        color: Colors.grey[500],
-                      ),
-                    ),
-              ),
+        margin: const EdgeInsets.only(bottom: 16.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.15), // Slightly more visible shadow
+              spreadRadius: 1,
+              blurRadius: 8, // Increased blur for a softer look
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.blogPost.title,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Expanded(
-                          child: Text(
-                            widget.blogPost.content.replaceAll(
-                              RegExp(r'<[^>]*>'),
-                              '',
-                            ), // Remove HTML tags
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            children: [
+              // Blog Post Image
+              CachedNetworkImage(
+                imageUrl: widget.blogPost.coverImage?.link ?? '',
+                height: 260, // Increased height for a more impactful image
+                width: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  height: 220,
+                  width: double.infinity,
+                  color: Colors.grey[200], // Lighter placeholder
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(wawuColors.primary),
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                ),
+                errorWidget: (context, url, error) => Container(
+                  height: 220,
+                  width: double.infinity,
+                  color: Colors.grey[200],
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.grey[400],
+                    size: 50,
+                  ),
+                ),
+              ),
+              // Gradient Overlay for readability
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.8), // Stronger dark overlay at the bottom
+                      ],
+                      stops: const [0.4, 1.0], // Start gradient higher
+                    ),
+                  ),
+                ),
+              ),
+              // Content on top of the overlay (Title, Category, Likes, Comments)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Category Tag
+                      // Blog Post Title
+                      Text(
+                        widget.blogPost.title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
                       Container(
-                        height: 25,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: wawuColors.primary.withAlpha(70),
+                          color: wawuColors.primary.withOpacity(0.8), // Solid primary color for tag
                           borderRadius: BorderRadius.circular(5),
                         ),
-                        child: Center(
-                          child: Text(
-                            widget.blogPost.category,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: wawuColors.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
+                        child: Text(
+                          widget.blogPost.category,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      // Author and Date (Optional, can be added if desired)
+                      // Row(
+                      //   children: [
+                      //     CircleAvatar(
+                      //       radius: 12,
+                      //       backgroundImage: CachedNetworkImageProvider(widget.blogPost.authorAvatar ?? ''),
+                      //     ),
+                      //     SizedBox(width: 8),
+                      //     Text(
+                      //       widget.blogPost.authorName ?? 'Unknown',
+                      //       style: TextStyle(fontSize: 12, color: Colors.white70),
+                      //     ),
+                      //     SizedBox(width: 8),
+                      //     Text(
+                      //       widget.blogPost.formattedDate,
+                      //       style: TextStyle(fontSize: 12, color: Colors.white70),
+                      //     ),
+                      //   ],
+                      // ),
+                      // const SizedBox(height: 8),
+
+                      // Like and Comment buttons
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          GestureDetector(
-                            onTap: _handleLike,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                              ),
-                              height: 25,
-                              decoration: BoxDecoration(
-                                color:
-                                    widget.blogPost.isLikedByCurrentUser
-                                        ? wawuColors.primary.withAlpha(150)
-                                        : wawuColors.primary.withAlpha(70),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  _isLiking
-                                      ? SizedBox(
-                                        width: 10,
-                                        height: 10,
+                          Row(
+                            children: [
+                              // Like button
+                              GestureDetector(
+                                onTap: _handleLike,
+                                child: _isLiking
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
                                         child: CircularProgressIndicator(
-                                          strokeWidth: 1,
-                                          color: wawuColors.primary,
+                                          strokeWidth: 1.5,
+                                          color: Colors.white,
                                         ),
                                       )
-                                      : Icon(
+                                    : Icon(
                                         widget.blogPost.isLikedByCurrentUser
-                                            ? Icons.thumb_up_alt
-                                            : Icons.thumb_up_alt_outlined,
-                                        size: 10,
-                                        color: wawuColors.primary,
+                                            ? Icons.favorite
+                                            : Icons.favorite_border,
+                                        size: 18,
+                                        color: Colors.white,
                                       ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatCount(widget.blogPost.likes),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: wawuColors.primary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
                               ),
-                            ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _formatCount(widget.blogPost.likes),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
+                          // Comment button
                           GestureDetector(
                             onTap: widget.onComment,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                              ),
-                              height: 25,
-                              decoration: BoxDecoration(
-                                color: wawuColors.primary.withAlpha(70),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.mode_comment_outlined,
-                                    size: 10,
-                                    color: wawuColors.primary,
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _formatCount(widget.blogPost.comments.length),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatCount(
-                                      widget.blogPost.comments.length,
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: wawuColors.primary,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -147,32 +147,6 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
                             ? Icons.visibility
                             : Icons.visibility_off,
                   ),
-                  Positioned(
-                    right: 12,
-                    top:
-                        _isLoading
-                            ? 41
-                            : 41, // Adjust based on your text field height
-                    child: GestureDetector(
-                      onTap:
-                          _isLoading
-                              ? null
-                              : () {
-                                setState(() {
-                                  _obscurePassword = !_obscurePassword;
-                                });
-                              },
-                      child: Container(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          _obscurePassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          color: _isLoading ? Colors.grey : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
               SizedBox(height: 20),
@@ -190,30 +164,6 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
                         _obscureConfirmPassword
                             ? Icons.visibility
                             : Icons.visibility_off,
-                  ),
-                  Positioned(
-                    right: 12,
-                    top: 41, // Adjust based on your text field height
-                    child: GestureDetector(
-                      onTap:
-                          _isLoading
-                              ? null
-                              : () {
-                                setState(() {
-                                  _obscureConfirmPassword =
-                                      !_obscureConfirmPassword;
-                                });
-                              },
-                      child: Container(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(
-                          _obscureConfirmPassword
-                              ? Icons.visibility
-                              : Icons.visibility_off,
-                          color: _isLoading ? Colors.grey : Colors.grey[600],
-                        ),
-                      ),
-                    ),
                   ),
                 ],
               ),
