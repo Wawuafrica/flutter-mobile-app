@@ -98,7 +98,6 @@ class GigCard extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.black.withOpacity(0.7),
-                          Colors.transparent,
                           Colors.black.withOpacity(0.7),
                         ],
                         stops: const [0.3, 1.0],
