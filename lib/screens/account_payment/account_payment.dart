@@ -5,20 +5,17 @@ import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/base_provider.dart';
 import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
-import 'package:wawu_mobile/screens/account_payment/payment_webview.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
 import 'package:wawu_mobile/widgets/payment/payment_success_dialog.dart';
-// import 'package:wawu_mobile/widgets/payment/payment_error_dialog.dart'; // Removed
-// import 'package:wawu_mobile/widgets/custom_textfield/custom_textfield.dart';
-import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
-import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class AccountPayment extends StatefulWidget {
-  final String userId; // Pass user ID from previous screen
+  final String userId;
 
   const AccountPayment({super.key, required this.userId});
 
@@ -30,9 +27,8 @@ class _AccountPaymentState extends State<AccountPayment> {
   final TextEditingController _discountController = TextEditingController();
   double discountPercentage = 0.0;
   double calculatedTotal = 0.0;
-
-  // Flag to prevent showing multiple snackbars for the same error
   bool _hasShownError = false;
+  bool _isIAPInitialized = false;
 
   @override
   void initState() {
@@ -40,7 +36,11 @@ class _AccountPaymentState extends State<AccountPayment> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await OnboardingStateService.saveStep('payment');
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
-      // --- Onboarding Plan Restore Logic ---
+      
+      // Initialize IAP
+      await _initializeIAP();
+      
+      // Restore plan if needed
       if (planProvider.selectedPlan == null) {
         final planJson = await OnboardingStateService.getPlan();
         if (planJson != null) {
@@ -49,7 +49,6 @@ class _AccountPaymentState extends State<AccountPayment> {
             planProvider.selectPlan(plan);
             _calculateTotal();
           } catch (e) {
-            // ignore restore error
             _calculateTotal();
           }
         } else {
@@ -59,6 +58,72 @@ class _AccountPaymentState extends State<AccountPayment> {
         _calculateTotal();
       }
     });
+  }
+
+  Future<void> _initializeIAP() async {
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
+    
+    try {
+      final bool success = await planProvider.initializeIAP();
+      setState(() {
+        _isIAPInitialized = success;
+      });
+      
+      if (!success) {
+        _showIAPInitializationError();
+      }
+    } catch (e) {
+      setState(() {
+        _isIAPInitialized = false;
+      });
+      _showIAPInitializationError();
+    }
+  }
+
+  void _showIAPInitializationError() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Payment Setup Issue',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: const Text(
+            'Unable to initialize in-app purchases. You can still use the web payment option or try again later.',
+            textAlign: TextAlign.center,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'Use Web Payment',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Keep the web payment option available
+              },
+            ),
+            TextButton(
+              child: const Text(
+                'Try Again',
+                style: TextStyle(color: wawuColors.primary),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _initializeIAP();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _calculateTotal() {
@@ -72,7 +137,6 @@ class _AccountPaymentState extends State<AccountPayment> {
     }
   }
 
-  // Function to show the support dialog (can be reused)
   void _showErrorSupportDialog(BuildContext context, String message) {
     showDialog(
       context: context,
@@ -113,31 +177,90 @@ class _AccountPaymentState extends State<AccountPayment> {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     if (planProvider.selectedPlan == null) {
-      // Show full error display if no plan is selected
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder:
-            (context) => FullErrorDisplay(
-              errorMessage:
-                  'No plan selected. Please go back and select a plan.',
-              onRetry: () {
-                Navigator.of(context).pop(); // Dismiss error dialog
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const Plan()),
-                );
-              },
-              onContactSupport: () {
-                _showErrorSupportDialog(
-                  context,
-                  'You must select a plan before proceeding to checkout. If you are having trouble selecting a plan, please contact support.',
-                );
-              },
-            ),
+        builder: (context) => FullErrorDisplay(
+          errorMessage: 'No plan selected. Please go back and select a plan.',
+          onRetry: () {
+            Navigator.of(context).pop();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const Plan()),
+            );
+          },
+          onContactSupport: () {
+            _showErrorSupportDialog(
+              context,
+              'You must select a plan before proceeding to checkout. If you are having trouble selecting a plan, please contact support.',
+            );
+          },
+        ),
       );
       return;
     }
+
+    // Check if IAP is available
+    if (!_isIAPInitialized) {
+      _showIAPUnavailableDialog();
+      return;
+    }
+
+    // Proceed directly with IAP payment
+    _processIAPPayment();
+  }
+
+  void _showIAPUnavailableDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: const Text(
+            'Payment Unavailable',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: wawuColors.primary,
+            ),
+          ),
+          content: const Text(
+            'In-app purchases are not available on this device. Please try again later or contact support if the problem persists.',
+            textAlign: TextAlign.center,
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text(
+                'Try Again',
+                style: TextStyle(color: wawuColors.primary),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _initializeIAP();
+              },
+            ),
+            TextButton(
+              child: const Text(
+                'Contact Support',
+                style: TextStyle(color: wawuColors.buttonSecondary),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showErrorSupportDialog(
+                  context,
+                  'In-app purchases are not available on your device. Please contact our support team for assistance.',
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _processIAPPayment() async {
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     // Show loading dialog
     showDialog(
@@ -147,8 +270,11 @@ class _AccountPaymentState extends State<AccountPayment> {
     );
 
     try {
-      // Generate payment link
-      await planProvider.generatePaymentLink(
+      // Persist onboarding step as 'payment_processing'
+      await OnboardingStateService.saveStep('payment_processing');
+      
+      // Start IAP purchase
+      await planProvider.purchaseSubscription(
         planUuid: planProvider.selectedPlan!.uuid,
         userId: widget.userId,
       );
@@ -158,36 +284,16 @@ class _AccountPaymentState extends State<AccountPayment> {
         Navigator.pop(context);
       }
 
-      if (planProvider.paymentLink != null &&
-          planProvider.paymentLink!.link.isNotEmpty) {
-        // Persist onboarding step as 'payment_processing'
-        await OnboardingStateService.saveStep('payment_processing');
-        // Navigate to payment webview
-        final paymentResult = await Navigator.push<Map<String, String>>(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => PaymentWebView(
-                  paymentUrl: planProvider.paymentLink!.link,
-                  redirectUrl:
-                      'https://production.wawuafrica.com/api/payment/callback', // Replace with your actual redirect URL
-                ),
-          ),
-        );
-
-        // Handle payment result
-        if (paymentResult != null) {
-          await _handlePaymentResult(paymentResult);
-        }
-      } else {
+      // Listen for purchase completion
+      if (planProvider.state == LoadingState.success && planProvider.subscription != null) {
+        _showSuccessDialog();
+      } else if (planProvider.hasError) {
         CustomSnackBar.show(
           context,
-          message:
-              planProvider.errorMessage ??
-              'Failed to generate payment link. Please try again.',
+          message: planProvider.errorMessage ?? 'Purchase failed. Please try again.',
           isError: true,
         );
-        planProvider.clearError(); // Clear error state
+        planProvider.clearError();
       }
     } catch (e) {
       // Close loading dialog
@@ -196,68 +302,19 @@ class _AccountPaymentState extends State<AccountPayment> {
       }
       CustomSnackBar.show(
         context,
-        message: 'An error occurred during checkout: ${e.toString()}',
+        message: 'An error occurred during purchase: ${e.toString()}',
         isError: true,
       );
-      planProvider.clearError(); // Clear error state
+      planProvider.clearError();
     }
   }
 
+  Future<void> _processWebPayment() async {
+    // Remove this method - no longer needed
+  }
+
   Future<void> _handlePaymentResult(Map<String, String> result) async {
-    // Persist onboarding step as 'verify_payment'
-    await OnboardingStateService.saveStep('verify_payment');
-    // The full redirect URL is now passed in the 'redirectUrl' key.
-    final String? redirectUrl = result['redirectUrl'];
-
-    if (redirectUrl == null || redirectUrl.isEmpty) {
-      CustomSnackBar.show(
-        context,
-        message: 'Payment verification failed: Missing redirect URL.',
-        isError: true,
-      );
-      return;
-    }
-
-    // Show a loading indicator while we verify the payment.
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    try {
-      // Directly call the provider with the full redirect URL.
-      await planProvider.handlePaymentCallback(redirectUrl);
-
-      // Close the loading dialog.
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-
-      if (planProvider.state == LoadingState.success) {
-        _showSuccessDialog();
-      } else {
-        CustomSnackBar.show(
-          context,
-          message: planProvider.errorMessage ?? 'Payment verification failed.',
-          isError: true,
-        );
-        planProvider.clearError(); // Clear error state
-      }
-    } catch (e) {
-      // Close the loading dialog in case of an unexpected error.
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      CustomSnackBar.show(
-        context,
-        message:
-            'An unexpected error occurred during payment verification: ${e.toString()}',
-        isError: true,
-      );
-      planProvider.clearError(); // Clear error state
-    }
+    // Remove this method - no longer needed
   }
 
   void _showSuccessDialog() async {
@@ -265,9 +322,7 @@ class _AccountPaymentState extends State<AccountPayment> {
     final result = await showDialog(
       context: context,
       barrierDismissible: false,
-      builder:
-          (context) =>
-              PaymentSuccessDialog(planName: planProvider.selectedPlan?.name),
+      builder: (context) => PaymentSuccessDialog(planName: planProvider.selectedPlan?.name),
     );
     if (result == true) {
       await OnboardingStateService.setComplete();
@@ -277,6 +332,17 @@ class _AccountPaymentState extends State<AccountPayment> {
         (Route<dynamic> route) => false,
       );
     }
+  }
+
+  Widget _buildPaymentMethodButton({
+    required String title,
+    required IconData icon,
+    required VoidCallback? onPressed,
+    required bool isEnabled,
+    Color? backgroundColor,
+  }) {
+    // Remove this method - no longer needed for single payment option
+    return Container();
   }
 
   @override
@@ -300,14 +366,11 @@ class _AccountPaymentState extends State<AccountPayment> {
               isError: true,
               actionLabel: 'RETRY',
               onActionPressed: () {
-                // Assuming a method to retry the last failed operation,
-                // or navigate back to select plan.
-                // For simplicity, we'll just clear the error here.
                 planProvider.clearError();
               },
             );
             _hasShownError = true;
-            planProvider.clearError(); // Clear error state
+            planProvider.clearError();
           } else if (!planProvider.hasError && _hasShownError) {
             _hasShownError = false;
           }
@@ -316,12 +379,10 @@ class _AccountPaymentState extends State<AccountPayment> {
         final selectedPlan = planProvider.selectedPlan;
 
         if (selectedPlan == null) {
-          // Fallback UI if no plan is selected or restored
           return Scaffold(
             appBar: AppBar(title: const Text('Payment')),
             body: FullErrorDisplay(
-              errorMessage:
-                  'No plan selected. Please go back and select a plan.',
+              errorMessage: 'No plan selected. Please go back and select a plan.',
               onRetry: () {
                 Navigator.pushReplacement(
                   context,
@@ -433,31 +494,30 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                // // Discount code field (commented out in original, keeping it commented)
-                // Row(
-                //   children: [
-                //     Expanded(
-                //       child: CustomTextfield(
-                //         labelText: 'Discount Code',
-                //         controller: _discountController,
-                //       ),
-                //     ),
-                //     const SizedBox(width: 10),
-                //     ElevatedButton(
-                //       onPressed: _applyDiscount,
-                //       style: ElevatedButton.styleFrom(
-                //         backgroundColor: wawuColors.primary,
-                //         foregroundColor: Colors.white,
-                //         padding: const EdgeInsets.symmetric(
-                //           horizontal: 20,
-                //           vertical: 15,
-                //         ),
-                //       ),
-                //       child: const Text('Apply'),
-                //     ),
-                //   ],
-                // ),
-                const SizedBox(height: 20),
+                // Payment method status
+                if (!_isIAPInitialized) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withAlpha(30),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.withAlpha(100)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error, color: Colors.red),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'In-app purchases are not available. Please try again or contact support.',
+                            style: TextStyle(color: Colors.red[800]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
 
                 // Payment summary
                 Container(
@@ -494,8 +554,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
-                          rightText:
-                              '${discountPercentage.toStringAsFixed(0)}%',
+                          rightText: '${discountPercentage.toStringAsFixed(0)}%',
                           rightTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -511,8 +570,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
-                          rightText:
-                              '${selectedPlan.currency} ${calculatedTotal.toStringAsFixed(0)}',
+                          rightText: '${selectedPlan.currency} ${calculatedTotal.toStringAsFixed(0)}',
                           rightTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -526,79 +584,30 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                // Features section (if available) (commented out in original, keeping it commented)
-                // if (selectedPlan.features != null &&
-                //     selectedPlan.features!.isNotEmpty) ...[
-                //   Container(
-                //     width: double.infinity,
-                //     padding: const EdgeInsets.all(20),
-                //     decoration: BoxDecoration(
-                //       borderRadius: BorderRadius.circular(15),
-                //       color: Colors.grey.withAlpha(30),
-                //     ),
-                //     child: Column(
-                //       crossAxisAlignment: CrossAxisAlignment.start,
-                //       children: [
-                //         const Text(
-                //           'Plan Features:',
-                //           style: TextStyle(
-                //             fontSize: 16,
-                //             fontWeight: FontWeight.w600,
-                //           ),
-                //         ),
-                //         const SizedBox(height: 12),
-                //         ...selectedPlan.features!
-                //             .map(
-                //               (feature) => Padding(
-                //                 padding: const EdgeInsets.only(bottom: 8),
-                //                 child: Row(
-                //                   children: [
-                //                     Icon(
-                //                       Icons.check_circle,
-                //                       color: wawuColors.primary,
-                //                       size: 16,
-                //                     ),
-                //                     const SizedBox(width: 8),
-                //                     Expanded(
-                //                       child: Text(
-                //                         '${feature.name}: ${feature.value}',
-                //                         style: const TextStyle(fontSize: 14),
-                //                       ),
-                //                     ),
-                //                   ],
-                //                 ),
-                //               ),
-                //             )
-                //             .toList(),
-                //       ],
-                //     ),
-                //   ),
-                //   const SizedBox(height: 20),
-                // ],
-
                 // Proceed button
                 CustomButton(
-                  function: planProvider.isLoading ? null : _proceedToCheckout,
-                  widget:
-                      planProvider.isLoading
-                          ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                          : const Text(
-                            'Proceed To Checkout',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
+                  function: (planProvider.isLoading || planProvider.isProcessingPurchase || !_isIAPInitialized) 
+                      ? null 
+                      : _proceedToCheckout,
+                  widget: (planProvider.isLoading || planProvider.isProcessingPurchase)
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
-                  color: wawuColors.primary,
+                        )
+                      : Text(
+                          !_isIAPInitialized 
+                              ? 'In-App Purchase Unavailable'
+                              : 'Subscribe Now',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                  color: !_isIAPInitialized ? Colors.grey : wawuColors.primary,
                   textColor: Colors.white,
                 ),
               ],
