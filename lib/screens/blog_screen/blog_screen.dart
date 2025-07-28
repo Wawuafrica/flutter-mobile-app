@@ -4,7 +4,6 @@ import 'package:wawu_mobile/providers/blog_provider.dart';
 import 'package:wawu_mobile/models/blog_post.dart';
 import 'package:wawu_mobile/screens/blog_screen/single_blog_screen/single_blog_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/filterable_widget/filterable_widget.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';

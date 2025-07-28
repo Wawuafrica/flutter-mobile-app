@@ -759,6 +759,26 @@ class MessageProvider extends BaseProvider {
     resetState();
   }
 
+  void clearAllMessages() {
+  // Clear all conversations
+  _allConversations = [];
+  
+  // Clear current messages and conversation state
+  _currentMessages = [];
+  _currentConversationId = '';
+  _currentRecipientId = '';
+  
+  // Clear user profile cache
+  _userProfileCache.clear();
+  
+  // Unsubscribe from all chat channels
+  unsubscribeFromAllChats();
+  
+  // Reset provider state and notify listeners
+  resetState();
+  _safeNotifyListeners();
+}
+
   @override
   void dispose() {
     // Removed manual _isLoading = false; _hasError = false; as BaseProvider's dispose handles state reset.

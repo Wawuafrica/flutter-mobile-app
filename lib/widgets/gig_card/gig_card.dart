@@ -14,8 +14,10 @@ class GigCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final textScaler = MediaQuery.of(context).textScaler;
     final isSmallScreen = screenWidth < 400;
-    
+    final textTheme = Theme.of(context).textTheme;
+
     return GestureDetector(
       onTap: () {
         try {
@@ -52,8 +54,7 @@ class GigCard extends StatelessWidget {
         }
       },
       child: Container(
-        // Remove fixed width to make it responsive
-        margin: EdgeInsets.all(isSmallScreen ? 4 : 8),
+        margin: EdgeInsets.all(isSmallScreen ? 8 : 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: Colors.white,
@@ -68,11 +69,10 @@ class GigCard extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: AspectRatio(
-            // Use aspect ratio instead of fixed height for better responsiveness
-            aspectRatio: isSmallScreen ? 0.85 : 0.9, // Slightly taller on small screens
+            aspectRatio: isSmallScreen ? 0.85 : 0.9,
             child: Stack(
               children: [
-                // Gig Image (Full card height)
+                // Gig Image
                 Positioned.fill(
                   child: CachedNetworkImage(
                     imageUrl: gig.assets.photos.isNotEmpty && gig.assets.photos[0].link.isNotEmpty
@@ -85,11 +85,11 @@ class GigCard extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
-                    errorWidget: (context, url, error) => _buildPlaceholderImage(isSmallScreen),
+                    errorWidget: (context, url, error) => _buildPlaceholderImage(isSmallScreen, textScaler),
                   ),
                 ),
               
-                // Gradient Overlay (Full height)
+                // Gradient Overlay
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -97,7 +97,7 @@ class GigCard extends StatelessWidget {
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Colors.black.withOpacity(0.6),
+                          Colors.black.withOpacity(0.2),
                           Colors.black.withOpacity(0.7),
                         ],
                         stops: const [0.3, 1.0],
@@ -114,8 +114,8 @@ class GigCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Container(
-                        width: isSmallScreen ? 28 : 32,
-                        height: isSmallScreen ? 28 : 32,
+                        width: isSmallScreen ? 32 : 36,
+                        height: isSmallScreen ? 32 : 36,
                         clipBehavior: Clip.hardEdge,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -123,14 +123,14 @@ class GigCard extends StatelessWidget {
                         ),
                         child: _buildSellerImage(),
                       ),
-                      SizedBox(width: isSmallScreen ? 6 : 8),
+                      SizedBox(width: isSmallScreen ? 8 : 10),
                       Expanded(
                         child: Text(
                           gig.seller.fullName.isNotEmpty
                               ? gig.seller.fullName
                               : 'Unknown Seller',
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 10 : 11,
+                          style: textTheme.titleSmall?.copyWith(
+                            fontSize: textScaler.scale(isSmallScreen ? 12 : 14),
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
                             shadows: const [
@@ -148,8 +148,8 @@ class GigCard extends StatelessWidget {
                       // Rating Badge
                       Container(
                         padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 4 : 6,
-                          vertical: isSmallScreen ? 2 : 3,
+                          horizontal: isSmallScreen ? 6 : 8,
+                          vertical: isSmallScreen ? 3 : 4,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.amber,
@@ -160,7 +160,7 @@ class GigCard extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.star,
-                              size: isSmallScreen ? 10 : 12,
+                              size: isSmallScreen ? 12 : 14,
                               color: Colors.white,
                             ),
                             const SizedBox(width: 2),
@@ -168,8 +168,8 @@ class GigCard extends StatelessWidget {
                               gig.averageRating > 0
                                   ? gig.averageRating.toStringAsFixed(1)
                                   : '4.7',
-                              style: TextStyle(
-                                fontSize: isSmallScreen ? 8 : 9,
+                              style: textTheme.labelSmall?.copyWith(
+                                fontSize: textScaler.scale(isSmallScreen ? 10 : 11),
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -187,7 +187,7 @@ class GigCard extends StatelessWidget {
                   left: 0,
                   right: 0,
                   child: Padding(
-                    padding: EdgeInsets.all(isSmallScreen ? 8.0 : 12.0),
+                    padding: EdgeInsets.all(isSmallScreen ? 10.0 : 14.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -195,8 +195,8 @@ class GigCard extends StatelessWidget {
                         // Gig Title
                         Text(
                           gig.title.isNotEmpty ? gig.title : 'Untitled Gig',
-                          style: TextStyle(
-                            fontSize: isSmallScreen ? 11 : 12,
+                          style: textTheme.titleMedium?.copyWith(
+                            fontSize: textScaler.scale(isSmallScreen ? 14 : 16),
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                             height: 1.2,
@@ -220,16 +220,16 @@ class GigCard extends StatelessWidget {
                                 children: [
                                   Text(
                                     'Starting from',
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 8 : 9,
+                                    style: textTheme.bodySmall?.copyWith(
+                                      fontSize: textScaler.scale(isSmallScreen ? 10 : 11),
                                       color: Colors.white.withOpacity(0.8),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     _getPriceText(),
-                                    style: TextStyle(
-                                      fontSize: isSmallScreen ? 12 : 14,
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontSize: textScaler.scale(isSmallScreen ? 14 : 16),
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
                                     ),
@@ -245,8 +245,8 @@ class GigCard extends StatelessWidget {
                             // Action Button
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: isSmallScreen ? 8 : 12,
-                                vertical: isSmallScreen ? 6 : 8,
+                                horizontal: isSmallScreen ? 10 : 14,
+                                vertical: isSmallScreen ? 8 : 10,
                               ),
                               decoration: BoxDecoration(
                                 color: wawuColors.primary,
@@ -261,8 +261,8 @@ class GigCard extends StatelessWidget {
                               ),
                               child: Text(
                                 isSmallScreen ? 'View' : 'View Details',
-                                style: TextStyle(
-                                  fontSize: isSmallScreen ? 9 : 10,
+                                style: textTheme.labelMedium?.copyWith(
+                                  fontSize: textScaler.scale(isSmallScreen ? 11 : 12),
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                 ),
@@ -302,10 +302,10 @@ class GigCard extends StatelessWidget {
     return Image.asset('assets/images/other/avatar.webp', fit: BoxFit.cover);
   }
 
-  Widget _buildPlaceholderImage(bool isSmallScreen) {
+  Widget _buildPlaceholderImage(bool isSmallScreen, TextScaler textScaler) {
     return Container(
       decoration: BoxDecoration(
-        color: wawuColors.primary.withValues(alpha: 0.2)
+        color: wawuColors.primary.withValues(alpha: 0.2),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -320,7 +320,7 @@ class GigCard extends StatelessWidget {
             'No Image Available',
             style: TextStyle(
               color: Colors.grey[600],
-              fontSize: isSmallScreen ? 10 : 12,
+              fontSize: textScaler.scale(isSmallScreen ? 10 : 12),
               fontWeight: FontWeight.w500,
             ),
             textAlign: TextAlign.center,

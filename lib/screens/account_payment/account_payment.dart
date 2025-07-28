@@ -31,6 +31,7 @@ class _AccountPaymentState extends State<AccountPayment> {
   double calculatedTotal = 0.0;
   bool _hasShownError = false;
   bool _isIAPInitialized = false;
+  bool _isIAPInitializationAttempted = false; // New state to track initialization attempt
   bool _purchaseInProgress = false;
   DateTime? _lastPurchaseAttempt;
   bool _hasCheckedActiveSubscription = false;
@@ -96,6 +97,10 @@ class _AccountPaymentState extends State<AccountPayment> {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     try {
+      setState(() {
+        _isIAPInitializationAttempted = true; // Mark initialization as attempted
+      });
+
       final bool success = await planProvider.initializeIAP();
       setState(() {
         _isIAPInitialized = success;
@@ -349,7 +354,6 @@ class _AccountPaymentState extends State<AccountPayment> {
       await planProvider.purchaseSubscription(
         planUuid: planProvider.selectedPlan!.uuid,
         userId: widget.userId,
-        // storeProductId: planProvider.selectedPlan!.storeProductId,
       );
 
       _listenForPurchaseCompletion(planProvider);
@@ -578,7 +582,37 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                if (!_isIAPInitialized) ...[
+                // Show loading indicator while IAP is initializing
+                if (!_isIAPInitializationAttempted) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: wawuColors.primary.withAlpha(30),
+                    ),
+                    child: const Row(
+                      children: [
+                        SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Initializing payment system...',
+                            style: TextStyle(color: wawuColors.primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ] else if (!_isIAPInitialized) ...[
+                  // Show error only after initialization attempt fails
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -700,19 +734,21 @@ class _AccountPaymentState extends State<AccountPayment> {
                           ),
                         )
                       : Text(
-                          !_isIAPInitialized
-                              ? 'In-App Purchase Unavailable'
-                              : planProvider.hasActiveSubscription
-                                  ? 'Continue'
-                                  : _purchaseInProgress
-                                      ? 'Processing...'
-                                      : 'Subscribe Now',
+                          !_isIAPInitializationAttempted
+                              ? 'Initializing...'
+                              : !_isIAPInitialized
+                                  ? 'In-App Purchase Unavailable'
+                                  : planProvider.hasActiveSubscription
+                                      ? 'Continue'
+                                      : _purchaseInProgress
+                                          ? 'Processing...'
+                                          : 'Subscribe Now',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                  color: !_canPurchase() && !planProvider.hasActiveSubscription
+                  color: !_isIAPInitializationAttempted || (!_canPurchase() && !planProvider.hasActiveSubscription)
                       ? Colors.grey
                       : planProvider.hasActiveSubscription
                           ? Colors.green

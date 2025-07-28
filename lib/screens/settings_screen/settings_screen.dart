@@ -6,6 +6,7 @@ import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/blog_provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
+import 'package:wawu_mobile/providers/message_provider.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/product_provider.dart';
@@ -18,7 +19,6 @@ import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/screens/profile/profile_screen.dart';
 import 'package:wawu_mobile/providers/links_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wawu_mobile/screens/wawu/wawu.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
@@ -212,11 +212,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context,
       listen: false,
     );
+    final messageProvider = Provider.of<MessageProvider>(
+      context,
+      listen: false,
+    );
 
     userProvider.logout();
     await OnboardingStateService.clear();
     adProvider.reset();
     blogProvider.refresh();
+    messageProvider.clearAllMessages();
     categoryProvider.clearSelectedCategory();
     categoryProvider.clearSelectedSubCategory();
     categoryProvider.clearSelectedService();

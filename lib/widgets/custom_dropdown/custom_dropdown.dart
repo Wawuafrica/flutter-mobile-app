@@ -72,7 +72,8 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
 
   void _filterOptions(String query) {
     setState(() {
-      if (query.isEmpty) {
+      final trimmedQuery = query.trim();
+      if (trimmedQuery.isEmpty) {
         _filteredOptions = widget.options;
       } else {
         if (widget.getLabel != null) {
@@ -80,7 +81,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
               widget.options
                   .where(
                     (option) => widget.getLabel!(option).toLowerCase().contains(
-                      query.toLowerCase(),
+                      trimmedQuery.toLowerCase(),
                     ),
                   )
                   .toList();
@@ -89,7 +90,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
               widget.options
                   .where(
                     (option) => option.toString().toLowerCase().contains(
-                      query.toLowerCase(),
+                      trimmedQuery.toLowerCase(),
                     ),
                   )
                   .toList();
@@ -110,112 +111,117 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return Stack(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  child: Container(color: widget.overlayColor),
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: widget.modalBackgroundColor,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(widget.borderRadius),
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setModalState) {
+              return Stack(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                    child: Container(color: widget.overlayColor),
+                  ),
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.7,
                       ),
-                    ),
-                    padding: widget.padding,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Header
-                        Text(
-                          widget.label,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      decoration: BoxDecoration(
+                        color: widget.modalBackgroundColor,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(widget.borderRadius),
                         ),
-                        const SizedBox(height: 16),
-
-                        // Search bar (conditionally shown)
-                        if (widget.enableSearch) ...[
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: widget.padding,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Header
+                            Text(
+                              widget.label,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                            child: TextField(
-                              controller: _searchController,
-                              decoration: InputDecoration(
-                                hintText: widget.searchHint,
-                                prefixIcon: const Icon(Icons.search),
-                                suffixIcon:
-                                    _searchController.text.isNotEmpty
-                                        ? IconButton(
-                                          icon: const Icon(Icons.clear),
-                                          onPressed: () {
-                                            _searchController.clear();
-                                            setModalState(() {
-                                              _filteredOptions = widget.options;
-                                            });
-                                          },
-                                        )
-                                        : null,
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
+                            const SizedBox(height: 16),
+
+                            // Search bar (conditionally shown)
+                            if (widget.enableSearch) ...[
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[300]!),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: widget.searchHint,
+                                    prefixIcon: const Icon(Icons.search),
+                                    suffixIcon:
+                                        _searchController.text.isNotEmpty
+                                            ? IconButton(
+                                              icon: const Icon(Icons.clear),
+                                              onPressed: () {
+                                                _searchController.clear();
+                                                setModalState(() {
+                                                  _filteredOptions = widget.options;
+                                                });
+                                              },
+                                            )
+                                            : null,
+                                    border: InputBorder.none,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    setModalState(() {
+                                      _filterOptions(value);
+                                    });
+                                  },
                                 ),
                               ),
-                              onChanged: (value) {
-                                setModalState(() {
-                                  _filterOptions(value);
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                              const SizedBox(height: 16),
+                            ],
 
-                        // Options list
-                        Flexible(
-                          child:
-                              _filteredOptions.isEmpty
-                                  ? const Padding(
-                                    padding: EdgeInsets.all(16.0),
-                                    child: Text(
-                                      'No options found',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey,
-                                      ),
+                            // Options list
+                            _filteredOptions.isEmpty
+                                ? const Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: Text(
+                                    'No options found',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.grey,
                                     ),
-                                  )
-                                  : ListView.builder(
-                                    shrinkWrap: true,
-                                    itemCount: _filteredOptions.length,
-                                    itemBuilder: (context, index) {
-                                      final option = _filteredOptions[index];
-                                      return _buildOption(option);
-                                    },
                                   ),
+                                )
+                                : ListView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: _filteredOptions.length,
+                                  itemBuilder: (context, index) {
+                                    final option = _filteredOptions[index];
+                                    return _buildOption(option);
+                                  },
+                                ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         );
       },
     );
