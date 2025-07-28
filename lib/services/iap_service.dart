@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:in_app_purchase/in_app_purchase.dart'; // This is the correct PurchaseStatus
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:logger/logger.dart';
 
 class IAPService {
@@ -30,7 +30,7 @@ class IAPService {
   List<ProductDetails> _products = [];
   List<ProductDetails> get products => _products;
 
-  // Active purchases/subscriptions
+  // Active purchases/subscriptions -- RESTORED THIS LIST
   List<PurchaseDetails> _activePurchases = [];
   List<PurchaseDetails> get activePurchases => _activePurchases;
 
@@ -62,7 +62,7 @@ class IAPService {
         },
       );
 
-      // Check for existing purchases/subscriptions right after setting up the listener
+      // Check for existing purchases/subscriptions right after setting up the listener -- RESTORED THIS CALL
       await _checkExistingPurchases();
 
       _isInitialized = true;
@@ -76,7 +76,7 @@ class IAPService {
     }
   }
 
-  /// Check for existing purchases (important for subscription tracking)
+  /// Check for existing purchases (important for subscription tracking) -- RESTORED THIS METHOD
   /// This will trigger _handlePurchaseUpdates for any existing purchases.
   Future<void> _checkExistingPurchases() async {
     try {
@@ -162,7 +162,7 @@ class IAPService {
         return false;
       }
 
-      // Check if user already has an active subscription for this product
+      // Check if user already has an active subscription for this product -- ADDED BACK THIS CHECK
       if (hasActiveSubscription()) {
         _logger.w('User already has active subscription for: $productId. Simulating restored purchase.');
         debugPrint('[IAP] User already has active subscription for: $productId. Simulating restored purchase.');
@@ -170,17 +170,11 @@ class IAPService {
         // Find the existing purchase and emit it as a "restored" purchase
         final existingPurchase = _activePurchases.firstWhere(
           (purchase) => purchase.productID == productId,
-          // If for some reason activePurchases is empty but hasActiveSubscription is true,
-          // this indicates a logic error or race condition. Fallback to first existing purchase if any.
           orElse: () => _activePurchases.isNotEmpty ? _activePurchases.first : throw StateError('No active purchases found despite hasActiveSubscription being true'),
         );
 
-        // Emit the existing purchase details with a "restored" status if it's not already restored
-        // The in_app_purchase package doesn't have a way to explicitly set status to restored
-        // but the important part is to pass the existing purchase through the stream
-        // so PlanProvider can acknowledge it.
         _purchaseController.add(existingPurchase);
-        return true; // Indicate that "purchase" process was successful (by finding existing)
+        return true;
       }
 
       final ProductDetails? product = getProduct(productId);
@@ -233,7 +227,7 @@ class IAPService {
         debugPrint('[IAP] Purchase error: ${purchaseDetails.error!.code} - ${purchaseDetails.error!.message}');
       }
 
-      // Update our active purchases list
+      // Update our active purchases list -- RESTORED THIS CALL
       _updateActivePurchases(purchaseDetails);
 
       // Emit purchase update to stream
@@ -249,15 +243,15 @@ class IAPService {
     }
   }
 
-  /// Update the list of active purchases based on the latest purchase detail.
+  /// Update the list of active purchases based on the latest purchase detail. -- RESTORED THIS METHOD
   /// This is crucial for keeping track of active subscriptions.
   void _updateActivePurchases(PurchaseDetails purchaseDetails) {
     // Remove if already exists to add the most recent status
     _activePurchases.removeWhere((p) => p.productID == purchaseDetails.productID);
 
     // Only add if it's an active (purchased/restored) subscription.
-    // In-app-purchase package marks restored purchases as InAppPurchase.PurchaseStatus.purchased
-    // or InAppPurchase.PurchaseStatus.restored depending on platform nuances.
+    // In-app-purchase package marks restored purchases as PurchaseStatus.purchased
+    // or PurchaseStatus.restored depending on platform nuances.
     if (purchaseDetails.status == PurchaseStatus.purchased ||
         purchaseDetails.status == PurchaseStatus.restored) {
       _activePurchases.add(purchaseDetails);
@@ -291,7 +285,7 @@ class IAPService {
     }
   }
 
-  /// Check if user has active subscription for the specific product ID.
+  /// Check if user has active subscription for the specific product ID. -- FIXED THIS METHOD
   /// This method now relies on the `_activePurchases` list.
   bool hasActiveSubscription() {
     // Check if any active purchase matches our product ID
@@ -302,7 +296,7 @@ class IAPService {
     return isActive;
   }
 
-  /// Get the active purchase details for the current product ID.
+  /// Get the active purchase details for the current product ID. -- RESTORED AND FIXED THIS METHOD
   PurchaseDetails? getActivePurchase() {
     try {
       return _activePurchases.firstWhere(
@@ -341,3 +335,6 @@ class IAPService {
     debugPrint('[IAP] IAP Service disposed');
   }
 }
+
+// Removed the custom PurchaseStatus enum to avoid conflict with in_app_purchase.PurchaseStatus
+// Removed PurchaseResult model as it was not explicitly used for IAP state management in providers
