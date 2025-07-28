@@ -372,10 +372,10 @@ class _PlanState extends State<Plan> {
                                         )
                                         .toList() ??
                                     [
-                                      {'check': true, 'text': 'Premium content access'},
-                                      {'check': true, 'text': 'Offline reading'},
-                                      {'check': true, 'text': 'Priority support'},
-                                      {'check': true, 'text': 'Ad-free experience'},
+                                      {'check': true, 'text': 'Verified Badge'},
+                                      {'check': true, 'text': 'Standard Account'},
+                                      {'check': true, 'text': '4 Active Gigs per User'},
+                                      {'check': true, 'text': 'Basic Support'},
                                     ],
                                 function: () {
                                   // Create a plan object with store information

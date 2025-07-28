@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/onboarding/onboarding_progress_indicator.dart';
@@ -79,7 +80,8 @@ class Disclaimer extends StatelessWidget {
                 ),
               ),
               color: wawuColors.primary,
-              function: () {
+              function: () async {
+                await OnboardingStateService.setComplete();
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (context) => MainScreen()),
