@@ -31,8 +31,8 @@ class _AccountPaymentState extends State<AccountPayment> {
   double calculatedTotal = 0.0;
   bool _hasShownError = false;
   bool _isIAPInitialized = false;
-  bool _isButtonPressed = false; // Debouncing flag
-  DateTime? _lastPurchaseAttempt; // Track purchase attempts
+  bool _purchaseInProgress = false; // Track purchase state locally
+  DateTime? _lastPurchaseAttempt;
 
   @override
   void initState() {
@@ -68,58 +68,20 @@ class _AccountPaymentState extends State<AccountPayment> {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
     
     try {
-      _showDebugDialog('IAP Initialization', 'Starting IAP initialization...');
-      
       final bool success = await planProvider.initializeIAP();
       setState(() {
         _isIAPInitialized = success;
       });
       
-      if (success) {
-        _showDebugDialog('IAP Initialization', 'IAP initialized successfully!');
-      } else {
-        _showDebugDialog('IAP Initialization', 'IAP initialization failed');
+      if (!success) {
         _showIAPInitializationError();
       }
     } catch (e) {
       setState(() {
         _isIAPInitialized = false;
       });
-      _showDebugDialog('IAP Initialization Error', 'Exception: $e');
       _showIAPInitializationError();
     }
-  }
-
-  void _showDebugDialog(String title, String message) {
-    // Only show debug dialogs in non-production environment
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
-          ),
-          title: Text(
-            '[DEBUG] $title',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.blue,
-              fontSize: 14,
-            ),
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(fontSize: 12),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('OK'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _showIAPInitializationError() {
@@ -220,7 +182,7 @@ class _AccountPaymentState extends State<AccountPayment> {
 
   bool _canPurchase() {
     if (!_isIAPInitialized) return false;
-    if (_isButtonPressed) return false;
+    if (_purchaseInProgress) return false;
     
     // Prevent rapid successive purchases (within 5 seconds)
     if (_lastPurchaseAttempt != null) {
@@ -231,19 +193,17 @@ class _AccountPaymentState extends State<AccountPayment> {
     }
     
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    return !planProvider.isLoading && !planProvider.isProcessingPurchase;
+    return !planProvider.isLoading;
   }
 
   Future<void> _proceedToCheckout() async {
     if (!_canPurchase()) {
-      _showDebugDialog('Purchase Blocked', 'Purchase attempt blocked - conditions not met');
       return;
     }
 
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     if (planProvider.selectedPlan == null) {
-      _showDebugDialog('No Plan Selected', 'selectedPlan is null');
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -267,26 +227,23 @@ class _AccountPaymentState extends State<AccountPayment> {
       return;
     }
 
-    // Set button as pressed and record attempt time
+    // Set purchase as in progress
     setState(() {
-      _isButtonPressed = true;
+      _purchaseInProgress = true;
     });
     _lastPurchaseAttempt = DateTime.now();
-
-    _showDebugDialog('Purchase Started', 'Starting purchase process for ${planProvider.selectedPlan!.name}');
 
     try {
       await _processIAPPayment();
     } catch (e) {
-      _showDebugDialog('Purchase Exception', 'Exception during purchase: $e');
-    } finally {
-      // Reset button state after a delay to prevent rapid clicking
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _isButtonPressed = false;
-          });
-        }
+      debugPrint('Purchase exception: $e');
+      CustomSnackBar.show(
+        context,
+        message: 'An error occurred during purchase: ${e.toString()}',
+        isError: true,
+      );
+      setState(() {
+        _purchaseInProgress = false;
       });
     }
   }
@@ -295,8 +252,6 @@ class _AccountPaymentState extends State<AccountPayment> {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     try {
-      _showDebugDialog('Purchase Processing', 'Saving onboarding step and starting purchase');
-      
       // Persist onboarding step as 'payment_processing'
       await OnboardingStateService.saveStep('payment_processing');
       
@@ -306,13 +261,11 @@ class _AccountPaymentState extends State<AccountPayment> {
         userId: widget.userId,
       );
 
-      _showDebugDialog('Purchase Initiated', 'Purchase request sent to provider');
-
-      // Listen for purchase completion
+      // Listen for purchase completion using addListener instead of periodic timer
       _listenForPurchaseCompletion(planProvider);
       
     } catch (e) {
-      _showDebugDialog('Purchase Error', 'Error during purchase process: $e');
+      debugPrint('Error during purchase process: $e');
       
       CustomSnackBar.show(
         context,
@@ -321,36 +274,32 @@ class _AccountPaymentState extends State<AccountPayment> {
       );
       planProvider.clearError();
       
-      // Reset button state on error
+      // Reset purchase state on error
       setState(() {
-        _isButtonPressed = false;
+        _purchaseInProgress = false;
       });
     }
   }
 
   void _listenForPurchaseCompletion(PlanProvider planProvider) {
-    // Wait a bit for the purchase to process
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    // Add a one-time listener to the provider
+    void listener() {
       if (!mounted) {
-        timer.cancel();
+        planProvider.removeListener(listener);
         return;
       }
 
-      _showDebugDialog('Purchase Status Check', 
-        'State: ${planProvider.state}, HasError: ${planProvider.hasError}, Processing: ${planProvider.isProcessingPurchase}');
-
-      if (planProvider.state == LoadingState.success && 
-          planProvider.subscription != null && 
-          !planProvider.isProcessingPurchase) {
-        timer.cancel();
-        _showDebugDialog('Purchase Success', 'Purchase completed successfully!');
+      // Check if purchase completed successfully
+      if (planProvider.state == LoadingState.success && !planProvider.isProcessingPurchase) {
+        planProvider.removeListener(listener);
         _showSuccessDialog();
         setState(() {
-          _isButtonPressed = false;
+          _purchaseInProgress = false;
         });
-      } else if (planProvider.hasError && !planProvider.isProcessingPurchase) {
-        timer.cancel();
-        _showDebugDialog('Purchase Failed', 'Error: ${planProvider.errorMessage}');
+      } 
+      // Check if purchase failed
+      else if (planProvider.hasError && !planProvider.isProcessingPurchase) {
+        planProvider.removeListener(listener);
         
         CustomSnackBar.show(
           context,
@@ -359,11 +308,17 @@ class _AccountPaymentState extends State<AccountPayment> {
         );
         planProvider.clearError();
         setState(() {
-          _isButtonPressed = false;
+          _purchaseInProgress = false;
         });
-      } else if (timer.tick > 120) { // 60 seconds timeout
-        timer.cancel();
-        _showDebugDialog('Purchase Timeout', 'Purchase process timed out');
+      }
+    }
+
+    planProvider.addListener(listener);
+
+    // Set a timeout to prevent infinite waiting
+    Timer(const Duration(seconds: 60), () {
+      if (mounted && _purchaseInProgress) {
+        planProvider.removeListener(listener);
         
         CustomSnackBar.show(
           context,
@@ -371,7 +326,7 @@ class _AccountPaymentState extends State<AccountPayment> {
           isError: true,
         );
         setState(() {
-          _isButtonPressed = false;
+          _purchaseInProgress = false;
         });
       }
     });
@@ -417,7 +372,7 @@ class _AccountPaymentState extends State<AccountPayment> {
               onActionPressed: () {
                 planProvider.clearError();
                 setState(() {
-                  _isButtonPressed = false;
+                  _purchaseInProgress = false;
                 });
               },
             );
@@ -571,47 +526,6 @@ class _AccountPaymentState extends State<AccountPayment> {
                   const SizedBox(height: 20),
                 ],
 
-                // Debug info (remove in production)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withAlpha(30),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.blue.withAlpha(100)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '[DEBUG INFO]',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[800],
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        'IAP Initialized: $_isIAPInitialized',
-                        style: TextStyle(color: Colors.blue[700], fontSize: 11),
-                      ),
-                      Text(
-                        'Button Pressed: $_isButtonPressed',
-                        style: TextStyle(color: Colors.blue[700], fontSize: 11),
-                      ),
-                      Text(
-                        'Provider Loading: ${planProvider.isLoading}',
-                        style: TextStyle(color: Colors.blue[700], fontSize: 11),
-                      ),
-                      Text(
-                        'Processing Purchase: ${planProvider.isProcessingPurchase}',
-                        style: TextStyle(color: Colors.blue[700], fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
                 // Payment summary
                 Container(
                   width: double.infinity,
@@ -680,7 +594,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                 // Proceed button
                 CustomButton(
                   function: _canPurchase() ? _proceedToCheckout : null,
-                  widget: (planProvider.isLoading || planProvider.isProcessingPurchase || _isButtonPressed)
+                  widget: (planProvider.isLoading || _purchaseInProgress)
                       ? const SizedBox(
                           height: 20,
                           width: 20,
@@ -692,7 +606,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                       : Text(
                           !_isIAPInitialized 
                               ? 'In-App Purchase Unavailable'
-                              : _isButtonPressed
+                              : _purchaseInProgress
                                   ? 'Processing...'
                                   : 'Subscribe Now',
                           style: const TextStyle(
@@ -709,5 +623,4 @@ class _AccountPaymentState extends State<AccountPayment> {
         );
       },
     );
-  }
-}
+  }}
