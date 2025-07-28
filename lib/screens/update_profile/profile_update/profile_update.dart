@@ -144,25 +144,26 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
           context,
           listen: false,
         );
-        if (locationProvider.countries.isNotEmpty) {
-          _selectedCountry = locationProvider.countries.firstWhere(
-            (c) => c.name == user.country,
-            orElse: () => Country(id: 0, name: user.country!, flag: ''),
-          );
-        }
-
-        final countries = locationProvider.countries;
-        final selected = countries.firstWhere(
-          (c) => c.name == user.country,
-          orElse:
-              () =>
-                  countries.isNotEmpty
-                      ? countries.first
-                      : Country(id: 0, name: ''),
+              // Location
+      if (user.country != null && locationProvider.countries.isNotEmpty) {
+        _selectedCountry = locationProvider.countries.firstWhere(
+          (c) => c.name.toLowerCase() == user.country!.toLowerCase(),
+          orElse: () => Country(id: 0, name: user.country!, flag: ''),
         );
-        setState(() {
-          _selectedCountry = selected;
-        });
+        if (_selectedCountry != null && _selectedCountry!.id != 0) {
+          // Fetch states and set the user's state
+          locationProvider.fetchStates(_selectedCountry!.id).then((_) {
+            if (mounted) {
+              setState(() {
+                _selectedState = user.state;
+              });
+            }
+          });
+        }
+      } else {
+        _selectedCountry = null;
+        _selectedState = null;
+      }
       }
       // Populate social media controllers with extracted handles
       _facebookController.text = _extractSocialHandle(
