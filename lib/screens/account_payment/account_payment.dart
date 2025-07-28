@@ -31,7 +31,7 @@ class _AccountPaymentState extends State<AccountPayment> {
   double calculatedTotal = 0.0;
   bool _hasShownError = false;
   bool _isIAPInitialized = false;
-  bool _purchaseInProgress = false; // Track purchase state locally
+  bool _purchaseInProgress = false;
   DateTime? _lastPurchaseAttempt;
   bool _hasCheckedActiveSubscription = false;
 
@@ -42,13 +42,9 @@ class _AccountPaymentState extends State<AccountPayment> {
       await OnboardingStateService.saveStep('payment');
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
-      // Initialize IAP
       await _initializeIAP();
-
-      // Check for active subscription first
       await _checkAndHandleActiveSubscription();
 
-      // Restore plan if needed
       if (planProvider.selectedPlan == null) {
         final planJson = await OnboardingStateService.getPlan();
         if (planJson != null) {
@@ -70,20 +66,16 @@ class _AccountPaymentState extends State<AccountPayment> {
 
   Future<void> _checkAndHandleActiveSubscription() async {
     if (_hasCheckedActiveSubscription) return;
-    
+
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    
+
     try {
-      // Check for active subscription
       final bool hasActive = await planProvider.checkActiveSubscription();
-      
+
       if (hasActive && planProvider.hasActiveSubscription) {
         debugPrint('Active subscription found, navigating to Disclaimer');
-        
-        // Update onboarding step to disclaimer
         await OnboardingStateService.saveStep('disclaimer');
-        
-        // Navigate to disclaimer screen
+
         if (mounted) {
           Navigator.pushAndRemoveUntil(
             context,
@@ -92,7 +84,7 @@ class _AccountPaymentState extends State<AccountPayment> {
           );
         }
       }
-      
+
       _hasCheckedActiveSubscription = true;
     } catch (e) {
       debugPrint('Error checking active subscription: $e');
@@ -111,6 +103,20 @@ class _AccountPaymentState extends State<AccountPayment> {
 
       if (!success) {
         _showIAPInitializationError();
+      } else {
+        // Update selected plan with store product details if available
+        if (planProvider.selectedPlan != null && planProvider.iapProducts.isNotEmpty) {
+          final product = planProvider.iapProducts.firstWhere(
+            (p) => p.id == planProvider.selectedPlan!.storeProductId,
+            orElse: () => planProvider.iapProducts.first,
+          );
+          final updatedPlan = planProvider.selectedPlan!.copyWith(
+            amount: double.tryParse(_extractPriceAmount(product.price)) ?? planProvider.selectedPlan!.amount,
+            currency: _extractCurrency(product.price),
+          );
+          planProvider.selectPlan(updatedPlan);
+          _calculateTotal();
+        }
       }
     } catch (e) {
       setState(() {
@@ -118,6 +124,23 @@ class _AccountPaymentState extends State<AccountPayment> {
       });
       _showIAPInitializationError();
     }
+  }
+
+  String _extractPriceAmount(String formattedPrice) {
+    final RegExp numberRegex = RegExp(r'[\d,]+\.?\d*');
+    final match = numberRegex.firstMatch(formattedPrice);
+    return match?.group(0)?.replaceAll(',', '') ?? '0';
+  }
+
+  String _extractCurrency(String formattedPrice) {
+    if (formattedPrice.contains('\$')) return '\$';
+    if (formattedPrice.contains('€')) return '€';
+    if (formattedPrice.contains('£')) return '£';
+    if (formattedPrice.contains('₦')) return '₦';
+    if (formattedPrice.contains('¥')) return '¥';
+    final RegExp currencyRegex = RegExp(r'[^\d\s.,]+');
+    final match = currencyRegex.firstMatch(formattedPrice);
+    return match?.group(0) ?? '\$';
   }
 
   void _showIAPInitializationError() {
@@ -220,17 +243,15 @@ class _AccountPaymentState extends State<AccountPayment> {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
     if (!_isIAPInitialized) return false;
     if (_purchaseInProgress) return false;
-    if (planProvider.isLoading) return false; // Prevent purchase while provider is loading
+    if (planProvider.isLoading) return false;
 
-    // Prevent rapid successive purchases (within 5 seconds)
     if (_lastPurchaseAttempt != null) {
       final timeDiff = DateTime.now().difference(_lastPurchaseAttempt!);
       if (timeDiff.inSeconds < 5) {
         return false;
       }
     }
-    
-    // Prevent purchase if user already has an active subscription
+
     if (planProvider.hasActiveSubscription) {
       return false;
     }
@@ -238,13 +259,9 @@ class _AccountPaymentState extends State<AccountPayment> {
     return true;
   }
 
-  // New method to handle "Continue" action for active subscribers
   Future<void> _continueToDisclaimer() async {
     try {
-      // Update onboarding step
       await OnboardingStateService.saveStep('disclaimer');
-      
-      // Navigate to disclaimer
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const Disclaimer()),
@@ -262,17 +279,15 @@ class _AccountPaymentState extends State<AccountPayment> {
 
   Future<void> _proceedToCheckout() async {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    
-    // If user has active subscription, navigate to disclaimer
+
     if (planProvider.hasActiveSubscription) {
       await _continueToDisclaimer();
       return;
     }
 
     if (!_canPurchase()) {
-      // Show specific message if IAP is not initialized
       if (!_isIAPInitialized) {
-         CustomSnackBar.show(
+        CustomSnackBar.show(
           context,
           message: 'In-app purchases are not initialized. Please try again.',
           isError: true,
@@ -305,7 +320,6 @@ class _AccountPaymentState extends State<AccountPayment> {
       return;
     }
 
-    // Set purchase as in progress
     setState(() {
       _purchaseInProgress = true;
     });
@@ -330,29 +344,23 @@ class _AccountPaymentState extends State<AccountPayment> {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     try {
-      // Persist onboarding step as 'payment_processing'
       await OnboardingStateService.saveStep('payment_processing');
 
-      // Start IAP purchase
       await planProvider.purchaseSubscription(
         planUuid: planProvider.selectedPlan!.uuid,
         userId: widget.userId,
+        // storeProductId: planProvider.selectedPlan!.storeProductId,
       );
 
-      // Listen for purchase completion using addListener instead of periodic timer
       _listenForPurchaseCompletion(planProvider);
-
     } catch (e) {
       debugPrint('Error during purchase process: $e');
-
       CustomSnackBar.show(
         context,
         message: 'An error occurred during purchase: ${e.toString()}',
         isError: true,
       );
       planProvider.clearError();
-
-      // Reset purchase state on error
       setState(() {
         _purchaseInProgress = false;
       });
@@ -360,25 +368,20 @@ class _AccountPaymentState extends State<AccountPayment> {
   }
 
   void _listenForPurchaseCompletion(PlanProvider planProvider) {
-    // Add a one-time listener to the provider
     void listener() {
       if (!mounted) {
         planProvider.removeListener(listener);
         return;
       }
 
-      // Check if purchase completed successfully
       if (planProvider.state == LoadingState.success && !planProvider.isProcessingPurchase) {
         planProvider.removeListener(listener);
         _showSuccessDialog();
         setState(() {
           _purchaseInProgress = false;
         });
-      }
-      // Check if purchase failed
-      else if (planProvider.hasError && !planProvider.isProcessingPurchase) {
+      } else if (planProvider.hasError && !planProvider.isProcessingPurchase) {
         planProvider.removeListener(listener);
-
         CustomSnackBar.show(
           context,
           message: planProvider.errorMessage ?? 'Purchase failed. Please try again.',
@@ -393,11 +396,9 @@ class _AccountPaymentState extends State<AccountPayment> {
 
     planProvider.addListener(listener);
 
-    // Set a timeout to prevent infinite waiting
     Timer(const Duration(seconds: 60), () {
       if (mounted && _purchaseInProgress) {
         planProvider.removeListener(listener);
-
         CustomSnackBar.show(
           context,
           message: 'Purchase is taking longer than expected. Please check your purchase history.',
@@ -437,7 +438,6 @@ class _AccountPaymentState extends State<AccountPayment> {
   Widget build(BuildContext context) {
     return Consumer<PlanProvider>(
       builder: (context, planProvider, child) {
-        // Listen for errors from PlanProvider and display SnackBar
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (planProvider.hasError &&
               planProvider.errorMessage != null &&
@@ -531,7 +531,6 @@ class _AccountPaymentState extends State<AccountPayment> {
                 ),
                 const SizedBox(height: 20),
 
-                // Plan details card
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -566,7 +565,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                       ],
                       const SizedBox(height: 16),
                       Text(
-                        '${selectedPlan.currency} ${selectedPlan.amount.toStringAsFixed(0)}',
+                        '${selectedPlan.currency} ${selectedPlan.amount.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
@@ -579,7 +578,6 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                // Payment method status
                 if (!_isIAPInitialized) ...[
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -626,7 +624,6 @@ class _AccountPaymentState extends State<AccountPayment> {
                   const SizedBox(height: 20),
                 ],
 
-                // Payment summary
                 Container(
                   width: double.infinity,
                   height: 160,
@@ -677,7 +674,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
-                          rightText: '${selectedPlan.currency} ${calculatedTotal.toStringAsFixed(0)}',
+                          rightText: '${selectedPlan.currency} ${calculatedTotal.toStringAsFixed(2)}',
                           rightTextStyle: const TextStyle(
                             color: Colors.white,
                             fontSize: 11,
@@ -691,7 +688,6 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                // Proceed button
                 CustomButton(
                   function: (planProvider.hasActiveSubscription || _canPurchase()) ? _proceedToCheckout : null,
                   widget: (planProvider.isLoading || _purchaseInProgress)
@@ -707,7 +703,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                           !_isIAPInitialized
                               ? 'In-App Purchase Unavailable'
                               : planProvider.hasActiveSubscription
-                                  ? 'Continue' // Changed from 'Active Subscription' to 'Continue'
+                                  ? 'Continue'
                                   : _purchaseInProgress
                                       ? 'Processing...'
                                       : 'Subscribe Now',
@@ -719,7 +715,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                   color: !_canPurchase() && !planProvider.hasActiveSubscription
                       ? Colors.grey
                       : planProvider.hasActiveSubscription
-                          ? Colors.green // Green if active
+                          ? Colors.green
                           : wawuColors.primary,
                   textColor: Colors.white,
                 ),
