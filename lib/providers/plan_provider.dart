@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:wawu_mobile/models/subscription_iap.dart';
 import '../models/plan.dart';
 import '../models/subscription.dart';
 import '../services/api_service.dart';
@@ -17,12 +18,15 @@ class PlanProvider extends BaseProvider {
   Plan? _selectedPlan;
   PaymentLink? _paymentLink; // Keep for backward compatibility
   Subscription? _subscription;
+  SubscriptionIap? _subscriptionIap;
   
   // IAP specific properties
   List<ProductDetails> _iapProducts = [];
   StreamSubscription<PurchaseDetails>? _purchaseSubscription;
   PurchaseDetails? _currentPurchase;
   bool _isProcessingPurchase = false;
+  bool _purchaseCompleted = false;
+  Timer? _purchaseTimeoutTimer;
 
   // Getters
   List<Plan> get plans => _plans;
@@ -61,6 +65,8 @@ class PlanProvider extends BaseProvider {
       _purchaseSubscription = _iapService.purchaseStream.listen(
         _handlePurchaseUpdate,
         onError: (error) {
+          debugPrint('Purchase stream error: $error');
+          _resetPurchaseState();
           setError('Purchase error: $error');
         },
       );
@@ -68,9 +74,20 @@ class PlanProvider extends BaseProvider {
       setSuccess();
       return true;
     } catch (e) {
+      debugPrint('IAP initialization error: $e');
       setError('Failed to initialize payments: $e');
       return false;
     }
+  }
+
+  /// Reset purchase state
+  void _resetPurchaseState() {
+    _isProcessingPurchase = false;
+    _purchaseCompleted = false;
+    _currentPurchase = null;
+    _purchaseTimeoutTimer?.cancel();
+    _purchaseTimeoutTimer = null;
+    notifyListeners();
   }
 
   /// Fetch all plans (keep existing functionality)
@@ -99,26 +116,48 @@ class PlanProvider extends BaseProvider {
     required String userId,
   }) async {
     try {
+      // Prevent multiple concurrent purchases
+      if (_isProcessingPurchase || _purchaseCompleted) {
+        debugPrint('Purchase already in progress or completed');
+        return;
+      }
+
+      debugPrint('Starting purchase process for plan: $planUuid');
+      
       setLoading();
       _isProcessingPurchase = true;
+      _purchaseCompleted = false;
+      notifyListeners();
+
+      // Set timeout for purchase
+      _purchaseTimeoutTimer = Timer(const Duration(seconds: 30), () {
+        if (_isProcessingPurchase && !_purchaseCompleted) {
+          debugPrint('Purchase timeout reached');
+          _resetPurchaseState();
+          setError('Purchase timeout. Please try again.');
+        }
+      });
 
       // Get the product ID based on platform
       final String productId = _iapService.productId;
+      debugPrint('Using product ID: $productId');
       
       // Initiate purchase
       final bool purchaseStarted = await _iapService.purchaseProduct(productId);
       
       if (!purchaseStarted) {
+        debugPrint('Failed to start purchase');
+        _resetPurchaseState();
         setError('Failed to start purchase process');
-        _isProcessingPurchase = false;
         return;
       }
 
+      debugPrint('Purchase initiated successfully, waiting for result...');
       // The purchase update will be handled by _handlePurchaseUpdate
-      // We don't set success here as we wait for the purchase completion
       
     } catch (e) {
-      _isProcessingPurchase = false;
+      debugPrint('Purchase error: $e');
+      _resetPurchaseState();
       setError('Purchase failed: $e');
     }
   }
@@ -126,6 +165,8 @@ class PlanProvider extends BaseProvider {
   /// Handle purchase updates from IAP
   void _handlePurchaseUpdate(PurchaseDetails purchaseDetails) async {
     try {
+      debugPrint('Purchase update received: ${purchaseDetails.status} for ${purchaseDetails.productID}');
+      
       switch (purchaseDetails.status) {
         case PurchaseStatus.purchased:
           await _handleSuccessfulPurchase(purchaseDetails);
@@ -144,26 +185,32 @@ class PlanProvider extends BaseProvider {
           break;
       }
     } catch (e) {
+      debugPrint('Error processing purchase update: $e');
+      _resetPurchaseState();
       setError('Error processing purchase: $e');
-      _isProcessingPurchase = false;
     }
   }
 
   /// Handle successful purchase
   Future<void> _handleSuccessfulPurchase(PurchaseDetails purchaseDetails) async {
     try {
+      debugPrint('Handling successful purchase...');
       _currentPurchase = purchaseDetails;
       
       // Get purchase receipt for server verification
       final String? receipt = _iapService.getPurchaseReceipt(purchaseDetails);
       
       if (receipt == null) {
+        debugPrint('Failed to get purchase receipt');
+        _resetPurchaseState();
         setError('Failed to get purchase receipt');
-        _isProcessingPurchase = false;
         return;
       }
 
-      // Verify purchase with your backend
+      debugPrint('Purchase receipt obtained, length: ${receipt.length}');
+
+      // For now, simulate successful subscription creation since backend isn't ready
+      // TODO: Uncomment when backend is ready
       // await _verifyPurchaseWithServer(
       //   receipt: receipt,
       //   productId: purchaseDetails.productID,
@@ -171,13 +218,37 @@ class PlanProvider extends BaseProvider {
       //   platform: Platform.isIOS ? 'ios' : 'android',
       // );
 
-    } catch (e) {
-      setError('Failed to process successful purchase: $e');
+      // Temporary: Create a mock subscription for testing
+      _subscriptionIap = SubscriptionIap(
+        id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        planId: _selectedPlan?.uuid ?? 'unknown',
+        status: 'active',
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 365)),
+        platform: Platform.isIOS ? 'ios' : 'android',
+        productId: purchaseDetails.productID,
+      );
+
+      debugPrint('Mock subscription created successfully');
+      
+      _purchaseCompleted = true;
       _isProcessingPurchase = false;
+      _purchaseTimeoutTimer?.cancel();
+      
+      setSuccess();
+      
+      // Save onboarding step
+      await OnboardingStateService.saveStep('disclaimer');
+      debugPrint('Onboarding step saved to disclaimer');
+
+    } catch (e) {
+      debugPrint('Failed to process successful purchase: $e');
+      _resetPurchaseState();
+      setError('Failed to process successful purchase: $e');
     }
   }
 
-  /// Verify purchase with server
+  /// Verify purchase with server (commented out until backend is ready)
   Future<void> _verifyPurchaseWithServer({
     required String receipt,
     required String productId,
@@ -185,6 +256,8 @@ class PlanProvider extends BaseProvider {
     required String platform,
   }) async {
     try {
+      debugPrint('Verifying purchase with server...');
+      
       // Call your backend to verify the purchase
       final response = await _apiService.post('/subscribe/verify-iap', data: {
         'receipt': receipt,
@@ -201,23 +274,30 @@ class PlanProvider extends BaseProvider {
           final dataMap = response['data'] as Map<String, dynamic>;
           _subscription = Subscription.fromJson(dataMap);
           
+          debugPrint('Server verification successful');
+          
           // Mark success
-          setSuccess();
+          _purchaseCompleted = true;
           _isProcessingPurchase = false;
+          _purchaseTimeoutTimer?.cancel();
+          setSuccess();
           
           // Save onboarding step
           await OnboardingStateService.saveStep('disclaimer');
         } else {
+          debugPrint('Server verification failed - no data');
+          _resetPurchaseState();
           setError(response['message'] ?? 'Failed to create subscription');
-          _isProcessingPurchase = false;
         }
       } else {
+        debugPrint('Server verification failed - bad response');
+        _resetPurchaseState();
         setError(response['message'] ?? 'Purchase verification failed');
-        _isProcessingPurchase = false;
       }
     } catch (e) {
+      debugPrint('Server verification exception: $e');
+      _resetPurchaseState();
       setError('Server verification failed: $e');
-      _isProcessingPurchase = false;
     }
   }
 
@@ -228,37 +308,43 @@ class PlanProvider extends BaseProvider {
     
     if (error != null) {
       errorMessage = error.message;
+      debugPrint('Purchase error: ${error.code} - ${error.message}');
     }
     
+    _resetPurchaseState();
     setError(errorMessage);
-    _isProcessingPurchase = false;
   }
 
   /// Handle purchase canceled
   void _handlePurchaseCanceled() {
+    debugPrint('Purchase was canceled by user');
+    _resetPurchaseState();
     setError('Purchase was canceled');
-    _isProcessingPurchase = false;
   }
 
   /// Handle restored purchase
   Future<void> _handleRestoredPurchase(PurchaseDetails purchaseDetails) async {
+    debugPrint('Handling restored purchase...');
     // Handle restored purchases (mainly for iOS)
     await _handleSuccessfulPurchase(purchaseDetails);
   }
 
   /// Handle pending purchase
   void _handlePendingPurchase() {
+    debugPrint('Purchase is pending (e.g., waiting for parental approval)');
     // Purchase is pending (e.g., waiting for parental approval)
-    setSuccess(); // Keep loading state
+    // Keep the current loading state but don't mark as complete
   }
 
   /// Restore purchases (iOS)
   Future<void> restorePurchases() async {
     try {
+      debugPrint('Restoring purchases...');
       setLoading();
       await _iapService.restorePurchases();
       // Results will come through the purchase stream
     } catch (e) {
+      debugPrint('Failed to restore purchases: $e');
       setError('Failed to restore purchases: $e');
     }
   }
@@ -268,6 +354,7 @@ class PlanProvider extends BaseProvider {
     try {
       return await _iapService.hasActiveSubscription();
     } catch (e) {
+      debugPrint('Error checking subscription status: $e');
       return false;
     }
   }
@@ -332,6 +419,7 @@ class PlanProvider extends BaseProvider {
 
   /// Clear error
   void clearError() {
+    _resetPurchaseState();
     resetState();
   }
 
@@ -343,12 +431,13 @@ class PlanProvider extends BaseProvider {
     _subscription = null;
     _iapProducts = [];
     _currentPurchase = null;
-    _isProcessingPurchase = false;
+    _resetPurchaseState();
     resetState();
   }
 
   @override
   void dispose() {
+    _purchaseTimeoutTimer?.cancel();
     _purchaseSubscription?.cancel();
     _iapService.dispose();
     super.dispose();

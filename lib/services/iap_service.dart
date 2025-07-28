@@ -37,11 +37,15 @@ class IAPService {
   Future<bool> initialize() async {
     try {
       _logger.i('Initializing IAP Service...');
+      debugPrint('[IAP] Starting initialization');
       
       // Check if IAP is available
       final bool isAvailable = await _inAppPurchase.isAvailable();
+      debugPrint('[IAP] IAP available: $isAvailable');
+      
       if (!isAvailable) {
         _logger.e('IAP not available on this device');
+        debugPrint('[IAP] IAP not available on this device');
         return false;
       }
 
@@ -50,14 +54,17 @@ class IAPService {
         _handlePurchaseUpdates,
         onError: (error) {
           _logger.e('IAP purchase stream error: $error');
+          debugPrint('[IAP] Purchase stream error: $error');
         },
       );
 
       _isInitialized = true;
       _logger.i('IAP Service initialized successfully');
+      debugPrint('[IAP] Service initialized successfully');
       return true;
     } catch (e) {
       _logger.e('Failed to initialize IAP Service: $e');
+      debugPrint('[IAP] Failed to initialize: $e');
       return false;
     }
   }
@@ -66,35 +73,47 @@ class IAPService {
   Future<bool> loadProducts() async {
     try {
       _logger.i('Loading products...');
+      debugPrint('[IAP] Loading products for ID: $productId');
       
       if (!_isInitialized) {
         _logger.w('IAP Service not initialized');
+        debugPrint('[IAP] Service not initialized');
         return false;
       }
 
       // Query product details
       final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails({productId});
       
+      debugPrint('[IAP] Product query response - Error: ${response.error}');
+      debugPrint('[IAP] Product query response - Products found: ${response.productDetails.length}');
+      debugPrint('[IAP] Product query response - Not found IDs: ${response.notFoundIDs}');
+      
       if (response.error != null) {
         _logger.e('Error loading products: ${response.error}');
+        debugPrint('[IAP] Error loading products: ${response.error}');
         return false;
       }
 
       if (response.productDetails.isEmpty) {
         _logger.w('No products found for ID: $productId');
+        debugPrint('[IAP] No products found for ID: $productId');
+        debugPrint('[IAP] Not found IDs: ${response.notFoundIDs}');
         return false;
       }
 
       _products = response.productDetails;
       _logger.i('Loaded ${_products.length} products');
+      debugPrint('[IAP] Loaded ${_products.length} products');
       
       for (var product in _products) {
         _logger.i('Product: ${product.id}, Price: ${product.price}, Title: ${product.title}');
+        debugPrint('[IAP] Product: ${product.id}, Price: ${product.price}, Title: ${product.title}');
       }
       
       return true;
     } catch (e) {
       _logger.e('Failed to load products: $e');
+      debugPrint('[IAP] Failed to load products: $e');
       return false;
     }
   }
@@ -105,6 +124,7 @@ class IAPService {
       return _products.firstWhere((product) => product.id == productId);
     } catch (e) {
       _logger.w('Product not found: $productId');
+      debugPrint('[IAP] Product not found: $productId');
       return null;
     }
   }
@@ -113,49 +133,73 @@ class IAPService {
   Future<bool> purchaseProduct(String productId) async {
     try {
       _logger.i('Initiating purchase for product: $productId');
+      debugPrint('[IAP] Initiating purchase for product: $productId');
       
       if (!_isInitialized) {
         _logger.e('IAP Service not initialized');
+        debugPrint('[IAP] Service not initialized');
         return false;
       }
 
       final ProductDetails? product = getProduct(productId);
       if (product == null) {
         _logger.e('Product not found: $productId');
+        debugPrint('[IAP] Product not found: $productId');
         return false;
       }
+
+      debugPrint('[IAP] Product found: ${product.title} - ${product.price}');
 
       // Create purchase param
       final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
       
+      debugPrint('[IAP] Created purchase param, starting purchase...');
+      
       // Start the purchase
       final bool success = await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
       
+      debugPrint('[IAP] Purchase initiation result: $success');
+      
       if (!success) {
         _logger.e('Failed to initiate purchase');
+        debugPrint('[IAP] Failed to initiate purchase');
         return false;
       }
 
       _logger.i('Purchase initiated successfully');
+      debugPrint('[IAP] Purchase initiated successfully');
       return true;
     } catch (e) {
       _logger.e('Failed to purchase product: $e');
+      debugPrint('[IAP] Failed to purchase product: $e');
       return false;
     }
   }
 
   /// Handle purchase updates from the store
   void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) {
+    debugPrint('[IAP] Received ${purchaseDetailsList.length} purchase updates');
+    
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
       _logger.i('Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}');
+      debugPrint('[IAP] Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}');
+      debugPrint('[IAP] Purchase ID: ${purchaseDetails.purchaseID}');
+      debugPrint('[IAP] Transaction date: ${purchaseDetails.transactionDate}');
+      debugPrint('[IAP] Pending complete: ${purchaseDetails.pendingCompletePurchase}');
+      
+      if (purchaseDetails.error != null) {
+        debugPrint('[IAP] Purchase error: ${purchaseDetails.error!.code} - ${purchaseDetails.error!.message}');
+      }
       
       // Emit purchase update to stream
       _purchaseController.add(purchaseDetails);
       
       // Complete the purchase if needed
       if (purchaseDetails.pendingCompletePurchase) {
+        debugPrint('[IAP] Completing purchase...');
         _inAppPurchase.completePurchase(purchaseDetails);
         _logger.i('Purchase completed: ${purchaseDetails.productID}');
+        debugPrint('[IAP] Purchase completed: ${purchaseDetails.productID}');
       }
     }
   }
@@ -164,16 +208,20 @@ class IAPService {
   Future<void> restorePurchases() async {
     try {
       _logger.i('Restoring purchases...');
+      debugPrint('[IAP] Restoring purchases...');
       
       if (!_isInitialized) {
         _logger.e('IAP Service not initialized');
+        debugPrint('[IAP] Service not initialized for restore');
         return;
       }
 
       await _inAppPurchase.restorePurchases();
       _logger.i('Purchase restoration initiated');
+      debugPrint('[IAP] Purchase restoration initiated');
     } catch (e) {
       _logger.e('Failed to restore purchases: $e');
+      debugPrint('[IAP] Failed to restore purchases: $e');
     }
   }
 
@@ -181,8 +229,10 @@ class IAPService {
   Future<bool> hasActiveSubscription() async {
     try {
       _logger.i('Checking for active subscription...');
+      debugPrint('[IAP] Checking for active subscription...');
       
       if (!_isInitialized) {
+        debugPrint('[IAP] Initializing for subscription check...');
         await initialize();
       }
 
@@ -195,26 +245,34 @@ class IAPService {
       return false; // Placeholder - implement based on your backend verification
     } catch (e) {
       _logger.e('Failed to check subscription status: $e');
+      debugPrint('[IAP] Failed to check subscription status: $e');
       return false;
     }
   }
 
   /// Get purchase receipt for server verification
   String? getPurchaseReceipt(PurchaseDetails purchaseDetails) {
+    final receipt = purchaseDetails.verificationData.serverVerificationData;
+    debugPrint('[IAP] Getting purchase receipt, length: ${receipt.length}');
+    
     if (Platform.isIOS) {
+      debugPrint('[IAP] iOS receipt obtained');
       // iOS receipt
-      return purchaseDetails.verificationData.serverVerificationData;
+      return receipt;
     } else {
+      debugPrint('[IAP] Android purchase token obtained');
       // Android purchase token
-      return purchaseDetails.verificationData.serverVerificationData;
+      return receipt;
     }
   }
 
   /// Dispose resources
   void dispose() {
+    debugPrint('[IAP] Disposing IAP Service...');
     _subscription?.cancel();
     _purchaseController.close();
     _logger.i('IAP Service disposed');
+    debugPrint('[IAP] IAP Service disposed');
   }
 }
 
