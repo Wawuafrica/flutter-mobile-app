@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase/in_app_purchase.dart'; // This is the correct PurchaseStatus
 import 'package:logger/logger.dart';
 
 class IAPService {
@@ -11,25 +11,29 @@ class IAPService {
 
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   final Logger _logger = Logger();
-  
+
   // Stream controllers for purchase updates
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   final StreamController<PurchaseDetails> _purchaseController = StreamController<PurchaseDetails>.broadcast();
-  
+
   // Product IDs - Update these with your actual product IDs
   static const String _iOSProductId = 'com.wawuafrica.standard_yearly';
   static const String _androidProductId = 'standard_yearly'; // Update with your Google Play product ID
-  
+
   // Getters for product IDs
   String get productId => Platform.isIOS ? _iOSProductId : _androidProductId;
-  
+
   // Stream for listening to purchase updates
   Stream<PurchaseDetails> get purchaseStream => _purchaseController.stream;
-  
+
   // Available products
   List<ProductDetails> _products = [];
   List<ProductDetails> get products => _products;
-  
+
+  // Active purchases/subscriptions
+  List<PurchaseDetails> _activePurchases = [];
+  List<PurchaseDetails> get activePurchases => _activePurchases;
+
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
@@ -38,11 +42,11 @@ class IAPService {
     try {
       _logger.i('Initializing IAP Service...');
       debugPrint('[IAP] Starting initialization');
-      
+
       // Check if IAP is available
       final bool isAvailable = await _inAppPurchase.isAvailable();
       debugPrint('[IAP] IAP available: $isAvailable');
-      
+
       if (!isAvailable) {
         _logger.e('IAP not available on this device');
         debugPrint('[IAP] IAP not available on this device');
@@ -58,6 +62,9 @@ class IAPService {
         },
       );
 
+      // Check for existing purchases/subscriptions right after setting up the listener
+      await _checkExistingPurchases();
+
       _isInitialized = true;
       _logger.i('IAP Service initialized successfully');
       debugPrint('[IAP] Service initialized successfully');
@@ -69,12 +76,26 @@ class IAPService {
     }
   }
 
+  /// Check for existing purchases (important for subscription tracking)
+  /// This will trigger _handlePurchaseUpdates for any existing purchases.
+  Future<void> _checkExistingPurchases() async {
+    try {
+      debugPrint('[IAP] Checking for existing purchases...');
+      // Restore purchases to get current subscription status
+      await _inAppPurchase.restorePurchases();
+      // The restored purchases will come through the purchase stream
+      // and be handled by _handlePurchaseUpdates, which updates _activePurchases.
+    } catch (e) {
+      debugPrint('[IAP] Error checking existing purchases: $e');
+    }
+  }
+
   /// Load available products
   Future<bool> loadProducts() async {
     try {
       _logger.i('Loading products...');
       debugPrint('[IAP] Loading products for ID: $productId');
-      
+
       if (!_isInitialized) {
         _logger.w('IAP Service not initialized');
         debugPrint('[IAP] Service not initialized');
@@ -83,11 +104,11 @@ class IAPService {
 
       // Query product details
       final ProductDetailsResponse response = await _inAppPurchase.queryProductDetails({productId});
-      
+
       debugPrint('[IAP] Product query response - Error: ${response.error}');
       debugPrint('[IAP] Product query response - Products found: ${response.productDetails.length}');
       debugPrint('[IAP] Product query response - Not found IDs: ${response.notFoundIDs}');
-      
+
       if (response.error != null) {
         _logger.e('Error loading products: ${response.error}');
         debugPrint('[IAP] Error loading products: ${response.error}');
@@ -104,12 +125,12 @@ class IAPService {
       _products = response.productDetails;
       _logger.i('Loaded ${_products.length} products');
       debugPrint('[IAP] Loaded ${_products.length} products');
-      
+
       for (var product in _products) {
         _logger.i('Product: ${product.id}, Price: ${product.price}, Title: ${product.title}');
         debugPrint('[IAP] Product: ${product.id}, Price: ${product.price}, Title: ${product.title}');
       }
-      
+
       return true;
     } catch (e) {
       _logger.e('Failed to load products: $e');
@@ -134,11 +155,32 @@ class IAPService {
     try {
       _logger.i('Initiating purchase for product: $productId');
       debugPrint('[IAP] Initiating purchase for product: $productId');
-      
+
       if (!_isInitialized) {
         _logger.e('IAP Service not initialized');
         debugPrint('[IAP] Service not initialized');
         return false;
+      }
+
+      // Check if user already has an active subscription for this product
+      if (hasActiveSubscription()) {
+        _logger.w('User already has active subscription for: $productId. Simulating restored purchase.');
+        debugPrint('[IAP] User already has active subscription for: $productId. Simulating restored purchase.');
+
+        // Find the existing purchase and emit it as a "restored" purchase
+        final existingPurchase = _activePurchases.firstWhere(
+          (purchase) => purchase.productID == productId,
+          // If for some reason activePurchases is empty but hasActiveSubscription is true,
+          // this indicates a logic error or race condition. Fallback to first existing purchase if any.
+          orElse: () => _activePurchases.isNotEmpty ? _activePurchases.first : throw StateError('No active purchases found despite hasActiveSubscription being true'),
+        );
+
+        // Emit the existing purchase details with a "restored" status if it's not already restored
+        // The in_app_purchase package doesn't have a way to explicitly set status to restored
+        // but the important part is to pass the existing purchase through the stream
+        // so PlanProvider can acknowledge it.
+        _purchaseController.add(existingPurchase);
+        return true; // Indicate that "purchase" process was successful (by finding existing)
       }
 
       final ProductDetails? product = getProduct(productId);
@@ -152,14 +194,14 @@ class IAPService {
 
       // Create purchase param
       final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
-      
+
       debugPrint('[IAP] Created purchase param, starting purchase...');
-      
+
       // Start the purchase
       final bool success = await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
-      
+
       debugPrint('[IAP] Purchase initiation result: $success');
-      
+
       if (!success) {
         _logger.e('Failed to initiate purchase');
         debugPrint('[IAP] Failed to initiate purchase');
@@ -179,21 +221,24 @@ class IAPService {
   /// Handle purchase updates from the store
   void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) {
     debugPrint('[IAP] Received ${purchaseDetailsList.length} purchase updates');
-    
+
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
       _logger.i('Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}');
       debugPrint('[IAP] Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}');
       debugPrint('[IAP] Purchase ID: ${purchaseDetails.purchaseID}');
       debugPrint('[IAP] Transaction date: ${purchaseDetails.transactionDate}');
       debugPrint('[IAP] Pending complete: ${purchaseDetails.pendingCompletePurchase}');
-      
+
       if (purchaseDetails.error != null) {
         debugPrint('[IAP] Purchase error: ${purchaseDetails.error!.code} - ${purchaseDetails.error!.message}');
       }
-      
+
+      // Update our active purchases list
+      _updateActivePurchases(purchaseDetails);
+
       // Emit purchase update to stream
       _purchaseController.add(purchaseDetails);
-      
+
       // Complete the purchase if needed
       if (purchaseDetails.pendingCompletePurchase) {
         debugPrint('[IAP] Completing purchase...');
@@ -204,12 +249,32 @@ class IAPService {
     }
   }
 
+  /// Update the list of active purchases based on the latest purchase detail.
+  /// This is crucial for keeping track of active subscriptions.
+  void _updateActivePurchases(PurchaseDetails purchaseDetails) {
+    // Remove if already exists to add the most recent status
+    _activePurchases.removeWhere((p) => p.productID == purchaseDetails.productID);
+
+    // Only add if it's an active (purchased/restored) subscription.
+    // In-app-purchase package marks restored purchases as InAppPurchase.PurchaseStatus.purchased
+    // or InAppPurchase.PurchaseStatus.restored depending on platform nuances.
+    if (purchaseDetails.status == PurchaseStatus.purchased ||
+        purchaseDetails.status == PurchaseStatus.restored) {
+      _activePurchases.add(purchaseDetails);
+      debugPrint('[IAP] Added/Updated active purchase: ${purchaseDetails.productID}');
+    } else {
+      debugPrint('[IAP] Not adding to active purchases (status: ${purchaseDetails.status})');
+    }
+    // You might want to remove expired/canceled subscriptions here too
+    // based on logic for your specific subscription type if the platform doesn't handle it.
+  }
+
   /// Restore purchases (iOS mainly)
   Future<void> restorePurchases() async {
     try {
       _logger.i('Restoring purchases...');
       debugPrint('[IAP] Restoring purchases...');
-      
+
       if (!_isInitialized) {
         _logger.e('IAP Service not initialized');
         debugPrint('[IAP] Service not initialized for restore');
@@ -217,6 +282,7 @@ class IAPService {
       }
 
       await _inAppPurchase.restorePurchases();
+      // Restored purchases will flow through _handlePurchaseUpdates
       _logger.i('Purchase restoration initiated');
       debugPrint('[IAP] Purchase restoration initiated');
     } catch (e) {
@@ -225,28 +291,28 @@ class IAPService {
     }
   }
 
-  /// Check if user has active subscription
-  Future<bool> hasActiveSubscription() async {
-    try {
-      _logger.i('Checking for active subscription...');
-      debugPrint('[IAP] Checking for active subscription...');
-      
-      if (!_isInitialized) {
-        debugPrint('[IAP] Initializing for subscription check...');
-        await initialize();
-      }
+  /// Check if user has active subscription for the specific product ID.
+  /// This method now relies on the `_activePurchases` list.
+  bool hasActiveSubscription() {
+    // Check if any active purchase matches our product ID
+    final bool isActive = _activePurchases.any((purchase) =>
+        purchase.productID == productId &&
+        (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored));
+    debugPrint('[IAP] Current active subscription status for $productId: $isActive');
+    return isActive;
+  }
 
-      // Get past purchases
-      await _inAppPurchase.restorePurchases();
-      
-      // Note: In a real app, you should verify the subscription status
-      // with your backend server using the purchase receipt
-      
-      return false; // Placeholder - implement based on your backend verification
+  /// Get the active purchase details for the current product ID.
+  PurchaseDetails? getActivePurchase() {
+    try {
+      return _activePurchases.firstWhere(
+        (purchase) => purchase.productID == productId &&
+            (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored),
+        orElse: () => throw StateError('No active purchase found for $productId'),
+      );
     } catch (e) {
-      _logger.e('Failed to check subscription status: $e');
-      debugPrint('[IAP] Failed to check subscription status: $e');
-      return false;
+      debugPrint('[IAP] No active purchase found for ${productId}: $e');
+      return null;
     }
   }
 
@@ -254,7 +320,7 @@ class IAPService {
   String? getPurchaseReceipt(PurchaseDetails purchaseDetails) {
     final receipt = purchaseDetails.verificationData.serverVerificationData;
     debugPrint('[IAP] Getting purchase receipt, length: ${receipt.length}');
-    
+
     if (Platform.isIOS) {
       debugPrint('[IAP] iOS receipt obtained');
       // iOS receipt
@@ -274,33 +340,4 @@ class IAPService {
     _logger.i('IAP Service disposed');
     debugPrint('[IAP] IAP Service disposed');
   }
-}
-
-/// Purchase status enum for better handling
-enum PurchaseStatus {
-  idle,
-  loading,
-  success,
-  failed,
-  cancelled,
-  restored,
-}
-
-/// Purchase result model
-class PurchaseResult {
-  final PurchaseStatus status;
-  final String? message;
-  final PurchaseDetails? purchaseDetails;
-  final String? error;
-
-  PurchaseResult({
-    required this.status,
-    this.message,
-    this.purchaseDetails,
-    this.error,
-  });
-
-  bool get isSuccess => status == PurchaseStatus.success;
-  bool get isFailed => status == PurchaseStatus.failed;
-  bool get isCancelled => status == PurchaseStatus.cancelled;
 }

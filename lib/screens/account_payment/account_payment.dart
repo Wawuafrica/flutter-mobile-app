@@ -40,10 +40,10 @@ class _AccountPaymentState extends State<AccountPayment> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await OnboardingStateService.saveStep('payment');
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
-      
+
       // Initialize IAP
       await _initializeIAP();
-      
+
       // Restore plan if needed
       if (planProvider.selectedPlan == null) {
         final planJson = await OnboardingStateService.getPlan();
@@ -66,13 +66,13 @@ class _AccountPaymentState extends State<AccountPayment> {
 
   Future<void> _initializeIAP() async {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    
+
     try {
       final bool success = await planProvider.initializeIAP();
       setState(() {
         _isIAPInitialized = success;
       });
-      
+
       if (!success) {
         _showIAPInitializationError();
       }
@@ -181,9 +181,11 @@ class _AccountPaymentState extends State<AccountPayment> {
   }
 
   bool _canPurchase() {
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
     if (!_isIAPInitialized) return false;
     if (_purchaseInProgress) return false;
-    
+    if (planProvider.isLoading) return false; // Prevent purchase while provider is loading
+
     // Prevent rapid successive purchases (within 5 seconds)
     if (_lastPurchaseAttempt != null) {
       final timeDiff = DateTime.now().difference(_lastPurchaseAttempt!);
@@ -192,12 +194,31 @@ class _AccountPaymentState extends State<AccountPayment> {
       }
     }
     
-    final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    return !planProvider.isLoading;
+    // Prevent purchase if user already has an active subscription
+    if (planProvider.hasActiveSubscription) {
+      return false;
+    }
+
+    return true;
   }
 
   Future<void> _proceedToCheckout() async {
     if (!_canPurchase()) {
+      // Show specific message if IAP is not initialized or if there's an active subscription
+      final planProvider = Provider.of<PlanProvider>(context, listen: false);
+      if (!_isIAPInitialized) {
+         CustomSnackBar.show(
+          context,
+          message: 'In-app purchases are not initialized. Please try again.',
+          isError: true,
+        );
+      } else if (planProvider.hasActiveSubscription) {
+        CustomSnackBar.show(
+          context,
+          message: 'You already have an active subscription!',
+          isError: false, // Not an error, but informative
+        );
+      }
       return;
     }
 
@@ -254,7 +275,7 @@ class _AccountPaymentState extends State<AccountPayment> {
     try {
       // Persist onboarding step as 'payment_processing'
       await OnboardingStateService.saveStep('payment_processing');
-      
+
       // Start IAP purchase
       await planProvider.purchaseSubscription(
         planUuid: planProvider.selectedPlan!.uuid,
@@ -263,17 +284,17 @@ class _AccountPaymentState extends State<AccountPayment> {
 
       // Listen for purchase completion using addListener instead of periodic timer
       _listenForPurchaseCompletion(planProvider);
-      
+
     } catch (e) {
       debugPrint('Error during purchase process: $e');
-      
+
       CustomSnackBar.show(
         context,
         message: 'An error occurred during purchase: ${e.toString()}',
         isError: true,
       );
       planProvider.clearError();
-      
+
       // Reset purchase state on error
       setState(() {
         _purchaseInProgress = false;
@@ -296,11 +317,11 @@ class _AccountPaymentState extends State<AccountPayment> {
         setState(() {
           _purchaseInProgress = false;
         });
-      } 
+      }
       // Check if purchase failed
       else if (planProvider.hasError && !planProvider.isProcessingPurchase) {
         planProvider.removeListener(listener);
-        
+
         CustomSnackBar.show(
           context,
           message: planProvider.errorMessage ?? 'Purchase failed. Please try again.',
@@ -319,7 +340,7 @@ class _AccountPaymentState extends State<AccountPayment> {
     Timer(const Duration(seconds: 60), () {
       if (mounted && _purchaseInProgress) {
         planProvider.removeListener(listener);
-        
+
         CustomSnackBar.show(
           context,
           message: 'Purchase is taking longer than expected. Please check your purchase history.',
@@ -510,14 +531,36 @@ class _AccountPaymentState extends State<AccountPayment> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.red.withAlpha(100)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
                         Icon(Icons.error, color: Colors.red),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'In-app purchases are not available. Please try again or contact support.',
-                            style: TextStyle(color: Colors.red[800]),
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ] else if (planProvider.hasActiveSubscription) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withAlpha(30),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.withAlpha(100)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.green),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'You have an active subscription: ${planProvider.getSubscriptionStatus()}',
+                            style: const TextStyle(color: Colors.green),
                           ),
                         ),
                       ],
@@ -604,17 +647,23 @@ class _AccountPaymentState extends State<AccountPayment> {
                           ),
                         )
                       : Text(
-                          !_isIAPInitialized 
+                          !_isIAPInitialized
                               ? 'In-App Purchase Unavailable'
-                              : _purchaseInProgress
-                                  ? 'Processing...'
-                                  : 'Subscribe Now',
+                              : planProvider.hasActiveSubscription
+                                  ? 'Active Subscription' // Indicate active subscription
+                                  : _purchaseInProgress
+                                      ? 'Processing...'
+                                      : 'Subscribe Now',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                  color: !_canPurchase() ? Colors.grey : wawuColors.primary,
+                  color: !_canPurchase() && !planProvider.hasActiveSubscription
+                      ? Colors.grey
+                      : planProvider.hasActiveSubscription
+                          ? Colors.green // Green if active
+                          : wawuColors.primary,
                   textColor: Colors.white,
                 ),
               ],
@@ -623,4 +672,5 @@ class _AccountPaymentState extends State<AccountPayment> {
         );
       },
     );
-  }}
+  }
+}
