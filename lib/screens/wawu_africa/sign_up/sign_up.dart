@@ -218,7 +218,8 @@ class _SignUpState extends State<SignUp> {
                     const SizedBox(height: 20),
                     CustomTextfield(
                       labelText: 'Phone Number',
-                      hintText: 'Enter your phone number (optional)', // Updated hint text
+                      hintText:
+                          'Enter your phone number (optional)', // Updated hint text
                       labelTextStyle2: true,
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
@@ -367,14 +368,14 @@ class _SignUpState extends State<SignUp> {
                               userProvider.isLoading
                                   ? null
                                   : (Country? country) {
-                                      setState(() {
-                                        selectedCountry = country?.name;
-                                        selectedState = null;
-                                      });
-                                      if (country != null && country.id != 0) {
-                                        // locationProvider.fetchStates(country.id);
-                                      }
-                                    },
+                                    setState(() {
+                                      selectedCountry = country?.name;
+                                      selectedState = null;
+                                    });
+                                    if (country != null && country.id != 0) {
+                                      // locationProvider.fetchStates(country.id);
+                                    }
+                                  },
                           isDisabled: userProvider.isLoading,
                         );
                       },
@@ -424,10 +425,10 @@ class _SignUpState extends State<SignUp> {
                                   userProvider.isLoading
                                       ? null
                                       : (value) {
-                                          setState(() {
-                                            isChecked = value ?? false;
-                                          });
-                                        },
+                                        setState(() {
+                                          isChecked = value ?? false;
+                                        });
+                                      },
                             ),
                             Expanded(
                               child: Wrap(
@@ -578,7 +579,9 @@ class _SignUpState extends State<SignUp> {
                             'firstName': firstNameController.text,
                             'lastName': lastNameController.text,
                             'password': passwordController.text,
-                            'phoneNumber': phoneController.text, // Phone number will be an empty string if not provided
+                            'phoneNumber':
+                                phoneController
+                                    .text, // Phone number will be an empty string if not provided
                             'gender': selectedGender!,
                             'country': selectedCountry!,
                             'termsAccepted': isChecked,
@@ -597,9 +600,9 @@ class _SignUpState extends State<SignUp> {
                               MaterialPageRoute(
                                 builder:
                                     (context) => OtpScreen(
-                                        authService: authService,
-                                        email: emailController.text,
-                                      ),
+                                      authService: authService,
+                                      email: emailController.text,
+                                    ),
                               ),
                             );
                           }
@@ -630,13 +633,13 @@ class _SignUpState extends State<SignUp> {
                               userProvider.isLoading
                                   ? null
                                   : () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const SignIn(),
-                                        ),
-                                      );
-                                    },
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const SignIn(),
+                                      ),
+                                    );
+                                  },
                           child: const Text(
                             'Login',
                             style: TextStyle(
