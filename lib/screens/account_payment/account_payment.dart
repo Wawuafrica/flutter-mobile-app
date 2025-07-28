@@ -33,6 +33,7 @@ class _AccountPaymentState extends State<AccountPayment> {
   bool _isIAPInitialized = false;
   bool _purchaseInProgress = false; // Track purchase state locally
   DateTime? _lastPurchaseAttempt;
+  bool _hasCheckedActiveSubscription = false;
 
   @override
   void initState() {
@@ -43,6 +44,9 @@ class _AccountPaymentState extends State<AccountPayment> {
 
       // Initialize IAP
       await _initializeIAP();
+
+      // Check for active subscription first
+      await _checkAndHandleActiveSubscription();
 
       // Restore plan if needed
       if (planProvider.selectedPlan == null) {
@@ -62,6 +66,38 @@ class _AccountPaymentState extends State<AccountPayment> {
         _calculateTotal();
       }
     });
+  }
+
+  Future<void> _checkAndHandleActiveSubscription() async {
+    if (_hasCheckedActiveSubscription) return;
+    
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
+    
+    try {
+      // Check for active subscription
+      final bool hasActive = await planProvider.checkActiveSubscription();
+      
+      if (hasActive && planProvider.hasActiveSubscription) {
+        debugPrint('Active subscription found, navigating to Disclaimer');
+        
+        // Update onboarding step to disclaimer
+        await OnboardingStateService.saveStep('disclaimer');
+        
+        // Navigate to disclaimer screen
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const Disclaimer()),
+            (Route<dynamic> route) => false,
+          );
+        }
+      }
+      
+      _hasCheckedActiveSubscription = true;
+    } catch (e) {
+      debugPrint('Error checking active subscription: $e');
+      _hasCheckedActiveSubscription = true;
+    }
   }
 
   Future<void> _initializeIAP() async {
@@ -202,27 +238,48 @@ class _AccountPaymentState extends State<AccountPayment> {
     return true;
   }
 
+  // New method to handle "Continue" action for active subscribers
+  Future<void> _continueToDisclaimer() async {
+    try {
+      // Update onboarding step
+      await OnboardingStateService.saveStep('disclaimer');
+      
+      // Navigate to disclaimer
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const Disclaimer()),
+        (Route<dynamic> route) => false,
+      );
+    } catch (e) {
+      debugPrint('Error continuing to disclaimer: $e');
+      CustomSnackBar.show(
+        context,
+        message: 'An error occurred. Please try again.',
+        isError: true,
+      );
+    }
+  }
+
   Future<void> _proceedToCheckout() async {
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
+    
+    // If user has active subscription, navigate to disclaimer
+    if (planProvider.hasActiveSubscription) {
+      await _continueToDisclaimer();
+      return;
+    }
+
     if (!_canPurchase()) {
-      // Show specific message if IAP is not initialized or if there's an active subscription
-      final planProvider = Provider.of<PlanProvider>(context, listen: false);
+      // Show specific message if IAP is not initialized
       if (!_isIAPInitialized) {
          CustomSnackBar.show(
           context,
           message: 'In-app purchases are not initialized. Please try again.',
           isError: true,
         );
-      } else if (planProvider.hasActiveSubscription) {
-        CustomSnackBar.show(
-          context,
-          message: 'You already have an active subscription!',
-          isError: false, // Not an error, but informative
-        );
       }
       return;
     }
-
-    final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     if (planProvider.selectedPlan == null) {
       showDialog(
@@ -636,7 +693,7 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 // Proceed button
                 CustomButton(
-                  function: _canPurchase() ? _proceedToCheckout : null,
+                  function: (planProvider.hasActiveSubscription || _canPurchase()) ? _proceedToCheckout : null,
                   widget: (planProvider.isLoading || _purchaseInProgress)
                       ? const SizedBox(
                           height: 20,
@@ -650,7 +707,7 @@ class _AccountPaymentState extends State<AccountPayment> {
                           !_isIAPInitialized
                               ? 'In-App Purchase Unavailable'
                               : planProvider.hasActiveSubscription
-                                  ? 'Active Subscription' // Indicate active subscription
+                                  ? 'Continue' // Changed from 'Active Subscription' to 'Continue'
                                   : _purchaseInProgress
                                       ? 'Processing...'
                                       : 'Subscribe Now',
