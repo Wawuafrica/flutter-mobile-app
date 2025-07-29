@@ -139,13 +139,22 @@ class IAPService {
     }
   }
 
-  /// Get product details by ID
+  /// Get product details by ID - FIXED THE TYPE ISSUE
   ProductDetails? getProduct(String productId) {
     try {
-      return _products.firstWhere((product) => product.id == productId);
+      // Use where().first instead of firstWhere to avoid the orElse type issue
+      final matchingProducts = _products.where((product) => product.id == productId);
+      
+      if (matchingProducts.isNotEmpty) {
+        return matchingProducts.first;
+      } else {
+        _logger.w('Product not found: $productId');
+        debugPrint('[IAP] Product not found: $productId');
+        return null;
+      }
     } catch (e) {
-      _logger.w('Product not found: $productId');
-      debugPrint('[IAP] Product not found: $productId');
+      _logger.w('Error getting product: $productId - $e');
+      debugPrint('[IAP] Error getting product: $productId - $e');
       return null;
     }
   }
@@ -168,13 +177,22 @@ class IAPService {
         debugPrint('[IAP] User already has active subscription for: $productId. Simulating restored purchase.');
 
         // Find the existing purchase and emit it as a "restored" purchase
-        final existingPurchase = _activePurchases.firstWhere(
-          (purchase) => purchase.productID == productId,
-          orElse: () => _activePurchases.isNotEmpty ? _activePurchases.first : throw StateError('No active purchases found despite hasActiveSubscription being true'),
-        );
-
-        _purchaseController.add(existingPurchase);
-        return true;
+        final existingPurchases = _activePurchases.where((purchase) => purchase.productID == productId);
+        
+        if (existingPurchases.isNotEmpty) {
+          final existingPurchase = existingPurchases.first;
+          _purchaseController.add(existingPurchase);
+          return true;
+        } else if (_activePurchases.isNotEmpty) {
+          // Fallback to any active purchase
+          final existingPurchase = _activePurchases.first;
+          _purchaseController.add(existingPurchase);
+          return true;
+        } else {
+          _logger.e('No active purchases found despite hasActiveSubscription being true');
+          debugPrint('[IAP] No active purchases found despite hasActiveSubscription being true');
+          return false;
+        }
       }
 
       final ProductDetails? product = getProduct(productId);
@@ -299,13 +317,18 @@ class IAPService {
   /// Get the active purchase details for the current product ID. -- RESTORED AND FIXED THIS METHOD
   PurchaseDetails? getActivePurchase() {
     try {
-      return _activePurchases.firstWhere(
-        (purchase) => purchase.productID == productId &&
-            (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored),
-        orElse: () => throw StateError('No active purchase found for $productId'),
-      );
+      final matchingPurchases = _activePurchases.where((purchase) => 
+        purchase.productID == productId &&
+        (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored));
+      
+      if (matchingPurchases.isNotEmpty) {
+        return matchingPurchases.first;
+      } else {
+        debugPrint('[IAP] No active purchase found for $productId');
+        return null;
+      }
     } catch (e) {
-      debugPrint('[IAP] No active purchase found for ${productId}: $e');
+      debugPrint('[IAP] Error getting active purchase for $productId: $e');
       return null;
     }
   }
@@ -335,6 +358,3 @@ class IAPService {
     debugPrint('[IAP] IAP Service disposed');
   }
 }
-
-// Removed the custom PurchaseStatus enum to avoid conflict with in_app_purchase.PurchaseStatus
-// Removed PurchaseResult model as it was not explicitly used for IAP state management in providers
