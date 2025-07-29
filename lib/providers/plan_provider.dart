@@ -99,12 +99,16 @@ class PlanProvider extends BaseProvider {
       if (activeIAPPurchases.isNotEmpty) {
         debugPrint('Found existing active subscription(s) in IAPService');
 
-        // Assuming you only care about a single active subscription for your main product ID
-        final PurchaseDetails? activePurchase = activeIAPPurchases.firstWhereOrNull(
-          (purchase) => purchase.productID == _iapService.productId &&
-                       (purchase.status == PurchaseStatus.purchased ||
-                        purchase.status == PurchaseStatus.restored)
-        );
+        // Find active purchase for our product ID - FIXED THIS LINE
+        PurchaseDetails? activePurchase;
+        for (final purchase in activeIAPPurchases) {
+          if (purchase.productID == _iapService.productId &&
+              (purchase.status == PurchaseStatus.purchased ||
+               purchase.status == PurchaseStatus.restored)) {
+            activePurchase = purchase;
+            break;
+          }
+        }
 
         if (activePurchase != null) {
           // Create SubscriptionIap from existing purchase
@@ -114,7 +118,7 @@ class PlanProvider extends BaseProvider {
             status: 'active',
             startDate: activePurchase.transactionDate != null
                 ? DateTime.fromMillisecondsSinceEpoch(
-                    int.tryParse(activePurchase.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch // FIX HERE
+                    int.tryParse(activePurchase.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch
                   )
                 : DateTime.now(),
             endDate: DateTime.now().add(const Duration(days: 365)), // Default to 1 year
@@ -285,7 +289,7 @@ class PlanProvider extends BaseProvider {
         status: 'active',
         startDate: purchaseDetails.transactionDate != null
             ? DateTime.fromMillisecondsSinceEpoch(
-                int.tryParse(purchaseDetails.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch // FIX HERE
+                int.tryParse(purchaseDetails.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch
               )
             : DateTime.now(),
         endDate: DateTime.now().add(const Duration(days: 365)), // Default to 1 year, should come from plan
@@ -396,7 +400,7 @@ class PlanProvider extends BaseProvider {
       status: 'active',
       startDate: purchaseDetails.transactionDate != null
           ? DateTime.fromMillisecondsSinceEpoch(
-              int.tryParse(purchaseDetails.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch // FIX HERE
+              int.tryParse(purchaseDetails.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch
             )
           : DateTime.now(),
       endDate: DateTime.now().add(const Duration(days: 365)),
@@ -571,17 +575,5 @@ class PlanProvider extends BaseProvider {
     _purchaseSubscription?.cancel();
     _iapService.dispose();
     super.dispose();
-  }
-}
-
-// Added this extension to safely get the first element or null, avoiding StateError
-extension FirstWhereOrNullExtension<E> on Iterable<E> {
-  E? firstWhereOrNull(bool Function(E element) test) {
-    for (final element in this) {
-      if (test(element)) {
-        return element;
-      }
-    }
-    return null;
   }
 }
