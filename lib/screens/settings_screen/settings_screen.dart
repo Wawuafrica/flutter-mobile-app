@@ -428,7 +428,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
 
                 // Display active subscription details
-                final String planName = planProvider.selectedPlan?.name ?? 'N/A'; // Assuming selectedPlan holds the name
+                final String planName = planProvider.selectedPlan?.name ?? 'WAWUAfrica Standard'; // Assuming selectedPlan holds the name
                 final String statusText = subscriptionIap.statusDisplayText;
                 final String formattedEndDate = subscriptionIap.formattedEndDate;
                 final int daysRemaining = subscriptionIap.daysRemaining;

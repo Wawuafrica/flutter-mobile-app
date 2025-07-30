@@ -451,13 +451,13 @@ class MessageProvider extends BaseProvider {
       final newMessage = Message.fromJson(messageData);
       final currentUserId = _userProvider.currentUser?.uuid ?? '';
 
-      // If the message is for the current conversation and from the other user, mark as read
-      if (conversationId == _currentConversationId &&
-          newMessage.senderId != currentUserId) {
+      // *** FIX: Correctly determine the read status of the new message. ***
+      if (newMessage.senderId == currentUserId) {
+        // If the current user sent the message, it's always considered read for them.
         newMessage.isRead = true;
       } else {
-        newMessage.isRead =
-            false; // Mark as unread if not in current conversation
+        // If the message is from someone else, it's read only if the user is in that chat.
+        newMessage.isRead = (conversationId == _currentConversationId);
       }
 
       if (conversationId == _currentConversationId) {
