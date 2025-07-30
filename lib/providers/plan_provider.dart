@@ -28,6 +28,7 @@ class PlanProvider extends BaseProvider {
   bool _purchaseCompleted = false;
   Timer? _purchaseTimeoutTimer;
   bool _hasCheckedExistingSubscription = false;
+  bool _isIapInitialized = false; // Add this flag
 
   // Backend integration settings
   bool _enableBackendVerification = false; // Set to true when backend is ready
@@ -49,9 +50,10 @@ class PlanProvider extends BaseProvider {
 
   /// Initialize IAP service
   Future<bool> initializeIAP() async {
-    try {
-      setLoading();
+    // Prevent re-initialization
+    if (_isIapInitialized) return true;
 
+    try {
       // Initialize IAP service
       final bool iapInitialized = await _iapService.initialize();
       if (!iapInitialized) {
@@ -81,11 +83,13 @@ class PlanProvider extends BaseProvider {
       // Check for existing subscriptions
       await _checkForExistingSubscription();
 
+      _isIapInitialized = true; // Mark as initialized
       setSuccess();
       return true;
     } catch (e) {
       debugPrint('IAP initialization error: $e');
       setError('Failed to initialize payments: $e');
+      _isIapInitialized = false; // Reset on failure
       return false;
     }
   }
@@ -488,17 +492,32 @@ class PlanProvider extends BaseProvider {
   Future<void> fetchUserSubscriptionDetails(String userId, int role) async {
     setLoading();
     try {
-      // Check local SubscriptionIap first
-      if (_subscriptionIap != null) {
+      // Quick exit if already found
+      if (hasActiveSubscription) {
+        debugPrint('Active subscription already in memory.');
         setSuccess();
         return;
       }
 
-      // Try to restore from IAP
-      await checkActiveSubscription();
+      // Step 1: Ensure IAP is initialized. This will also check for existing purchases.
+      final iapReady = await initializeIAP();
+
+      // After initializeIAP, _checkForExistingSubscription has run.
+      // Check again if a subscription was found.
+      if (hasActiveSubscription) {
+        debugPrint('Active subscription confirmed via IAP check.');
+        setSuccess();
+        return;
+      }
+
+      // If IAP failed and we still don't have a sub, report error.
+      if (!iapReady) {
+        // The error is already set by initializeIAP, so we just return.
+        return;
+      }
 
       // If backend verification is enabled and still no subscription, check server
-      if (_enableBackendVerification && _subscriptionIap == null) {
+      if (_enableBackendVerification && !hasActiveSubscription) {
         try {
           final response = await _apiService.get('/user/subscription/details/$userId');
           if (response != null && response['data'] != null) {
@@ -568,6 +587,7 @@ class PlanProvider extends BaseProvider {
     _iapProducts = [];
     _currentPurchase = null;
     _hasCheckedExistingSubscription = false;
+    _isIapInitialized = false; // Reset IAP flag
     _resetPurchaseState();
     resetState();
   }

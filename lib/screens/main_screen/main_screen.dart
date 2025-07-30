@@ -223,7 +223,7 @@ class MainScreenState extends State<MainScreen> {
     }
 
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    final userId = currentUser?.uuid;
+    final userId = currentUser.uuid;
     int role = 0;
 
     if (userType == 'artisan') {
@@ -236,39 +236,32 @@ class MainScreenState extends State<MainScreen> {
 
     if (userId != null) {
       _hasCheckedSubscription = true;
-      
-      // First check if there's already an active subscription from IAP
-      final hasActiveIAPSubscription = await planProvider.checkActiveSubscription();
-      
-      if (!hasActiveIAPSubscription) {
-        // If no IAP subscription, fetch from backend
-        await planProvider.fetchUserSubscriptionDetails(userId, role);
-      }
 
+      // Make a single, authoritative call to verify the subscription.
+      await planProvider.fetchUserSubscriptionDetails(userId, role);
+
+      // After the check is complete, evaluate the result.
       if (mounted) {
-        // Use subscriptionIap instead of subscription
-        final subscriptionIap = planProvider.subscriptionIap;
-        final hasActiveSubscription = planProvider.hasActiveSubscription;
-
-        if (!hasActiveSubscription) {
-          // No active subscription found, redirect to plan selection
+        if (planProvider.hasError) {
+          // Show an error but let the user stay on the screen to retry.
+          CustomSnackBar.show(
+            context,
+            message: planProvider.errorMessage ?? 'Could not verify subscription.',
+            isError: true,
+            actionLabel: 'Retry',
+            onActionPressed: () {
+              // Reset flag to allow the check to run again.
+              _hasCheckedSubscription = false;
+              _fetchSubscriptionDetails();
+            },
+          );
+        } else if (!planProvider.hasActiveSubscription) {
+          // If all checks are done and there's definitively no active subscription, redirect.
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const Plan()),
           );
-        } else if (planProvider.hasError) {
-          // Handle errors but don't block access if subscription exists
-          CustomSnackBar.show(
-            context,
-            message:
-                'Warning: ${planProvider.errorMessage}',
-            isError: true,
-            actionLabel: 'Retry',
-            onActionPressed: () async {
-              await planProvider.fetchUserSubscriptionDetails(userId, role);
-            },
-          );
-          _hasCheckedSubscription = false;
         }
+        // If there IS an active subscription, do nothing. The user will see the main screen.
       }
     }
   }
