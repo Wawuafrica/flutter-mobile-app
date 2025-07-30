@@ -196,8 +196,13 @@ class MessageProvider extends BaseProvider {
     try {
       if (event.data == null || event.data.isEmpty) return;
 
+      // FIX: Decode the `chat` string from event.data
       final Map<String, dynamic> eventData = event.data as Map<String, dynamic>;
-      final newConversation = Conversation.fromJson(eventData);
+      final String chatJsonString = eventData['chat'] as String;
+      final Map<String, dynamic> newChatData = json.decode(chatJsonString) as Map<String, dynamic>;
+
+
+      final newConversation = Conversation.fromJson(newChatData);
       final existingIndex = _allConversations.indexWhere(
         (conv) => conv.id == newConversation.id,
       );
