@@ -123,7 +123,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
         : Row(
           children: [
             Container(
-              width: 145,
+              width: 150,
               height: 70,
               padding: const EdgeInsets.all(10.0),
               decoration: BoxDecoration(border: Border.all()),

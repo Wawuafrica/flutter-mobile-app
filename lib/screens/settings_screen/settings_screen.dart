@@ -25,6 +25,7 @@ import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.da
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
+import 'package:wawu_mobile/models/subscription_iap.dart'; // Import SubscriptionIap
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -51,6 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final userType = userProvider.currentUser?.role?.toLowerCase();
     int role = 0;
 
+    // Only fetch subscription details for artisan or professional roles
     if (userType == 'buyer') {
       return;
     }
@@ -60,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } else if (userType == 'professional') {
       role = 2;
     } else {
-      role = 1;
+      role = 1; // Default or unknown role, though we return for 'buyer'
     }
 
     if (userId != null) {
@@ -342,11 +344,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       context,
                     ).currentUser?.role?.toLowerCase();
 
+                // Only show subscription section for artisan or professional roles
                 if (userType != 'artisan' && userType != 'professional') {
                   return const SizedBox.shrink();
                 }
 
-                final subscriptionData = planProvider.subscription;
+                final SubscriptionIap? subscriptionIap = planProvider.subscriptionIap;
                 final isLoading = planProvider.isLoading;
                 final hasError = planProvider.hasError;
 
@@ -364,7 +367,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
 
                 // Display full error screen for critical loading failures for subscription
-                if (hasError && subscriptionData == null && !isLoading) {
+                if (hasError && subscriptionIap == null && !isLoading) {
                   return FullErrorDisplay(
                     errorMessage:
                         planProvider.errorMessage ??
@@ -381,7 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 }
 
-                if (subscriptionData == null) {
+                if (subscriptionIap == null || !subscriptionIap.isActive) {
                   return Container(
                     width: double.infinity,
                     height: 160,
@@ -393,10 +396,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Text(
-                          'No active subscription',
+                        Text(
+                          subscriptionIap != null && subscriptionIap.isExpired
+                              ? 'Subscription Expired'
+                              : 'No active subscription',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: wawuColors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -410,12 +415,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Text(
                             'Upgrade Plan or Retry',
                             style: TextStyle(
-                              color: wawuColors.white.withValues(alpha: 0.8),
+                              color: wawuColors.white.withOpacity(0.8),
                               fontSize: 14,
                               decoration: TextDecoration.underline,
-                              decorationColor: wawuColors.white.withValues(
-                                alpha: 0.8,
-                              ),
+                              decorationColor: wawuColors.white.withOpacity(0.8),
                             ),
                           ),
                         ),
@@ -424,28 +427,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 }
 
-                final planName = subscriptionData.plan?.name;
-                final expiresAt = subscriptionData.expiresAt;
+                // Display active subscription details
+                final String planName = planProvider.selectedPlan?.name ?? 'WAWUAfrica Standard'; // Assuming selectedPlan holds the name
+                final String statusText = subscriptionIap.statusDisplayText;
+                final String formattedEndDate = subscriptionIap.formattedEndDate;
+                final int daysRemaining = subscriptionIap.daysRemaining;
                 String daysLeftText = '';
-                if (expiresAt == null || expiresAt.isEmpty) {
-                  daysLeftText = 'N/A';
+
+                if (daysRemaining > 0) {
+                  daysLeftText = '$daysRemaining Days Left';
+                } else if (daysRemaining == 0) {
+                  daysLeftText = 'Expires Today';
                 } else {
-                  try {
-                    final DateTime expiryDate = DateTime.parse(expiresAt);
-                    final DateTime now = DateTime.now();
-                    final Duration duration = expiryDate.difference(now);
-                    final int days = duration.inDays;
-                    if (days > 0) {
-                      daysLeftText = '$days Days Left';
-                    } else if (days == 0) {
-                      daysLeftText = 'Expires Today';
-                    } else {
-                      daysLeftText = 'Expired';
-                    }
-                  } catch (e) {
-                    daysLeftText = 'N/A';
-                  }
+                  daysLeftText = 'Expired';
                 }
+
 
                 return Container(
                   width: double.infinity,
@@ -465,11 +461,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
-                          rightText: planName ?? 'N/A',
+                          rightText: planName,
                           rightTextStyle: const TextStyle(
                             color: wawuColors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: CustomRowSingleColumn(
+                          leftText: 'Status',
+                          leftTextStyle: const TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          rightText: statusText,
+                          rightTextStyle: const TextStyle(
+                            color: wawuColors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -481,7 +493,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
-                          rightText: '$expiresAt ($daysLeftText)',
+                          rightText: '$formattedEndDate ($daysLeftText)',
                           rightTextStyle: const TextStyle(
                             color: wawuColors.white,
                             fontSize: 11,

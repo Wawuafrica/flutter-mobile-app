@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/plan.dart' as plan_model;
 import 'package:wawu_mobile/providers/plan_provider.dart';
@@ -30,11 +31,17 @@ class _AccountPaymentState extends State<AccountPayment> {
   double discountPercentage = 0.0;
   double calculatedTotal = 0.0;
   bool _hasShownError = false;
+  
+  // IAP initialization states
   bool _isIAPInitialized = false;
-  bool _isIAPInitializationAttempted = false; // New state to track initialization attempt
+  bool _isIAPInitializing = false;
+  bool _iapInitializationFailed = false;
+  String? _iapInitializationError;
+  
   bool _purchaseInProgress = false;
   DateTime? _lastPurchaseAttempt;
   bool _hasCheckedActiveSubscription = false;
+  bool _isNavigatingAway = false; // Prevent multiple navigations
 
   @override
   void initState() {
@@ -43,47 +50,48 @@ class _AccountPaymentState extends State<AccountPayment> {
       await OnboardingStateService.saveStep('payment');
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
-      await _initializeIAP();
-      await _checkAndHandleActiveSubscription();
-
+      // Load plan first
       if (planProvider.selectedPlan == null) {
         final planJson = await OnboardingStateService.getPlan();
         if (planJson != null) {
           try {
             final plan = plan_model.Plan.fromJson(planJson);
             planProvider.selectPlan(plan);
-            _calculateTotal();
           } catch (e) {
-            _calculateTotal();
+            debugPrint('Error loading saved plan: $e');
           }
-        } else {
-          _calculateTotal();
         }
-      } else {
-        _calculateTotal();
+      }
+      _calculateTotal();
+
+      // Initialize IAP
+      await _initializeIAP();
+      
+      // Check for active subscription only after IAP is initialized
+      if (_isIAPInitialized) {
+        await _checkAndHandleActiveSubscription();
       }
     });
   }
 
   Future<void> _checkAndHandleActiveSubscription() async {
-    if (_hasCheckedActiveSubscription) return;
+    if (_hasCheckedActiveSubscription || _isNavigatingAway) return;
 
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
     try {
       final bool hasActive = await planProvider.checkActiveSubscription();
 
-      if (hasActive && planProvider.hasActiveSubscription) {
+      if (hasActive && planProvider.hasActiveSubscription && mounted && !_isNavigatingAway) {
         debugPrint('Active subscription found, navigating to Disclaimer');
+        _isNavigatingAway = true;
         await OnboardingStateService.saveStep('disclaimer');
 
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const Disclaimer()),
-            (Route<dynamic> route) => false,
-          );
-        }
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const Disclaimer()),
+          (Route<dynamic> route) => false,
+        );
       }
 
       _hasCheckedActiveSubscription = true;
@@ -94,40 +102,68 @@ class _AccountPaymentState extends State<AccountPayment> {
   }
 
   Future<void> _initializeIAP() async {
+    if (_isIAPInitializing) return; // Prevent multiple initialization attempts
+
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
+    setState(() {
+      _isIAPInitializing = true;
+      _iapInitializationFailed = false;
+      _iapInitializationError = null;
+    });
+
     try {
-      setState(() {
-        _isIAPInitializationAttempted = true; // Mark initialization as attempted
-      });
-
       final bool success = await planProvider.initializeIAP();
-      setState(() {
-        _isIAPInitialized = success;
-      });
+      
+      if (mounted) {
+        setState(() {
+          _isIAPInitialized = success;
+          _isIAPInitializing = false;
+          _iapInitializationFailed = !success;
+          if (!success) {
+            _iapInitializationError = 'Failed to initialize in-app purchases';
+          }
+        });
 
-      if (!success) {
-        _showIAPInitializationError();
-      } else {
-        // Update selected plan with store product details if available
-        if (planProvider.selectedPlan != null && planProvider.iapProducts.isNotEmpty) {
-          final product = planProvider.iapProducts.firstWhere(
-            (p) => p.id == planProvider.selectedPlan!.storeProductId,
-            orElse: () => planProvider.iapProducts.first,
-          );
-          final updatedPlan = planProvider.selectedPlan!.copyWith(
-            amount: double.tryParse(_extractPriceAmount(product.price)) ?? planProvider.selectedPlan!.amount,
-            currency: _extractCurrency(product.price),
-          );
-          planProvider.selectPlan(updatedPlan);
-          _calculateTotal();
+        if (success) {
+          // Update selected plan with store product details if available
+          // FIXED THE TYPE ERROR HERE
+          if (planProvider.selectedPlan != null && planProvider.iapProducts.isNotEmpty) {
+            // Use a safer approach to find the product
+            ProductDetails? foundProduct;
+            
+            // First try to find by storeProductId
+            if (planProvider.selectedPlan!.storeProductId != null) {
+              for (final product in planProvider.iapProducts) {
+                if (product.id == planProvider.selectedPlan!.storeProductId) {
+                  foundProduct = product;
+                  break;
+                }
+              }
+            }
+            
+            // If not found, use the first available product as fallback
+            foundProduct ??= planProvider.iapProducts.first;
+            
+            final updatedPlan = planProvider.selectedPlan!.copyWith(
+              amount: double.tryParse(_extractPriceAmount(foundProduct.price)) ?? planProvider.selectedPlan!.amount,
+              currency: _extractCurrency(foundProduct.price),
+            );
+            planProvider.selectPlan(updatedPlan);
+            _calculateTotal();
+                    }
         }
       }
     } catch (e) {
-      setState(() {
-        _isIAPInitialized = false;
-      });
-      _showIAPInitializationError();
+      debugPrint('IAP initialization error: $e');
+      if (mounted) {
+        setState(() {
+          _isIAPInitialized = false;
+          _isIAPInitializing = false;
+          _iapInitializationFailed = true;
+          _iapInitializationError = e.toString();
+        });
+      }
     }
   }
 
@@ -148,7 +184,7 @@ class _AccountPaymentState extends State<AccountPayment> {
     return match?.group(0) ?? '\$';
   }
 
-  void _showIAPInitializationError() {
+  void _showIAPInitializationErrorDialog() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -163,8 +199,8 @@ class _AccountPaymentState extends State<AccountPayment> {
               color: wawuColors.primary,
             ),
           ),
-          content: const Text(
-            'Unable to initialize in-app purchases. You can try again or contact support.',
+          content: Text(
+            _iapInitializationError ?? 'Unable to initialize in-app purchases. You can try again or contact support.',
             textAlign: TextAlign.center,
           ),
           actions: <Widget>[
@@ -246,10 +282,17 @@ class _AccountPaymentState extends State<AccountPayment> {
 
   bool _canPurchase() {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    if (!_isIAPInitialized) return false;
-    if (_purchaseInProgress) return false;
-    if (planProvider.isLoading) return false;
+    
+    // Must be initialized first
+    if (!_isIAPInitialized || _isIAPInitializing || _iapInitializationFailed) {
+      return false;
+    }
+    
+    if (_purchaseInProgress || planProvider.isLoading) {
+      return false;
+    }
 
+    // Rate limiting
     if (_lastPurchaseAttempt != null) {
       final timeDiff = DateTime.now().difference(_lastPurchaseAttempt!);
       if (timeDiff.inSeconds < 5) {
@@ -257,6 +300,7 @@ class _AccountPaymentState extends State<AccountPayment> {
       }
     }
 
+    // Don't allow purchase if already has active subscription
     if (planProvider.hasActiveSubscription) {
       return false;
     }
@@ -265,7 +309,10 @@ class _AccountPaymentState extends State<AccountPayment> {
   }
 
   Future<void> _continueToDisclaimer() async {
+    if (_isNavigatingAway) return;
+    
     try {
+      _isNavigatingAway = true;
       await OnboardingStateService.saveStep('disclaimer');
       Navigator.pushAndRemoveUntil(
         context,
@@ -274,6 +321,7 @@ class _AccountPaymentState extends State<AccountPayment> {
       );
     } catch (e) {
       debugPrint('Error continuing to disclaimer: $e');
+      _isNavigatingAway = false;
       CustomSnackBar.show(
         context,
         message: 'An error occurred. Please try again.',
@@ -285,13 +333,23 @@ class _AccountPaymentState extends State<AccountPayment> {
   Future<void> _proceedToCheckout() async {
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
+    // If user has active subscription, continue to disclaimer
     if (planProvider.hasActiveSubscription) {
       await _continueToDisclaimer();
       return;
     }
 
+    // Check if we can purchase
     if (!_canPurchase()) {
-      if (!_isIAPInitialized) {
+      if (_isIAPInitializing) {
+        CustomSnackBar.show(
+          context,
+          message: 'Payment system is still initializing. Please wait.',
+          isError: false,
+        );
+      } else if (_iapInitializationFailed) {
+        _showIAPInitializationErrorDialog();
+      } else if (!_isIAPInitialized) {
         CustomSnackBar.show(
           context,
           message: 'In-app purchases are not initialized. Please try again.',
@@ -430,6 +488,136 @@ class _AccountPaymentState extends State<AccountPayment> {
         (Route<dynamic> route) => false,
       );
     }
+  }
+
+  Widget _buildStatusIndicator(PlanProvider planProvider) {
+    // Show initialization status
+    if (_isIAPInitializing) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: wawuColors.primary.withAlpha(30),
+        ),
+        child: const Row(
+          children: [
+            SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Initializing payment system...',
+                style: TextStyle(color: wawuColors.primary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show initialization error
+    if (_iapInitializationFailed) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.red.withAlpha(30),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.red.withAlpha(100)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error, color: Colors.red),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _iapInitializationError ?? 'In-app purchases are not available. Please try again or contact support.',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+            TextButton(
+              onPressed: _initializeIAP,
+              child: const Text(
+                'Retry',
+                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Show active subscription status
+    if (_isIAPInitialized && planProvider.hasActiveSubscription) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.withAlpha(30),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.green.withAlpha(100)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'You have an active subscription: ${planProvider.getSubscriptionStatus()}',
+                style: const TextStyle(color: Colors.green),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // No status to show
+    return const SizedBox.shrink();
+  }
+
+  String _getButtonText(PlanProvider planProvider) {
+    if (_isIAPInitializing) {
+      return 'Initializing...';
+    }
+    
+    if (_iapInitializationFailed) {
+      return 'Payment Unavailable';
+    }
+    
+    if (!_isIAPInitialized) {
+      return 'Initializing Payment...';
+    }
+    
+    if (planProvider.hasActiveSubscription) {
+      return 'Continue';
+    }
+    
+    if (_purchaseInProgress) {
+      return 'Processing...';
+    }
+    
+    return 'Subscribe Now';
+  }
+
+  Color _getButtonColor(PlanProvider planProvider) {
+    if (_isIAPInitializing || _iapInitializationFailed || !_isIAPInitialized) {
+      return Colors.grey;
+    }
+    
+    if (planProvider.hasActiveSubscription) {
+      return Colors.green;
+    }
+    
+    if (!_canPurchase()) {
+      return Colors.grey;
+    }
+    
+    return wawuColors.primary;
   }
 
   @override
@@ -582,81 +770,12 @@ class _AccountPaymentState extends State<AccountPayment> {
 
                 const SizedBox(height: 20),
 
-                // Show loading indicator while IAP is initializing
-                if (!_isIAPInitializationAttempted) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: wawuColors.primary.withAlpha(30),
-                    ),
-                    child: const Row(
-                      children: [
-                        SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(wawuColors.primary),
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Initializing payment system...',
-                            style: TextStyle(color: wawuColors.primary),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                // Status indicator (only shows when relevant)
+                _buildStatusIndicator(planProvider),
+                
+                // Add spacing only if status indicator is shown
+                if (_isIAPInitializing || _iapInitializationFailed || (_isIAPInitialized && planProvider.hasActiveSubscription))
                   const SizedBox(height: 20),
-                ] else if (!_isIAPInitialized) ...[
-                  // Show error only after initialization attempt fails
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withAlpha(30),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.red.withAlpha(100)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.error, color: Colors.red),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'In-app purchases are not available. Please try again or contact support.',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ] else if (planProvider.hasActiveSubscription) ...[
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withAlpha(30),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.green.withAlpha(100)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.check_circle, color: Colors.green),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'You have an active subscription: ${planProvider.getSubscriptionStatus()}',
-                            style: const TextStyle(color: Colors.green),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
 
                 Container(
                   width: double.infinity,
@@ -734,25 +853,13 @@ class _AccountPaymentState extends State<AccountPayment> {
                           ),
                         )
                       : Text(
-                          !_isIAPInitializationAttempted
-                              ? 'Initializing...'
-                              : !_isIAPInitialized
-                                  ? 'In-App Purchase Unavailable'
-                                  : planProvider.hasActiveSubscription
-                                      ? 'Continue'
-                                      : _purchaseInProgress
-                                          ? 'Processing...'
-                                          : 'Subscribe Now',
+                          _getButtonText(planProvider),
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                  color: !_isIAPInitializationAttempted || (!_canPurchase() && !planProvider.hasActiveSubscription)
-                      ? Colors.grey
-                      : planProvider.hasActiveSubscription
-                          ? Colors.green
-                          : wawuColors.primary,
+                  color: _getButtonColor(planProvider),
                   textColor: Colors.white,
                 ),
               ],

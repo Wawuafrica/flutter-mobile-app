@@ -132,6 +132,7 @@ class AuthModalScreen extends StatelessWidget {
     );
   }
 }
+
 // Custom route to apply background scaling
 class CustomModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
   CustomModalBottomSheetRoute({
@@ -222,7 +223,7 @@ class MainScreenState extends State<MainScreen> {
     }
 
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    final userId = currentUser?.uuid;
+    final userId = currentUser.uuid;
     int role = 0;
 
     if (userType == 'artisan') {
@@ -235,30 +236,32 @@ class MainScreenState extends State<MainScreen> {
 
     if (userId != null) {
       _hasCheckedSubscription = true;
+
+      // Make a single, authoritative call to verify the subscription.
       await planProvider.fetchUserSubscriptionDetails(userId, role);
 
-      if (mounted &&
-          planProvider.errorMessage == 'Success getting subscription details') {
-        if (planProvider.subscription == null ||
-            planProvider.subscription?.status?.toLowerCase() != 'active') {
+      // After the check is complete, evaluate the result.
+      if (mounted) {
+        if (planProvider.hasError) {
+          // Show an error but let the user stay on the screen to retry.
+          CustomSnackBar.show(
+            context,
+            message: planProvider.errorMessage ?? 'Could not verify subscription.',
+            isError: true,
+            actionLabel: 'Retry',
+            onActionPressed: () {
+              // Reset flag to allow the check to run again.
+              _hasCheckedSubscription = false;
+              _fetchSubscriptionDetails();
+            },
+          );
+        } else if (!planProvider.hasActiveSubscription) {
+          // If all checks are done and there's definitively no active subscription, redirect.
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const Plan()),
           );
         }
-      } else if (planProvider.hasError) {
-        if (mounted) {
-          CustomSnackBar.show(
-            context,
-            message:
-                'Error fetching subscription: ${planProvider.errorMessage}',
-            isError: true,
-            actionLabel: 'Retry',
-            onActionPressed: () async {
-              await planProvider.fetchUserSubscriptionDetails(userId, role);
-            },
-          );
-        }
-        _hasCheckedSubscription = false;
+        // If there IS an active subscription, do nothing. The user will see the main screen.
       }
     }
   }

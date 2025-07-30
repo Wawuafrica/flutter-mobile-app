@@ -30,7 +30,7 @@ class IAPService {
   List<ProductDetails> _products = [];
   List<ProductDetails> get products => _products;
 
-  // Active purchases/subscriptions -- RESTORED THIS LIST
+  // Active purchases/subscriptions
   List<PurchaseDetails> _activePurchases = [];
   List<PurchaseDetails> get activePurchases => _activePurchases;
 
@@ -62,7 +62,7 @@ class IAPService {
         },
       );
 
-      // Check for existing purchases/subscriptions right after setting up the listener -- RESTORED THIS CALL
+      // Check for existing purchases/subscriptions right after setting up the listener
       await _checkExistingPurchases();
 
       _isInitialized = true;
@@ -76,7 +76,7 @@ class IAPService {
     }
   }
 
-  /// Check for existing purchases (important for subscription tracking) -- RESTORED THIS METHOD
+  /// Check for existing purchases (important for subscription tracking)
   /// This will trigger _handlePurchaseUpdates for any existing purchases.
   Future<void> _checkExistingPurchases() async {
     try {
@@ -119,6 +119,9 @@ class IAPService {
         _logger.w('No products found for ID: $productId');
         debugPrint('[IAP] No products found for ID: $productId');
         debugPrint('[IAP] Not found IDs: ${response.notFoundIDs}');
+        
+        // This is likely why you're getting the error - no products are being found
+        // Check your product IDs in App Store Connect / Google Play Console
         return false;
       }
 
@@ -139,15 +142,26 @@ class IAPService {
     }
   }
 
-  /// Get product details by ID
+  /// Get product details by ID - COMPLETELY REWRITTEN TO AVOID TYPE ISSUES
   ProductDetails? getProduct(String productId) {
-    try {
-      return _products.firstWhere((product) => product.id == productId);
-    } catch (e) {
-      _logger.w('Product not found: $productId');
-      debugPrint('[IAP] Product not found: $productId');
+    debugPrint('[IAP] Looking for product: $productId in ${_products.length} products');
+    
+    if (_products.isEmpty) {
+      debugPrint('[IAP] No products available to search');
       return null;
     }
+
+    for (final product in _products) {
+      debugPrint('[IAP] Checking product: ${product.id}');
+      if (product.id == productId) {
+        debugPrint('[IAP] Found matching product: ${product.id}');
+        return product;
+      }
+    }
+
+    _logger.w('Product not found: $productId');
+    debugPrint('[IAP] Product not found: $productId');
+    return null;
   }
 
   /// Purchase a product
@@ -162,25 +176,46 @@ class IAPService {
         return false;
       }
 
-      // Check if user already has an active subscription for this product -- ADDED BACK THIS CHECK
+      // Check if user already has an active subscription for this product
       if (hasActiveSubscription()) {
         _logger.w('User already has active subscription for: $productId. Simulating restored purchase.');
         debugPrint('[IAP] User already has active subscription for: $productId. Simulating restored purchase.');
 
         // Find the existing purchase and emit it as a "restored" purchase
-        final existingPurchase = _activePurchases.firstWhere(
-          (purchase) => purchase.productID == productId,
-          orElse: () => _activePurchases.isNotEmpty ? _activePurchases.first : throw StateError('No active purchases found despite hasActiveSubscription being true'),
-        );
+        for (final purchase in _activePurchases) {
+          if (purchase.productID == productId) {
+            _purchaseController.add(purchase);
+            return true;
+          }
+        }
+        
+        // If we have any active purchase, use it as fallback
+        if (_activePurchases.isNotEmpty) {
+          _purchaseController.add(_activePurchases.first);
+          return true;
+        }
+        
+        _logger.e('No active purchases found despite hasActiveSubscription being true');
+        debugPrint('[IAP] No active purchases found despite hasActiveSubscription being true');
+        return false;
+      }
 
-        _purchaseController.add(existingPurchase);
-        return true;
+      // THIS IS THE CRITICAL PART - Make sure products are loaded
+      if (_products.isEmpty) {
+        debugPrint('[IAP] No products loaded, attempting to load products first');
+        final bool productsLoaded = await loadProducts();
+        if (!productsLoaded) {
+          _logger.e('Failed to load products before purchase');
+          debugPrint('[IAP] Failed to load products before purchase');
+          return false;
+        }
       }
 
       final ProductDetails? product = getProduct(productId);
       if (product == null) {
         _logger.e('Product not found: $productId');
         debugPrint('[IAP] Product not found: $productId');
+        debugPrint('[IAP] Available products: ${_products.map((p) => p.id).toList()}');
         return false;
       }
 
@@ -227,7 +262,7 @@ class IAPService {
         debugPrint('[IAP] Purchase error: ${purchaseDetails.error!.code} - ${purchaseDetails.error!.message}');
       }
 
-      // Update our active purchases list -- RESTORED THIS CALL
+      // Update our active purchases list
       _updateActivePurchases(purchaseDetails);
 
       // Emit purchase update to stream
@@ -243,7 +278,7 @@ class IAPService {
     }
   }
 
-  /// Update the list of active purchases based on the latest purchase detail. -- RESTORED THIS METHOD
+  /// Update the list of active purchases based on the latest purchase detail.
   /// This is crucial for keeping track of active subscriptions.
   void _updateActivePurchases(PurchaseDetails purchaseDetails) {
     // Remove if already exists to add the most recent status
@@ -259,8 +294,6 @@ class IAPService {
     } else {
       debugPrint('[IAP] Not adding to active purchases (status: ${purchaseDetails.status})');
     }
-    // You might want to remove expired/canceled subscriptions here too
-    // based on logic for your specific subscription type if the platform doesn't handle it.
   }
 
   /// Restore purchases (iOS mainly)
@@ -285,7 +318,7 @@ class IAPService {
     }
   }
 
-  /// Check if user has active subscription for the specific product ID. -- FIXED THIS METHOD
+  /// Check if user has active subscription for the specific product ID.
   /// This method now relies on the `_activePurchases` list.
   bool hasActiveSubscription() {
     // Check if any active purchase matches our product ID
@@ -296,18 +329,22 @@ class IAPService {
     return isActive;
   }
 
-  /// Get the active purchase details for the current product ID. -- RESTORED AND FIXED THIS METHOD
+  /// Get the active purchase details for the current product ID.
   PurchaseDetails? getActivePurchase() {
-    try {
-      return _activePurchases.firstWhere(
-        (purchase) => purchase.productID == productId &&
-            (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored),
-        orElse: () => throw StateError('No active purchase found for $productId'),
-      );
-    } catch (e) {
-      debugPrint('[IAP] No active purchase found for ${productId}: $e');
-      return null;
+    debugPrint('[IAP] Looking for active purchase for product: $productId');
+    debugPrint('[IAP] Active purchases count: ${_activePurchases.length}');
+    
+    for (final purchase in _activePurchases) {
+      debugPrint('[IAP] Checking purchase: ${purchase.productID} with status: ${purchase.status}');
+      if (purchase.productID == productId &&
+          (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored)) {
+        debugPrint('[IAP] Found active purchase for $productId');
+        return purchase;
+      }
     }
+    
+    debugPrint('[IAP] No active purchase found for $productId');
+    return null;
   }
 
   /// Get purchase receipt for server verification
@@ -335,6 +372,3 @@ class IAPService {
     debugPrint('[IAP] IAP Service disposed');
   }
 }
-
-// Removed the custom PurchaseStatus enum to avoid conflict with in_app_purchase.PurchaseStatus
-// Removed PurchaseResult model as it was not explicitly used for IAP state management in providers

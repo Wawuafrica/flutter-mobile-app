@@ -33,9 +33,9 @@ class MessageProvider extends BaseProvider {
     required ApiService apiService,
     required PusherService pusherService,
     required UserProvider userProvider,
-  }) : _apiService = apiService,
-       _pusherService = pusherService,
-       _userProvider = userProvider;
+  })  : _apiService = apiService,
+        _pusherService = pusherService,
+        _userProvider = userProvider;
 
   List<Conversation> get allConversations => _allConversations;
   List<Message> get currentMessages => _currentMessages;
@@ -51,7 +51,9 @@ class MessageProvider extends BaseProvider {
   // (e.g., if _state doesn't change but other data does).
   void _safeNotifyListeners() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
+      if (hasListeners) {
+        notifyListeners();
+      }
     });
   }
 
@@ -65,12 +67,12 @@ class MessageProvider extends BaseProvider {
     if (convIndex != -1) {
       final updatedMessagesInConv =
           _allConversations[convIndex].messages.map((msg) {
-            if (msg.senderId != currentUserId && !msg.isRead) {
-              changed = true;
-              return msg.copyWith(isRead: true);
-            }
-            return msg;
-          }).toList();
+        if (msg.senderId != currentUserId && !msg.isRead) {
+          changed = true;
+          return msg.copyWith(isRead: true);
+        }
+        return msg;
+      }).toList();
 
       if (changed) {
         final updatedConversation = _allConversations[convIndex].copyWith(
@@ -82,14 +84,13 @@ class MessageProvider extends BaseProvider {
 
     // Mark current messages as read if this is the active conversation
     if (_currentConversationId == conversationId) {
-      _currentMessages =
-          _currentMessages.map((msg) {
-            if (msg.senderId != currentUserId && !msg.isRead) {
-              changed = true;
-              return msg.copyWith(isRead: true);
-            }
-            return msg;
-          }).toList();
+      _currentMessages = _currentMessages.map((msg) {
+        if (msg.senderId != currentUserId && !msg.isRead) {
+          changed = true;
+          return msg.copyWith(isRead: true);
+        }
+        return msg;
+      }).toList();
     }
 
     if (changed) {
@@ -105,22 +106,20 @@ class MessageProvider extends BaseProvider {
 
       if (response['statusCode'] == 200 && response.containsKey('data')) {
         // Initialize all conversations with messages marked as read/unread based on sender
-        _allConversations =
-            (response['data'] as List<dynamic>).map((json) {
-              final conversation = Conversation.fromJson(
-                json as Map<String, dynamic>,
-              );
-              final currentUserId = _userProvider.currentUser?.uuid ?? '';
-              final updatedMessages =
-                  conversation.messages.map((message) {
-                    // Mark messages as read if the current user is the sender
-                    // Or if the message is from another user and we are not in the chat yet
-                    return message.copyWith(
-                      isRead: message.senderId == currentUserId,
-                    );
-                  }).toList();
-              return conversation.copyWith(messages: updatedMessages);
-            }).toList();
+        _allConversations = (response['data'] as List<dynamic>).map((json) {
+          final conversation = Conversation.fromJson(
+            json as Map<String, dynamic>,
+          );
+          final currentUserId = _userProvider.currentUser?.uuid ?? '';
+          final updatedMessages = conversation.messages.map((message) {
+            // Mark messages as read if the current user is the sender
+            // Or if the message is from another user and we are not in the chat yet
+            return message.copyWith(
+              isRead: message.senderId == currentUserId,
+            );
+          }).toList();
+          return conversation.copyWith(messages: updatedMessages);
+        }).toList();
 
         for (var conv in _allConversations) {
           for (var participant in conv.participants) {
@@ -197,18 +196,22 @@ class MessageProvider extends BaseProvider {
     try {
       if (event.data == null || event.data.isEmpty) return;
 
+      // FIX: Decode the `chat` string from event.data
       final Map<String, dynamic> eventData = event.data as Map<String, dynamic>;
-      final newConversation = Conversation.fromJson(eventData);
+      final String chatJsonString = eventData['chat'] as String;
+      final Map<String, dynamic> newChatData = json.decode(chatJsonString) as Map<String, dynamic>;
+
+
+      final newConversation = Conversation.fromJson(newChatData);
       final existingIndex = _allConversations.indexWhere(
         (conv) => conv.id == newConversation.id,
       );
 
       if (existingIndex == -1) {
         // Initialize messages in new conversation as unread by default
-        final updatedMessages =
-            newConversation.messages.map((message) {
-              return message.copyWith(isRead: false);
-            }).toList();
+        final updatedMessages = newConversation.messages.map((message) {
+          return message.copyWith(isRead: false);
+        }).toList();
 
         final newConvWithReadStatus = newConversation.copyWith(
           messages: updatedMessages,
@@ -264,7 +267,10 @@ class MessageProvider extends BaseProvider {
     String recipientId, [
     String? initialMessage,
   ]) async {
+    // FIX: Clear previous messages to prevent displaying stale data.
+    _currentMessages = [];
     setLoading(); // Use BaseProvider's setLoading
+
     try {
       await _fetchAndCacheUserProfile(recipientId);
       final existingConversation = _allConversations.firstWhere(
@@ -279,7 +285,7 @@ class MessageProvider extends BaseProvider {
         _currentRecipientId = recipientId;
         await _fetchMessages(
           existingConversation.id,
-        ); // Fetch messages, they will be marked as read here
+        ); // This will now fetch into a clean list
         await _subscribeToMessages(existingConversation.id);
 
         if (initialMessage != null && initialMessage.isNotEmpty) {
@@ -306,7 +312,7 @@ class MessageProvider extends BaseProvider {
         _allConversations.insert(0, newConversation);
         _currentConversationId = newConversation.id;
         _currentRecipientId = recipientId;
-        _currentMessages = []; // Clear messages for new conversation
+        _currentMessages = []; // Already correct here, but the fix above makes it consistent
         await _subscribeToMessages(newConversation.id);
 
         if (initialMessage != null && initialMessage.isNotEmpty) {
@@ -342,10 +348,9 @@ class MessageProvider extends BaseProvider {
         options: Options(headers: {'Api-Token': '{{api_token}}'}),
       );
       if (response['statusCode'] == 200 && response.containsKey('data')) {
-        _currentMessages =
-            (response['data'] as List<dynamic>)
-                .map((json) => Message.fromJson(json as Map<String, dynamic>))
-                .toList();
+        _currentMessages = (response['data'] as List<dynamic>)
+            .map((json) => Message.fromJson(json as Map<String, dynamic>))
+            .toList();
         _currentMessages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
         // Mark all fetched messages as read for the current user
@@ -363,11 +368,11 @@ class MessageProvider extends BaseProvider {
         if (convIndex != -1) {
           final updatedMessagesInConv =
               _allConversations[convIndex].messages.map((msg) {
-                if (msg.senderId != currentUserId && !msg.isRead) {
-                  return msg.copyWith(isRead: true);
-                }
-                return msg;
-              }).toList();
+            if (msg.senderId != currentUserId && !msg.isRead) {
+              return msg.copyWith(isRead: true);
+            }
+            return msg;
+          }).toList();
           final updatedConversation = _allConversations[convIndex].copyWith(
             messages: updatedMessagesInConv,
           );
@@ -446,13 +451,13 @@ class MessageProvider extends BaseProvider {
       final newMessage = Message.fromJson(messageData);
       final currentUserId = _userProvider.currentUser?.uuid ?? '';
 
-      // If the message is for the current conversation and from the other user, mark as read
-      if (conversationId == _currentConversationId &&
-          newMessage.senderId != currentUserId) {
+      // *** FIX: Correctly determine the read status of the new message. ***
+      if (newMessage.senderId == currentUserId) {
+        // If the current user sent the message, it's always considered read for them.
         newMessage.isRead = true;
       } else {
-        newMessage.isRead =
-            false; // Mark as unread if not in current conversation
+        // If the message is from someone else, it's read only if the user is in that chat.
+        newMessage.isRead = (conversationId == _currentConversationId);
       }
 
       if (conversationId == _currentConversationId) {
@@ -717,6 +722,11 @@ class MessageProvider extends BaseProvider {
     String currentUserId,
     String recipientId,
   ) async {
+    // FIX: Immediately clear the current messages to avoid showing stale data
+    // from a previous conversation. This also helps the UI show a loading state.
+    _currentMessages = [];
+    _safeNotifyListeners();
+
     final conversation = _allConversations.firstWhere(
       (conv) =>
           conv.participants.any((user) => user.id == currentUserId) &&
@@ -727,11 +737,13 @@ class MessageProvider extends BaseProvider {
     if (conversation.id.isNotEmpty) {
       _currentConversationId = conversation.id;
       _currentRecipientId = recipientId;
-      // Always fetch messages to ensure the latest state and mark as read
-      await _fetchMessages(conversation.id);
-      await _subscribeToMessages(conversation.id);
-      _safeNotifyListeners();
-      setSuccess(); // Indicate success for setting current conversation
+
+      // OPTIMIZATION: Kick off fetching and subscribing without awaiting them here.
+      // This allows the UI to navigate to the message screen immediately
+      // while the data loads in the background. The SingleMessageScreen will
+      // use the provider's loading state to show a progress indicator.
+      _fetchMessages(conversation.id);
+      _subscribeToMessages(conversation.id);
     }
   }
 
@@ -760,24 +772,24 @@ class MessageProvider extends BaseProvider {
   }
 
   void clearAllMessages() {
-  // Clear all conversations
-  _allConversations = [];
-  
-  // Clear current messages and conversation state
-  _currentMessages = [];
-  _currentConversationId = '';
-  _currentRecipientId = '';
-  
-  // Clear user profile cache
-  _userProfileCache.clear();
-  
-  // Unsubscribe from all chat channels
-  unsubscribeFromAllChats();
-  
-  // Reset provider state and notify listeners
-  resetState();
-  _safeNotifyListeners();
-}
+    // Clear all conversations
+    _allConversations = [];
+
+    // Clear current messages and conversation state
+    _currentMessages = [];
+    _currentConversationId = '';
+    _currentRecipientId = '';
+
+    // Clear user profile cache
+    _userProfileCache.clear();
+
+    // Unsubscribe from all chat channels
+    unsubscribeFromAllChats();
+
+    // Reset provider state and notify listeners
+    resetState();
+    _safeNotifyListeners();
+  }
 
   @override
   void dispose() {
