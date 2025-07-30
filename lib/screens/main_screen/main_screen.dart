@@ -132,6 +132,7 @@ class AuthModalScreen extends StatelessWidget {
     );
   }
 }
+
 // Custom route to apply background scaling
 class CustomModalBottomSheetRoute<T> extends ModalBottomSheetRoute<T> {
   CustomModalBottomSheetRoute({
@@ -235,30 +236,39 @@ class MainScreenState extends State<MainScreen> {
 
     if (userId != null) {
       _hasCheckedSubscription = true;
-      await planProvider.fetchUserSubscriptionDetails(userId, role);
+      
+      // First check if there's already an active subscription from IAP
+      final hasActiveIAPSubscription = await planProvider.checkActiveSubscription();
+      
+      if (!hasActiveIAPSubscription) {
+        // If no IAP subscription, fetch from backend
+        await planProvider.fetchUserSubscriptionDetails(userId, role);
+      }
 
-      if (mounted &&
-          planProvider.errorMessage == 'Success getting subscription details') {
-        if (planProvider.subscription == null ||
-            planProvider.subscription?.status?.toLowerCase() != 'active') {
+      if (mounted) {
+        // Use subscriptionIap instead of subscription
+        final subscriptionIap = planProvider.subscriptionIap;
+        final hasActiveSubscription = planProvider.hasActiveSubscription;
+
+        if (!hasActiveSubscription) {
+          // No active subscription found, redirect to plan selection
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const Plan()),
           );
-        }
-      } else if (planProvider.hasError) {
-        if (mounted) {
+        } else if (planProvider.hasError) {
+          // Handle errors but don't block access if subscription exists
           CustomSnackBar.show(
             context,
             message:
-                'Error fetching subscription: ${planProvider.errorMessage}',
+                'Warning: ${planProvider.errorMessage}',
             isError: true,
             actionLabel: 'Retry',
             onActionPressed: () async {
               await planProvider.fetchUserSubscriptionDetails(userId, role);
             },
           );
+          _hasCheckedSubscription = false;
         }
-        _hasCheckedSubscription = false;
       }
     }
   }
