@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/plan.dart' as plan_model;
 import 'package:wawu_mobile/providers/plan_provider.dart';
@@ -126,21 +127,35 @@ class _AccountPaymentState extends State<AccountPayment> {
 
         if (success) {
           // Update selected plan with store product details if available
+          // FIXED THE TYPE ERROR HERE
           if (planProvider.selectedPlan != null && planProvider.iapProducts.isNotEmpty) {
-            final product = planProvider.iapProducts.firstWhere(
-              (p) => p.id == planProvider.selectedPlan!.storeProductId,
-              orElse: () => planProvider.iapProducts.first,
-            );
+            // Use a safer approach to find the product
+            ProductDetails? foundProduct;
+            
+            // First try to find by storeProductId
+            if (planProvider.selectedPlan!.storeProductId != null) {
+              for (final product in planProvider.iapProducts) {
+                if (product.id == planProvider.selectedPlan!.storeProductId) {
+                  foundProduct = product;
+                  break;
+                }
+              }
+            }
+            
+            // If not found, use the first available product as fallback
+            foundProduct ??= planProvider.iapProducts.first;
+            
             final updatedPlan = planProvider.selectedPlan!.copyWith(
-              amount: double.tryParse(_extractPriceAmount(product.price)) ?? planProvider.selectedPlan!.amount,
-              currency: _extractCurrency(product.price),
+              amount: double.tryParse(_extractPriceAmount(foundProduct.price)) ?? planProvider.selectedPlan!.amount,
+              currency: _extractCurrency(foundProduct.price),
             );
             planProvider.selectPlan(updatedPlan);
             _calculateTotal();
-          }
+                    }
         }
       }
     } catch (e) {
+      debugPrint('IAP initialization error: $e');
       if (mounted) {
         setState(() {
           _isIAPInitialized = false;
