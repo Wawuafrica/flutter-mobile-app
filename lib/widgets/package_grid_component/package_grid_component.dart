@@ -139,7 +139,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
                     controllers![0].text.isEmpty
                         ? hintText
                         : controllers[0].text,
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 14, fontFamily: 'Roboto', fontFamilyFallback: ['sans-serif']), // Added font style
                   ),
                 ),
               ),
@@ -154,7 +154,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
                     controllers[1].text.isEmpty
                         ? hintText
                         : controllers[1].text,
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 14, fontFamily: 'Roboto', fontFamilyFallback: ['sans-serif']), // Added font style
                   ),
                 ),
               ),
@@ -169,7 +169,7 @@ class _PackageGridComponentState extends State<PackageGridComponent> {
                     controllers[2].text.isEmpty
                         ? hintText
                         : controllers[2].text,
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(fontSize: 14, fontFamily: 'Roboto', fontFamilyFallback: ['sans-serif']), // Added font style
                   ),
                 ),
               ),

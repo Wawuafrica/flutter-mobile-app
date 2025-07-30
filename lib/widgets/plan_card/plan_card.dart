@@ -64,6 +64,8 @@ class PlanCard extends StatelessWidget {
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: wawuColors.primary,
+                     fontFamily: 'Roboto',
+                                      fontFamilyFallback: const ['Roboto','sans-serif'],
                   ),
                   textAlign:
                       features.isEmpty ? TextAlign.center : TextAlign.start,

@@ -109,3 +109,12 @@ flutter:
     - assets/images/section/
     - assets/images/section/sales.png
 
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf # Replace with your file path
+        - asset: assets/fonts/Roboto-Bold.ttf    # Add other weights as needed
+          weight: 700 # Specify the weight if not in the filename
+
+
+  

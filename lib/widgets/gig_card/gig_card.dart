@@ -223,6 +223,8 @@ class GigCard extends StatelessWidget {
                                     style: textTheme.bodySmall?.copyWith(
                                       fontSize: textScaler.scale(isSmallScreen ? 10 : 11),
                                       color: Colors.white.withOpacity(0.8),
+                                      fontFamily: 'Roboto',
+                                      fontFamilyFallback: const ['sans-serif'],
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -232,6 +234,8 @@ class GigCard extends StatelessWidget {
                                       fontSize: textScaler.scale(isSmallScreen ? 14 : 16),
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
+                                      fontFamily: 'Roboto',
+                                      fontFamilyFallback: const ['Roboto','sans-serif'],
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,

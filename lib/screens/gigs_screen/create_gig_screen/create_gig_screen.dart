@@ -799,6 +799,7 @@ class _CreateGigScreenState extends State<CreateGigScreen> {
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 4,
                             ),
+                            
                             hintStyle: const TextStyle(fontSize: 14),
                           ),
                           textAlign: TextAlign.center,
