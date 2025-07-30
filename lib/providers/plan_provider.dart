@@ -31,7 +31,7 @@ class PlanProvider extends BaseProvider {
 
   // Backend integration settings
   bool _enableBackendVerification = false; // Set to true when backend is ready
-  bool _sendPurchaseToBackend = true; // Send purchase data to backend (optional)
+  bool _sendPurchaseToBackend = false; // Send purchase data to backend (optional)
 
   // Getters
   List<Plan> get plans => _plans;
