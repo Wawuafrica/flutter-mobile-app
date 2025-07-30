@@ -722,9 +722,9 @@ class MessageProvider extends BaseProvider {
     String currentUserId,
     String recipientId,
   ) async {
-    // FIX: Immediately clear the current messages to avoid showing stale data.
+    // FIX: Immediately clear the current messages to avoid showing stale data
+    // from a previous conversation. This also helps the UI show a loading state.
     _currentMessages = [];
-    // Notify listeners so the UI can update to an empty/loading state.
     _safeNotifyListeners();
 
     final conversation = _allConversations.firstWhere(
@@ -737,11 +737,13 @@ class MessageProvider extends BaseProvider {
     if (conversation.id.isNotEmpty) {
       _currentConversationId = conversation.id;
       _currentRecipientId = recipientId;
-      // Always fetch messages to ensure the latest state and mark as read
-      await _fetchMessages(conversation.id);
-      await _subscribeToMessages(conversation.id);
-      _safeNotifyListeners();
-      setSuccess(); // Indicate success for setting current conversation
+
+      // OPTIMIZATION: Kick off fetching and subscribing without awaiting them here.
+      // This allows the UI to navigate to the message screen immediately
+      // while the data loads in the background. The SingleMessageScreen will
+      // use the provider's loading state to show a progress indicator.
+      _fetchMessages(conversation.id);
+      _subscribeToMessages(conversation.id);
     }
   }
 
