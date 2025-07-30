@@ -332,9 +332,17 @@ class AuthService {
 
   Future<void> verifyOtp(String email, String otp, {String? type}) async {
     try {
-      final data = {'email': email, 'otp': otp};
-      if (type != null) data['type'] = type;
-      await _apiService.post('/user/otp/verify', data: data);
+      final response = await _apiService.post<Map<String, dynamic>>(
+        '/user/otp/verify',
+        data: {'email': email, 'otp': otp},
+      );
+
+      // Check the response for success
+      if (response['statusCode'] != 200 || response['message'] != 'Otp successfully verified') {
+        final errorMessage = response['message'] as String? ?? 'Invalid OTP.';
+        throw ApiException(errorMessage); // Use ApiException from api_service.dart
+      }
+
       _logger.d('OTP verified successfully for email: $email');
     } catch (e) {
       _logger.e('Verify OTP failed: $e');
