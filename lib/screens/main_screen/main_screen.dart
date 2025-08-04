@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/blog_screen/blog_screen.dart';
@@ -184,6 +185,8 @@ class MainScreenState extends State<MainScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _hasInitializedNotifications = false;
   bool _hasCheckedSubscription = false;
+  bool _subscriptionCheckInProgress = false;
+  bool _hasRequestedMicrophonePermission = false;
 
   List<Widget> _screens = [];
   List<CustomNavItem> _customNavItems = [];
@@ -193,79 +196,252 @@ class MainScreenState extends State<MainScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreensAndNavItems();
-      _fetchSubscriptionDetails();
+      _performInitialSubscriptionCheck();
+      _requestMicrophonePermission();
     });
   }
 
-  void _fetchSubscriptionDetails() async {
-    if (_hasCheckedSubscription) return;
-
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final currentUser = userProvider.currentUser;
-    final userType = currentUser?.role?.toLowerCase();
-
-    // Skip subscription check for BUYER role or unauthenticated users
-    if (userType == 'buyer' || currentUser == null) {
-      _hasCheckedSubscription = true;
-      return;
-    }
-
-    final connectivityResult = await (Connectivity().checkConnectivity());
-    if (connectivityResult == ConnectivityResult.none) {
+  /// Request microphone permission
+  Future<void> _requestMicrophonePermission() async {
+    if (_hasRequestedMicrophonePermission) return;
+    
+    _hasRequestedMicrophonePermission = true;
+    
+    try {
+      final status = await Permission.microphone.status;
+      
+      if (status.isDenied) {
+        final result = await Permission.microphone.request();
+        
+        if (result.isGranted) {
+          debugPrint('[MainScreen] Microphone permission granted');
+          if (mounted) {
+            CustomSnackBar.show(
+              context,
+              message: 'Microphone permission granted for voice features',
+              isError: false,
+            );
+          }
+        } else if (result.isDenied) {
+          debugPrint('[MainScreen] Microphone permission denied');
+          if (mounted) {
+            CustomSnackBar.show(
+              context,
+              message: 'Microphone permission denied. Voice features will be limited.',
+              isError: true,
+            );
+          }
+        } else if (result.isPermanentlyDenied) {
+          debugPrint('[MainScreen] Microphone permission permanently denied');
+          if (mounted) {
+            _showPermissionSettingsDialog();
+          }
+        }
+      } else if (status.isGranted) {
+        debugPrint('[MainScreen] Microphone permission already granted');
+      } else if (status.isPermanentlyDenied) {
+        debugPrint('[MainScreen] Microphone permission permanently denied');
+        if (mounted) {
+          _showPermissionSettingsDialog();
+        }
+      }
+    } catch (e) {
+      debugPrint('[MainScreen] Error requesting microphone permission: $e');
       if (mounted) {
         CustomSnackBar.show(
           context,
-          message: 'No internet connection. Please check your network.',
+          message: 'Unable to request microphone permission',
           isError: true,
         );
-      }
-      return;
-    }
-
-    final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    final userId = currentUser.uuid;
-    int role = 0;
-
-    if (userType == 'artisan') {
-      role = 3;
-    } else if (userType == 'professional') {
-      role = 2;
-    } else {
-      role = 1;
-    }
-
-    if (userId != null) {
-      _hasCheckedSubscription = true;
-
-      // Make a single, authoritative call to verify the subscription.
-      await planProvider.fetchUserSubscriptionDetails(userId, role);
-
-      // After the check is complete, evaluate the result.
-      if (mounted) {
-        if (planProvider.hasError) {
-          // Show an error but let the user stay on the screen to retry.
-          CustomSnackBar.show(
-            context,
-            message: planProvider.errorMessage ?? 'Could not verify subscription.',
-            isError: true,
-            actionLabel: 'Retry',
-            onActionPressed: () {
-              // Reset flag to allow the check to run again.
-              _hasCheckedSubscription = false;
-              _fetchSubscriptionDetails();
-            },
-          );
-        } else if (!planProvider.hasActiveSubscription) {
-          // If all checks are done and there's definitively no active subscription, redirect.
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const Plan()),
-          );
-        }
-        // If there IS an active subscription, do nothing. The user will see the main screen.
       }
     }
   }
 
+  /// Show dialog to direct user to settings for microphone permission
+  void _showPermissionSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Microphone Permission Required'),
+          content: const Text(
+            'To use voice features, please enable microphone permission in your device settings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                openAppSettings();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Check microphone permission status
+  Future<bool> checkMicrophonePermission() async {
+    final status = await Permission.microphone.status;
+    return status.isGranted;
+  }
+
+  /// Request microphone permission when needed for specific features
+  Future<bool> requestMicrophonePermissionForFeature(String featureName) async {
+    final status = await Permission.microphone.status;
+    
+    if (status.isGranted) {
+      return true;
+    }
+    
+    if (status.isDenied) {
+      final result = await Permission.microphone.request();
+      
+      if (result.isGranted) {
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            message: 'Microphone permission granted for $featureName',
+            isError: false,
+          );
+        }
+        return true;
+      } else if (result.isPermanentlyDenied) {
+        if (mounted) {
+          _showPermissionSettingsDialog();
+        }
+        return false;
+      }
+    } else if (status.isPermanentlyDenied) {
+      if (mounted) {
+        _showPermissionSettingsDialog();
+      }
+      return false;
+    }
+    
+    if (mounted) {
+      CustomSnackBar.show(
+        context,
+        message: 'Microphone permission is required for $featureName',
+        isError: true,
+      );
+    }
+    return false;
+  }
+
+  /// Perform initial subscription check - optimized to prevent repeated redirects
+// Fixed MainScreen _performInitialSubscriptionCheck method
+void _performInitialSubscriptionCheck() async {
+  if (_hasCheckedSubscription || _subscriptionCheckInProgress) return;
+
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  final currentUser = userProvider.currentUser;
+  final userType = currentUser?.role?.toLowerCase();
+
+  // Skip subscription check for BUYER role or unauthenticated users
+  if (userType == 'buyer' || currentUser == null) {
+    debugPrint('[MainScreen] Skipping subscription check - BUYER role or no user');
+    setState(() {
+      _hasCheckedSubscription = true;
+    });
+    return;
+  }
+
+  setState(() {
+    _subscriptionCheckInProgress = true;
+  });
+
+  try {
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
+    
+    // First, try to load cached subscription (fastest method)
+    final bool hasCachedSubscription = await planProvider.loadCachedSubscription(currentUser.uuid);
+    
+    if (hasCachedSubscription && mounted) {
+      debugPrint('[MainScreen] Found cached subscription, no need for further checks');
+      setState(() {
+        _hasCheckedSubscription = true;
+        _subscriptionCheckInProgress = false;
+      });
+      return;
+    }
+
+    // Check network connectivity before making API calls
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      debugPrint('[MainScreen] No internet connection, allowing user to stay');
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          message: 'No internet connection. Some features may be limited.',
+          isError: true,
+        );
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
+      }
+      return;
+    }
+
+    // Initialize IAP if not already done
+    if (!planProvider.isIapInitialized) {
+      final bool iapInitialized = await planProvider.initializeIAP();
+      if (!iapInitialized && mounted) {
+        debugPrint('[MainScreen] IAP initialization failed, but allowing user to continue');
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
+        return;
+      }
+    }
+
+    // After IAP initialization, check subscription status
+    final bool hasActiveSubscription = await planProvider.checkActiveSubscription();
+    
+    if (mounted) {
+      if (hasActiveSubscription) {
+        debugPrint('[MainScreen] Active subscription confirmed');
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
+      } else {
+        // Only redirect if we're certain there's no active subscription
+        debugPrint('[MainScreen] No active subscription found, redirecting to plan screen');
+        setState(() {
+          _subscriptionCheckInProgress = false;
+        });
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const Plan()),
+        );
+        return;
+      }
+    }
+
+  } catch (e) {
+    debugPrint('[MainScreen] Error during subscription check: $e');
+    if (mounted) {
+      setState(() {
+        _hasCheckedSubscription = true;
+        _subscriptionCheckInProgress = false;
+      });
+      CustomSnackBar.show(
+        context,
+        message: 'Unable to verify subscription. You can continue using the app.',
+        isError: false,
+      );
+    }
+  }
+}
   void _initializeScreensAndNavItems() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final notificationsProvider = Provider.of<NotificationProvider>(
@@ -624,6 +800,29 @@ class MainScreenState extends State<MainScreen> {
                 items: _customNavItems,
               ),
             ),
+            // Show loading overlay when subscription check is in progress
+            if (_subscriptionCheckInProgress)
+              Material(
+                child: Container(
+                  color: Colors.black.withOpacity(0.3),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text(
+                          'Verifying subscription...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
       },
