@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/blog_screen/blog_screen.dart';
@@ -185,6 +186,7 @@ class MainScreenState extends State<MainScreen> {
   bool _hasInitializedNotifications = false;
   bool _hasCheckedSubscription = false;
   bool _subscriptionCheckInProgress = false;
+  bool _hasRequestedMicrophonePermission = false;
 
   List<Widget> _screens = [];
   List<CustomNavItem> _customNavItems = [];
@@ -195,7 +197,143 @@ class MainScreenState extends State<MainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreensAndNavItems();
       _performInitialSubscriptionCheck();
+      _requestMicrophonePermission();
     });
+  }
+
+  /// Request microphone permission
+  Future<void> _requestMicrophonePermission() async {
+    if (_hasRequestedMicrophonePermission) return;
+    
+    _hasRequestedMicrophonePermission = true;
+    
+    try {
+      final status = await Permission.microphone.status;
+      
+      if (status.isDenied) {
+        final result = await Permission.microphone.request();
+        
+        if (result.isGranted) {
+          debugPrint('[MainScreen] Microphone permission granted');
+          if (mounted) {
+            CustomSnackBar.show(
+              context,
+              message: 'Microphone permission granted for voice features',
+              isError: false,
+            );
+          }
+        } else if (result.isDenied) {
+          debugPrint('[MainScreen] Microphone permission denied');
+          if (mounted) {
+            CustomSnackBar.show(
+              context,
+              message: 'Microphone permission denied. Voice features will be limited.',
+              isError: true,
+            );
+          }
+        } else if (result.isPermanentlyDenied) {
+          debugPrint('[MainScreen] Microphone permission permanently denied');
+          if (mounted) {
+            _showPermissionSettingsDialog();
+          }
+        }
+      } else if (status.isGranted) {
+        debugPrint('[MainScreen] Microphone permission already granted');
+      } else if (status.isPermanentlyDenied) {
+        debugPrint('[MainScreen] Microphone permission permanently denied');
+        if (mounted) {
+          _showPermissionSettingsDialog();
+        }
+      }
+    } catch (e) {
+      debugPrint('[MainScreen] Error requesting microphone permission: $e');
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          message: 'Unable to request microphone permission',
+          isError: true,
+        );
+      }
+    }
+  }
+
+  /// Show dialog to direct user to settings for microphone permission
+  void _showPermissionSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Microphone Permission Required'),
+          content: const Text(
+            'To use voice features, please enable microphone permission in your device settings.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                openAppSettings();
+              },
+              child: const Text('Open Settings'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Check microphone permission status
+  Future<bool> checkMicrophonePermission() async {
+    final status = await Permission.microphone.status;
+    return status.isGranted;
+  }
+
+  /// Request microphone permission when needed for specific features
+  Future<bool> requestMicrophonePermissionForFeature(String featureName) async {
+    final status = await Permission.microphone.status;
+    
+    if (status.isGranted) {
+      return true;
+    }
+    
+    if (status.isDenied) {
+      final result = await Permission.microphone.request();
+      
+      if (result.isGranted) {
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            message: 'Microphone permission granted for $featureName',
+            isError: false,
+          );
+        }
+        return true;
+      } else if (result.isPermanentlyDenied) {
+        if (mounted) {
+          _showPermissionSettingsDialog();
+        }
+        return false;
+      }
+    } else if (status.isPermanentlyDenied) {
+      if (mounted) {
+        _showPermissionSettingsDialog();
+      }
+      return false;
+    }
+    
+    if (mounted) {
+      CustomSnackBar.show(
+        context,
+        message: 'Microphone permission is required for $featureName',
+        isError: true,
+      );
+    }
+    return false;
   }
 
   /// Perform initial subscription check - optimized to prevent repeated redirects
