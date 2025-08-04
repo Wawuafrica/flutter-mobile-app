@@ -234,7 +234,7 @@ class MainScreenState extends State<MainScreen> {
         } else if (result.isPermanentlyDenied) {
           debugPrint('[MainScreen] Microphone permission permanently denied');
           if (mounted) {
-            _showPermissionSettingsDialog();
+            // _showPermissionSettingsDialog();
           }
         }
       } else if (status.isGranted) {
@@ -242,7 +242,7 @@ class MainScreenState extends State<MainScreen> {
       } else if (status.isPermanentlyDenied) {
         debugPrint('[MainScreen] Microphone permission permanently denied');
         if (mounted) {
-          _showPermissionSettingsDialog();
+          // _showPermissionSettingsDialog();
         }
       }
     } catch (e) {
@@ -257,35 +257,35 @@ class MainScreenState extends State<MainScreen> {
     }
   }
 
-  /// Show dialog to direct user to settings for microphone permission
-  void _showPermissionSettingsDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Microphone Permission Required'),
-          content: const Text(
-            'To use voice features, please enable microphone permission in your device settings.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                openAppSettings();
-              },
-              child: const Text('Open Settings'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // /// Show dialog to direct user to settings for microphone permission
+  // void _showPermissionSettingsDialog() {
+  //   showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: const Text('Microphone Permission Required'),
+  //         content: const Text(
+  //           'To use voice features, please enable microphone permission in your device settings.',
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () {
+  //               Navigator.of(context).pop();
+  //             },
+  //             child: const Text('Cancel'),
+  //           ),
+  //           TextButton(
+  //             onPressed: () {
+  //               Navigator.of(context).pop();
+  //               openAppSettings();
+  //             },
+  //             child: const Text('Open Settings'),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
 
   /// Check microphone permission status
   Future<bool> checkMicrophonePermission() async {
@@ -293,48 +293,48 @@ class MainScreenState extends State<MainScreen> {
     return status.isGranted;
   }
 
-  /// Request microphone permission when needed for specific features
-  Future<bool> requestMicrophonePermissionForFeature(String featureName) async {
-    final status = await Permission.microphone.status;
+  // /// Request microphone permission when needed for specific features
+  // Future<bool> requestMicrophonePermissionForFeature(String featureName) async {
+  //   final status = await Permission.microphone.status;
     
-    if (status.isGranted) {
-      return true;
-    }
+  //   if (status.isGranted) {
+  //     return true;
+  //   }
     
-    if (status.isDenied) {
-      final result = await Permission.microphone.request();
+  //   if (status.isDenied) {
+  //     final result = await Permission.microphone.request();
       
-      if (result.isGranted) {
-        if (mounted) {
-          CustomSnackBar.show(
-            context,
-            message: 'Microphone permission granted for $featureName',
-            isError: false,
-          );
-        }
-        return true;
-      } else if (result.isPermanentlyDenied) {
-        if (mounted) {
-          _showPermissionSettingsDialog();
-        }
-        return false;
-      }
-    } else if (status.isPermanentlyDenied) {
-      if (mounted) {
-        _showPermissionSettingsDialog();
-      }
-      return false;
-    }
+  //     if (result.isGranted) {
+  //       if (mounted) {
+  //         CustomSnackBar.show(
+  //           context,
+  //           message: 'Microphone permission granted for $featureName',
+  //           isError: false,
+  //         );
+  //       }
+  //       return true;
+  //     } else if (result.isPermanentlyDenied) {
+  //       if (mounted) {
+  //         _showPermissionSettingsDialog();
+  //       }
+  //       return false;
+  //     }
+  //   } else if (status.isPermanentlyDenied) {
+  //     if (mounted) {
+  //       _showPermissionSettingsDialog();
+  //     }
+  //     return false;
+  //   }
     
-    if (mounted) {
-      CustomSnackBar.show(
-        context,
-        message: 'Microphone permission is required for $featureName',
-        isError: true,
-      );
-    }
-    return false;
-  }
+  //   if (mounted) {
+  //     CustomSnackBar.show(
+  //       context,
+  //       message: 'Microphone permission is required for $featureName',
+  //       isError: true,
+  //     );
+  //   }
+  //   return false;
+  // }
 
   /// Perform initial subscription check - optimized to prevent repeated redirects
 // Fixed MainScreen _performInitialSubscriptionCheck method
