@@ -199,113 +199,111 @@ class MainScreenState extends State<MainScreen> {
   }
 
   /// Perform initial subscription check - optimized to prevent repeated redirects
-  void _performInitialSubscriptionCheck() async {
-    if (_hasCheckedSubscription || _subscriptionCheckInProgress) return;
+// Fixed MainScreen _performInitialSubscriptionCheck method
+void _performInitialSubscriptionCheck() async {
+  if (_hasCheckedSubscription || _subscriptionCheckInProgress) return;
 
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final currentUser = userProvider.currentUser;
-    final userType = currentUser?.role?.toLowerCase();
+  final userProvider = Provider.of<UserProvider>(context, listen: false);
+  final currentUser = userProvider.currentUser;
+  final userType = currentUser?.role?.toLowerCase();
 
-    // Skip subscription check for BUYER role or unauthenticated users
-    if (userType == 'buyer' || currentUser == null) {
-      debugPrint('[MainScreen] Skipping subscription check - BUYER role or no user');
+  // Skip subscription check for BUYER role or unauthenticated users
+  if (userType == 'buyer' || currentUser == null) {
+    debugPrint('[MainScreen] Skipping subscription check - BUYER role or no user');
+    setState(() {
       _hasCheckedSubscription = true;
+    });
+    return;
+  }
+
+  setState(() {
+    _subscriptionCheckInProgress = true;
+  });
+
+  try {
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
+    
+    // First, try to load cached subscription (fastest method)
+    final bool hasCachedSubscription = await planProvider.loadCachedSubscription(currentUser.uuid);
+    
+    if (hasCachedSubscription && mounted) {
+      debugPrint('[MainScreen] Found cached subscription, no need for further checks');
+      setState(() {
+        _hasCheckedSubscription = true;
+        _subscriptionCheckInProgress = false;
+      });
       return;
     }
 
-    _subscriptionCheckInProgress = true;
-
-    try {
-      final planProvider = Provider.of<PlanProvider>(context, listen: false);
-      
-      // First, try to load cached subscription (fastest method)
-      final bool hasCachedSubscription = await planProvider.loadCachedSubscription(currentUser.uuid);
-      
-      if (hasCachedSubscription) {
-        debugPrint('[MainScreen] Found cached subscription, no need for further checks');
-        _hasCheckedSubscription = true;
-        _subscriptionCheckInProgress = false;
-        return;
-      }
-
-      // Check network connectivity before making API calls
-      final connectivityResult = await (Connectivity().checkConnectivity());
-      if (connectivityResult == ConnectivityResult.none) {
-        debugPrint('[MainScreen] No internet connection, allowing user to stay');
-        if (mounted) {
-          CustomSnackBar.show(
-            context,
-            message: 'No internet connection. Some features may be limited.',
-            isError: true,
-          );
-        }
-        _hasCheckedSubscription = true;
-        _subscriptionCheckInProgress = false;
-        return;
-      }
-
-      final userId = currentUser.uuid;
-      int role = 0;
-
-      if (userType == 'artisan') {
-        role = 3;
-      } else if (userType == 'professional') {
-        role = 2;
-      } else {
-        role = 1;
-      }
-
-      if (userId != null) {
-        // This will check cache first, then IAP, then optionally backend
-        await planProvider.fetchUserSubscriptionDetails(userId, role);
-
-        if (mounted) {
-          if (planProvider.hasError) {
-            // Show error but don't redirect - let user retry or continue
-            CustomSnackBar.show(
-              context,
-              message: planProvider.errorMessage ?? 'Could not verify subscription status.',
-              isError: true,
-              actionLabel: 'Retry',
-              onActionPressed: () {
-                _hasCheckedSubscription = false;
-                _subscriptionCheckInProgress = false;
-                _performInitialSubscriptionCheck();
-              },
-            );
-          } else if (!planProvider.hasActiveSubscription) {
-            // Only redirect if we're certain there's no active subscription
-            debugPrint('[MainScreen] No active subscription found, redirecting to plan screen');
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const Plan()),
-            );
-            return;
-          } else {
-            debugPrint('[MainScreen] Active subscription confirmed');
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('[MainScreen] Error during subscription check: $e');
+    // Check network connectivity before making API calls
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      debugPrint('[MainScreen] No internet connection, allowing user to stay');
       if (mounted) {
         CustomSnackBar.show(
           context,
-          message: 'Unable to verify subscription. Please check your connection.',
+          message: 'No internet connection. Some features may be limited.',
           isError: true,
-          actionLabel: 'Retry',
-          onActionPressed: () {
-            _hasCheckedSubscription = false;
-            _subscriptionCheckInProgress = false;
-            _performInitialSubscriptionCheck();
-          },
         );
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
       }
-    } finally {
-      _hasCheckedSubscription = true;
-      _subscriptionCheckInProgress = false;
+      return;
+    }
+
+    // Initialize IAP if not already done
+    if (!planProvider.isIapInitialized) {
+      final bool iapInitialized = await planProvider.initializeIAP();
+      if (!iapInitialized && mounted) {
+        debugPrint('[MainScreen] IAP initialization failed, but allowing user to continue');
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
+        return;
+      }
+    }
+
+    // After IAP initialization, check subscription status
+    final bool hasActiveSubscription = await planProvider.checkActiveSubscription();
+    
+    if (mounted) {
+      if (hasActiveSubscription) {
+        debugPrint('[MainScreen] Active subscription confirmed');
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
+      } else {
+        // Only redirect if we're certain there's no active subscription
+        debugPrint('[MainScreen] No active subscription found, redirecting to plan screen');
+        setState(() {
+          _subscriptionCheckInProgress = false;
+        });
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const Plan()),
+        );
+        return;
+      }
+    }
+
+  } catch (e) {
+    debugPrint('[MainScreen] Error during subscription check: $e');
+    if (mounted) {
+      setState(() {
+        _hasCheckedSubscription = true;
+        _subscriptionCheckInProgress = false;
+      });
+      CustomSnackBar.show(
+        context,
+        message: 'Unable to verify subscription. You can continue using the app.',
+        isError: false,
+      );
     }
   }
-
+}
   void _initializeScreensAndNavItems() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final notificationsProvider = Provider.of<NotificationProvider>(
@@ -666,22 +664,24 @@ class MainScreenState extends State<MainScreen> {
             ),
             // Show loading overlay when subscription check is in progress
             if (_subscriptionCheckInProgress)
-              Container(
-                color: Colors.black.withOpacity(0.3),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text(
-                        'Verifying subscription...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+              Material(
+                child: Container(
+                  color: Colors.black.withOpacity(0.3),
+                  child: const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text(
+                          'Verifying subscription...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
