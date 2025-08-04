@@ -266,61 +266,91 @@ class _SingleMessageScreenState extends State<SingleMessageScreen> {
       }
     }
   }
+// Replace the _startRecording method in your SingleMessageScreen class with this improved version
+
 Future<void> _startRecording() async {
   if (!mounted) return;
 
-  // Check current permission status first
-  PermissionStatus status = await Permission.microphone.status;
-  
-  // If permission is permanently denied, show settings dialog
-  if (status.isPermanentlyDenied) {
-    _showPermissionDialog(
-      title: 'Microphone Permission Required',
-      message: 'Please enable microphone access in Settings to record voice messages.',
-      showSettings: true,
-    );
-    return;
-  }
-  
-  // If permission is denied or restricted, request it
-  if (status.isDenied || status.isRestricted) {
-    status = await Permission.microphone.request();
-  }
-  
-  // Handle all possible outcomes after requesting permission
-  if (status.isGranted) {
-    // Permission granted, proceed with recording
-    _proceedWithRecording();
-  } else if (status.isPermanentlyDenied) {
-    _showPermissionDialog(
-      title: 'Microphone Permission Denied',
-      message: 'Microphone access has been permanently denied. Please enable it in Settings to record voice messages.',
-      showSettings: true,
-    );
-  } else if (status.isDenied) {
-    _showPermissionDialog(
-      title: 'Microphone Permission Required',
-      message: 'Microphone access is required to record voice messages. Please grant permission to continue.',
-      showSettings: false,
-    );
-  } else {
-    // Handle other cases (restricted, limited, etc.)
+  try {
+    // Check current permission status first
+    PermissionStatus status = await Permission.microphone.status;
+    
+    print('Current microphone permission status: $status'); // Debug log
+    
+    // If permission is permanently denied, show settings dialog immediately
+    if (status.isPermanentlyDenied) {
+      _showPermissionDialog(
+        title: 'Microphone Permission Required',
+        message: 'Microphone access has been permanently denied. Please enable it in Settings to record voice messages.',
+        showSettings: true,
+      );
+      return;
+    }
+    
+    // If permission is denied, restricted, or limited, request it
+    if (status.isDenied || status.isRestricted || status.isLimited) {
+      print('Requesting microphone permission...'); // Debug log
+      status = await Permission.microphone.request();
+      print('Permission request result: $status'); // Debug log
+    }
+    
+    // Handle the final permission status
+    if (status.isGranted) {
+      // Permission granted, proceed with recording
+      print('Permission granted, starting recording...'); // Debug log
+      await _proceedWithRecording();
+    } else if (status.isPermanentlyDenied) {
+      _showPermissionDialog(
+        title: 'Microphone Permission Denied',
+        message: 'Microphone access has been permanently denied. Please enable it in Settings to record voice messages.',
+        showSettings: true,
+      );
+    } else if (status.isDenied) {
+      _showPermissionDialog(
+        title: 'Microphone Permission Required',
+        message: 'Microphone access is required to record voice messages. Please grant permission to continue.',
+        showSettings: false,
+      );
+    } else if (status.isRestricted) {
+      CustomSnackBar.show(
+        context,
+        message: 'Microphone access is restricted on this device',
+        isError: true,
+      );
+    } else if (status.isLimited) {
+      // On iOS, limited permission might still allow recording
+      print('Limited permission, attempting to record...'); // Debug log
+      await _proceedWithRecording();
+    } else {
+      // Handle any other unexpected status
+      CustomSnackBar.show(
+        context,
+        message: 'Microphone access is not available',
+        isError: true,
+      );
+    }
+  } catch (e) {
+    print('Error in _startRecording: $e'); // Debug log
     CustomSnackBar.show(
       context,
-      message: 'Microphone access is not available',
+      message: 'Error accessing microphone: $e',
       isError: true,
     );
   }
 }
 
+// Also update the _showPermissionDialog method to handle the retry better
 void _showPermissionDialog({
   required String title,
   required String message,
   required bool showSettings,
 }) {
+  if (!mounted) return;
+
   showDialog(
     context: context,
-    builder: (BuildContext context) {
+    barrierDismissible: false, // Prevent dismissing by tapping outside
+    builder: (BuildContext dialogContext) {
       return AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15.0),
@@ -344,17 +374,17 @@ void _showPermissionDialog({
               style: TextStyle(color: Colors.grey),
             ),
             onPressed: () {
-              Navigator.of(context).pop();
+              Navigator.of(dialogContext).pop();
             },
           ),
           if (showSettings)
             TextButton(
               child: const Text(
-                'Settings',
+                'Open Settings',
                 style: TextStyle(color: wawuColors.primary),
               ),
               onPressed: () {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
                 openAppSettings();
               },
             )
@@ -365,8 +395,13 @@ void _showPermissionDialog({
                 style: TextStyle(color: wawuColors.primary),
               ),
               onPressed: () {
-                Navigator.of(context).pop();
-                _startRecording(); // Retry the permission request
+                Navigator.of(dialogContext).pop();
+                // Small delay before retrying to ensure dialog is closed
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  if (mounted) {
+                    _startRecording();
+                  }
+                });
               },
             ),
         ],
@@ -375,13 +410,46 @@ void _showPermissionDialog({
   );
 }
 
+// Enhanced _proceedWithRecording method with better error handling
 Future<void> _proceedWithRecording() async {
+  if (!mounted) return;
+
   try {
+    // Double-check permission before proceeding
+    final hasPermission = await Permission.microphone.isGranted;
+    if (!hasPermission) {
+      print('Permission lost before recording'); // Debug log
+      CustomSnackBar.show(
+        context,
+        message: 'Microphone permission is required to record',
+        isError: true,
+      );
+      return;
+    }
+
+    // Check if microphone is available
+    final isAvailable = await _audioRecorder.hasPermission();
+    if (!isAvailable) {
+      print('AudioRecorder reports no permission'); // Debug log
+      CustomSnackBar.show(
+        context,
+        message: 'Microphone is not available for recording',
+        isError: true,
+      );
+      return;
+    }
+
     final tempDir = await getTemporaryDirectory();
-    final path = '${tempDir.path}/${DateTime.now().millisecondsSinceEpoch}.m4a';
+    final path = '${tempDir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    
+    print('Starting recording to: $path'); // Debug log
     
     await _audioRecorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
+      const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        bitRate: 128000,
+        sampleRate: 44100,
+      ),
       path: path,
     );
 
@@ -391,20 +459,39 @@ Future<void> _proceedWithRecording() async {
         _currentAudioPath = path;
         _recordingDuration = Duration.zero;
       });
+
+      print('Recording started successfully'); // Debug log
     }
 
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
+      if (mounted && _isRecording) {
         setState(() => _recordingDuration += const Duration(seconds: 1));
       } else {
         timer.cancel();
       }
     });
   } catch (e) {
-    print('Recording error: $e');
+    print('Recording error: $e'); // Debug log
+    
+    // Reset recording state on error
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _currentAudioPath = null;
+        _recordingDuration = Duration.zero;
+      });
+    }
+    
+    String errorMessage = 'Failed to start recording';
+    if (e.toString().contains('permission')) {
+      errorMessage = 'Microphone permission is required';
+    } else if (e.toString().contains('busy') || e.toString().contains('in use')) {
+      errorMessage = 'Microphone is currently in use by another app';
+    }
+    
     CustomSnackBar.show(
       context,
-      message: 'Failed to start recording: $e',
+      message: errorMessage,
       isError: true,
     );
   }
