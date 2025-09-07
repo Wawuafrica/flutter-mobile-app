@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:wawu_mobile/tests/test.dart';
 import 'providers/network_status_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/skill_provider.dart';
@@ -464,7 +465,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               return Stack(
                 children: [
                   _isInitialized && _currentScreen != null
-                      ? _currentScreen!
+                      ? _currentScreen! 
                       : const SplashScreen(),
                   // Show "No internet connection" banner when offline
                   if (_isOfflineNotificationShown)

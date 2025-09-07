@@ -1,11 +1,11 @@
-{pkgs}: {
+{ pkgs }: {
   channel = "stable-24.05";
   packages = [
     pkgs.jdk17
     pkgs.unzip
   ];
   idx.extensions = [
-    
+    "flutter.flutter-dev"
   ];
   idx.previews = {
     previews = {
@@ -20,6 +20,7 @@
           "0.0.0.0"
           "--web-port"
           "$PORT"
+          # "--web-experimental-hot-reload"
         ];
         manager = "flutter";
       };

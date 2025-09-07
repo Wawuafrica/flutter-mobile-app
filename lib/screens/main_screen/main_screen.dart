@@ -56,7 +56,7 @@ class AuthModalScreen extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                
+
                 // Add icon before buttons
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -71,7 +71,7 @@ class AuthModalScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Column(
@@ -188,31 +188,53 @@ class MainScreenState extends State<MainScreen> {
   bool _subscriptionCheckInProgress = false;
   bool _hasRequestedMicrophonePermission = false;
 
+  double _appBarOpacity = 0.0; // New state variable for app bar opacity
+  final Map<int, double> _scrollOffsets = {
+    0: 0.0,
+    1: 0.0,
+  }; // Store scroll offsets for each tab
+
   List<Widget> _screens = [];
   List<CustomNavItem> _customNavItems = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeScreensAndNavItems();
-      _performInitialSubscriptionCheck();
-      _requestMicrophonePermission();
-    });
+    _initializeScreensAndNavItems();
+    _requestMicrophonePermission();
+
+    // Initialize app bar opacity based on the initial selected tab
+    _appBarOpacity = (_selectedIndex == 0 || _selectedIndex == 1) ? 0.0 : 1.0;
+  }
+
+  // Callback function to update scroll offset from child screens
+  void _updateScrollOffset(double offset) {
+    if ((_selectedIndex == 0 || _selectedIndex == 1) && mounted) {
+      const double scrollThreshold =
+          150.0; // Distance after which app bar becomes fully opaque
+      final newOpacity = (offset / scrollThreshold).clamp(0.0, 1.0);
+      if (newOpacity != _appBarOpacity ||
+          _scrollOffsets[_selectedIndex] != offset) {
+        setState(() {
+          _appBarOpacity = newOpacity;
+          _scrollOffsets[_selectedIndex] = offset;
+        });
+      }
+    }
   }
 
   /// Request microphone permission
   Future<void> _requestMicrophonePermission() async {
     if (_hasRequestedMicrophonePermission) return;
-    
+
     _hasRequestedMicrophonePermission = true;
-    
+
     try {
       final status = await Permission.microphone.status;
-      
+
       if (status.isDenied) {
         final result = await Permission.microphone.request();
-        
+
         if (result.isGranted) {
           debugPrint('[MainScreen] Microphone permission granted');
           if (mounted) {
@@ -227,7 +249,8 @@ class MainScreenState extends State<MainScreen> {
           if (mounted) {
             CustomSnackBar.show(
               context,
-              message: 'Microphone permission denied. Voice features will be limited.',
+              message:
+                  'Microphone permission denied. Voice features will be limited.',
               isError: true,
             );
           }
@@ -257,191 +280,131 @@ class MainScreenState extends State<MainScreen> {
     }
   }
 
-  // /// Show dialog to direct user to settings for microphone permission
-  // void _showPermissionSettingsDialog() {
-  //   showDialog(
-  //     context: context,
-  //     builder: (BuildContext context) {
-  //       return AlertDialog(
-  //         title: const Text('Microphone Permission Required'),
-  //         content: const Text(
-  //           'To use voice features, please enable microphone permission in your device settings.',
-  //         ),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.of(context).pop();
-  //             },
-  //             child: const Text('Cancel'),
-  //           ),
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.of(context).pop();
-  //               openAppSettings();
-  //             },
-  //             child: const Text('Open Settings'),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
-
   /// Check microphone permission status
   Future<bool> checkMicrophonePermission() async {
     final status = await Permission.microphone.status;
     return status.isGranted;
   }
 
-  // /// Request microphone permission when needed for specific features
-  // Future<bool> requestMicrophonePermissionForFeature(String featureName) async {
-  //   final status = await Permission.microphone.status;
-    
-  //   if (status.isGranted) {
-  //     return true;
-  //   }
-    
-  //   if (status.isDenied) {
-  //     final result = await Permission.microphone.request();
-      
-  //     if (result.isGranted) {
-  //       if (mounted) {
-  //         CustomSnackBar.show(
-  //           context,
-  //           message: 'Microphone permission granted for $featureName',
-  //           isError: false,
-  //         );
-  //       }
-  //       return true;
-  //     } else if (result.isPermanentlyDenied) {
-  //       if (mounted) {
-  //         _showPermissionSettingsDialog();
-  //       }
-  //       return false;
-  //     }
-  //   } else if (status.isPermanentlyDenied) {
-  //     if (mounted) {
-  //       _showPermissionSettingsDialog();
-  //     }
-  //     return false;
-  //   }
-    
-  //   if (mounted) {
-  //     CustomSnackBar.show(
-  //       context,
-  //       message: 'Microphone permission is required for $featureName',
-  //       isError: true,
-  //     );
-  //   }
-  //   return false;
-  // }
-
   /// Perform initial subscription check - optimized to prevent repeated redirects
-// Fixed MainScreen _performInitialSubscriptionCheck method
-void _performInitialSubscriptionCheck() async {
-  if (_hasCheckedSubscription || _subscriptionCheckInProgress) return;
+  // Fixed MainScreen _performInitialSubscriptionCheck method
+  void _performInitialSubscriptionCheck() async {
+    if (_hasCheckedSubscription || _subscriptionCheckInProgress) return;
 
-  final userProvider = Provider.of<UserProvider>(context, listen: false);
-  final currentUser = userProvider.currentUser;
-  final userType = currentUser?.role?.toLowerCase();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final currentUser = userProvider.currentUser;
+    final userType = currentUser?.role?.toLowerCase();
 
-  // Skip subscription check for BUYER role or unauthenticated users
-  if (userType == 'buyer' || currentUser == null) {
-    debugPrint('[MainScreen] Skipping subscription check - BUYER role or no user');
-    setState(() {
-      _hasCheckedSubscription = true;
-    });
-    return;
-  }
-
-  setState(() {
-    _subscriptionCheckInProgress = true;
-  });
-
-  try {
-    final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    
-    // First, try to load cached subscription (fastest method)
-    final bool hasCachedSubscription = await planProvider.loadCachedSubscription(currentUser.uuid);
-    
-    if (hasCachedSubscription && mounted) {
-      debugPrint('[MainScreen] Found cached subscription, no need for further checks');
+    // Skip subscription check for BUYER role or unauthenticated users
+    if (userType == 'buyer' || currentUser == null) {
+      debugPrint(
+        '[MainScreen] Skipping subscription check - BUYER role or no user',
+      );
       setState(() {
         _hasCheckedSubscription = true;
-        _subscriptionCheckInProgress = false;
       });
       return;
     }
 
-    // Check network connectivity before making API calls
-    final connectivityResult = await (Connectivity().checkConnectivity());
-    if (connectivityResult == ConnectivityResult.none) {
-      debugPrint('[MainScreen] No internet connection, allowing user to stay');
+    setState(() {
+      _subscriptionCheckInProgress = true;
+    });
+
+    try {
+      final planProvider = Provider.of<PlanProvider>(context, listen: false);
+
+      // First, try to load cached subscription (fastest method)
+      final bool hasCachedSubscription = await planProvider
+          .loadCachedSubscription(currentUser.uuid);
+
+      if (hasCachedSubscription && mounted) {
+        debugPrint(
+          '[MainScreen] Found cached subscription, no need for further checks',
+        );
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
+        return;
+      }
+
+      // Check network connectivity before making API calls
+      final connectivityResult = await (Connectivity().checkConnectivity());
+      if (connectivityResult == ConnectivityResult.none) {
+        debugPrint(
+          '[MainScreen] No internet connection, allowing user to stay',
+        );
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            message: 'No internet connection. Some features may be limited.',
+            isError: true,
+          );
+          setState(() {
+            _hasCheckedSubscription = true;
+            _subscriptionCheckInProgress = false;
+          });
+        }
+        return;
+      }
+
+      // Initialize IAP if not already done
+      if (!planProvider.isIapInitialized) {
+        final bool iapInitialized = await planProvider.initializeIAP();
+        if (!iapInitialized && mounted) {
+          debugPrint(
+            '[MainScreen] IAP initialization failed, but allowing user to continue',
+          );
+          setState(() {
+            _hasCheckedSubscription = true;
+            _subscriptionCheckInProgress = false;
+          });
+          return;
+        }
+      }
+
+      // After IAP initialization, check subscription status
+      final bool hasActiveSubscription =
+          await planProvider.checkActiveSubscription();
+
       if (mounted) {
+        if (hasActiveSubscription) {
+          debugPrint('[MainScreen] Active subscription confirmed');
+          setState(() {
+            _hasCheckedSubscription = true;
+            _subscriptionCheckInProgress = false;
+          });
+        } else {
+          // Only redirect if we're certain there's no active subscription
+          debugPrint(
+            '[MainScreen] No active subscription found, redirecting to plan screen',
+          );
+          setState(() {
+            _subscriptionCheckInProgress = false;
+          });
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const Plan()),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('[MainScreen] Error during subscription check: $e');
+      if (mounted) {
+        setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
         CustomSnackBar.show(
           context,
-          message: 'No internet connection. Some features may be limited.',
-          isError: true,
+          message:
+              'Unable to verify subscription. You can continue using the app.',
+          isError: false,
         );
-        setState(() {
-          _hasCheckedSubscription = true;
-          _subscriptionCheckInProgress = false;
-        });
       }
-      return;
-    }
-
-    // Initialize IAP if not already done
-    if (!planProvider.isIapInitialized) {
-      final bool iapInitialized = await planProvider.initializeIAP();
-      if (!iapInitialized && mounted) {
-        debugPrint('[MainScreen] IAP initialization failed, but allowing user to continue');
-        setState(() {
-          _hasCheckedSubscription = true;
-          _subscriptionCheckInProgress = false;
-        });
-        return;
-      }
-    }
-
-    // After IAP initialization, check subscription status
-    final bool hasActiveSubscription = await planProvider.checkActiveSubscription();
-    
-    if (mounted) {
-      if (hasActiveSubscription) {
-        debugPrint('[MainScreen] Active subscription confirmed');
-        setState(() {
-          _hasCheckedSubscription = true;
-          _subscriptionCheckInProgress = false;
-        });
-      } else {
-        // Only redirect if we're certain there's no active subscription
-        debugPrint('[MainScreen] No active subscription found, redirecting to plan screen');
-        setState(() {
-          _subscriptionCheckInProgress = false;
-        });
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const Plan()),
-        );
-        return;
-      }
-    }
-
-  } catch (e) {
-    debugPrint('[MainScreen] Error during subscription check: $e');
-    if (mounted) {
-      setState(() {
-        _hasCheckedSubscription = true;
-        _subscriptionCheckInProgress = false;
-      });
-      CustomSnackBar.show(
-        context,
-        message: 'Unable to verify subscription. You can continue using the app.',
-        isError: false,
-      );
     }
   }
-}
+
   void _initializeScreensAndNavItems() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final notificationsProvider = Provider.of<NotificationProvider>(
@@ -458,8 +421,8 @@ void _performInitialSubscriptionCheck() async {
 
     setState(() {
       _screens = [
-        const HomeScreen(),
-        const BlogScreen(),
+        HomeScreen(onScroll: _updateScrollOffset), // Pass callback
+        BlogScreen(onScroll: _updateScrollOffset), // Pass callback
         const MessagesScreen(),
         if (!isBuyer) const GigsScreen(),
         const SettingsScreen(),
@@ -486,7 +449,7 @@ void _performInitialSubscriptionCheck() async {
     });
   }
 
-  Widget _buildProfileImage(String? profileImageUrl) {
+  Widget _buildProfileImage(String? profileImageUrl, Color color) {
     if (profileImageUrl != null && profileImageUrl.startsWith('http')) {
       return CachedNetworkImage(
         imageUrl: profileImageUrl,
@@ -543,38 +506,27 @@ void _performInitialSubscriptionCheck() async {
     }
   }
 
-  List<Widget> _getAppBarTitles() {
+  List<Widget> _getAppBarTitles(Color color) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     final List<Widget> titles = [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          _buildProfileImage(userProvider.currentUser?.profileImage),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                userProvider.currentUser != null
-                    ? "Hello ${userProvider.currentUser?.firstName}"
-                    : "Hello Guest",
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                "Find Your Gig Today",
-                style: TextStyle(fontSize: 11, color: wawuColors.buttonPrimary),
-              ),
-            ],
-          ),
-        ],
+      Text(
+        userProvider.currentUser != null
+            ? "Hello ${userProvider.currentUser?.firstName}"
+            : "Hello Guest",
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: color, // Apply dynamic color
+        ),
       ),
-      const Text(
+      Text(
         'Blog',
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ), // Apply dynamic color
       ),
       const Text(
         'Messages',
@@ -617,6 +569,12 @@ void _performInitialSubscriptionCheck() async {
 
     setState(() {
       _selectedIndex = index;
+      // Restore the opacity and scroll position for the selected tab
+      if (index == 0 || index == 1) {
+        _updateScrollOffset(_scrollOffsets[index] ?? 0.0);
+      } else {
+        _appBarOpacity = 1.0; // Fully opaque for other tabs
+      }
     });
   }
 
@@ -634,15 +592,16 @@ void _performInitialSubscriptionCheck() async {
     );
   }
 
-  List<Widget> _getAppBarActions() {
+  List<Widget> _getAppBarActions(Color color) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUser = userProvider.currentUser;
 
+    List<Widget> actions = [];
+
     if (currentUser != null) {
-      return [_buildNotificationsButton()];
-    } else {
-      return [];
+      actions.add(_buildNotificationsButton(color));
     }
+    return actions;
   }
 
   Widget _buildInPageSearchBar() {
@@ -689,15 +648,17 @@ void _performInitialSubscriptionCheck() async {
     );
   }
 
-  Widget _buildNotificationsButton() {
+  Widget _buildNotificationsButton(Color iconColor) {
     return Consumer2<NotificationProvider, UserProvider>(
       builder: (context, notificationProvider, userProvider, _) {
-        final unreadCount = notificationProvider.unreadCount;
+        final int unreadCount = notificationProvider.unreadCount;
         final hasUnread = unreadCount > 0;
 
         return Container(
           decoration: BoxDecoration(
-            color: wawuColors.purpleDarkestContainer,
+            color: wawuColors.purpleDarkestContainer.withOpacity(
+              1.0 - _appBarOpacity,
+            ),
             shape: BoxShape.circle,
           ),
           margin: const EdgeInsets.only(right: 10),
@@ -707,10 +668,10 @@ void _performInitialSubscriptionCheck() async {
             clipBehavior: Clip.none,
             children: [
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.notifications,
                   size: 17,
-                  color: Colors.white,
+                  color: iconColor, // Use dynamic color
                 ),
                 onPressed: () {
                   if (userProvider.currentUser == null) {
@@ -762,7 +723,14 @@ void _performInitialSubscriptionCheck() async {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> appBarTitles = _getAppBarTitles();
+    final isTransparentAppBar = _selectedIndex == 0 || _selectedIndex == 1;
+    final defaultTextColor =
+        Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black;
+    final appBarItemColor =
+        Color.lerp(Colors.white, defaultTextColor, _appBarOpacity)!;
+
+    final List<Widget> appBarTitles = _getAppBarTitles(appBarItemColor);
+    final List<Widget> appBarActions = _getAppBarActions(appBarItemColor);
 
     return Consumer<UserProvider>(
       builder: (context, userProvider, _) {
@@ -770,17 +738,39 @@ void _performInitialSubscriptionCheck() async {
 
         if (isBlocked) return const BlockedAccountOverlay();
 
+        bool isCenteredTitle = _selectedIndex == 0; // Home tabs
+
         return Stack(
           children: [
             Scaffold(
+              extendBodyBehindAppBar: isTransparentAppBar,
               appBar: AppBar(
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [appBarTitles[_selectedIndex]],
-                ),
-                centerTitle: false,
+                leading:
+                    _selectedIndex == 0 && userProvider.currentUser != null
+                        ? Padding(
+                          padding: const EdgeInsets.only(left: 10.0),
+                          child: _buildProfileImage(
+                            userProvider.currentUser?.profileImage,
+                            appBarItemColor, // Pass color to profile image
+                          ),
+                        )
+                        : null,
+                title: appBarTitles[_selectedIndex],
+                backgroundColor:
+                    isTransparentAppBar
+                        ? Theme.of(
+                          context,
+                        ).scaffoldBackgroundColor.withOpacity(_appBarOpacity)
+                        : Theme.of(context).appBarTheme.backgroundColor,
+                elevation:
+                    isTransparentAppBar
+                        ? (_appBarOpacity *
+                            (Theme.of(context).appBarTheme.elevation ??
+                                0.0)) // Fade in elevation
+                        : Theme.of(context).appBarTheme.elevation,
+                centerTitle: isCenteredTitle,
                 automaticallyImplyLeading: false,
-                actions: _getAppBarActions(),
+                actions: appBarActions, // Use dynamic actions
               ),
               body: Column(
                 children: [
@@ -813,10 +803,7 @@ void _performInitialSubscriptionCheck() async {
                         SizedBox(height: 16),
                         Text(
                           'Verifying subscription...',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ],
                     ),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/account_payment/account_payment.dart';
 import 'package:wawu_mobile/widgets/plan_card/plan_card.dart';
@@ -29,10 +30,10 @@ class _PlanState extends State<Plan> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await OnboardingStateService.saveStep('plan');
-      
+
       // Initialize IAP and load store products
       await _initializeAndLoadStoreProducts();
-      
+
       // Still fetch backend plans for features and descriptions
       context.read<PlanProvider>().fetchAllPlans();
     });
@@ -43,13 +44,13 @@ class _PlanState extends State<Plan> {
       _isLoadingStoreProducts = true;
       _storeError = null;
     });
-    
+
     try {
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
-      
+
       // Initialize IAP
       final bool iapInitialized = await planProvider.initializeIAP();
-      
+
       if (!iapInitialized) {
         setState(() {
           _storeError = 'Unable to connect to app store';
@@ -57,14 +58,13 @@ class _PlanState extends State<Plan> {
         });
         return;
       }
-      
+
       // Get store products
       _storeProducts = planProvider.iapProducts;
-      
+
       setState(() {
         _isLoadingStoreProducts = false;
       });
-      
     } catch (e) {
       debugPrint('Error loading store products: $e');
       setState(() {
@@ -84,17 +84,20 @@ class _PlanState extends State<Plan> {
         'description': 'Annual subscription to Wawu premium features',
       };
     }
-    
+
     final product = _storeProducts.first;
     return {
       'price': _extractPriceAmount(product.price),
       'currency': _extractCurrency(product.price),
       'title': product.title,
-      'description': product.description.isNotEmpty ? product.description : 'Annual subscription to Wawu premium features',
+      'description':
+          product.description.isNotEmpty
+              ? product.description
+              : 'Annual subscription to Wawu premium features',
       'formattedPrice': product.price, // Full formatted price like "$9.99/year"
     };
   }
-  
+
   // Extract numeric price from formatted price string
   String _extractPriceAmount(String formattedPrice) {
     // Remove currency symbols and extract numbers
@@ -102,7 +105,7 @@ class _PlanState extends State<Plan> {
     final match = numberRegex.firstMatch(formattedPrice);
     return match?.group(0)?.replaceAll(',', '') ?? '0';
   }
-  
+
   // Extract currency symbol from formatted price
   String _extractCurrency(String formattedPrice) {
     // Common currency symbols
@@ -111,7 +114,7 @@ class _PlanState extends State<Plan> {
     if (formattedPrice.contains('£')) return '£';
     if (formattedPrice.contains('₦')) return '₦';
     if (formattedPrice.contains('¥')) return '¥';
-    
+
     // Extract first non-digit, non-space character
     final RegExp currencyRegex = RegExp(r'[^\d\s.,]+');
     final match = currencyRegex.firstMatch(formattedPrice);
@@ -145,7 +148,12 @@ class _PlanState extends State<Plan> {
                 style: TextStyle(color: wawuColors.buttonSecondary),
               ),
               onPressed: () {
-                Navigator.of(dialogContext).pop();
+                //MUST REMOVE BEFORE PRODUCTION ////////////////////////////////////
+                OnboardingStateService.saveStep('disclaimer');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Disclaimer()),
+                );
               },
             ),
           ],
@@ -215,7 +223,8 @@ class _PlanState extends State<Plan> {
           });
 
           // Show loading if both backend and store are loading
-          if ((planProvider.isLoading && planProvider.plans.isEmpty) || _isLoadingStoreProducts) {
+          if ((planProvider.isLoading && planProvider.plans.isEmpty) ||
+              _isLoadingStoreProducts) {
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -246,7 +255,7 @@ class _PlanState extends State<Plan> {
 
           // Get store product information
           final storeInfo = _getStoreProductInfo();
-          
+
           return Column(
             children: [
               // Header section with user info
@@ -259,20 +268,21 @@ class _PlanState extends State<Plan> {
                       height: 100,
                       clipBehavior: Clip.hardEdge,
                       decoration: const BoxDecoration(shape: BoxShape.circle),
-                      child: userProvider.currentUser?.profileImage != null
-                          ? Image.network(
-                              userProvider.currentUser!.profileImage!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Image.asset(
+                      child:
+                          userProvider.currentUser?.profileImage != null
+                              ? Image.network(
+                                userProvider.currentUser!.profileImage!,
+                                fit: BoxFit.cover,
+                                errorBuilder:
+                                    (context, error, stackTrace) => Image.asset(
+                                      'assets/images/other/avatar.webp',
+                                      fit: BoxFit.cover,
+                                    ),
+                              )
+                              : Image.asset(
                                 'assets/images/other/avatar.webp',
                                 fit: BoxFit.cover,
                               ),
-                            )
-                          : Image.asset(
-                              'assets/images/other/avatar.webp',
-                              fit: BoxFit.cover,
-                            ),
                     ),
                     const SizedBox(height: 15),
                     Text(
@@ -303,117 +313,147 @@ class _PlanState extends State<Plan> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: _storeProducts.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.store_outlined,
-                                size: 64,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'No subscription plans available',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                  child:
+                      _storeProducts.isEmpty
+                          ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.store_outlined,
+                                  size: 64,
+                                  color: Colors.grey,
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Please check your internet connection and try again',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey[600],
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No subscription plans available',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 24),
-                              ElevatedButton(
-                                onPressed: _initializeAndLoadStoreProducts,
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: 1, // We'll show one plan card with store info
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(width: 20),
-                          itemBuilder: (context, index) {
-                            // Use backend plan features if available, otherwise use default
-                            final backendPlan = planProvider.plans.isNotEmpty 
-                                ? planProvider.plans.first 
-                                : null;
-                            
-                            return SizedBox(
-                              width: 300,
-                              child: PlanCard(
-                                heading: storeInfo['title'] ?? 'Wawu Premium',
-                                desc: storeInfo['description'] ?? 'Annual subscription with premium features',
-                                price: double.tryParse(storeInfo['price']) ?? 0.0,
-                                currency: storeInfo['currency'] ?? '\$',
-                                // formattedPrice: storeInfo['formattedPrice'], // Add this if PlanCard supports it
-                                features: backendPlan?.features
-                                        ?.map(
-                                          (feature) => {
-                                            'check': feature.value == 'yes' ||
-                                                (double.tryParse(
-                                                      feature.value.toString(),
-                                                    ) !=
-                                                    null),
-                                            'text': feature.description ??
-                                                feature.name,
-                                          },
-                                        )
-                                        .toList() ??
-                                    [
-                                      {'check': true, 'text': 'Verified Badge'},
-                                      {'check': true, 'text': 'Standard Account'},
-                                      {'check': true, 'text': '4 Active Gigs per User'},
-                                      {'check': true, 'text': 'Basic Support'},
-                                    ],
-                                function: () {
-                                  // Create a plan object with store information
-                                  final storePlan = planProvider.plans.isNotEmpty
-                                      ? planProvider.plans.first.copyWith(
-                                          name: storeInfo['title'],
-                                          amount: double.tryParse(storeInfo['price']) ?? 0.0,
-                                          currency: storeInfo['currency'],
-                                        )
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Please check your internet connection and try again',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[600],
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                                ElevatedButton(
+                                  onPressed: _initializeAndLoadStoreProducts,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          )
+                          : ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount:
+                                1, // We'll show one plan card with store info
+                            separatorBuilder:
+                                (context, index) => const SizedBox(width: 20),
+                            itemBuilder: (context, index) {
+                              // Use backend plan features if available, otherwise use default
+                              final backendPlan =
+                                  planProvider.plans.isNotEmpty
+                                      ? planProvider.plans.first
                                       : null;
-                                  
-                                  if (storePlan != null) {
-                                    planProvider.selectPlan(storePlan);
-                                  }
-                                  
-                                  final userId = userProvider.currentUser?.uuid;
-                                  if (userId != null) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => AccountPayment(
-                                          userId: userId,
+
+                              return SizedBox(
+                                width: 300,
+                                child: PlanCard(
+                                  heading: storeInfo['title'] ?? 'Wawu Premium',
+                                  desc:
+                                      storeInfo['description'] ??
+                                      'Annual subscription with premium features',
+                                  price:
+                                      double.tryParse(storeInfo['price']) ??
+                                      0.0,
+                                  currency: storeInfo['currency'] ?? '\$',
+                                  // formattedPrice: storeInfo['formattedPrice'], // Add this if PlanCard supports it
+                                  features:
+                                      backendPlan?.features
+                                          ?.map(
+                                            (feature) => {
+                                              'check':
+                                                  feature.value == 'yes' ||
+                                                  (double.tryParse(
+                                                        feature.value
+                                                            .toString(),
+                                                      ) !=
+                                                      null),
+                                              'text':
+                                                  feature.description ??
+                                                  feature.name,
+                                            },
+                                          )
+                                          .toList() ??
+                                      [
+                                        {
+                                          'check': true,
+                                          'text': 'Verified Badge',
+                                        },
+                                        {
+                                          'check': true,
+                                          'text': 'Standard Account',
+                                        },
+                                        {
+                                          'check': true,
+                                          'text': '4 Active Gigs per User',
+                                        },
+                                        {
+                                          'check': true,
+                                          'text': 'Basic Support',
+                                        },
+                                      ],
+                                  function: () {
+                                    // Create a plan object with store information
+                                    final storePlan =
+                                        planProvider.plans.isNotEmpty
+                                            ? planProvider.plans.first.copyWith(
+                                              name: storeInfo['title'],
+                                              amount:
+                                                  double.tryParse(
+                                                    storeInfo['price'],
+                                                  ) ??
+                                                  0.0,
+                                              currency: storeInfo['currency'],
+                                            )
+                                            : null;
+
+                                    if (storePlan != null) {
+                                      planProvider.selectPlan(storePlan);
+                                    }
+
+                                    final userId =
+                                        userProvider.currentUser?.uuid;
+                                    if (userId != null) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => AccountPayment(
+                                                userId: userId,
+                                              ),
                                         ),
-                                      ),
-                                    );
-                                  } else {
-                                    CustomSnackBar.show(
-                                      context,
-                                      message:
-                                          'User not logged in. Please log in to select a plan.',
-                                      isError: true,
-                                    );
-                                  }
-                                },
-                              ),
-                            );
-                          },
-                        ),
+                                      );
+                                    } else {
+                                      CustomSnackBar.show(
+                                        context,
+                                        message:
+                                            'User not logged in. Please log in to select a plan.',
+                                        isError: true,
+                                      );
+                                    }
+                                  },
+                                ),
+                              );
+                            },
+                          ),
                 ),
               ),
               const SizedBox(height: 20),

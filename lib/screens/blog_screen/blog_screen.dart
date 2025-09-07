@@ -10,7 +10,9 @@ import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class BlogScreen extends StatefulWidget {
-  const BlogScreen({super.key});
+    final ValueChanged<double>? onScroll; // Changed to ValueChanged<double>
+
+  const BlogScreen({super.key, this.onScroll});
 
   @override
   State<BlogScreen> createState() => _BlogScreenState();
@@ -20,6 +22,7 @@ class _BlogScreenState extends State<BlogScreen> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
+late ScrollController _internalScrollController; // Internal scroll controller
   // Flag to prevent showing multiple snackbars for the same error
   bool _hasShownBlogError = false;
 
@@ -27,7 +30,24 @@ class _BlogScreenState extends State<BlogScreen> {
   void initState() {
     super.initState();
     _initializeData();
+        _internalScrollController = ScrollController();
+    _internalScrollController.addListener(_handleScroll);
   }
+
+  
+  @override
+  void dispose() {
+    _internalScrollController.removeListener(_handleScroll);
+    _internalScrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (widget.onScroll != null) {
+      widget.onScroll!(_internalScrollController.offset);
+    }
+  }
+
 
   void _initializeData() {
     // Initialize data when screen loads
@@ -101,6 +121,43 @@ class _BlogScreenState extends State<BlogScreen> {
         );
       },
     );
+  }
+
+  /// Check if any provider has a critical error (empty data + error + not loading)
+  bool _hasCriticalError(
+    BlogProvider blogProvider,
+  ) {
+    if (blogProvider.hasError &&
+        blogProvider.posts.isEmpty &&
+        !blogProvider.isLoading) {
+      return true;
+    }
+    return false;
+  }
+
+  /// Get the primary error message and retry function
+  Map<String, dynamic> _getPrimaryError(
+    BlogProvider blogProvider,
+  ) {
+    if (blogProvider.hasError &&
+        blogProvider.posts.isEmpty &&
+        !blogProvider.isLoading) {
+      return {
+        'message': blogProvider.errorMessage ?? 'Failed to load blog posts',
+        'retry': () => blogProvider.fetchPosts(refresh: true),
+      };
+    }
+    return {
+      'message': 'Something went wrong',
+      'retry': () => _initializeData(),
+    };
+  }
+
+  /// Check if any provider is loading (for overall loading state)
+  bool _isAnyProviderLoading(
+    BlogProvider blogProvider,
+  ) {
+    return (blogProvider.isLoading && blogProvider.posts.isEmpty);
   }
 
   Widget _buildBlogContent() {
@@ -276,37 +333,36 @@ class _BlogScreenState extends State<BlogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: RefreshIndicator(
-        key: _refreshIndicatorKey,
-        onRefresh: _refreshData,
-        color: Theme.of(context).primaryColor,
-        backgroundColor: Colors.white,
-        displacement: 40.0,
-        strokeWidth: 2.0,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  const SizedBox(height: 20),
-                  Text(
-                    'Exploring New Articles',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                    ),
+    return RefreshIndicator(
+      key: _refreshIndicatorKey,
+      onRefresh: _refreshData,
+      color: Theme.of(context).primaryColor,
+      backgroundColor: Colors.white,
+      displacement: 40.0,
+      strokeWidth: 2.0,
+      child: CustomScrollView(
+        controller: _internalScrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20.0, 76.0, 20.0, 0.0), // Added top padding to match Home Screen
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const SizedBox(height: 20),
+                Text(
+                  'Exploring New Articles',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
                   ),
-                  const SizedBox(height: 15),
-                  _buildBlogContent(),
-                  const SizedBox(height: 20),
-                ]),
-              ),
+                ),
+                const SizedBox(height: 15),
+                _buildBlogContent(),
+                const SizedBox(height: 20),
+              ]),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
