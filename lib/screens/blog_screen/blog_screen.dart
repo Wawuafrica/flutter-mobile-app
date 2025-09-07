@@ -345,7 +345,7 @@ late ScrollController _internalScrollController; // Internal scroll controller
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20.0, 76.0, 20.0, 0.0), // Added top padding to match Home Screen
+            padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 0.0), // Added top padding to match Home Screen
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 const SizedBox(height: 20),

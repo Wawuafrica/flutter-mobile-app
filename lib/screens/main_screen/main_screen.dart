@@ -13,6 +13,7 @@ import 'package:wawu_mobile/screens/messages_screen/messages_screen.dart';
 import 'package:wawu_mobile/screens/notifications/notifications.dart';
 import 'package:wawu_mobile/screens/settings_screen/settings_screen.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
+import 'package:wawu_mobile/screens/showcase_screen/showcase_screen.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
@@ -422,7 +423,8 @@ class MainScreenState extends State<MainScreen> {
     setState(() {
       _screens = [
         HomeScreen(onScroll: _updateScrollOffset), // Pass callback
-        BlogScreen(onScroll: _updateScrollOffset), // Pass callback
+        ShowcaseScreen(onScroll: _updateScrollOffset),
+        BlogScreen(), // Pass callback
         const MessagesScreen(),
         if (!isBuyer) const GigsScreen(),
         const SettingsScreen(),
@@ -430,6 +432,10 @@ class MainScreenState extends State<MainScreen> {
 
       _customNavItems = [
         CustomNavItem(iconPath: 'assets/images/svg/home.svg', label: 'Home'),
+        CustomNavItem(
+          iconPath: 'assets/images/svg/showcase_svg.svg',
+          label: 'Showcase',
+        ),
         CustomNavItem(iconPath: 'assets/images/svg/blog.svg', label: 'Blog'),
         CustomNavItem(
           iconPath: 'assets/images/svg/message.svg',
@@ -438,8 +444,8 @@ class MainScreenState extends State<MainScreen> {
         if (!isBuyer)
           CustomNavItem(iconPath: 'assets/images/svg/gigs.svg', label: 'Gigs'),
         CustomNavItem(
-          iconPath: 'assets/images/svg/settings.svg',
-          label: 'Settings',
+          iconPath: 'assets/images/svg/profile_svg.svg',
+          label: 'Profile',
         ),
       ];
 
@@ -521,6 +527,16 @@ class MainScreenState extends State<MainScreen> {
         ),
       ),
       Text(
+        userProvider.currentUser != null
+            ? "Hello ${userProvider.currentUser?.firstName}"
+            : "Hello Guest",
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: color, // Apply dynamic color
+        ),
+      ),
+      Text(
         'Blog',
         style: TextStyle(
           fontSize: 20,
@@ -547,12 +563,13 @@ class MainScreenState extends State<MainScreen> {
 
     List<Widget> actualTitles = [];
     actualTitles.add(titles[0]); // Home
-    actualTitles.add(titles[1]); // Blog
-    actualTitles.add(titles[2]); // Messages
+    actualTitles.add(titles[1]); // Home
+    actualTitles.add(titles[2]); // Blog
+    actualTitles.add(titles[3]); // Messages
     if (!isBuyer && currentUser != null) {
-      actualTitles.add(titles[3]); // Gigs
+      actualTitles.add(titles[4]); // Gigs
     }
-    actualTitles.add(titles[4]); // Settings
+    actualTitles.add(titles[5]); // Settings
 
     return actualTitles;
   }
@@ -562,7 +579,7 @@ class MainScreenState extends State<MainScreen> {
     final currentUser = userProvider.currentUser;
 
     // Allow Home (0) and Blog (1) for unauthenticated users
-    if (currentUser == null && index != 0 && index != 1) {
+    if (currentUser == null && index != 0 && index != 1 && index != 3) {
       _showAuthModal();
       return;
     }
@@ -738,7 +755,7 @@ class MainScreenState extends State<MainScreen> {
 
         if (isBlocked) return const BlockedAccountOverlay();
 
-        bool isCenteredTitle = _selectedIndex == 0; // Home tabs
+        bool isCenteredTitle = _selectedIndex == 0 || _selectedIndex == 2; // Home tabs
 
         return Stack(
           children: [
@@ -746,7 +763,7 @@ class MainScreenState extends State<MainScreen> {
               extendBodyBehindAppBar: isTransparentAppBar,
               appBar: AppBar(
                 leading:
-                    _selectedIndex == 0 && userProvider.currentUser != null
+                    _selectedIndex == 0 || _selectedIndex == 1 && userProvider.currentUser != null
                         ? Padding(
                           padding: const EdgeInsets.only(left: 10.0),
                           child: _buildProfileImage(

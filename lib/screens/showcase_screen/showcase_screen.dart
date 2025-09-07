@@ -1,9 +1,13 @@
 // home_screen.dart
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_sub_category/wawu_africa_sub_category.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
@@ -18,23 +22,42 @@ import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart'; // Import the new search screen
 
-class NewHomeScreen extends StatefulWidget {
-  const NewHomeScreen({super.key});
+class ShowcaseScreen extends StatefulWidget {
+  final ValueChanged<double>? onScroll; // Changed to ValueChanged<double>
+
+  const ShowcaseScreen({super.key, this.onScroll});
 
   @override
-  State<NewHomeScreen> createState() => _NewHomeScreenState();
+  State<ShowcaseScreen> createState() => _ShowcaseScreenState();
 }
 
-class _NewHomeScreenState extends State<NewHomeScreen> {
+class _ShowcaseScreenState extends State<ShowcaseScreen> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
+
+  late ScrollController _internalScrollController; // Internal scroll controller
 
   @override
   void initState() {
     super.initState();
+    _internalScrollController = ScrollController();
+    _internalScrollController.addListener(_handleScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeData();
     });
+  }
+
+  @override
+  void dispose() {
+    _internalScrollController.removeListener(_handleScroll);
+    _internalScrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (widget.onScroll != null) {
+      widget.onScroll!(_internalScrollController.offset);
+    }
   }
 
   /// Initialize all data providers
@@ -46,7 +69,6 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
     final adProvider = Provider.of<AdProvider>(context, listen: false);
     final gigProvider = Provider.of<GigProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
 
     // Initialize categories
     if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
@@ -69,7 +91,6 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
       gigProvider.clearRecentlyViewedGigs();
     }
 
-
     // Fetch suggested gigs
     if (gigProvider.suggestedGigs.isEmpty &&
         !gigProvider.isSuggestedGigsLoading) {
@@ -87,7 +108,6 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
       final gigProvider = Provider.of<GigProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-
       // Create a list of futures to run in parallel
       final futures = <Future>[
         categoryProvider.fetchCategories(),
@@ -99,7 +119,6 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
       if (userProvider.currentUser != null) {
         futures.add(gigProvider.fetchRecentlyViewedGigs());
       } else {
-        // Clear if not logged in
         gigProvider.clearRecentlyViewedGigs();
       }
 
@@ -278,10 +297,12 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
         (categoryProvider.isLoading && categoryProvider.categories.isEmpty);
     bool loadingAds = (adProvider.isLoading && adProvider.ads.isEmpty);
     bool loadingSuggestedGigs =
-        (gigProvider.isSuggestedGigsLoading && gigProvider.suggestedGigs.isEmpty);
-    bool loadingRecentlyViewedGigs = (userProvider.currentUser != null &&
-        gigProvider.isRecentlyViewedLoading &&
-        gigProvider.recentlyViewedGigs.isEmpty);
+        (gigProvider.isSuggestedGigsLoading &&
+            gigProvider.suggestedGigs.isEmpty);
+    bool loadingRecentlyViewedGigs =
+        (userProvider.currentUser != null &&
+            gigProvider.isRecentlyViewedLoading &&
+            gigProvider.recentlyViewedGigs.isEmpty);
 
     return loadingCategories ||
         loadingAds ||
@@ -410,6 +431,7 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
       itemBuilder: (context, index) {
         final category = categoryProvider.categories[index];
         return ImageTextCard(
+          color: Colors.white.withAlpha(60),
           function: () {
             categoryProvider.selectCategory(category);
             Navigator.push(
@@ -427,7 +449,10 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
   }
 
   /// Build horizontal gigs section with inline error handling for Recently Viewed
-  Widget _buildRecentlyViewedGigsSection(GigProvider gigProvider, UserProvider userProvider) {
+  Widget _buildRecentlyViewedGigsSection(
+    GigProvider gigProvider,
+    UserProvider userProvider,
+  ) {
     // If no user is logged in, don't show the section at all
     if (userProvider.currentUser == null) {
       return const SizedBox.shrink(); // Use SizedBox.shrink to hide the widget
@@ -529,15 +554,24 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
           categoryProvider,
           adProvider,
           gigProvider,
-          userProvider, // Pass userProvider
+          userProvider,
         );
 
         bool isLoading = _isAnyProviderLoading(
           categoryProvider,
           adProvider,
           gigProvider,
-          userProvider, // Pass userProvider
+          userProvider,
         );
+
+        final List<Map<String, String>> backendData = [
+          {'text': 'Music', 'svgPath': 'assets/icons/music.svg'},
+          {'text': 'Art', 'svgPath': 'assets/icons/art.svg'},
+          {'text': 'Tech', 'svgPath': 'assets/icons/tech.svg'},
+          {'text': 'Food', 'svgPath': 'assets/icons/food.svg'},
+          {'text': 'Fashion', 'svgPath': 'assets/icons/fashion.svg'},
+          {'text': 'Fitness', 'svgPath': 'assets/icons/fitness.svg'},
+        ];
 
         // Show full screen error if there's a critical error
         if (hasCriticalError) {
@@ -545,13 +579,13 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
             categoryProvider,
             adProvider,
             gigProvider,
-            userProvider, // Pass userProvider
+            userProvider,
           );
 
           return Scaffold(
             body: FullErrorDisplay(
-              errorMessage: errorInfo['message'],
-              onRetry: errorInfo['retry'],
+              errorMessage: errorInfo?['message'] ?? 'An error occurred',
+              onRetry: errorInfo?['retry'] ?? () {},
               onContactSupport: () {
                 _showErrorSupportDialog(
                   context,
@@ -579,65 +613,227 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
             displacement: 40.0,
             strokeWidth: 2.0,
             child: CustomScrollView(
+              controller: _internalScrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                // Search Bar Section - now scrolls with content
                 SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 0.0), // Added top padding
-                    child: Hero(
-                      tag: 'searchBar', // Unique tag for the Hero animation
-                      child: Material( // Material is needed for Hero to work correctly with Textfield
-                        color: Colors.transparent, // Keep background transparent
-                        child: TextField(
-                          readOnly: true,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              PageRouteBuilder(
-                                transitionDuration: const Duration(milliseconds: 300),
-                                pageBuilder: (context, animation, secondaryAnimation) => const SearchScreen(),
-                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: child,
-                                  );
-                                },
-                              ),
-                            );
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Search for gigs...',
-                            prefixIcon: const Icon(Icons.search),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10.0), // Less border radius
-                              borderSide: BorderSide(
-                                color: wawuColors.borderPrimary.withOpacity(0.5), // Border color
-                                width: 1.0,
-                              ),
+                  child: Container(
+                    width: double.infinity,
+                    height: 450,
+                    child: ClipRRect(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Background Image and Blur
+                          Positioned.fill(
+                            child: Image.asset(
+                              'assets/background_wawu.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child: const Icon(Icons.error),
+                                );
+                              },
                             ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10.0), // Less border radius
-                              borderSide: BorderSide(
-                                color: wawuColors.borderPrimary.withOpacity(0.5), // Border color
-                                width: 1.0,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10.0), // Less border radius
-                              borderSide: BorderSide(
-                                color: Theme.of(context).primaryColor, // Focused border color
-                                width: 2.0,
-                              ),
-                            ),
-                            filled: false, // Not filled
-                            contentPadding: const EdgeInsets.symmetric(vertical: 15.0, horizontal: 10.0),
                           ),
-                        ),
+                          Positioned.fill(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(
+                                sigmaX: 30.0,
+                                sigmaY: 30.0,
+                              ),
+                              child: Container(
+                                color: Colors.black.withOpacity(0.4),
+                              ),
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Theme.of(context).scaffoldBackgroundColor,
+                                  ],
+                                  stops: const [0.0, 1.0],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Main content - Fixed the Column/Expanded issue
+                          Positioned.fill(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20.0,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const SizedBox(height: 76.0),
+
+                                  // Search Bar Section
+                                  Hero(
+                                    tag: 'searchBar',
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                          10.0,
+                                        ),
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 10,
+                                            sigmaY: 10,
+                                          ),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(
+                                                0.1,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10.0),
+                                              border: Border.all(
+                                                color: Colors.white.withOpacity(
+                                                  0.2,
+                                                ),
+                                                width: 1.0,
+                                              ),
+                                            ),
+                                            child: TextField(
+                                              readOnly: true,
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  PageRouteBuilder(
+                                                    transitionDuration:
+                                                        const Duration(
+                                                          milliseconds: 300,
+                                                        ),
+                                                    pageBuilder:
+                                                        (
+                                                          context,
+                                                          animation,
+                                                          secondaryAnimation,
+                                                        ) =>
+                                                            const SearchScreen(),
+                                                    transitionsBuilder: (
+                                                      context,
+                                                      animation,
+                                                      secondaryAnimation,
+                                                      child,
+                                                    ) {
+                                                      return FadeTransition(
+                                                        opacity: animation,
+                                                        child: child,
+                                                      );
+                                                    },
+                                                  ),
+                                                );
+                                              },
+                                              decoration: InputDecoration(
+                                                hintText: 'Search for gigs...',
+                                                hintStyle: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                                prefixIcon: const Icon(
+                                                  Icons.search,
+                                                  color: Colors.white,
+                                                ),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        10.0,
+                                                      ),
+                                                  borderSide: const BorderSide(
+                                                    color: Colors.transparent,
+                                                    width: 1.0,
+                                                  ),
+                                                ),
+                                                enabledBorder:
+                                                    OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10.0,
+                                                          ),
+                                                      borderSide:
+                                                          const BorderSide(
+                                                            color:
+                                                                Colors
+                                                                    .transparent,
+                                                            width: 1.0,
+                                                          ),
+                                                    ),
+                                                focusedBorder:
+                                                    OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10.0,
+                                                          ),
+                                                      borderSide: BorderSide(
+                                                        color:
+                                                            Theme.of(
+                                                              context,
+                                                            ).primaryColor,
+                                                        width: 2.0,
+                                                      ),
+                                                    ),
+                                                filled: false,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 15.0,
+                                                      horizontal: 10.0,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+
+                                  const SizedBox(height: 60),
+                                  // Categories Section
+                                  CustomIntroText(
+                                    text: 'Popular Services',
+                                    color: Colors.white,
+                                    isRightText: true,
+                                    navFunction: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  const CategoriesScreen(),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 30),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 160,
+                                    child: _buildCategoriesSection(
+                                      categoryProvider,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 30),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
+
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   sliver: SliverList(
@@ -646,59 +842,29 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
                     ]),
                   ),
                 ),
-                // Suggested Gigs Section - Horizontal Scroll (TOP PRIORITY!)
+
+                // Suggested Gigs Section
+                SliverToBoxAdapter(
+                  child: Transform.translate(
+                    offset: Offset(0, -20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20.0),
+                          child: CustomIntroText(text: 'Gigs You May Like'),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildSuggestedGigsSection(gigProvider),
+                      ],
+                    ),
+                  ),
+                ),
+                // Recently Viewed Gigs Section
                 SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20.0),
-                        child: CustomIntroText(text: 'Gigs You May Like'),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildSuggestedGigsSection(gigProvider),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      // Updates Section
-                      const CustomIntroText(text: 'Updates'),
-                      const SizedBox(height: 20),
-                      _buildAdsSection(adProvider),
-                      const SizedBox(height: 30),
-                      // Categories Section
-                      CustomIntroText(
-                        text: 'Popular Services',
-                        isRightText: true,
-                        navFunction: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CategoriesScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 160,
-                        child: _buildCategoriesSection(categoryProvider),
-                      ),
-                      const SizedBox(height: 30),
-                    ]),
-                  ),
-                ),
-                // Recently Viewed Gigs Section - Horizontal Scroll
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Only show the header if a user is logged in
                       if (userProvider.currentUser != null)
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 20.0),
@@ -706,7 +872,10 @@ class _NewHomeScreenState extends State<NewHomeScreen> {
                         ),
                       if (userProvider.currentUser != null)
                         const SizedBox(height: 20),
-                      _buildRecentlyViewedGigsSection(gigProvider, userProvider),
+                      _buildRecentlyViewedGigsSection(
+                        gigProvider,
+                        userProvider,
+                      ),
                       if (userProvider.currentUser != null)
                         const SizedBox(height: 30),
                     ],

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/tests/test.dart';
 import 'providers/network_status_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
@@ -190,6 +191,23 @@ void main() async {
                     GigProvider(
                       apiService: apiService,
                       pusherService: pusherService,
+                      userProvider: userProvider,
+                    ),
+          ),
+          ChangeNotifierProxyProvider<UserProvider, WawuAfricaProvider>(
+            create:
+                (context) => WawuAfricaProvider(
+                  apiService: apiService,
+                  userProvider: Provider.of<UserProvider>(
+                    context,
+                    listen: false,
+                  ),
+                ),
+            update:
+                (context, userProvider, wawuAfricaProvider) =>
+                    wawuAfricaProvider ??
+                    WawuAfricaProvider(
+                      apiService: apiService,
                       userProvider: userProvider,
                     ),
           ),

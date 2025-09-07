@@ -4,7 +4,7 @@ import 'package:dio/dio.dart';
 import '../services/auth_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-// Custom exception for API errors
+/// Custom exception for API errors
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -28,11 +28,22 @@ class ApiService {
   // Base URL from environment with default value
   static final String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue:
-        kIsWeb
-            ? 'https://cors-anywhere.herokuapp.com/https://production.wawuafrica.com/api'
-            : 'https://production.wawuafrica.com/api',
+    defaultValue: kIsWeb
+        ? 'https://corsproxy.io/?https://production.wawuafrica.com/api'
+        : 'https://production.wawuafrica.com/api',
   );
+
+  // Helper to proxy any URL for images/files on web
+  String proxyIfWeb(String url) {
+    if (kIsWeb) {
+      // Remove any existing proxy prefix to avoid double-proxying
+      if (url.startsWith('https://corsproxy.io/?')) {
+        return url;
+      }
+      return 'https://corsproxy.io/?$url';
+    }
+    return url;
+  }
 
   // Auth service for token management
   late final AuthService _authService;
@@ -135,10 +146,14 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     T Function(dynamic)? fromJson,
+    bool proxyWeb = false, // for image/file endpoints
   }) async {
     try {
+      // If proxyWeb is true, proxy the endpoint URL
+      final url = proxyWeb ? proxyIfWeb(endpoint) : endpoint;
+
       final response = await _dio.get(
-        endpoint,
+        url,
         queryParameters: queryParameters,
         options: options,
       );
@@ -159,10 +174,12 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     T Function(dynamic)? fromJson,
+    bool proxyWeb = false,
   }) async {
     try {
+      final url = proxyWeb ? proxyIfWeb(endpoint) : endpoint;
       final response = await _dio.post(
-        endpoint,
+        url,
         data: data,
         queryParameters: queryParameters,
         options: options,
@@ -184,10 +201,12 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     T Function(dynamic)? fromJson,
+    bool proxyWeb = false,
   }) async {
     try {
+      final url = proxyWeb ? proxyIfWeb(endpoint) : endpoint;
       final response = await _dio.put(
-        endpoint,
+        url,
         data: data,
         queryParameters: queryParameters,
         options: options,
@@ -209,10 +228,12 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     T Function(dynamic)? fromJson,
+    bool proxyWeb = false,
   }) async {
     try {
+      final url = proxyWeb ? proxyIfWeb(endpoint) : endpoint;
       final response = await _dio.patch(
-        endpoint,
+        url,
         data: data,
         queryParameters: queryParameters,
         options: options,
@@ -234,10 +255,12 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     Options? options,
     T Function(dynamic)? fromJson,
+    bool proxyWeb = false,
   }) async {
     try {
+      final url = proxyWeb ? proxyIfWeb(endpoint) : endpoint;
       final response = await _dio.delete(
-        endpoint,
+        url,
         data: data,
         queryParameters: queryParameters,
         options: options,

@@ -5,12 +5,14 @@ import 'package:wawu_mobile/utils/constants/colors.dart';
 class ImageTextCard extends StatelessWidget {
   final String asset;
   final String text;
+  final Color? color;
   final GestureTapCallback? function;
   const ImageTextCard({
     super.key,
     required this.asset,
     required this.text,
     this.function,
+    this.color,
   });
 
   @override
@@ -27,7 +29,7 @@ class ImageTextCard extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(0, 6.0, 0, 0),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  color: wawuColors.primary.withAlpha(50),
+                  color: color ?? wawuColors.primary.withAlpha(50),
                 ),
                 clipBehavior: Clip.hardEdge,
                 child: CachedImage(

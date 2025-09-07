@@ -1,29 +1,23 @@
-// home_screen.dart
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_sub_category/wawu_africa_sub_category.dart';
+import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
+import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
-import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
+import 'package:wawu_mobile/screens/home_screen/ads_section.dart';
+import 'package:wawu_mobile/screens/home_screen/home_header.dart';
+import 'package:wawu_mobile/screens/home_screen/popular_service_section.dart';
+import 'package:wawu_mobile/screens/home_screen/recently_viewed_gigs_section.dart';
+import 'package:wawu_mobile/screens/home_screen/suggested_gigs_section.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
-import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
-import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
-import 'package:wawu_mobile/providers/gig_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
-import 'package:wawu_mobile/screens/search/search_screen.dart'; // Import the new search screen
 
 class HomeScreen extends StatefulWidget {
-  final ValueChanged<double>? onScroll; // Changed to ValueChanged<double>
+  final ValueChanged<double>? onScroll;
 
   const HomeScreen({super.key, this.onScroll});
 
@@ -35,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
-  late ScrollController _internalScrollController; // Internal scroll controller
+  late ScrollController _internalScrollController;
 
   @override
   void initState() {
@@ -60,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Initialize all data providers
   void _initializeData() {
     final categoryProvider = Provider.of<CategoryProvider>(
       context,
@@ -69,29 +62,32 @@ class _HomeScreenState extends State<HomeScreen> {
     final adProvider = Provider.of<AdProvider>(context, listen: false);
     final gigProvider = Provider.of<GigProvider>(context, listen: false);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final wawuAfricProvider = Provider.of<WawuAfricaProvider>(
+      context,
+      listen: false,
+    );
 
-    // Initialize categories
+    if (wawuAfricProvider.categories.isEmpty && !wawuAfricProvider.isLoading) {
+      wawuAfricProvider.fetchCategories();
+    }
+
     if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
       categoryProvider.fetchCategories();
     }
 
-    // Initialize ads - this will also set up real-time listeners
     if (adProvider.ads.isEmpty && !adProvider.isLoading) {
       adProvider.fetchAds();
     }
 
-    // Fetch recently viewed gigs only if user is logged in
     if (userProvider.currentUser != null) {
       if (gigProvider.recentlyViewedGigs.isEmpty &&
           !gigProvider.isRecentlyViewedLoading) {
         gigProvider.fetchRecentlyViewedGigs();
       }
     } else {
-      // If no user, ensure recently viewed gigs are cleared locally
       gigProvider.clearRecentlyViewedGigs();
     }
 
-    // Fetch suggested gigs
     if (gigProvider.suggestedGigs.isEmpty &&
         !gigProvider.isSuggestedGigsLoading) {
       gigProvider.fetchSuggestedGigs();
@@ -104,28 +100,29 @@ class _HomeScreenState extends State<HomeScreen> {
         context,
         listen: false,
       );
+      final wawuAfricProvider = Provider.of<WawuAfricaProvider>(
+        context,
+        listen: false,
+      );
       final adProvider = Provider.of<AdProvider>(context, listen: false);
       final gigProvider = Provider.of<GigProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-      // Create a list of futures to run in parallel
       final futures = <Future>[
         categoryProvider.fetchCategories(),
+        wawuAfricProvider.fetchCategories(),
         adProvider.refresh(),
-        gigProvider.fetchSuggestedGigs(), // Refresh suggested gigs
+        gigProvider.fetchSuggestedGigs(),
       ];
 
-      // Refresh recently viewed gigs only if user is logged in
       if (userProvider.currentUser != null) {
         futures.add(gigProvider.fetchRecentlyViewedGigs());
       } else {
         gigProvider.clearRecentlyViewedGigs();
       }
 
-      // Wait for all futures to complete
       await Future.wait(futures);
 
-      // Show success message
       if (mounted) {
         CustomSnackBar.show(
           context,
@@ -134,7 +131,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (error) {
-      // Show error message
       if (mounted) {
         CustomSnackBar.show(
           context,
@@ -145,42 +141,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// Handle ad tap with improved error handling
-  Future<void> _handleAdTap(String adLink) async {
-    if (adLink.isEmpty) {
-      CustomSnackBar.show(
-        context,
-        message: 'This ad has no link',
-        isError: false,
-      );
-      return;
-    }
-
-    try {
-      final uri = Uri.parse(adLink);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          CustomSnackBar.show(
-            context,
-            message: 'Could not open the ad link',
-            isError: true,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          message: 'Error opening link: ${e.toString()}',
-          isError: true,
-        );
-      }
-    }
-  }
-
-  // Function to show the support dialog
   void _showErrorSupportDialog(BuildContext context, String message) {
     showDialog(
       context: context,
@@ -217,15 +177,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// Check if any provider has a critical error (empty data + error + not loading)
   bool _hasCriticalError(
     CategoryProvider categoryProvider,
     AdProvider adProvider,
     GigProvider gigProvider,
     UserProvider userProvider,
+    WawuAfricaProvider wawuAfricaProvider,
   ) {
-    // Categories and Suggested Gigs are always critical if empty and errored
-    if ((categoryProvider.hasError &&
+    if ((wawuAfricaProvider.hasError &&
+            wawuAfricaProvider.categories.isEmpty &&
+            !wawuAfricaProvider.isLoading) ||
+        (categoryProvider.hasError &&
             categoryProvider.categories.isEmpty &&
             !categoryProvider.isLoading) ||
         (gigProvider.hasError &&
@@ -233,7 +195,6 @@ class _HomeScreenState extends State<HomeScreen> {
             !gigProvider.isSuggestedGigsLoading)) {
       return true;
     }
-    // Recently Viewed Gigs are only critical if user is logged in AND they are empty and errored
     if (userProvider.currentUser != null &&
         gigProvider.hasError &&
         gigProvider.recentlyViewedGigs.isEmpty &&
@@ -243,14 +204,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return false;
   }
 
-  /// Get the primary error message and retry function
   Map<String, dynamic> _getPrimaryError(
     CategoryProvider categoryProvider,
-    AdProvider adProvider,
+    WawuAfricaProvider wawuAfricaProvider,
     GigProvider gigProvider,
     UserProvider userProvider,
   ) {
-    // Priority: Categories > Suggested Gigs > Recently Viewed Gigs (if logged in)
+    if (wawuAfricaProvider.hasError &&
+        wawuAfricaProvider.categories.isEmpty &&
+        !wawuAfricaProvider.isLoading) {
+      return {
+        'message':
+            wawuAfricaProvider.errorMessage ?? 'Failed to load +HER categories',
+        'retry': () => wawuAfricaProvider.fetchCategories(),
+      };
+    }
+
     if (categoryProvider.hasError &&
         categoryProvider.categories.isEmpty &&
         !categoryProvider.isLoading) {
@@ -286,15 +255,17 @@ class _HomeScreenState extends State<HomeScreen> {
     };
   }
 
-  /// Check if any provider is loading (for overall loading state)
   bool _isAnyProviderLoading(
     CategoryProvider categoryProvider,
     AdProvider adProvider,
+    WawuAfricaProvider wawuAfricaProvider,
     GigProvider gigProvider,
     UserProvider userProvider,
   ) {
     bool loadingCategories =
         (categoryProvider.isLoading && categoryProvider.categories.isEmpty);
+    bool loadingHERCategories =
+        (wawuAfricaProvider.isLoading && wawuAfricaProvider.categories.isEmpty);
     bool loadingAds = (adProvider.isLoading && adProvider.ads.isEmpty);
     bool loadingSuggestedGigs =
         (gigProvider.isSuggestedGigsLoading &&
@@ -304,287 +275,59 @@ class _HomeScreenState extends State<HomeScreen> {
             gigProvider.isRecentlyViewedLoading &&
             gigProvider.recentlyViewedGigs.isEmpty);
 
-    return loadingCategories ||
+    return loadingHERCategories ||
+        loadingCategories ||
         loadingAds ||
         loadingSuggestedGigs ||
         loadingRecentlyViewedGigs;
   }
 
-  /// Build ads section with inline error handling
-  Widget _buildAdsSection(AdProvider adProvider) {
-    if (adProvider.isLoading && adProvider.ads.isEmpty) {
-      return Container(
-        width: double.infinity,
-        height: 250,
-        decoration: BoxDecoration(
-          color: wawuColors.borderPrimary.withAlpha(50),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (adProvider.ads.isEmpty && !adProvider.hasError) {
-      return Container(
-        width: double.infinity,
-        height: 250,
-        decoration: BoxDecoration(
-          color: wawuColors.borderPrimary.withAlpha(50),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.announcement_outlined, color: Colors.grey, size: 48),
-              SizedBox(height: 16),
-              Text(
-                'No ads available',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (adProvider.ads.isNotEmpty) {
-      final List<Widget> carouselItems =
-          adProvider.ads.map((ad) {
-            return GestureDetector(
-              onTap: () => _handleAdTap(ad.link),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: CachedNetworkImage(
-                  imageUrl: ad.media.link,
-                  fit: BoxFit.cover,
-                  placeholder:
-                      (context, url) => Container(
-                        color: wawuColors.borderPrimary.withAlpha(50),
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                  errorWidget:
-                      (context, url, error) => Container(
-                        color: wawuColors.borderPrimary.withAlpha(50),
-                        child: const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.broken_image,
-                                color: Colors.grey,
-                                size: 48,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Failed to load image',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                ),
-              ),
-            );
-          }).toList();
-
-      return FadingCarousel(height: 220, children: carouselItems);
-    }
-
-    return Container(
-      width: double.infinity,
-      height: 250,
-      decoration: BoxDecoration(
-        color: wawuColors.borderPrimary.withAlpha(50),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: const Center(
-        child: Text(
-          'No updates available',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  /// Build categories section with inline error handling
-  Widget _buildCategoriesSection(CategoryProvider categoryProvider) {
-    final List<String> assetPaths = [
-      'assets/images/section/programming.png',
-      'assets/images/section/photography.png',
-      'assets/images/section/sales.png',
-    ];
-
-    if (categoryProvider.isLoading && categoryProvider.categories.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (categoryProvider.categories.isEmpty) {
-      return const Center(child: Text('No categories available'));
-    }
-
-    return ListView.separated(
-      separatorBuilder: (context, index) => const SizedBox(width: 10),
-      scrollDirection: Axis.horizontal,
-      itemCount: categoryProvider.categories.take(3).length,
-      itemBuilder: (context, index) {
-        final category = categoryProvider.categories[index];
-        return ImageTextCard(
-          function: () {
-            categoryProvider.selectCategory(category);
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SubCategoriesAndServices(),
-              ),
-            );
-          },
-          text: category.name,
-          asset: assetPaths[index],
-        );
-      },
-    );
-  }
-
-  /// Build horizontal gigs section with inline error handling for Recently Viewed
-  Widget _buildRecentlyViewedGigsSection(
-    GigProvider gigProvider,
-    UserProvider userProvider,
-  ) {
-    // If no user is logged in, don't show the section at all
-    if (userProvider.currentUser == null) {
-      return const SizedBox.shrink(); // Use SizedBox.shrink to hide the widget
-    }
-
-    if (gigProvider.isRecentlyViewedLoading &&
-        gigProvider.recentlyViewedGigs.isEmpty) {
-      return const SizedBox(
-        height: 250,
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (gigProvider.recentlyViewedGigs.isEmpty) {
-      return const SizedBox(
-        height: 250,
-        child: Center(
-          child: Text(
-            'No recently viewed gigs yet',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      height: 250, // Fixed height for horizontal scroll
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        itemCount: gigProvider.recentlyViewedGigs.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final gig = gigProvider.recentlyViewedGigs[index];
-          return SizedBox(
-            width: 280, // Fixed width for each card
-            child: GigCard(gig: gig),
-          );
-        },
-      ),
-    );
-  }
-
-  /// Build horizontal gigs section with inline error handling for Suggested Gigs
-  Widget _buildSuggestedGigsSection(GigProvider gigProvider) {
-    if (gigProvider.isSuggestedGigsLoading &&
-        gigProvider.suggestedGigs.isEmpty) {
-      return const SizedBox(
-        height: 250,
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (gigProvider.suggestedGigs.isEmpty) {
-      return const SizedBox(
-        height: 250,
-        child: Center(
-          child: Text(
-            'No suggested gigs available at the moment',
-            style: TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      height: 250, // Fixed height for horizontal scroll
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        itemCount: gigProvider.suggestedGigs.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final gig = gigProvider.suggestedGigs[index];
-          return SizedBox(
-            width: 280, // Fixed width for each card
-            child: GigCard(gig: gig),
-          );
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Consumer4<CategoryProvider, UserProvider, GigProvider, AdProvider>(
+    return Consumer5<
+      WawuAfricaProvider,
+      CategoryProvider,
+      UserProvider,
+      GigProvider,
+      AdProvider
+    >(
       builder: (
         context,
+        wawuAfricaProvider,
         categoryProvider,
         userProvider,
         gigProvider,
         adProvider,
         child,
       ) {
-        // Check for critical errors that should show full screen error
         bool hasCriticalError = _hasCriticalError(
           categoryProvider,
           adProvider,
           gigProvider,
           userProvider,
+          wawuAfricaProvider,
         );
 
         bool isLoading = _isAnyProviderLoading(
           categoryProvider,
           adProvider,
+          wawuAfricaProvider,
           gigProvider,
           userProvider,
         );
 
-        final List<Map<String, String>> backendData = [
-          {'text': 'Music', 'svgPath': 'assets/icons/music.svg'},
-          {'text': 'Art', 'svgPath': 'assets/icons/art.svg'},
-          {'text': 'Tech', 'svgPath': 'assets/icons/tech.svg'},
-          {'text': 'Food', 'svgPath': 'assets/icons/food.svg'},
-          {'text': 'Fashion', 'svgPath': 'assets/icons/fashion.svg'},
-          {'text': 'Fitness', 'svgPath': 'assets/icons/fitness.svg'},
-        ];
-
-        // Show full screen error if there's a critical error
         if (hasCriticalError) {
           final errorInfo = _getPrimaryError(
             categoryProvider,
-            adProvider,
+            wawuAfricaProvider,
             gigProvider,
             userProvider,
           );
 
           return Scaffold(
             body: FullErrorDisplay(
-              errorMessage: errorInfo?['message'] ?? 'An error occurred',
-              onRetry: errorInfo?['retry'] ?? () {},
+              errorMessage: errorInfo['message'] ?? 'An error occurred',
+              onRetry: errorInfo['retry'] ?? () {},
               onContactSupport: () {
                 _showErrorSupportDialog(
                   context,
@@ -595,14 +338,12 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
-        // Show loading screen if critical data is still loading
         if (isLoading) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Show normal content with inline error handling for individual sections
         return Scaffold(
           body: RefreshIndicator(
             key: _refreshIndicatorKey,
@@ -615,308 +356,20 @@ class _HomeScreenState extends State<HomeScreen> {
               controller: _internalScrollController,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                SliverToBoxAdapter(
-                  child: Container(
-                    width: double.infinity,
-                    height: 600,
-                    child: ClipRRect(
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          // Background Image and Blur
-                          Positioned.fill(
-                            child: Image.asset(
-                              'assets/background_wawu.png',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.error),
-                                );
-                              },
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(
-                                sigmaX: 30.0,
-                                sigmaY: 30.0,
-                              ),
-                              child: Container(
-                                color: Colors.black.withOpacity(0.4),
-                              ),
-                            ),
-                          ),
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    Theme.of(context).scaffoldBackgroundColor,
-                                  ],
-                                  stops: const [0.0, 1.0],
-                                ),
-                              ),
-                            ),
-                          ),
+                const SliverToBoxAdapter(child: HomeHeader()),
 
-                          // Main content - Fixed the Column/Expanded issue
-                          Positioned.fill(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20.0,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  const SizedBox(height: 76.0),
-
-                                  // Search Bar Section
-                                  Hero(
-                                    tag: 'searchBar',
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          10.0,
-                                        ),
-                                        child: BackdropFilter(
-                                          filter: ImageFilter.blur(
-                                            sigmaX: 10,
-                                            sigmaY: 10,
-                                          ),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(
-                                                0.1,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(10.0),
-                                              border: Border.all(
-                                                color: Colors.white.withOpacity(
-                                                  0.2,
-                                                ),
-                                                width: 1.0,
-                                              ),
-                                            ),
-                                            child: TextField(
-                                              readOnly: true,
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  PageRouteBuilder(
-                                                    transitionDuration:
-                                                        const Duration(
-                                                          milliseconds: 300,
-                                                        ),
-                                                    pageBuilder:
-                                                        (
-                                                          context,
-                                                          animation,
-                                                          secondaryAnimation,
-                                                        ) =>
-                                                            const SearchScreen(),
-                                                    transitionsBuilder: (
-                                                      context,
-                                                      animation,
-                                                      secondaryAnimation,
-                                                      child,
-                                                    ) {
-                                                      return FadeTransition(
-                                                        opacity: animation,
-                                                        child: child,
-                                                      );
-                                                    },
-                                                  ),
-                                                );
-                                              },
-                                              decoration: InputDecoration(
-                                                hintText: 'Search for gigs...',
-                                                hintStyle: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w400,
-                                                ),
-                                                prefixIcon: const Icon(
-                                                  Icons.search,
-                                                  color: Colors.white,
-                                                ),
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        10.0,
-                                                      ),
-                                                  borderSide: const BorderSide(
-                                                    color: Colors.transparent,
-                                                    width: 1.0,
-                                                  ),
-                                                ),
-                                                enabledBorder:
-                                                    OutlineInputBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            10.0,
-                                                          ),
-                                                      borderSide:
-                                                          const BorderSide(
-                                                            color:
-                                                                Colors
-                                                                    .transparent,
-                                                            width: 1.0,
-                                                          ),
-                                                    ),
-                                                focusedBorder:
-                                                    OutlineInputBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            10.0,
-                                                          ),
-                                                      borderSide: BorderSide(
-                                                        color:
-                                                            Theme.of(
-                                                              context,
-                                                            ).primaryColor,
-                                                        width: 2.0,
-                                                      ),
-                                                    ),
-                                                filled: false,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 15.0,
-                                                      horizontal: 10.0,
-                                                    ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  const SizedBox(height: 30.0),
-
-                                  // WAWUAfrica +HER Text
-                                  const CustomIntroText(
-                                    text: 'WAWUAfrica +HER',
-                                    color: Colors.white,
-                                  ),
-
-                                  // Fixed GridView - Now properly constrained
-                                  Transform.translate(
-                                    offset: const Offset(0, -30),
-                                    child: SizedBox(
-                                      height:
-                                          400, // Give it a fixed height instead of Expanded
-                                      child: GridView.builder(
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
-                                        gridDelegate:
-                                            const SliverGridDelegateWithFixedCrossAxisCount(
-                                              crossAxisCount: 3,
-                                              crossAxisSpacing: 16.0,
-                                              mainAxisSpacing: 16.0,
-                                              childAspectRatio: 0.9,
-                                            ),
-                                        itemCount: backendData.length,
-                                        itemBuilder: (context, index) {
-                                          final item = backendData[index];
-                                          final String text =
-                                              item['text'] ?? 'N/A';
-                                          final String svgPath =
-                                              item['svgPath'] ??
-                                              'assets/icons/default.svg';
-
-                                          return GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder:
-                                                      (context) =>
-                                                          WawuAfricaSubCategory(),
-                                                ),
-                                              );
-                                            },
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: Colors.white.withOpacity(
-                                                  0.2,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(10.0),
-                                                border: Border.all(
-                                                  color: Colors.white
-                                                      .withOpacity(0.2),
-                                                  width: 1.0,
-                                                ),
-                                              ),
-                                              child: Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  SvgPicture.asset(
-                                                    svgPath,
-                                                    width: 50,
-                                                    height: 50,
-                                                    color: Colors.white,
-                                                    placeholderBuilder:
-                                                        (context) => const Icon(
-                                                          Icons
-                                                              .image_not_supported,
-                                                          color: Colors.white,
-                                                          size: 50,
-                                                        ),
-                                                  ),
-                                                  const SizedBox(height: 8),
-                                                  Text(
-                                                    text,
-                                                    style: const TextStyle(
-                                                      color: Colors.black,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      const SizedBox(height: 20),
-                    ]),
-                  ),
-                ),
-
-                // Suggested Gigs Section
-                SliverToBoxAdapter(
+                const SliverToBoxAdapter(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Padding(
+                      SizedBox(height: 20),
+                      Padding(
                         padding: EdgeInsets.symmetric(horizontal: 20.0),
                         child: CustomIntroText(text: 'Gigs You May Like'),
                       ),
-                      const SizedBox(height: 20),
-                      _buildSuggestedGigsSection(gigProvider),
-                      const SizedBox(height: 30),
+                      SizedBox(height: 20),
+                      SuggestedGigsSection(),
+                      SizedBox(height: 30),
                     ],
                   ),
                 ),
@@ -925,13 +378,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      // Updates Section
                       const CustomIntroText(text: 'Updates'),
                       const SizedBox(height: 20),
-                      _buildAdsSection(adProvider),
+                      const AdsSection(),
                       const SizedBox(height: 30),
-
-                      // Categories Section
                       CustomIntroText(
                         text: 'Popular Services',
                         isRightText: true,
@@ -945,10 +395,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                       const SizedBox(height: 20),
-                      SizedBox(
+                      const SizedBox(
                         width: double.infinity,
                         height: 160,
-                        child: _buildCategoriesSection(categoryProvider),
+                        child: PopularServicesSection(),
                       ),
                       const SizedBox(height: 30),
                     ]),
@@ -967,10 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       if (userProvider.currentUser != null)
                         const SizedBox(height: 20),
-                      _buildRecentlyViewedGigsSection(
-                        gigProvider,
-                        userProvider,
-                      ),
+                      const RecentlyViewedGigsSection(),
                       if (userProvider.currentUser != null)
                         const SizedBox(height: 30),
                     ],

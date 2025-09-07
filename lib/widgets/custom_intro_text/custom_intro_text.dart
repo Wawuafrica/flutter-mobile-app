@@ -31,7 +31,7 @@ class CustomIntroText extends StatelessWidget {
             onTap: navFunction,
             child: Text(
               'See All',
-              style: TextStyle(color: wawuColors.primary, fontSize: 12),
+              style: TextStyle(color: color ?? wawuColors.primary, fontSize: 12),
             ),
           ),
       ],
