@@ -60,7 +60,8 @@ class ApiService {
       baseUrl: apiBaseUrl ?? baseUrl,
       connectTimeout: Duration(seconds: timeoutSeconds),
       receiveTimeout: Duration(seconds: timeoutSeconds),
-      sendTimeout: Duration(seconds: timeoutSeconds),
+      // Set sendTimeout to zero on web to avoid errors on GET requests
+      sendTimeout: kIsWeb ? Duration.zero : Duration(seconds: timeoutSeconds),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

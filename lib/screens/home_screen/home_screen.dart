@@ -6,7 +6,6 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
-import 'package:wawu_mobile/screens/home_screen/ads_section.dart';
 import 'package:wawu_mobile/screens/home_screen/home_header.dart';
 import 'package:wawu_mobile/screens/home_screen/popular_service_section.dart';
 import 'package:wawu_mobile/screens/home_screen/recently_viewed_gigs_section.dart';
@@ -179,7 +178,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _hasCriticalError(
     CategoryProvider categoryProvider,
-    AdProvider adProvider,
     GigProvider gigProvider,
     UserProvider userProvider,
     WawuAfricaProvider wawuAfricaProvider,
@@ -257,7 +255,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isAnyProviderLoading(
     CategoryProvider categoryProvider,
-    AdProvider adProvider,
     WawuAfricaProvider wawuAfricaProvider,
     GigProvider gigProvider,
     UserProvider userProvider,
@@ -266,7 +263,6 @@ class _HomeScreenState extends State<HomeScreen> {
         (categoryProvider.isLoading && categoryProvider.categories.isEmpty);
     bool loadingHERCategories =
         (wawuAfricaProvider.isLoading && wawuAfricaProvider.categories.isEmpty);
-    bool loadingAds = (adProvider.isLoading && adProvider.ads.isEmpty);
     bool loadingSuggestedGigs =
         (gigProvider.isSuggestedGigsLoading &&
             gigProvider.suggestedGigs.isEmpty);
@@ -277,19 +273,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return loadingHERCategories ||
         loadingCategories ||
-        loadingAds ||
         loadingSuggestedGigs ||
         loadingRecentlyViewedGigs;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer5<
+    return Consumer4<
       WawuAfricaProvider,
       CategoryProvider,
       UserProvider,
-      GigProvider,
-      AdProvider
+      GigProvider
     >(
       builder: (
         context,
@@ -297,12 +291,10 @@ class _HomeScreenState extends State<HomeScreen> {
         categoryProvider,
         userProvider,
         gigProvider,
-        adProvider,
         child,
       ) {
         bool hasCriticalError = _hasCriticalError(
           categoryProvider,
-          adProvider,
           gigProvider,
           userProvider,
           wawuAfricaProvider,
@@ -310,7 +302,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
         bool isLoading = _isAnyProviderLoading(
           categoryProvider,
-          adProvider,
           wawuAfricaProvider,
           gigProvider,
           userProvider,
@@ -378,9 +369,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
-                      const CustomIntroText(text: 'Updates'),
-                      const SizedBox(height: 20),
-                      const AdsSection(),
+                      // const CustomIntroText(text: 'Updates'),
+                      // const SizedBox(height: 20),
+                      // const AdsSection(),
                       const SizedBox(height: 30),
                       CustomIntroText(
                         text: 'Popular Services',

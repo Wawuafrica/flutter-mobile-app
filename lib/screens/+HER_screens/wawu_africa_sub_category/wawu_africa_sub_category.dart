@@ -1,9 +1,12 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:wawu_mobile/providers/category_provider.dart';
+import 'package:wawu_mobile/models/wawu_africa_nest.dart' as sub_category_model;
+import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_institution/wawu_africa_institution.dart';
 import 'package:wawu_mobile/utils/error_utils.dart';
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class WawuAfricaSubCategory extends StatefulWidget {
   const WawuAfricaSubCategory({super.key});
@@ -13,225 +16,223 @@ class WawuAfricaSubCategory extends StatefulWidget {
 }
 
 class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
-  // final bool _isSearchOpen = false;
-  // final TextEditingController _searchController = TextEditingController();
-  String? _selectedCategoryId;
-
   @override
   void initState() {
     super.initState();
+    // Fetch sub-categories after the widget is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final categoryProvider = Provider.of<CategoryProvider>(
-        context,
-        listen: false,
-      );
-      if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
-        categoryProvider.fetchCategories();
-      }
-    });
-  }
+      final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
+      final selectedCategoryId = provider.selectedCategory?.id;
 
-  void _toggleSelection(String categoryId) {
-    setState(() {
-      if (_selectedCategoryId == categoryId) {
-        _selectedCategoryId = null;
+      // Ensure a category is selected before fetching
+      if (selectedCategoryId != null) {
+        // Clear previous sub-categories to avoid showing stale data
+        provider.clearSubCategories();
+        provider.fetchSubCategories(selectedCategoryId.toString());
       } else {
-        _selectedCategoryId = categoryId;
+        // Handle case where no category was selected (e.g., direct navigation)
+        // You might want to pop the screen or show an error
+        print("Error: No category selected to fetch sub-categories for.");
       }
     });
   }
 
-@override
-Widget build(BuildContext context) {
-  return Consumer<CategoryProvider>(
-    builder: (context, categoryProvider, child) {
-      if (categoryProvider.isLoading) {
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
-      }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Consumer<WawuAfricaProvider>(
+          builder: (context, provider, child) {
+            // Display the name of the selected category in the AppBar
+            return Text(
+              provider.selectedCategory?.name ?? 'Sub-Categories',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            );
+          },
+        ),
+        centerTitle: true,
+      ),
+      body: Consumer<WawuAfricaProvider>(
+        builder: (context, provider, child) {
+          // --- Loading State ---
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-      if (categoryProvider.hasError) {
-        return Scaffold(
-          body: Center(
+          // --- Error State ---
+          if (provider.hasError && provider.subCategories.isEmpty) {
+            return FullErrorDisplay(
+              errorMessage:
+                  provider.errorMessage ?? 'Failed to load sub-categories.',
+              onRetry: () {
+                final selectedCategoryId = provider.selectedCategory?.id;
+                if (selectedCategoryId != null) {
+                  provider.fetchSubCategories(selectedCategoryId.toString());
+                }
+              },
+              onContactSupport: () {
+                showErrorSupportDialog(
+                  context: context,
+                  message:
+                      'If the problem persists, please contact our support team.',
+                  title: 'Error',
+                );
+              },
+            );
+          }
+
+          // --- Empty State ---
+          if (provider.subCategories.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.category_outlined,
+                    size: 80,
+                    color: Colors.grey,
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'No Sub-Categories Found',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'There are no sub-categories available in this section yet.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // --- Success State ---
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  'Error loading categories: ${categoryProvider.errorMessage}',
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
                 const SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () {
-                    categoryProvider.fetchCategories();
-                  },
-                  child: const Text('Retry'),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.mail_outline),
-                  label: const Text('Contact Support'),
-                  onPressed: () {
-                    showErrorSupportDialog(
-                      context: context,
-                      title: 'Contact Support',
-                      message: 'If this problem persists, please contact our support team. We are here to help!',
-                    );
-                  },
+                Expanded(
+                  child: GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 16.0,
+                      mainAxisSpacing: 16.0,
+                      childAspectRatio: 0.95,
+                    ),
+                    itemCount: provider.subCategories.length,
+                    itemBuilder: (context, index) {
+                      final subCategory = provider.subCategories[index];
+                      return _buildItem(context, subCategory);
+                    },
+                  ),
                 ),
               ],
             ),
-          ),
-        );
-      }
-
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('Sub Cat'),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 16.0,
-                    mainAxisSpacing: 16.0,
-                    childAspectRatio: 0.95, // Adjust this to control item height
-                  ),
-                  itemCount: categoryProvider.categories.length,
-                  itemBuilder: (context, index) {
-                    final category = categoryProvider.categories[index];
-                    return _buildItem(
-                      title: category.name,
-                      uuid: category.uuid,
-                      // svgUrl: category.svgUrl, // Assuming your category model has svgUrl
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
-Widget _buildItem({required String title, required String uuid, String? svgUrl}) {
-  CategoryProvider categoryProvider = Provider.of<CategoryProvider>(context);
-  
-  return GestureDetector(
-    onTap: () {
-      final selectedCategory = categoryProvider.categories.firstWhere(
-        (category) => category.name == title,
-      );
-      _toggleSelection(selectedCategory.uuid);
-      categoryProvider.selectCategory(selectedCategory);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => WawuAfricaInstitution()),
-      );
-    },
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 241, 241, 241).withValues(alpha: 30),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color.fromARGB(255, 235, 235, 235)),
+          );
+        },
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Fixed position SVG container
-          SizedBox(
-            height: 70, // Fixed height to keep SVG position consistent
-            width: 80,  // Fixed width
-            child: _buildSvgIcon(svgUrl),
-          ),
-          const SizedBox(height: 8), // Fixed spacing
-          // Text container with flexible height
-          Expanded(
-            child: Center(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2, // Limit to 2 lines
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-// Helper method for SVG with fallback
-Widget _buildSvgIcon(String? svgUrl) {
-  if (svgUrl == null || svgUrl.isEmpty) {
-    return _buildFallbackIcon();
+    );
   }
 
-  return SvgPicture.network(
-    svgUrl,
-    width: 70,
-    height: 70,
-    fit: BoxFit.contain,
-    placeholderBuilder: (context) => Container(
-      width: 70,
-      height: 70,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: Colors.grey,
-          ),
+  Widget _buildItem(
+      BuildContext context, sub_category_model.WawuAfricaSubCategory subCategory) {
+    final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
+
+    return GestureDetector(
+      onTap: () {
+        // Select the tapped sub-category and navigate to the next screen
+        provider.selectSubCategory(subCategory);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const WawuAfricaInstitution()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Use CachedNetworkImage to display the image with fallbacks
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8.0),
+              child: CachedNetworkImage(
+                imageUrl: subCategory.imageUrl,
+                width: 50,
+                height: 50,
+                fit: BoxFit.contain,
+                placeholder: (context, url) => Container(
+                  color: Colors.grey.shade200,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.0,
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) {
+                  // Primary fallback: try to load the local SVG asset
+                  return SvgPicture.asset(
+                    'assets/wawu_svg.svg',
+                    width: 50,
+                    height: 50,
+                    fit: BoxFit.contain,
+                    // Secondary fallback: if the local asset fails, show an icon
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey.shade200,
+                      child: Icon(
+                        Icons.category,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Text container that can handle multi-line names
+            Expanded(
+              child: Center(
+                child: Text(
+                  subCategory.name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-    errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(),
-  );
-}
-
-// Helper method for fallback SVG
-Widget _buildFallbackIcon() {
-  return SvgPicture.asset(
-    'assets/wawu_svg.svg',
-    width: 90,
-    height: 70,
-    fit: BoxFit.contain,
-    placeholderBuilder: (context) => Container(
-      width: 90,
-      height: 70,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(
-        Icons.category,
-        size: 24,
-        color: Colors.grey[600],
-      ),
-    ),
-  );
-}
-
+    );
+  }
 }

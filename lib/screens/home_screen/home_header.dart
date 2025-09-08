@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_sub_category/wawu_africa_sub_category.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart';
-import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 
@@ -249,9 +248,8 @@ class HomeHeader extends StatelessWidget {
                                           8.0,
                                         ),
                                         child: CachedNetworkImage(
-                                          imageUrl: ApiService().proxyIfWeb(
+                                          imageUrl: 
                                             category.imageUrl,
-                                          ),
                                           width: 50,
                                           height: 50,
                                           fit: BoxFit.contain,

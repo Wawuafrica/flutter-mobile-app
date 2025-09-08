@@ -1,15 +1,15 @@
 import '../models/wawu_africa_nest.dart';
 import '../services/api_service.dart';
 import 'base_provider.dart';
-import 'user_provider.dart'; // Import UserProvider
+import 'user_provider.dart';
 
 class WawuAfricaProvider extends BaseProvider {
   final ApiService _apiService;
-  final UserProvider _userProvider; // Add UserProvider
+  final UserProvider _userProvider;
 
   // Base URL for the Node.js/Express backend
   static const String _tsBackendBaseUrl =
-      'https://wawu-ts-backend-sable.vercel.app/api';
+      'https://wawu-ts-backend-two.vercel.app/api';
 
   List<WawuAfricaCategory> _categories = [];
   List<WawuAfricaSubCategory> _subCategories = [];
@@ -19,6 +19,7 @@ class WawuAfricaProvider extends BaseProvider {
   WawuAfricaCategory? _selectedCategory;
   WawuAfricaSubCategory? _selectedSubCategory;
   WawuAfricaInstitution? _selectedInstitution;
+  WawuAfricaInstitutionContent? _selectedInstitutionContent;
 
   List<WawuAfricaCategory> get categories => _categories;
   List<WawuAfricaSubCategory> get subCategories => _subCategories;
@@ -29,6 +30,8 @@ class WawuAfricaProvider extends BaseProvider {
   WawuAfricaCategory? get selectedCategory => _selectedCategory;
   WawuAfricaSubCategory? get selectedSubCategory => _selectedSubCategory;
   WawuAfricaInstitution? get selectedInstitution => _selectedInstitution;
+  WawuAfricaInstitutionContent? get selectedInstitutionContent =>
+      _selectedInstitutionContent;
 
   WawuAfricaProvider(
       {required ApiService apiService, required UserProvider userProvider})
@@ -140,7 +143,7 @@ class WawuAfricaProvider extends BaseProvider {
       };
 
       await _apiService.post<Map<String, dynamic>>(
-        '$_tsBackendBaseUrl/user-content-registrations',
+        '$_tsBackendBaseUrl/register-user',
         data: registrationData,
       );
 
@@ -152,23 +155,45 @@ class WawuAfricaProvider extends BaseProvider {
     }
   }
 
+  // --- State Management Methods ---
+
   void clearError() {
     resetState();
   }
 
+  void clearSubCategories() {
+    _subCategories = [];
+    notifyListeners();
+  }
+
+  void clearInstitutions() {
+    _institutions = [];
+    notifyListeners();
+  }
+  
+  void clearInstitutionContents() {
+    _institutionContents = [];
+    notifyListeners();
+  }
+
   void selectCategory(WawuAfricaCategory category) {
     _selectedCategory = category;
-    setSuccess();
+    notifyListeners();
   }
 
   void selectSubCategory(WawuAfricaSubCategory subCategory) {
     _selectedSubCategory = subCategory;
-    setSuccess();
+    notifyListeners();
   }
 
   void selectInstitution(WawuAfricaInstitution institution) {
     _selectedInstitution = institution;
-    setSuccess();
+    notifyListeners();
+  }
+
+  void selectInstitutionContent(WawuAfricaInstitutionContent content) {
+    _selectedInstitutionContent = content;
+    notifyListeners();
   }
 }
 

@@ -1,3 +1,16 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+// Helper function to proxy URLs for web to avoid CORS errors
+String _proxyUrlForWeb(String url) {
+  if (kIsWeb && url.isNotEmpty && !url.startsWith('http://localhost')) {
+    if (url.startsWith('https://corsproxy.io/?')) {
+      return url;
+    }
+    return 'https://corsproxy.io/?${Uri.encodeComponent(url)}';
+  }
+  return url;
+}
+
 class WawuAfricaCategory {
   final int id;
   final String name;
@@ -11,18 +24,14 @@ class WawuAfricaCategory {
 
   factory WawuAfricaCategory.fromJson(Map<String, dynamic> json) {
     return WawuAfricaCategory(
-      id: json['id'],
-      name: json['name'],
-      imageUrl: json['image_url'],
+      id: json['id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      imageUrl: _proxyUrlForWeb(json['image_url'] as String? ?? ''),
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'image_url': imageUrl,
-    };
+    return {'id': id, 'name': name, 'image_url': imageUrl};
   }
 }
 
@@ -30,18 +39,21 @@ class WawuAfricaSubCategory {
   final int id;
   final int wawuAfricaCategoryId;
   final String name;
+  final String imageUrl;
 
   WawuAfricaSubCategory({
     required this.id,
     required this.wawuAfricaCategoryId,
     required this.name,
+    required this.imageUrl,
   });
 
   factory WawuAfricaSubCategory.fromJson(Map<String, dynamic> json) {
     return WawuAfricaSubCategory(
-      id: json['id'],
-      wawuAfricaCategoryId: json['wawu_africa_category_id'],
-      name: json['name'],
+      id: json['id'] as int? ?? 0,
+      wawuAfricaCategoryId: json['wawu_africa_category_id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      imageUrl: _proxyUrlForWeb(json['image_url'] as String? ?? ''),
     );
   }
 
@@ -50,6 +62,7 @@ class WawuAfricaSubCategory {
       'id': id,
       'wawu_africa_category_id': wawuAfricaCategoryId,
       'name': name,
+      'image_url': imageUrl,
     };
   }
 }
@@ -73,12 +86,14 @@ class WawuAfricaInstitution {
 
   factory WawuAfricaInstitution.fromJson(Map<String, dynamic> json) {
     return WawuAfricaInstitution(
-      id: json['id'],
-      wawuAfricaSubCategoryId: json['wawu_africa_sub_category_id'],
-      name: json['name'],
-      description: json['description'],
-      profileImageUrl: json['profile_image_url'],
-      coverImageUrl: json['cover_image_url'],
+      id: json['id'] as int? ?? 0,
+      wawuAfricaSubCategoryId: json['wawu_africa_sub_category_id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      profileImageUrl: _proxyUrlForWeb(
+        json['profile_image_url'] as String? ?? '',
+      ),
+      coverImageUrl: _proxyUrlForWeb(json['cover_image_url'] as String? ?? ''),
     );
   }
 
@@ -115,13 +130,13 @@ class WawuAfricaInstitutionContent {
 
   factory WawuAfricaInstitutionContent.fromJson(Map<String, dynamic> json) {
     return WawuAfricaInstitutionContent(
-      id: json['id'],
-      wawuAfricaInstitutionId: json['wawu_africa_institution_id'],
-      name: json['name'],
-      imageUrl: json['image_url'],
-      description: json['description'],
-      requirements: json['requirements'],
-      keyBenefits: json['key_benefits'],
+      id: json['id'] as int? ?? 0,
+      wawuAfricaInstitutionId: json['wawu_africa_institution_id'] as int? ?? 0,
+      name: json['name'] as String? ?? '',
+      imageUrl: _proxyUrlForWeb(json['image_url'] as String? ?? ''),
+      description: json['description'] as String? ?? '',
+      requirements: json['requirements'] as String? ?? '',
+      keyBenefits: json['key_benefits'] as String? ?? '',
     );
   }
 
@@ -155,14 +170,20 @@ class WawuAfricaUserContentRegistration {
     required this.registrationDate,
   });
 
-  factory WawuAfricaUserContentRegistration.fromJson(Map<String, dynamic> json) {
+  factory WawuAfricaUserContentRegistration.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return WawuAfricaUserContentRegistration(
-      id: json['id'],
-      userId: json['user_id'],
-      userFullName: json['user_full_name'],
-      userEmail: json['user_email'],
-      wawuAfricaInstitutionContentId: json['wawu_africa_institution_content_id'],
-      registrationDate: DateTime.parse(json['registration_date']),
+      id: json['id'] as int? ?? 0,
+      userId: json['user_id'] as String? ?? '',
+      userFullName: json['user_full_name'] as String? ?? '',
+      userEmail: json['user_email'] as String? ?? '',
+      wawuAfricaInstitutionContentId:
+          json['wawu_africa_institution_content_id'] as int? ?? 0,
+      registrationDate:
+          json['registration_date'] != null
+              ? DateTime.tryParse(json['registration_date']) ?? DateTime.now()
+              : DateTime.now(),
     );
   }
 
