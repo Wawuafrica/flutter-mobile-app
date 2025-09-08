@@ -121,7 +121,8 @@ class WawuAfricaProvider extends BaseProvider {
     }
   }
 
-  Future<bool> registerForContent(int institutionContentId) async {
+  // Updated to throw an error on failure instead of returning bool
+  Future<void> registerForContent(int institutionContentId) async {
     setLoading();
     try {
       final currentUserId = _userProvider.currentUser?.uuid ?? '';
@@ -131,15 +132,14 @@ class WawuAfricaProvider extends BaseProvider {
       final userEmail = _userProvider.currentUser?.email ?? '';
 
       if (currentUserId.isEmpty || userFullName.isEmpty || userEmail.isEmpty) {
-        setError('User information is missing. Please log in again.');
-        return false;
+        throw Exception('User information is missing. Please log in again.');
       }
 
       final registrationData = {
         'user_id': currentUserId,
         'user_full_name': userFullName,
         'user_email': userEmail,
-        'wawu_africa_institution_content_id': institutionContentId,
+        'wawu_africa_inst_content_id': institutionContentId,
       };
 
       await _apiService.post<Map<String, dynamic>>(
@@ -147,11 +147,10 @@ class WawuAfricaProvider extends BaseProvider {
         data: registrationData,
       );
 
-      setSuccess();
-      return true;
+      setSuccess(); // Set success state if API call does not throw
     } catch (e) {
-      setError(e.toString());
-      return false;
+      setError(e.toString()); // Set error state
+      rethrow; // Rethrow the exception to be caught in the UI
     }
   }
 

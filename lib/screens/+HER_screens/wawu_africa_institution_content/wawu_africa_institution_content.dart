@@ -56,26 +56,41 @@ class _WawuAfricaInstitutionContentScreenState
     final contentId = provider.selectedInstitutionContent?.id;
 
     if (contentId == null) {
-      CustomSnackBar.show(context, message: 'Content ID is missing.', isError: true);
+      CustomSnackBar.show(context,
+          message: 'Content ID is missing.', isError: true);
       setState(() {
         _isRegistering = false;
       });
       return;
     }
 
-    final success = await provider.registerForContent(contentId);
-
-    if (mounted) {
-      if (success) {
-        CustomSnackBar.show(context, message: 'Registration successful!', isError: false);
-      } else {
-        CustomSnackBar.show(context, message: provider.errorMessage ?? 'Registration failed.', isError: true);
+    try {
+      await provider.registerForContent(contentId);
+      // This block will only run if the provider method does not throw an error
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          message: 'Request sent\nYou will be contacted soon',
+          isError: false,
+        );
+      }
+    } catch (e) {
+      // Handle the error thrown by the provider
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          message: provider.errorMessage ?? 'Registration failed.',
+          isError: true,
+        );
+      }
+    } finally {
+      // This will run regardless of success or failure
+      if (mounted) {
+        setState(() {
+          _isRegistering = false;
+        });
       }
     }
-    
-    setState(() {
-      _isRegistering = false;
-    });
   }
 
   @override
@@ -118,12 +133,15 @@ class _WawuAfricaInstitutionContentScreenState
         ),
         centerTitle: true,
       ),
-      // Floating Action Button for the registration action
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isRegistering ? null : _handleRegistration,
         backgroundColor: const Color(0xFFF50057),
-        icon: institution?.profileImageUrl.isNotEmpty ?? false
-            ? ClipRRect(
+        icon: Stack(
+          alignment: Alignment.center,
+          children: [
+            // The image is always present but may be covered by the loader
+            if (institution?.profileImageUrl.isNotEmpty ?? false)
+              ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: CachedNetworkImage(
                   imageUrl: institution!.profileImageUrl,
@@ -131,27 +149,36 @@ class _WawuAfricaInstitutionContentScreenState
                   width: 24,
                   fit: BoxFit.cover,
                 ),
-              )
-            : null,
-        label: _isRegistering
-            ? const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                strokeWidth: 1.0,
-              )
-            : const Text(
-                'Send a request',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              ),
+            // The loader appears on top of the image when registering
+            if (_isRegistering)
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
+          ],
+        ),
+        label: AnimatedOpacity(
+          opacity: _isRegistering ? 0.0 : 1.0,
+          duration: const Duration(milliseconds: 300),
+          child: const Text(
+            'Send a request',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         controller: _scrollController,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Hero Image with Scrim
             Stack(
               children: [
                 CachedNetworkImage(
@@ -163,7 +190,8 @@ class _WawuAfricaInstitutionContentScreenState
                     height: 250,
                     color: Colors.grey[200],
                     child: const Center(
-                        child: CircularProgressIndicator(color: Colors.pinkAccent)),
+                        child:
+                            CircularProgressIndicator(color: Colors.pinkAccent)),
                   ),
                   errorWidget: (context, url, error) => Container(
                     height: 250,
@@ -172,9 +200,8 @@ class _WawuAfricaInstitutionContentScreenState
                         color: Colors.red, size: 50),
                   ),
                 ),
-                // Gradient Scrim for AppBar visibility
                 Container(
-                  height: 120, // Scrim only covers the top portion
+                  height: 120,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
@@ -188,8 +215,6 @@ class _WawuAfricaInstitutionContentScreenState
                 ),
               ],
             ),
-
-            // Content Section
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
@@ -226,8 +251,6 @@ class _WawuAfricaInstitutionContentScreenState
                     styleSheet: markdownStyle,
                     shrinkWrap: true,
                   ),
-                  // The button is now a FAB, so we add padding at the bottom
-                  // to ensure the last piece of content is not hidden by it.
                   const SizedBox(height: 80),
                 ],
               ),

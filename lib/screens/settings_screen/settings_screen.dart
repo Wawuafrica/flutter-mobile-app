@@ -1,11 +1,13 @@
-// settings_screen.dart
+import 'dart:ui';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart'; // Add this import
+import 'package:wawu_mobile/models/subscription_iap.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/blog_provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
+import 'package:wawu_mobile/providers/links_provider.dart';
 import 'package:wawu_mobile/providers/message_provider.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
@@ -15,45 +17,58 @@ import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
 import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
 import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
-// import 'package:wawu_mobile/screens/notifications_test.dart';
 import 'package:wawu_mobile/screens/profile/profile_screen.dart';
-import 'package:wawu_mobile/providers/links_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
-import 'package:wawu_mobile/widgets/settings_button_card/settings_button_card.dart';
-import 'package:wawu_mobile/services/onboarding_state_service.dart';
-import 'package:wawu_mobile/widgets/custom_snackbar.dart'; // Import CustomSnackBar
-import 'package:wawu_mobile/widgets/full_ui_error_display.dart'; // Import FullErrorDisplay
-import 'package:wawu_mobile/models/subscription_iap.dart'; // Import SubscriptionIap
+import 'package:wawu_mobile/widgets/custom_snackbar.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final ValueChanged<double>? onScroll;
+
+  const SettingsScreen({super.key, this.onScroll});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Flag to prevent showing multiple snackbars for the same error
-  bool _hasShownError = false;
+  late ScrollController _internalScrollController;
 
   @override
   void initState() {
     super.initState();
+    _internalScrollController = ScrollController();
+    _internalScrollController.addListener(_handleScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchSubscriptionDetails();
     });
   }
 
+  @override
+  void dispose() {
+    _internalScrollController.removeListener(_handleScroll);
+    _internalScrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleScroll() {
+    if (widget.onScroll != null) {
+      widget.onScroll!(_internalScrollController.offset);
+    }
+  }
+
+  // CORRECTED fetchSubscriptionDetails
   void _fetchSubscriptionDetails() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.currentUser?.uuid;
     final userType = userProvider.currentUser?.role?.toLowerCase();
     int role = 0;
 
-    // Only fetch subscription details for artisan or professional roles
-    if (userType == 'buyer') {
+    // Only fetch subscription details for non-buyer roles
+    if (userType == 'buyer' || userId == null) {
       return;
     }
 
@@ -65,159 +80,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       role = 1; // Default or unknown role, though we return for 'buyer'
     }
 
-    if (userId != null) {
-      Provider.of<PlanProvider>(
-        context,
-        listen: false,
-      ).fetchUserSubscriptionDetails(userId, role);
-    }
+    Provider.of<PlanProvider>(
+      context,
+      listen: false,
+    ).fetchUserSubscriptionDetails(userId, role);
   }
 
-  // Build cached cover image widget
-  Widget _buildCoverImage(String? coverImageUrl) {
-    if (coverImageUrl != null && coverImageUrl.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: coverImageUrl,
-        width: double.infinity,
-        height: 100,
-        fit: BoxFit.cover,
-        placeholder:
-            (context, url) => Container(
-              width: double.infinity,
-              height: 100,
-              color: Colors.grey[300],
-              child: const Center(child: CircularProgressIndicator()),
-            ),
-        errorWidget:
-            (context, url, error) => Container(
-              width: double.infinity,
-              height: 100,
-              color: Colors.black,
-            ),
-      );
-    } else {
-      return Container(
-        width: double.infinity,
-        height: 100,
-        color: Colors.black,
-      );
-    }
-  }
-
-  // Build cached profile image widget
-  Widget _buildProfileImage(String? profileImageUrl) {
-    if (profileImageUrl != null && profileImageUrl.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: profileImageUrl,
-        width: 100,
-        height: 100,
-        fit: BoxFit.cover,
-        placeholder:
-            (context, url) => Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.grey[300],
-              ),
-              child: const Center(child: CircularProgressIndicator()),
-            ),
-        errorWidget:
-            (context, url, error) => Container(
-              width: 100,
-              height: 100,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                image: DecorationImage(
-                  image: AssetImage('assets/images/other/avatar.webp'),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-        imageBuilder:
-            (context, imageProvider) => Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-              ),
-            ),
-      );
-    } else {
-      return Container(
-        width: 100,
-        height: 100,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          image: DecorationImage(
-            image: AssetImage('assets/images/other/avatar.webp'),
-            fit: BoxFit.cover,
-          ),
-        ),
-      );
-    }
-  }
-
-  // Function to show the support dialog (can be reused)
-  void _showErrorSupportDialog(BuildContext context, String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
-          ),
-          title: const Text(
-            'Contact Support',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: wawuColors.primary,
-            ),
-          ),
-          content: Text(
-            message,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[700]),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text(
-                'OK',
-                style: TextStyle(color: wawuColors.buttonSecondary),
-              ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _handleLogoutAsync(BuildContext context) async {
+  Future<void> _handleLogout() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final adProvider = Provider.of<AdProvider>(context, listen: false);
     final blogProvider = Provider.of<BlogProvider>(context, listen: false);
-    final categoryProvider = Provider.of<CategoryProvider>(
-      context,
-      listen: false,
-    );
+    final categoryProvider =
+        Provider.of<CategoryProvider>(context, listen: false);
     final gigProvider = Provider.of<GigProvider>(context, listen: false);
-    final notificationProvider = Provider.of<NotificationProvider>(
-      context,
-      listen: false,
-    );
+    final notificationProvider =
+        Provider.of<NotificationProvider>(context, listen: false);
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    final productProvider = Provider.of<ProductProvider>(
-      context,
-      listen: false,
-    );
-    final messageProvider = Provider.of<MessageProvider>(
-      context,
-      listen: false,
-    );
+    final productProvider =
+        Provider.of<ProductProvider>(context, listen: false);
+    final messageProvider =
+        Provider.of<MessageProvider>(context, listen: false);
 
     userProvider.logout();
     await OnboardingStateService.clear();
@@ -239,512 +121,396 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // Helper function to launch URLs safely
+  Future<void> _launchLink(BuildContext context, String linkName) async {
+    final linksProvider = Provider.of<LinksProvider>(context, listen: false);
+    // Ensure links are fetched if not already present
+    if (linksProvider.links.isEmpty) {
+      await linksProvider.fetchLinks();
+    }
+    final link = linksProvider.getLinkByName(linkName)?.link ?? '';
+
+    if (link.isNotEmpty) {
+      final uri = Uri.parse(link);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          CustomSnackBar.show(context,
+              message: 'Could not open the link.', isError: true);
+        }
+      }
+    } else {
+      if (mounted) {
+        CustomSnackBar.show(context,
+            message: 'Link is not available at the moment.', isError: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.currentUser;
+    final fullName = '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+    final displayName = fullName.isEmpty ? 'Guest' : fullName;
+
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: ListView(
-          children: [
-            const SizedBox(height: 20),
-            // Cover Image Section
-            Consumer<UserProvider>(
-              builder: (context, userProvider, child) {
-                final user = userProvider.currentUser;
-                final coverImageUrl = user?.coverImage;
-                return _buildCoverImage(coverImageUrl);
-              },
-            ),
-            // Profile Image Section
-            SizedBox(
-              height: 50,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    top: -50,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Consumer<UserProvider>(
-                        builder: (context, userProvider, child) {
-                          final user = userProvider.currentUser;
-                          final profileImageUrl = user?.profileImage;
-                          return _buildProfileImage(profileImageUrl);
-                        },
-                      ),
+      backgroundColor: wawuColors.primary,
+      body: Stack(
+        children: [
+          // --- HEADER BACKGROUND ---
+          _buildHeaderBackground(user?.coverImage),
+
+          // --- MAIN CONTENT SHEET ---
+          Column(
+            children: [
+              // This SizedBox acts as a spacer for the header area
+              const SizedBox(height: 216),
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            // User Name Section
-            Consumer<UserProvider>(
-              builder: (context, userProvider, child) {
-                // Listen for errors from UserProvider and display SnackBar
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (userProvider.hasError &&
-                      userProvider.errorMessage != null &&
-                      !_hasShownError) {
-                    CustomSnackBar.show(
-                      context,
-                      message: userProvider.errorMessage!,
-                      isError: true,
-                    );
-                    _hasShownError = true;
-                    userProvider.resetState(); // Clear error state
-                  } else if (!userProvider.hasError && _hasShownError) {
-                    _hasShownError = false;
-                  }
-                });
-
-                final user = userProvider.currentUser;
-                final fullName =
-                    '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
-                final displayName = fullName.isEmpty ? 'User' : fullName;
-
-                return Text(
-                  displayName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            // Subscription Section
-            Consumer<PlanProvider>(
-              builder: (context, planProvider, child) {
-                // Listen for errors from PlanProvider and display SnackBar
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (planProvider.hasError &&
-                      planProvider.errorMessage != null &&
-                      !_hasShownError) {
-                    CustomSnackBar.show(
-                      context,
-                      message: planProvider.errorMessage!,
-                      isError: true,
-                      actionLabel: 'RETRY',
-                      onActionPressed: () {
-                        _fetchSubscriptionDetails();
-                      },
-                    );
-                    _hasShownError = true;
-                    planProvider.clearError(); // Clear error state
-                  } else if (!planProvider.hasError && _hasShownError) {
-                    _hasShownError = false;
-                  }
-                });
-
-                final userType =
-                    Provider.of<UserProvider>(
-                      context,
-                    ).currentUser?.role?.toLowerCase();
-
-                // Only show subscription section for artisan or professional roles
-                if (userType != 'artisan' && userType != 'professional') {
-                  return const SizedBox.shrink();
-                }
-
-                final SubscriptionIap? subscriptionIap = planProvider.subscriptionIap;
-                final isLoading = planProvider.isLoading;
-                final hasError = planProvider.hasError;
-
-                if (isLoading) {
-                  return Container(
-                    width: double.infinity,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Colors.grey[200],
-                    ),
-                    padding: const EdgeInsets.all(30.0),
-                    child: const Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                // Display full error screen for critical loading failures for subscription
-                if (hasError && subscriptionIap == null && !isLoading) {
-                  return FullErrorDisplay(
-                    errorMessage:
-                        planProvider.errorMessage ??
-                        'Failed to load subscription details. Please try again.',
-                    onRetry: () {
-                      _fetchSubscriptionDetails();
-                    },
-                    onContactSupport: () {
-                      _showErrorSupportDialog(
-                        context,
-                        'If this problem persists, please contact our support team. We are here to help!',
-                      );
-                    },
-                  );
-                }
-
-                if (subscriptionIap == null || !subscriptionIap.isActive) {
-                  return Container(
-                    width: double.infinity,
-                    height: 160,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: wawuColors.primary,
-                    ),
-                    padding: const EdgeInsets.all(30.0),
+                  child: SingleChildScrollView(
+                    controller: _internalScrollController, // Attach controller
+                    padding: const EdgeInsets.all(20.0),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          subscriptionIap != null && subscriptionIap.isExpired
-                              ? 'Subscription Expired'
-                              : 'No active subscription',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        const Text(
+                          'Profile',
+                          style: TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 10),
-                        GestureDetector(
+
+                        // --- RESTORED SUBSCRIPTION CONTAINER ---
+                        _buildSubscriptionSection(),
+
+                        _buildSettingsItem(
+                          icon: Icons.person_outline,
+                          title: 'Account',
                           onTap: () {
-                            _fetchSubscriptionDetails(); // Retry fetching subscription
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const ProfileScreen()),
+                            );
                           },
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.credit_card_outlined,
+                          title: 'Checkout Details',
+                          onTap: () {
+                            CustomSnackBar.show(context,
+                                message: 'Coming Soon!', isError: false);
+                          },
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.quiz_outlined,
+                          title: 'FAQ',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const FAQScreen()),
+                            );
+                          },
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.people_outline,
+                          title: 'Invite People',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const InvitePeopleScreen()),
+                            );
+                          },
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.headset_mic_outlined,
+                          title: 'Contact Us',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      const ContactUsScreen()),
+                            );
+                          },
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.info_outline,
+                          title: 'About Us',
+                          onTap: () => _launchLink(context, 'about us'),
+                        ),
+                        _buildSettingsItem(
+                          icon: Icons.description_outlined,
+                          title: 'Terms of Use',
+                          onTap: () => _launchLink(context, 'terms of use'),
+                        ),
+                        
+                        const SizedBox(height: 20),
+                        // --- STYLED LOGOUT BUTTON (AS LIST ITEM) ---
+                        _buildStyledLogoutButton(),
+
+                        const SizedBox(height: 20),
+                        _buildDeleteAccountButton(context),
+                        
+                        const SizedBox(height: 20),
+                        const Center(
                           child: Text(
-                            'Upgrade Plan or Retry',
-                            style: TextStyle(
-                              color: wawuColors.white.withOpacity(0.8),
-                              fontSize: 14,
-                              decoration: TextDecoration.underline,
-                              decorationColor: wawuColors.white.withOpacity(0.8),
-                            ),
+                            'Version 1.2.96.001',
+                            style: TextStyle(color: Colors.grey),
                           ),
                         ),
                       ],
                     ),
-                  );
-                }
+                  ),
+                ),
+              ),
+            ],
+          ),
 
-                // Display active subscription details
-                final String planName = planProvider.selectedPlan?.name ?? 'WAWUAfrica Standard'; // Assuming selectedPlan holds the name
-                final String statusText = subscriptionIap.statusDisplayText;
-                final String formattedEndDate = subscriptionIap.formattedEndDate;
-                final int daysRemaining = subscriptionIap.daysRemaining;
-                String daysLeftText = '';
+          // --- HEADER FOREGROUND CONTENT ---
+          _buildHeaderContent(context, displayName, user?.profileImage),
+        ],
+      ),
+    );
+  }
 
-                if (daysRemaining > 0) {
-                  daysLeftText = '$daysRemaining Days Left';
-                } else if (daysRemaining == 0) {
-                  daysLeftText = 'Expires Today';
-                } else {
-                  daysLeftText = 'Expired';
-                }
+  Widget _buildHeaderBackground(String? coverImageUrl) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 236, // Height of the purple area
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Base purple color (fallback)
+          Container(color: wawuColors.primary),
+          // Cover image if it exists
+          if (coverImageUrl != null && coverImageUrl.isNotEmpty)
+            CachedNetworkImage(
+              imageUrl: coverImageUrl,
+              fit: BoxFit.cover,
+              errorWidget: (context, url, error) => const SizedBox.shrink(),
+            ),
+          // Blur effect on top of the image
+          if (coverImageUrl != null && coverImageUrl.isNotEmpty)
+            ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          // Dark overlay for text contrast
+          Container(color: Colors.black.withOpacity(0.25)),
+        ],
+      ),
+    );
+  }
 
-
-                return Container(
-                  width: double.infinity,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    color: wawuColors.primary,
-                  ),
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: CustomRowSingleColumn(
-                          leftText: 'Subscription Plan',
-                          leftTextStyle: const TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          rightText: planName,
-                          rightTextStyle: const TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: CustomRowSingleColumn(
-                          leftText: 'Status',
-                          leftTextStyle: const TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          rightText: statusText,
-                          rightTextStyle: const TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: CustomRowSingleColumn(
-                          leftText: 'Expires On',
-                          leftTextStyle: const TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          rightText: '$formattedEndDate ($daysLeftText)',
-                          rightTextStyle: const TextStyle(
-                            color: wawuColors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            // Settings Options
-            SettingsButtonCard(
-              title: 'My Profile',
-              navigate: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfileScreen(),
-                  ),
-                );
-              },
-            ),
-            SettingsButtonCard(
-              title: 'FAQ',
-              navigate: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FAQScreen()),
-                );
-              },
-            ),
-            SettingsButtonCard(
-              title: 'Invite People',
-              navigate: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const InvitePeopleScreen(),
-                  ),
-                );
-              },
-            ),
-            SettingsButtonCard(
-              title: 'Contact Us',
-              navigate: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ContactUsScreen(),
-                  ),
-                );
-              },
-            ),
-            Consumer<LinksProvider>(
-              builder: (context, linksProvider, _) {
-                // Listen for errors from LinksProvider and display SnackBar
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (linksProvider.hasError &&
-                      linksProvider.errorMessage != null &&
-                      !_hasShownError) {
-                    CustomSnackBar.show(
+  Widget _buildHeaderContent(
+      BuildContext context, String displayName, String? profileImageUrl) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+          child: Column(
+            children: [
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.end,
+              //   children: [
+              //     ElevatedButton(
+              //       onPressed: () {
+              //         /* TODO: Implement Help action */
+              //       },
+              //       style: ElevatedButton.styleFrom(
+              //           backgroundColor: Colors.pinkAccent,
+              //           shape: RoundedRectangleBorder(
+              //             borderRadius: BorderRadius.circular(20),
+              //           ),
+              //           padding: const EdgeInsets.symmetric(
+              //               horizontal: 20, vertical: 8)),
+              //       child: const Text('Help',
+              //           style: TextStyle(color: Colors.white)),
+              //     ),
+              //   ],
+              // ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
                       context,
-                      message: linksProvider.errorMessage!,
-                      isError: true,
-                      actionLabel: 'RETRY',
-                      onActionPressed: () {
-                        linksProvider.fetchLinks();
-                      },
-                    );
-                    _hasShownError = true;
-                    linksProvider.clearError(); // Clear error state
-                  } else if (!linksProvider.hasError && _hasShownError) {
-                    _hasShownError = false;
-                  }
-                });
+                      MaterialPageRoute(
+                          builder: (context) => const ProfileScreen()));
+                },
+                child: Row(
+                  children: [
+                    SizedBox(
+                      height: 50,
+                      width: 50,
+                      child: ClipOval(
+                        child: CachedNetworkImage(
+                          imageUrl: profileImageUrl ?? '',
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              Container(color: Colors.white24),
+                          errorWidget: (context, url, error) => Image.asset(
+                            'assets/images/other/avatar.webp',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
+                          ),
+                          const Text(
+                            'View your profile', // UPDATED TEXT
+                            style: TextStyle(
+                                color: Colors.white70, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right,
+                        color: Colors.white, size: 32),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                final termsLink =
-                    linksProvider.getLinkByName('hand book')?.link ?? '';
-                return SettingsButtonCard(
-                  title: 'About Us',
-                  navigate: () async {
-                    if (termsLink.isNotEmpty) {
-                      final uri = Uri.parse(termsLink);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      } else {
-                        CustomSnackBar.show(
-                          context,
-                          message: 'Could not open About Us link.',
-                          isError: true,
-                        );
-                      }
-                    } else {
-                      CustomSnackBar.show(
-                        context,
-                        message: 'About Us link is not available.',
-                        isError: true,
-                      );
-                    }
-                  },
-                );
-              },
-            ),
-            Consumer<LinksProvider>(
-              builder: (context, linksProvider, _) {
-                final termsLink =
-                    linksProvider.getLinkByName('terms of use')?.link ?? '';
-                return SettingsButtonCard(
-                  title: 'Terms of Use',
-                  navigate: () async {
-                    if (termsLink.isNotEmpty) {
-                      final uri = Uri.parse(termsLink);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      } else {
-                        CustomSnackBar.show(
-                          context,
-                          message: 'Could not open Terms of Use link.',
-                          isError: true,
-                        );
-                      }
-                    } else {
-                      CustomSnackBar.show(
-                        context,
-                        message: 'Terms of Use link is not available.',
-                        isError: true,
-                      );
-                    }
-                  },
-                );
-              },
-            ),
-            // const SizedBox(height: 10),
-            //  FloatingActionButton(
-            //  onPressed: () {
-            // Navigator.push(
-            //  context,
-            //  MaterialPageRoute(
-            //  builder: (context) => const NotificationTestPage(),
-            //    ),
-            //    );
-            // },
-            //   child: const Icon(Icons.bug_report),
-            //  ),
-            const SizedBox(height: 40),
-            // Action Buttons
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.delete_forever, color: Colors.white),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(180, 44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    label: const Text('Delete Account'),
-                    onPressed: () async {
-                      final confirmed = await showDialog<bool>(
-                        context: context,
-                        builder:
-                            (context) => AlertDialog(
-                              title: const Text('Delete Account'),
-                              content: const Text(
-                                'Are you sure you want to delete your account? This action is irreversible.',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed:
-                                      () => Navigator.of(context).pop(false),
-                                  child: const Text('Cancel'),
-                                ),
-                                TextButton(
-                                  onPressed:
-                                      () => Navigator.of(context).pop(true),
-                                  child: const Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ],
-                            ),
-                      );
-                      if (confirmed != true) return;
-                      final userProvider = Provider.of<UserProvider>(
-                        context,
-                        listen: false,
-                      );
-                      showDialog(
-                        context: context,
-                        barrierDismissible: false,
-                        builder:
-                            (context) => const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                      );
-                      final success = await userProvider.deleteUserAccount();
-                      Navigator.of(context).pop(); // Dismiss loading dialog
-                      if (success) {
-                        await _handleLogoutAsync(context);
-                      } else {
-                        CustomSnackBar.show(
-                          context,
-                          message:
-                              userProvider.errorMessage ??
-                              'Failed to delete account',
-                          isError: true,
-                        );
-                        userProvider.resetState(); // Clear error state
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  GestureDetector(
-                    onTap: () async {
-                      await _handleLogoutAsync(context);
-                    },
-                    child: const Text(
-                      'Log Out',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Center(
-                    child: Text(
-                      'Version 1.0.0',
-                      style: TextStyle(
-                        color: Color.fromARGB(255, 212, 212, 212),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
+  Widget _buildSubscriptionSection() {
+    return Consumer<PlanProvider>(
+      builder: (context, planProvider, child) {
+        final userType = Provider.of<UserProvider>(context, listen: false)
+            .currentUser
+            ?.role
+            ?.toLowerCase();
+
+        // Only show subscription section for non-buyer roles
+        if (userType == 'buyer') {
+          return const SizedBox.shrink();
+        }
+
+        final SubscriptionIap? subscription = planProvider.subscriptionIap;
+        final bool isLoading = planProvider.isLoading;
+
+        if (isLoading) {
+          return const Center(
+              child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: CircularProgressIndicator(),
+          ));
+        }
+
+        if (subscription == null || !subscription.isActive) {
+          return const SizedBox
+              .shrink(); // Don't show anything if no active sub
+        }
+
+        final String planName =
+            planProvider.selectedPlan?.name ?? 'WAWUAfrica Standard';
+        final String statusText = subscription.statusDisplayText;
+        final String formattedEndDate = subscription.formattedEndDate;
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: 20.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: wawuColors.primary,
+          ),
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              CustomRowSingleColumn(
+                leftText: 'Subscription Plan',
+                leftTextStyle: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600),
+                rightText: planName,
+                rightTextStyle: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              CustomRowSingleColumn(
+                leftText: 'Status',
+                leftTextStyle:
+                    const TextStyle(color: Colors.white, fontSize: 14),
+                rightText: statusText,
+                rightTextStyle:
+                    const TextStyle(color: Colors.white, fontSize: 11),
+              ),
+              const SizedBox(height: 8),
+              CustomRowSingleColumn(
+                leftText: 'Expires On',
+                leftTextStyle:
+                    const TextStyle(color: Colors.white, fontSize: 14),
+                rightText: formattedEndDate,
+                rightTextStyle:
+                    const TextStyle(color: Colors.white, fontSize: 11),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+Widget _buildStyledLogoutButton() {
+    return GestureDetector(
+      onTap: () async {
+        await _handleLogout();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 8),
+            Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 16
               ),
             ),
           ],
@@ -752,4 +518,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  Widget _buildDeleteAccountButton(BuildContext context) {
+    return Center(
+      child: TextButton(
+        onPressed: () async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Delete Account'),
+              content: const Text(
+                  'Are you sure you want to delete your account? This action is irreversible.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child:
+                      const Text('Delete', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          );
+          if (confirmed != true) return;
+
+          final userProvider =
+              Provider.of<UserProvider>(context, listen: false);
+
+          // Show loading dialog
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) =>
+                const Center(child: CircularProgressIndicator()),
+          );
+
+          final success = await userProvider.deleteUserAccount();
+          Navigator.of(context).pop(); // Dismiss loading dialog
+
+          if (success) {
+            await _handleLogout();
+          } else {
+            if (mounted) {
+              CustomSnackBar.show(
+                context,
+                message:
+                    userProvider.errorMessage ?? 'Failed to delete account',
+                isError: true,
+              );
+              userProvider.resetState();
+            }
+          }
+        },
+        child: const Text(
+          'Delete Account',
+          style: TextStyle(color: Colors.grey, fontSize: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.black54),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      trailing: const Icon(Icons.chevron_right, color: Colors.black54),
+      onTap: onTap,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
 }
+

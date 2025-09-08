@@ -68,8 +68,10 @@ class ApiService {
         'channel': 'user',
         ...?defaultHeaders,
       },
-      // Keep validateStatus to throw for 5xx errors, but handle them in _handleError
-      validateStatus: (status) => status! < 500,
+  // *** THIS IS THE FIX ***
+      // Only consider status codes 200-299 as successful.
+      // This will cause Dio to throw an exception for 409, 404, etc.
+      validateStatus: (status) => status != null && status >= 200 && status < 300,
     );
 
     // Add interceptor for token refresh on 401 errors
