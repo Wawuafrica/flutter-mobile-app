@@ -240,7 +240,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ],
       ),
       floatingActionButton:
-          userProvider.currentUser != null
+          userProvider.currentUser == null
               ? FloatingActionButton.extended(
                 onPressed: () {
                   Navigator.push(

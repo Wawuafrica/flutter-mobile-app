@@ -888,7 +888,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
             ),
           ),
           floatingActionButton:
-              userProvider.currentUser != null
+              userProvider.currentUser == null
                   ? FloatingActionButton.extended(
                     onPressed: () {
                       Navigator.push(
