@@ -1,8 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/models/category.dart';
 import 'package:wawu_mobile/screens/categories/filtered_gigs/filtered_gigs.dart';
+import 'package:wawu_mobile/screens/search/search_screen.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class SubCategoriesAndServices extends StatefulWidget {
   const SubCategoriesAndServices({super.key});
@@ -33,30 +36,11 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
     final selectedCategory = categoryProvider.selectedCategory;
 
     if (selectedCategory != null) {
-      // Always start with loading state
-      setState(() {
-        _isInitialLoading = true;
-      });
-
-      // Clear previous data immediately
+      setState(() => _isInitialLoading = true);
       _subCategoryServices.clear();
       _loadingServices.clear();
-
-      // Clear subcategories in provider to prevent showing old data
-      categoryProvider.clearSelectedSubCategory();
-
-      // Add a small delay to ensure UI shows loading state
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      // Load new subcategories
       await _loadSubCategories();
-
-      // Hide loading state
-      if (mounted) {
-        setState(() {
-          _isInitialLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isInitialLoading = false);
     }
   }
 
@@ -66,43 +50,36 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
       listen: false,
     );
     final selectedCategory = categoryProvider.selectedCategory;
-
     if (selectedCategory != null) {
       await categoryProvider.fetchSubCategories(selectedCategory.uuid);
     }
   }
 
   Future<void> _loadServicesForSubCategory(String subCategoryId) async {
-    if (_subCategoryServices.containsKey(subCategoryId)) {
-      return; // Already loaded
-    }
-
-    setState(() {
-      _loadingServices[subCategoryId] = true;
-    });
+    if (_subCategoryServices.containsKey(subCategoryId)) return;
+    if (mounted) setState(() => _loadingServices[subCategoryId] = true);
 
     final categoryProvider = Provider.of<CategoryProvider>(
       context,
       listen: false,
     );
     final services = await categoryProvider.fetchServices(subCategoryId);
-
-    setState(() {
-      _subCategoryServices[subCategoryId] = services;
-      _loadingServices[subCategoryId] = false;
-    });
+    if (mounted) {
+      setState(() {
+        _subCategoryServices[subCategoryId] = services;
+        _loadingServices[subCategoryId] = false;
+      });
+    }
   }
 
   void _onServiceTap(Service service) {
-    final categoryProvider = Provider.of<CategoryProvider>(
+    Provider.of<CategoryProvider>(
       context,
       listen: false,
-    );
-    categoryProvider.selectService(service);
-
+    ).selectService(service);
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => FilteredGigs()),
+      MaterialPageRoute(builder: (context) => const FilteredGigs()),
     );
   }
 
@@ -112,228 +89,261 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
       builder: (context, categoryProvider, child) {
         final selectedCategory = categoryProvider.selectedCategory;
         final categoryName = selectedCategory?.name ?? 'Category';
+        final subCategoryCount = categoryProvider.subCategories.length;
 
         return Scaffold(
-          appBar: AppBar(title: Text(categoryName)),
-          body: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: ListView(
-              children: [
-                // Replace the existing Container with this code:
-                Stack(
-                  children: [
-                    SizedBox(
-                      height: 100,
-                      width: double.infinity,
-                      child: Image.asset(
-                        'assets/soon.jpg',
-                        cacheWidth: 600,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    Container(
-                      height: 100,
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      child: Text(
-                        categoryName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 20,
-                          color: Colors.white,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Show initial loading state
-                if (_isInitialLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40.0),
-                      child: Column(
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text(
-                            'Loading subcategories...',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
+          backgroundColor: const Color(0xFFF8F5FC),
+          body: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 250.0,
+                pinned: true,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                iconTheme: const IconThemeData(color: Colors.white),
+                flexibleSpace: FlexibleSpaceBar(
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      ClipRect(
+                        // Prevents the zoomed image from overflowing
+                        child: Transform.scale(
+                          scale:
+                              1.5, // Zoom factor. 1.0 is normal, 1.5 is 50% zoom.
+                          child: Image.asset(
+                            'assets/background_wawu.png',
+                            fit: BoxFit.cover,
                           ),
-                        ],
-                      ),
-                    ),
-                  )
-                // Show content only when not in initial loading state
-                else ...[
-                  // Show loading indicator only for provider subcategories load
-                  if (categoryProvider.isLoading &&
-                      categoryProvider.subCategories.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(40.0),
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                  // Show error state for subcategories
-                  if (categoryProvider.hasError &&
-                      categoryProvider.subCategories.isEmpty)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20.0),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Error: ${categoryProvider.errorMessage}',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 20),
-                            ElevatedButton(
-                              onPressed: _loadSubCategories,
-                              child: const Text('Retry'),
-                            ),
-                          ],
                         ),
                       ),
-                    ),
-                  // Show subcategories (even if some are still loading)
-                  ...categoryProvider.subCategories.map(
-                    (subCategory) => Column(
+                      BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
+                        child: Container(color: Colors.black.withOpacity(0.2)),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              const Color(0xFFF8F5FC),
+                              const Color(0xFFF8F5FC).withOpacity(0.0),
+                            ],
+                            stops: const [0.0, 0.9],
+                          ),
+                        ),
+                      ),
+                      SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            top: 60,
+                            left: 16,
+                            right: 16,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                categoryName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                readOnly: true,
+                                onTap:
+                                    () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) => const SearchScreen(),
+                                      ),
+                                    ),
+                                decoration: InputDecoration(
+                                  hintText: 'Search Service',
+                                  hintStyle: TextStyle(
+                                    color: Colors.white.withOpacity(0.8),
+                                  ),
+                                  prefixIcon: const Icon(
+                                    Icons.search,
+                                    color: Colors.white70,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.2),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 0,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '$subCategoryCount Results',
+                                style: const TextStyle(
+                                  color: wawuColors.purpleDarkContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_isInitialLoading)
+                const SliverFillRemaining(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (categoryProvider.hasError && subCategoryCount == 0)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildSubCategoryExpansionTile(subCategory),
-                        const SizedBox(height: 10),
+                        Text(
+                          'Error: ${categoryProvider.errorMessage}',
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _loadSubCategories,
+                          child: const Text('Retry'),
+                        ),
                       ],
                     ),
                   ),
-                  // Show empty state only if not loading and no subcategories
-                  if (!categoryProvider.isLoading &&
-                      categoryProvider.subCategories.isEmpty &&
-                      !categoryProvider.hasError)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: Text(
-                          'No subcategories available',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                ],
-              ],
-            ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 24.0,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final subCategory = categoryProvider.subCategories[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: _buildSubCategoryExpansionTile(subCategory),
+                      );
+                    }, childCount: subCategoryCount),
+                  ),
+                ),
+            ],
           ),
         );
       },
     );
   }
 
+  /// Builds the correctly styled ExpansionTile.
   Widget _buildSubCategoryExpansionTile(SubCategory subCategory) {
-    final isLoading = _loadingServices[subCategory.uuid] ?? false;
-    final services = _subCategoryServices[subCategory.uuid] ?? [];
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey, width: 0.5),
-        borderRadius: BorderRadius.circular(10.0),
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          title: Text(subCategory.name),
-          onExpansionChanged: (isExpanded) {
-            if (isExpanded &&
-                !_subCategoryServices.containsKey(subCategory.uuid)) {
-              _loadServicesForSubCategory(subCategory.uuid);
-            }
-          },
-          childrenPadding: const EdgeInsets.only(left: 0, right: 0, bottom: 16),
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: _buildServicesContent(
-                subCategory.uuid,
-                isLoading,
-                services,
+    const radius = Radius.circular(12.0);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12.0),
+      child: Material(
+        elevation: 2.0,
+        color: Colors.white,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            backgroundColor: Colors.white,
+            collapsedBackgroundColor: Colors.white,
+            iconColor: Colors.black,
+            collapsedIconColor: Colors.black,
+            title: Text(
+              subCategory.name,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
             ),
-          ],
+            onExpansionChanged: (isExpanded) {
+              if (isExpanded) _loadServicesForSubCategory(subCategory.uuid);
+            },
+            // This is the key: the children now have their own container that is clipped
+            // to create the seamless-but-separate look.
+            children: [_buildServicesContent(subCategory.uuid)],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildServicesContent(
-    String subCategoryId,
-    bool isLoading,
-    List<Service> services,
-  ) {
-    if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16.0),
+  /// Builds the purple container that holds the list of services.
+  Widget _buildServicesContent(String subCategoryId) {
+    final bool isLoading = _loadingServices[subCategoryId] ?? false;
+    final List<Service> services = _subCategoryServices[subCategoryId] ?? [];
+
+    return Container(
+      margin: EdgeInsets.only(top: 13.0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15.0),
+      ),
+      padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
+      child: Builder(
+        builder: (context) {
+          if (isLoading) {
+            return const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            );
+          }
+          if (services.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(
+                child: Text(
+                  'No services available',
+                  style: TextStyle(color: Colors.black54),
+                ),
+              ),
+            );
+          }
+          return Column(
+            children:
+                services.map((service) => _buildServiceItem(service)).toList(),
+          );
+        },
+      ),
+    );
+  }
+
+  /// Builds a single tappable service item row.
+  Widget _buildServiceItem(Service service) {
+    return InkWell(
+      onTap: () => _onServiceTap(service),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14.0),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              height: 16,
-              width: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
+            Expanded(
+              child: Text(
+                service.name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-            SizedBox(width: 12),
-            Text(
-              'Loading services...',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+            const SizedBox(width: 12),
+            Icon(
+              Icons.north_east,
+              size: 16,
+              color: Colors.black.withOpacity(0.7),
             ),
           ],
         ),
-      );
-    }
-
-    if (services.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16.0),
-        child: Text(
-          'No services available',
-          style: TextStyle(fontSize: 12, color: Colors.grey),
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children:
-          services
-              .map(
-                (service) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10.0),
-                  child: GestureDetector(
-                    onTap: () => _onServiceTap(service),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8.0,
-                        horizontal: 12.0,
-                      ),
-                      decoration: BoxDecoration(
-                        // color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Text(
-                        service.name,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
+      ),
     );
   }
 }

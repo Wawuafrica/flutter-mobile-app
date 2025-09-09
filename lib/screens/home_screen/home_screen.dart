@@ -349,22 +349,6 @@ class _HomeScreenState extends State<HomeScreen> {
               slivers: [
                 const SliverToBoxAdapter(child: HomeHeader()),
 
-                const SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(height: 20),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20.0),
-                        child: CustomIntroText(text: 'Gigs You May Like'),
-                      ),
-                      SizedBox(height: 20),
-                      SuggestedGigsSection(),
-                      SizedBox(height: 30),
-                    ],
-                  ),
-                ),
-
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   sliver: SliverList(
@@ -393,6 +377,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 30),
                     ]),
+                  ),
+                ),
+
+                const SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 20),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20.0),
+                        child: CustomIntroText(text: 'Gigs You May Like'),
+                      ),
+                      SizedBox(height: 20),
+                      SuggestedGigsSection(),
+                      SizedBox(height: 30),
+                    ],
                   ),
                 ),
 

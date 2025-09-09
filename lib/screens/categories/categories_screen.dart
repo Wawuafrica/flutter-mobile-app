@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -24,8 +25,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _scrollController.addListener(_scrollListener);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final categoryProvider =
-          Provider.of<CategoryProvider>(context, listen: false);
+      final categoryProvider = Provider.of<CategoryProvider>(
+        context,
+        listen: false,
+      );
       if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
         categoryProvider.fetchCategories();
       }
@@ -40,9 +43,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   void _scrollListener() {
-    const scrollThreshold = 200.0; // Point at which the app bar becomes opaque
+    const scrollThreshold = 200.0; // Point at which the app bar title appears
     final isOpaque =
-        _scrollController.hasClients && _scrollController.offset > scrollThreshold;
+        _scrollController.hasClients &&
+        _scrollController.offset > scrollThreshold;
     if (isOpaque != _isAppBarOpaque) {
       setState(() {
         _isAppBarOpaque = isOpaque;
@@ -62,11 +66,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         controller: _scrollController,
         slivers: [
           SliverAppBar(
-            expandedHeight: 220.0,
+            expandedHeight: 250.0, // Increased height for the results text
             pinned: true,
-            backgroundColor: _isAppBarOpaque
-                ? const Color(0xFFF8F5FC)
-                : Colors.transparent,
+            backgroundColor:
+                _isAppBarOpaque ? const Color(0xFFF8F5FC) : Colors.transparent,
             elevation: _isAppBarOpaque ? 1 : 0,
             iconTheme: IconThemeData(
               color: _isAppBarOpaque ? Colors.black : Colors.white,
@@ -76,7 +79,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               opacity: _isAppBarOpaque ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 300),
               child: const Text(
-                'Design and Creative',
+                'Categories', // Renamed
                 style: TextStyle(
                   color: Colors.black,
                   fontWeight: FontWeight.bold,
@@ -87,17 +90,21 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Replicated from HomeHeader: Image
-                  Image.asset(
-                    'assets/background_wawu.png',
-                    fit: BoxFit.cover,
+                  ClipRect(
+                    // Prevents the zoomed image from overflowing
+                    child: Transform.scale(
+                      scale:
+                          1.5, // Zoom factor. 1.0 is normal, 1.5 is 50% zoom.
+                      child: Image.asset(
+                        'assets/background_wawu.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
-                  // Replicated from HomeHeader: Blur
                   BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                    filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
                     child: Container(color: Colors.black.withOpacity(0.2)),
                   ),
-                  // Replicated from HomeHeader: Gradient Blend
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -111,15 +118,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       ),
                     ),
                   ),
-                  // Content within the header
+                  // Content within the scrollable header
                   SafeArea(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 60, left: 16, right: 16),
+                      padding: const EdgeInsets.only(
+                        top: 60,
+                        left: 16,
+                        right: 16,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                           const Text(
-                            'Design and Creative',
+                          const Text(
+                            'Categories', // Renamed
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 28,
@@ -127,45 +138,54 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                           TextField(
+                          TextField(
                             readOnly: true,
-                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
+                            onTap:
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SearchScreen(),
+                                  ),
+                                ),
                             decoration: InputDecoration(
                               hintText: 'Search Service',
                               hintStyle: TextStyle(
-                                  color: Colors.white.withOpacity(0.8)),
-                              prefixIcon:
-                                  const Icon(Icons.search, color: Colors.white70),
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: Colors.white70,
+                              ),
                               filled: true,
                               fillColor: Colors.white.withOpacity(0.2),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide.none,
                               ),
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 0),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 0,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // **Results count is now part of the header**
+                          Text(
+                            '$categoryCount Results',
+                            style: const TextStyle(
+                              color: wawuColors.purpleDarkContainer,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
           ),
 
-          // Main Content List
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-              child: Text(
-                '"Design and Creative"\n$categoryCount Results',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-          ),
+          // Conditional display for loading, error, or the list
           if (categoryProvider.isLoading)
             const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
@@ -174,48 +194,49 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             SliverFillRemaining(
               child: FullErrorDisplay(
                 errorMessage:
-                    categoryProvider.errorMessage ?? 'Failed to load categories',
-                onRetry: () => categoryProvider.fetchCategories(), onContactSupport: () {  },
+                    categoryProvider.errorMessage ??
+                    'Failed to load categories',
+                onRetry: () => categoryProvider.fetchCategories(),
+                onContactSupport: () {},
               ),
             )
           else
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final category = categories[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 6.0),
-                    child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      elevation: 1,
-                      shadowColor: Colors.purple.withOpacity(0.1),
-                      child: ListTile(
-                        title: Text(category.name),
-                        trailing: const Icon(Icons.keyboard_arrow_down),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        onTap: () {
-                          categoryProvider.selectCategory(category);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    const SubCategoriesAndServices()),
-                          );
-                        },
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final category = categories[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16.0,
+                    vertical: 8.0,
+                  ),
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    elevation: 1,
+                    shadowColor: Colors.purple.withOpacity(0.1),
+                    child: ListTile(
+                      title: Text(category.name),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      onTap: () {
+                        categoryProvider.selectCategory(category);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => const SubCategoriesAndServices(),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-                childCount: categoryCount,
-              ),
+                  ),
+                );
+              }, childCount: categoryCount),
             ),
         ],
       ),
-       floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           // TODO: Implement "Become a Seller" logic
         },
@@ -229,4 +250,3 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 }
-
