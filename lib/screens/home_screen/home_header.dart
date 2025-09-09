@@ -1,6 +1,6 @@
 import 'dart:ui';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // <-- Import flutter_svg
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_sub_category/wawu_africa_sub_category.dart';
@@ -211,23 +211,16 @@ class HomeHeader extends StatelessWidget {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8.0),
-                                  child: CachedNetworkImage(
-                                    imageUrl: category.imageUrl,
-                                    width: 50,
-                                    height: 50,
-                                    fit: BoxFit.contain,
-                                    placeholder: (context, url) => const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.0,
-                                        color: wawuColors.purpleDarkestContainer,
-                                      ),
-                                    ),
-                                    errorWidget: (context, url, error) => const Icon(
-                                      Icons.image_not_supported,
+                                // === CHANGED WIDGET HERE ===
+                                SvgPicture.network(
+                                  category.imageUrl,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.contain,
+                                  placeholderBuilder: (context) => const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.0,
                                       color: wawuColors.purpleDarkestContainer,
-                                      size: 50,
                                     ),
                                   ),
                                 ),
