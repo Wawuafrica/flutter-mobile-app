@@ -165,7 +165,7 @@ class HomeHeader extends StatelessWidget {
                   ),
                 ),
           
-                const SizedBox(height: 10.0),
+                const SizedBox(height: 20.0),
           
                 // WAWUAfrica +HER Text
                 const CustomIntroText(
@@ -177,7 +177,7 @@ class HomeHeader extends StatelessWidget {
                 Transform.translate(
                   offset: Offset(0, -totalHeaderHeight * 0.2),
                   child: SizedBox(
-                    height: totalHeaderHeight * 0.65, // Set height to 55% of the parent
+                    height: totalHeaderHeight * 0.70, // Set height to 55% of the parent
                     child: GridView.builder(
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: wawuAfricaProvider.categories.length,
