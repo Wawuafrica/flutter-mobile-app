@@ -209,26 +209,29 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     horizontal: 16.0,
                     vertical: 8.0,
                   ),
-                  child: Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    elevation: 1,
-                    shadowColor: Colors.purple.withOpacity(0.1),
-                    child: ListTile(
-                      title: Text(category.name),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  child: Transform.translate(
+                    offset: Offset(0, -40),
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      elevation: 1,
+                      shadowColor: Colors.purple.withOpacity(0.1),
+                      child: ListTile(
+                        title: Text(category.name),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        onTap: () {
+                          categoryProvider.selectCategory(category);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => const SubCategoriesAndServices(),
+                            ),
+                          );
+                        },
                       ),
-                      onTap: () {
-                        categoryProvider.selectCategory(category);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => const SubCategoriesAndServices(),
-                          ),
-                        );
-                      },
                     ),
                   ),
                 );

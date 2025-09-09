@@ -86,7 +86,7 @@ class _FilteredGigsState extends State<FilteredGigs> {
           slivers: [
             // HEADER: This is the new header design
             SliverAppBar(
-              expandedHeight: 250.0,
+              expandedHeight: 300.0,
               pinned: true,
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -95,12 +95,19 @@ class _FilteredGigsState extends State<FilteredGigs> {
                 background: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.asset(
-                      'assets/background_wawu.png',
-                      fit: BoxFit.cover,
-                    ),
+                    ClipRect(
+                        // Prevents the zoomed image from overflowing
+                        child: Transform.scale(
+                          scale:
+                              1.5, // Zoom factor. 1.0 is normal, 1.5 is 50% zoom.
+                          child: Image.asset(
+                            'assets/background_wawu.png',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
                     BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                      filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
                       child: Container(color: Colors.black.withOpacity(0.2)),
                     ),
                     Container(
