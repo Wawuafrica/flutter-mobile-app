@@ -180,132 +180,85 @@ class HomeHeader extends StatelessWidget {
                   text: 'WAWUAfrica +HER',
                   color: Colors.white,
                 ),
-          
-                // Use Expanded and LayoutBuilder for a robust, dynamic grid
-                Expanded(
-                  child: Transform.translate(
-                    offset: const Offset(0, 0),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        const double gridSpacing = 10.0;
-                        const int crossAxisCount = 3;
-                        const int rowCount = 2;
-          
-                        // The specific pixel offset caused by the Stack's layout behavior
-                        const double layoutErrorOffset = 66.0;
-          
-                        // Correct the available height by subtracting the offset
-                        final double correctedHeight =
-                            constraints.maxHeight - layoutErrorOffset;
-          
-                        final double itemWidth =
-                            (constraints.maxWidth -
-                                    (gridSpacing * (crossAxisCount - 1))) /
-                                crossAxisCount;
-          
-                        final double itemHeight = (correctedHeight -
-                                (gridSpacing * (rowCount - 1))) /
-                            rowCount;
-          
-                        // Prevent errors if constraints are zero or negative
-                        if (itemHeight <= 0 || itemWidth <= 0) {
-                          return const SizedBox.shrink();
-                        }
-          
-                        return GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
+          // Replace Expanded(...) with this:
+          Transform.translate(
+            offset: const Offset(0, -80),
+              child: GridView.builder(
+                  shrinkWrap: true, // let it size itself
+                      physics: const NeverScrollableScrollPhysics(), // no inner scroll
                           itemCount: wawuAfricaProvider.categories.length,
-                          gridDelegate:
-                              SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: gridSpacing,
-                            mainAxisSpacing: gridSpacing,
-                            childAspectRatio: itemWidth / itemHeight,
-                          ),
-                          itemBuilder: (context, index) {
-                            final category =
-                                wawuAfricaProvider.categories[index];
-                            return GestureDetector(
-                              onTap: () {
-                                wawuAfricaProvider.selectCategory(category);
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const WawuAfricaSubCategory(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 6.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(10.0),
-                                  border: Border.all(
-                                    color: const Color.fromARGB(
-                                            255, 201, 201, 201)
-                                        .withOpacity(0.2),
-                                    width: 1.0,
-                                  ),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                        8.0,
-                                      ),
-                                      child: CachedNetworkImage(
-                                        imageUrl: category.imageUrl,
-                                        width: 50,
-                                        height: 50,
-                                        fit: BoxFit.contain,
-                                        placeholder: (context, url) =>
-                                            const Center(
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.0,
-                                            color: wawuColors
-                                                .purpleDarkestContainer,
-                                          ),
-                                        ),
-                                        errorWidget: (
-                                          context,
-                                          url,
-                                          error,
-                                        ) =>
-                                            const Icon(
-                                          Icons.image_not_supported,
-                                          color: wawuColors
-                                              .purpleDarkestContainer,
-                                          size: 50,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      category.name,
-                                      textAlign: TextAlign.center,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color:
-                                            wawuColors.purpleDarkestContainer,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,          // 3 items per row
+                                          crossAxisSpacing: 10.0,     // spacing between columns
+                                                mainAxisSpacing: 10.0,      // spacing between rows
+                                                      childAspectRatio: 1,        // square items (adjust if needed)
+                                                          ),
+                                                              itemBuilder: (context, index) {
+                                                                    final category = wawuAfricaProvider.categories[index];
+                                                                          return GestureDetector(
+                                                                                  onTap: () {
+                                                                                            wawuAfricaProvider.selectCategory(category);
+                                                                                                      Navigator.push(
+                                                                                                                  context,
+                                                                                                                              MaterialPageRoute(
+                                                                                                                                            builder: (context) => const WawuAfricaSubCategory(),
+                                                                                                                                                        ),
+                                                                                                                                                                  );
+                                                                                                                                                                          },
+                                                                                                                                                                                  child: Container(
+                                                                                                                                                                                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                                                                                                                                                                                                      decoration: BoxDecoration(
+                                                                                                                                                                                                                  color: Colors.white.withOpacity(0.6),
+                                                                                                                                                                                                                              borderRadius: BorderRadius.circular(10.0),
+                                                                                                                                                                                                                                          border: Border.all(
+                                                                                                                                                                                                                                                        color: const Color.fromARGB(255, 201, 201, 201).withOpacity(0.2),
+                                                                                                                                                                                                                                                                      width: 1.0,
+                                                                                                                                                                                                                                                                                  ),
+                                                                                                                                                                                                                                                                                            ),
+                                                                                                                                                                                                                                                                                                      child: Column(
+                                                                                                                                                                                                                                                                                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                                                                                                                                                                                                                                                                                              children: [
+                                                                                                                                                                                                                                                                                                                                            ClipRRect(
+                                                                                                                                                                                                                                                                                                                                                            borderRadius: BorderRadius.circular(8.0),
+                                                                                                                                                                                                                                                                                                                                                                            child: CachedNetworkImage(
+                                                                                                                                                                                                                                                                                                                                                                                              imageUrl: category.imageUrl,
+                                                                                                                                                                                                                                                                                                                                                                                                                width: 50,
+                                                                                                                                                                                                                                                                                                                                                                                                                                  height: 50,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                    fit: BoxFit.contain,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      placeholder: (context, url) => const Center(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          child: CircularProgressIndicator(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                strokeWidth: 2.0,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      color: wawuColors.purpleDarkestContainer,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              errorWidget: (context, url, error) => const Icon(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Icons.image_not_supported,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      color: wawuColors.purpleDarkestContainer,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          size: 50,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        const SizedBox(height: 8),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      Text(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      category.name,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      textAlign: TextAlign.center,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      maxLines: 2,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      overflow: TextOverflow.ellipsis,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      style: const TextStyle(
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        color: wawuColors.purpleDarkestContainer,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          fontSize: 12,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            fontWeight: FontWeight.bold,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ],
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              );
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  },
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ),
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ),
+                // Use Expanded and LayoutBuilder for a robust, dynamic grid
+                
             ),
           ),
         ],
