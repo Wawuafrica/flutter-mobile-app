@@ -186,7 +186,7 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                               Text(
                                 '$subCategoryCount Results',
                                 style: const TextStyle(
-                                  color: wawuColors.purpleDarkContainer,
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
