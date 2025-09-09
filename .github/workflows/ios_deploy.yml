@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: macos-latest # Or self-hosted runner if preferred
+    runs-on: macos-14 # Or self-hosted runner if preferred
 
     steps:
     - name: Checkout code
