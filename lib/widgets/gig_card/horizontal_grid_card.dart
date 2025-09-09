@@ -30,7 +30,7 @@ class HorizontalGigCard extends StatelessWidget {
     return GestureDetector(
       onTap: navigateToGig,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0.0),
         padding: const EdgeInsets.all(12.0),
         decoration: BoxDecoration(
           // Subtle background color as seen in the design
