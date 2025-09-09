@@ -165,17 +165,6 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Implement "Become a Seller" logic
-        },
-        backgroundColor: wawuColors.primary,
-        icon: const Icon(Icons.store, color: Colors.white),
-        label: const Text(
-          'Become a Seller',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
     );
   }
 }
