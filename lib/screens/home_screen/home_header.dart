@@ -75,7 +75,7 @@ class HomeHeader extends StatelessWidget {
                 // --- FIX START ---
                 // Replace the hardcoded height with the dynamic status bar height
                 // plus any additional margin you want.
-                SizedBox(height: statusBarHeight + 26.0), // Adjust 26.0 as needed
+                SizedBox(height: statusBarHeight + 76.0), // Adjust 26.0 as needed
                 // --- FIX END ---
           
                 // Search Bar Section
@@ -180,12 +180,49 @@ class HomeHeader extends StatelessWidget {
                   text: 'WAWUAfrica +HER',
                   color: Colors.white,
                 ),
+<<<<<<< HEAD
           // Replace Expanded(...) with this:
           Transform.translate(
             offset: const Offset(0, -80),
               child: GridView.builder(
                   shrinkWrap: true, // let it size itself
                       physics: const NeverScrollableScrollPhysics(), // no inner scroll
+=======
+          
+                // Use Expanded and LayoutBuilder for a robust, dynamic grid
+                Expanded(
+                  child: Transform.translate(
+                    offset: const Offset(0, -80),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const double gridSpacing = 10.0;
+                        const int crossAxisCount = 3;
+                        const int rowCount = 2;
+          
+                        // The specific pixel offset caused by the Stack's layout behavior
+                        const double layoutErrorOffset = 66.0;
+          
+                        // Correct the available height by subtracting the offset
+                        final double correctedHeight =
+                            constraints.maxHeight - layoutErrorOffset;
+          
+                        final double itemWidth =
+                            (constraints.maxWidth -
+                                    (gridSpacing * (crossAxisCount - 1))) /
+                                crossAxisCount;
+          
+                        final double itemHeight = (correctedHeight -
+                                (gridSpacing * (rowCount - 1))) /
+                            rowCount;
+          
+                        // Prevent errors if constraints are zero or negative
+                        if (itemHeight <= 0 || itemWidth <= 0) {
+                          return const SizedBox.shrink();
+                        }
+          
+                        return GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+>>>>>>> ac5dd08812ac061bf7aa2b0f5dbcae7d097e349e
                           itemCount: wawuAfricaProvider.categories.length,
                               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                     crossAxisCount: 3,          // 3 items per row

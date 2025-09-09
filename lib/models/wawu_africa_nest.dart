@@ -1,16 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
-
-// Helper function to proxy URLs for web to avoid CORS errors
-String _proxyUrlForWeb(String url) {
-  if (kIsWeb && url.isNotEmpty && !url.startsWith('http://localhost')) {
-    if (url.startsWith('https://corsproxy.io/?')) {
-      return url;
-    }
-    return 'https://corsproxy.io/?${Uri.encodeComponent(url)}';
-  }
-  return url;
-}
-
 class WawuAfricaCategory {
   final int id;
   final String name;
@@ -26,7 +13,7 @@ class WawuAfricaCategory {
     return WawuAfricaCategory(
       id: json['id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
-      imageUrl: _proxyUrlForWeb(json['image_url'] as String? ?? ''),
+      imageUrl: json['image_url'] as String? ?? '',
     );
   }
 
@@ -53,7 +40,7 @@ class WawuAfricaSubCategory {
       id: json['id'] as int? ?? 0,
       wawuAfricaCategoryId: json['wawu_africa_category_id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
-      imageUrl: _proxyUrlForWeb(json['image_url'] as String? ?? ''),
+      imageUrl: json['image_url'] as String? ?? '',
     );
   }
 
@@ -90,10 +77,8 @@ class WawuAfricaInstitution {
       wawuAfricaSubCategoryId: json['wawu_africa_sub_category_id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      profileImageUrl: _proxyUrlForWeb(
-        json['profile_image_url'] as String? ?? '',
-      ),
-      coverImageUrl: _proxyUrlForWeb(json['cover_image_url'] as String? ?? ''),
+      profileImageUrl: json['profile_image_url'] as String? ?? '',
+      coverImageUrl: json['cover_image_url'] as String? ?? '',
     );
   }
 
@@ -133,7 +118,7 @@ class WawuAfricaInstitutionContent {
       id: json['id'] as int? ?? 0,
       wawuAfricaInstitutionId: json['wawu_africa_institution_id'] as int? ?? 0,
       name: json['name'] as String? ?? '',
-      imageUrl: _proxyUrlForWeb(json['image_url'] as String? ?? ''),
+      imageUrl: json['image_url'] as String? ?? '',
       description: json['description'] as String? ?? '',
       requirements: json['requirements'] as String? ?? '',
       keyBenefits: json['key_benefits'] as String? ?? '',
