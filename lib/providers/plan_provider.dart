@@ -4,11 +4,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+// Assuming these are your actual model/service paths
 import 'package:wawu_mobile/models/subscription_iap.dart';
 import '../models/plan.dart';
 import '../models/subscription.dart';
 import '../services/api_service.dart';
-import '../services/iap_service.dart' hide PurchaseStatus;
+import '../services/iap_service.dart';
 import 'package:wawu_mobile/providers/base_provider.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 
@@ -37,12 +38,17 @@ class PlanProvider extends BaseProvider {
   static const String _lastCheckKey = 'last_subscription_check';
   static const String _userIdKey = 'cached_user_id';
 
+    // Base URL for the Node.js/Express backend
+  static const String _tsBackendBaseUrl =
+      'https://wawu-ts-backend-eight.vercel.app/api';
+
+
   // Cache duration (24 hours)
   static const Duration _cacheValidDuration = Duration(hours: 24);
 
   // Backend integration settings
-  bool _enableBackendVerification = false;
-  bool _sendPurchaseToBackend = false;
+  bool _enableBackendVerification = true;
+  bool _sendPurchaseToBackend = true;
 
   // Getters
   List<Plan> get plans => _plans;
@@ -59,7 +65,7 @@ class PlanProvider extends BaseProvider {
       debugPrint('[PlanProvider] Active subscription found in cache');
       return true;
     }
-    
+
     // Then check IAP service
     final iapActive = _iapService.hasActiveSubscription();
     debugPrint('[PlanProvider] IAP active subscription: $iapActive');
@@ -74,12 +80,12 @@ class PlanProvider extends BaseProvider {
   Future<bool> loadCachedSubscription([String? userId]) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Check if we have cached data
       final cachedSubscriptionJson = prefs.getString(_subscriptionKey);
       final lastCheckTimestamp = prefs.getInt(_lastCheckKey);
       final cachedUserId = prefs.getString(_userIdKey);
-      
+
       if (cachedSubscriptionJson == null || lastCheckTimestamp == null) {
         debugPrint('[PlanProvider] No cached subscription data found');
         return false;
@@ -89,31 +95,42 @@ class PlanProvider extends BaseProvider {
       final lastCheck = DateTime.fromMillisecondsSinceEpoch(lastCheckTimestamp);
       final now = DateTime.now();
       final cacheAge = now.difference(lastCheck);
-      
+
       if (cacheAge > _cacheValidDuration) {
-        debugPrint('[PlanProvider] Cached subscription data expired (${cacheAge.inHours} hours old)');
+        debugPrint(
+          '[PlanProvider] Cached subscription data expired (${cacheAge.inHours} hours old)',
+        );
         await _clearCachedSubscription();
         return false;
       }
 
       // Check if the cached data is for the same user
       if (userId != null && cachedUserId != userId) {
-        debugPrint('[PlanProvider] Cached subscription for different user, clearing cache');
+        debugPrint(
+          '[PlanProvider] Cached subscription for different user, clearing cache',
+        );
         await _clearCachedSubscription();
         return false;
       }
 
       // Parse cached subscription
-      final subscriptionMap = jsonDecode(cachedSubscriptionJson) as Map<String, dynamic>;
+      final subscriptionMap =
+          jsonDecode(cachedSubscriptionJson) as Map<String, dynamic>;
       _subscriptionIap = SubscriptionIap.fromJson(subscriptionMap);
-      
+
       // Verify the subscription is still active
       if (_subscriptionIap!.isActive) {
-        debugPrint('[PlanProvider] Valid cached subscription loaded: ${_subscriptionIap!.id}');
-        debugPrint('[PlanProvider] Subscription expires: ${_subscriptionIap!.endDate}');
+        debugPrint(
+          '[PlanProvider] Valid cached subscription loaded: ${_subscriptionIap!.id}',
+        );
+        debugPrint(
+          '[PlanProvider] Subscription expires: ${_subscriptionIap!.endDate}',
+        );
         return true;
       } else {
-        debugPrint('[PlanProvider] Cached subscription expired, clearing cache');
+        debugPrint(
+          '[PlanProvider] Cached subscription expired, clearing cache',
+        );
         await _clearCachedSubscription();
         return false;
       }
@@ -128,16 +145,16 @@ class PlanProvider extends BaseProvider {
   Future<void> _cacheSubscription(String? userId) async {
     try {
       if (_subscriptionIap == null) return;
-      
+
       final prefs = await SharedPreferences.getInstance();
       final subscriptionJson = jsonEncode(_subscriptionIap!.toJson());
-      
+
       await prefs.setString(_subscriptionKey, subscriptionJson);
       await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
       if (userId != null) {
         await prefs.setString(_userIdKey, userId);
       }
-      
+
       debugPrint('[PlanProvider] Subscription cached successfully');
     } catch (e) {
       debugPrint('[PlanProvider] Error caching subscription: $e');
@@ -207,24 +224,37 @@ class PlanProvider extends BaseProvider {
 
       debugPrint('[PlanProvider] Checking for existing subscriptions...');
 
-      final List<PurchaseDetails> activeIAPPurchases = _iapService.activePurchases;
+      final List<PurchaseDetails> activeIAPPurchases =
+          _iapService.activePurchases;
 
       if (activeIAPPurchases.isNotEmpty) {
-        debugPrint('[PlanProvider] Found existing active subscription(s) in IAPService');
+        debugPrint(
+          '[PlanProvider] Found existing active subscription(s) in IAPService',
+        );
 
         PurchaseDetails? activePurchase;
         for (final purchase in activeIAPPurchases) {
           if (purchase.productID == _iapService.productId &&
               (purchase.status == PurchaseStatus.purchased ||
-               purchase.status == PurchaseStatus.restored)) {
+                  purchase.status == PurchaseStatus.restored)) {
             activePurchase = purchase;
             break;
           }
         }
 
         if (activePurchase != null) {
-          await _createSubscriptionFromPurchase(activePurchase, isRestored: true);
-          debugPrint('[PlanProvider] Restored existing subscription: ${_subscriptionIap!.id}');
+          await _createSubscriptionFromPurchase(
+            activePurchase,
+            isRestored: true,
+          );
+          debugPrint(
+            '[PlanProvider] Restored existing subscription: ${_subscriptionIap!.id}',
+          );
+          
+          // Sync existing subscription with the backend
+          if (_sendPurchaseToBackend) {
+            await _sendPurchaseDataToBackend(activePurchase);
+          }
           
           // Cache the restored subscription
           await _cacheSubscription(null);
@@ -239,45 +269,51 @@ class PlanProvider extends BaseProvider {
   }
 
   /// Create SubscriptionIap from PurchaseDetails
+  /// This method's only responsibility is now to create the local object.
   Future<void> _createSubscriptionFromPurchase(
     PurchaseDetails purchaseDetails, {
     bool isRestored = false,
   }) async {
     try {
       Duration subscriptionDuration = const Duration(days: 365);
-      
+
       if (_selectedPlan != null) {
         subscriptionDuration = _getPlanDuration(_selectedPlan!);
       }
 
       _subscriptionIap = SubscriptionIap(
-        id: isRestored 
+        id: isRestored
             ? 'restored_${purchaseDetails.purchaseID ?? DateTime.now().millisecondsSinceEpoch.toString()}'
             : 'iap_${purchaseDetails.purchaseID ?? DateTime.now().millisecondsSinceEpoch.toString()}',
-        planId: _selectedPlan?.uuid ?? (isRestored ? 'restored_plan' : 'unknown'),
+        planId:
+            _selectedPlan?.uuid ?? (isRestored ? 'restored_plan' : 'unknown'),
         status: 'active',
         startDate: purchaseDetails.transactionDate != null
             ? DateTime.fromMillisecondsSinceEpoch(
-                int.tryParse(purchaseDetails.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch
+                int.tryParse(purchaseDetails.transactionDate!) ??
+                    DateTime.now().millisecondsSinceEpoch,
               )
             : DateTime.now(),
         endDate: purchaseDetails.transactionDate != null
             ? DateTime.fromMillisecondsSinceEpoch(
-                int.tryParse(purchaseDetails.transactionDate!) ?? DateTime.now().millisecondsSinceEpoch
+                int.tryParse(purchaseDetails.transactionDate!) ??
+                    DateTime.now().millisecondsSinceEpoch,
               ).add(subscriptionDuration)
             : DateTime.now().add(subscriptionDuration),
         platform: Platform.isIOS ? 'ios' : 'android',
         productId: purchaseDetails.productID,
       );
 
-      debugPrint('[PlanProvider] Created SubscriptionIap: ${_subscriptionIap!.id}');
+      debugPrint(
+        '[PlanProvider] Created SubscriptionIap: ${_subscriptionIap!.id}',
+      );
       
-      if (_sendPurchaseToBackend && !isRestored) {
-        await _sendPurchaseDataToBackend(purchaseDetails);
-      }
+      // -- REMOVED BACKEND CALL FROM HERE --
 
     } catch (e) {
-      debugPrint('[PlanProvider] Error creating subscription from purchase: $e');
+      debugPrint(
+        '[PlanProvider] Error creating subscription from purchase: $e',
+      );
       throw e;
     }
   }
@@ -288,38 +324,51 @@ class PlanProvider extends BaseProvider {
   }
 
   /// Send purchase data to backend (optional)
-  Future<void> _sendPurchaseDataToBackend(PurchaseDetails purchaseDetails) async {
+  Future<void> _sendPurchaseDataToBackend(
+    PurchaseDetails purchaseDetails,
+  ) async {
+    // This safety check prevents sending data if the flag is false
+    if (!_sendPurchaseToBackend) return;
+
     try {
       debugPrint('[PlanProvider] Sending purchase data to backend...');
-      
+
       final String? receipt = _iapService.getPurchaseReceipt(purchaseDetails);
       if (receipt == null) {
         debugPrint('[PlanProvider] No receipt available for backend');
         return;
       }
 
-      final response = await _apiService.post('/subscribe/purchase-notification', data: {
-        'purchase_id': purchaseDetails.purchaseID,
-        'product_id': purchaseDetails.productID,
-        'platform': Platform.isIOS ? 'ios' : 'android',
-        'transaction_date': purchaseDetails.transactionDate,
-        'receipt_data': receipt,
-        'plan_uuid': _selectedPlan?.uuid,
-        'subscription_data': _subscriptionIap?.toJson(),
-      });
+      final response = await _apiService.post(
+        '$_tsBackendBaseUrl/subscribe/purchase-notification',
+        data: {
+          'purchase_id': purchaseDetails.purchaseID,
+          'product_id': purchaseDetails.productID,
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          'transaction_date': purchaseDetails.transactionDate,
+          'receipt_data': receipt,
+          'plan_uuid': _selectedPlan?.uuid,
+          'subscription_data': _subscriptionIap?.toJson(),
+        },
+      );
 
-      if (response != null && response['statusCode'] == 200) {
+      if (response != null && (response['statusCode'] == 200 || response['statusCode'] == 201) ) {
         debugPrint('[PlanProvider] Purchase data sent to backend successfully');
-        
-        if (response['data'] != null && response['data']['subscription'] != null) {
+
+        if (response['data'] != null &&
+            response['data']['subscription'] != null) {
           final updatedSubscription = SubscriptionIap.fromJson(
-            response['data']['subscription'] as Map<String, dynamic>
+            response['data']['subscription'] as Map<String, dynamic>,
           );
           _subscriptionIap = updatedSubscription;
-          debugPrint('[PlanProvider] Updated subscription from backend response');
+          debugPrint(
+            '[PlanProvider] Updated subscription from backend response',
+          );
         }
       } else {
-        debugPrint('[PlanProvider] Failed to send purchase data to backend: ${response?['message']}');
+        debugPrint(
+          '[PlanProvider] Failed to send purchase data to backend: ${response?['message']}',
+        );
       }
     } catch (e) {
       debugPrint('[PlanProvider] Error sending purchase to backend: $e');
@@ -343,12 +392,17 @@ class PlanProvider extends BaseProvider {
       final response = await _apiService.get('/plans');
       if (response != null && response['data'] is List) {
         _plans = (response['data'] as List)
-            .map((planJson) => Plan.fromJson(planJson as Map<String, dynamic>))
+            .map(
+              (planJson) => Plan.fromJson(planJson as Map<String, dynamic>),
+            )
             .toList();
         setSuccess();
       } else {
         _plans = [];
-        setError(response['message'] ?? 'Failed to fetch plans: Invalid response structure');
+        setError(
+          response['message'] ??
+              'Failed to fetch plans: Invalid response structure',
+        );
       }
     } catch (e) {
       _plans = [];
@@ -369,11 +423,15 @@ class PlanProvider extends BaseProvider {
 
       if (_iapService.hasActiveSubscription()) {
         debugPrint('[PlanProvider] User already has active subscription');
-        setError('You already have an active subscription. Please check your subscription status.');
+        setError(
+          'You already have an active subscription. Please check your subscription status.',
+        );
         return;
       }
 
-      debugPrint('[PlanProvider] Starting purchase process for plan: $planUuid');
+      debugPrint(
+        '[PlanProvider] Starting purchase process for plan: $planUuid',
+      );
 
       setLoading();
       _isProcessingPurchase = true;
@@ -400,7 +458,9 @@ class PlanProvider extends BaseProvider {
         return;
       }
 
-      debugPrint('[PlanProvider] Purchase initiated successfully, waiting for result...');
+      debugPrint(
+        '[PlanProvider] Purchase initiated successfully, waiting for result...',
+      );
     } catch (e) {
       debugPrint('[PlanProvider] Purchase error: $e');
       _resetPurchaseState();
@@ -411,7 +471,9 @@ class PlanProvider extends BaseProvider {
   /// Handle purchase updates from IAP
   void _handlePurchaseUpdate(PurchaseDetails purchaseDetails) async {
     try {
-      debugPrint('[PlanProvider] Purchase update received: ${purchaseDetails.status} for ${purchaseDetails.productID}');
+      debugPrint(
+        '[PlanProvider] Purchase update received: ${purchaseDetails.status} for ${purchaseDetails.productID}',
+      );
 
       switch (purchaseDetails.status) {
         case PurchaseStatus.purchased:
@@ -437,17 +499,25 @@ class PlanProvider extends BaseProvider {
     }
   }
 
-  /// Handle successful purchase
-  Future<void> _handleSuccessfulPurchase(PurchaseDetails purchaseDetails) async {
+  /// Handle successful purchase -- FIXED
+  Future<void> _handleSuccessfulPurchase(
+    PurchaseDetails purchaseDetails,
+  ) async {
     try {
       debugPrint('[PlanProvider] Handling successful purchase...');
       _currentPurchase = purchaseDetails;
 
+      // First, create the local subscription object.
       await _createSubscriptionFromPurchase(purchaseDetails);
 
-      debugPrint('[PlanProvider] SubscriptionIap created successfully: ${_subscriptionIap!.id}');
+      debugPrint(
+        '[PlanProvider] SubscriptionIap created successfully: ${_subscriptionIap!.id}',
+      );
 
-      // Cache the new subscription
+      // Second, if backend sync is enabled, send the data.
+      await _sendPurchaseDataToBackend(purchaseDetails);
+      
+      // Third, cache the new subscription locally.
       await _cacheSubscription(null);
 
       _purchaseCompleted = true;
@@ -458,7 +528,6 @@ class PlanProvider extends BaseProvider {
 
       await OnboardingStateService.saveStep('disclaimer');
       debugPrint('[PlanProvider] Onboarding step saved to disclaimer');
-
     } catch (e) {
       debugPrint('[PlanProvider] Failed to process successful purchase: $e');
       _resetPurchaseState();
@@ -473,7 +542,9 @@ class PlanProvider extends BaseProvider {
 
     if (error != null) {
       errorMessage = error.message;
-      debugPrint('[PlanProvider] Purchase error: ${error.code} - ${error.message}');
+      debugPrint(
+        '[PlanProvider] Purchase error: ${error.code} - ${error.message}',
+      );
     }
 
     _resetPurchaseState();
@@ -492,6 +563,9 @@ class PlanProvider extends BaseProvider {
     debugPrint('[PlanProvider] Handling restored purchase...');
 
     await _createSubscriptionFromPurchase(purchaseDetails, isRestored: true);
+    
+    // Sync the restored purchase with the backend
+    await _sendPurchaseDataToBackend(purchaseDetails);
 
     // Cache the restored subscription
     await _cacheSubscription(null);
@@ -502,7 +576,9 @@ class PlanProvider extends BaseProvider {
 
   /// Handle pending purchase
   void _handlePendingPurchase() {
-    debugPrint('[PlanProvider] Purchase is pending (e.g., waiting for parental approval)');
+    debugPrint(
+      '[PlanProvider] Purchase is pending (e.g., waiting for parental approval)',
+    );
   }
 
   /// Restore purchases (iOS)
@@ -530,93 +606,134 @@ class PlanProvider extends BaseProvider {
     }
   }
 
-/// Fetch user subscription details - FIXED AND SIMPLIFIED VERSION
-Future<void> fetchUserSubscriptionDetails(String userId, int role) async {
-  try {
-    debugPrint('[PlanProvider] Starting subscription check for user: $userId');
-    
-    // Step 1: Load cached subscription first (fastest)
-    final bool hasCachedSubscription = await loadCachedSubscription(userId);
-    if (hasCachedSubscription) {
-      debugPrint('[PlanProvider] Valid cached subscription found, skipping further checks');
-      setSuccess();
-      return;
-    }
+  /// Fetch user subscription details - NOW WITH FULL BACKEND LOGIC
+  Future<void> fetchUserSubscriptionDetails(String userId, int role) async {
+    try {
+      debugPrint(
+        '[PlanProvider] Starting subscription check for user: $userId',
+      );
 
-    // Step 2: Initialize IAP if not already done
-    if (!_isIapInitialized) {
-      setLoading();
-      final bool iapInitialized = await initializeIAP();
-      if (!iapInitialized) {
-        // Allow user to continue even if IAP fails
-        debugPrint('[PlanProvider] IAP initialization failed, but continuing');
+      // Step 1: Load cached subscription first (fastest)
+      final bool hasCachedSubscription = await loadCachedSubscription(userId);
+      if (hasCachedSubscription) {
+        debugPrint(
+          '[PlanProvider] Valid cached subscription found, skipping further checks',
+        );
         setSuccess();
         return;
       }
-    }
+      
+      // Step 2: Check our backend if enabled. This makes your server the source of truth.
+      if (_enableBackendVerification) {
+        debugPrint('[PlanProvider] Backend verification is enabled, checking server...');
+        try {
+          final response = await _apiService.get('$_tsBackendBaseUrl/subscribe/status');
+          if (response != null && response['hasActiveSubscription'] == true && response['subscription'] != null) {
+            debugPrint('[PlanProvider] Active subscription found on backend.');
+            // Create a SubscriptionIap object from the backend response
+            _subscriptionIap = SubscriptionIap.fromJson(response['subscription'] as Map<String, dynamic>);
+            await _cacheSubscription(userId);
+            setSuccess();
+            return; // Found subscription on backend, we are done.
+          } else {
+            debugPrint('[PlanProvider] No active subscription found on backend.');
+          }
+        } catch (e) {
+          debugPrint('[PlanProvider] Error checking backend for subscription: $e. Will proceed with IAP check as a fallback.');
+        }
+      }
 
-    // Step 3: Check IAP subscription status
-    final bool hasActive = await checkActiveSubscription();
-    if (hasActive) {
-      debugPrint('[PlanProvider] Active subscription found via IAP check');
-      await _cacheSubscription(userId);
+      // Step 3: Initialize IAP if not already done (fallback or primary check)
+      if (!_isIapInitialized) {
+        setLoading();
+        final bool iapInitialized = await initializeIAP();
+        if (!iapInitialized) {
+          // Allow user to continue even if IAP fails
+          debugPrint(
+            '[PlanProvider] IAP initialization failed, but continuing',
+          );
+          setSuccess();
+          return;
+        }
+      }
+
+      // Step 4: Check IAP service directly
+      final bool hasActive = await checkActiveSubscription();
+      if (hasActive) {
+        debugPrint('[PlanProvider] Active subscription found via IAP check');
+        await _cacheSubscription(userId);
+        setSuccess();
+        return;
+      }
+
+      // If we reach here, no active subscription was found anywhere
+      debugPrint(
+        '[PlanProvider] No active subscription found after all checks',
+      );
+      setSuccess(); // Don't set error - just no subscription
+    } catch (e) {
+      debugPrint('[PlanProvider] Error in fetchUserSubscriptionDetails: $e');
+      // Don't set error - allow user to continue
       setSuccess();
-      return;
     }
-
-    // If we reach here, no active subscription was found
-    debugPrint('[PlanProvider] No active subscription found after all checks');
-    setSuccess(); // Don't set error - just no subscription
-
-  } catch (e) {
-    debugPrint('[PlanProvider] Error in fetchUserSubscriptionDetails: $e');
-    // Don't set error - allow user to continue
-    setSuccess();
   }
-}
 
-/// Simplified checkActiveSubscription method
-Future<bool> checkActiveSubscription() async {
-  try {
-    debugPrint('[PlanProvider] Checking for active subscription...');
+  /// Simplified checkActiveSubscription method
+  Future<bool> checkActiveSubscription() async {
+    try {
+      debugPrint('[PlanProvider] Checking for active subscription...');
 
-    // First check local subscription
-    if (_subscriptionIap != null && _subscriptionIap!.isActive) {
-      debugPrint('[PlanProvider] Found active local SubscriptionIap');
-      return true;
-    }
-
-    // Then check IAP service
-    final bool hasIAPActive = _iapService.hasActiveSubscription();
-    debugPrint('[PlanProvider] IAP service reports active subscription: $hasIAPActive');
-
-    if (hasIAPActive) {
-      final PurchaseDetails? activePurchase = _iapService.getActivePurchase();
-
-      if (activePurchase != null) {
-        debugPrint('[PlanProvider] Creating subscription from active purchase');
-        await _createSubscriptionFromPurchase(activePurchase, isRestored: true);
-        notifyListeners();
+      // First check local subscription
+      if (_subscriptionIap != null && _subscriptionIap!.isActive) {
+        debugPrint('[PlanProvider] Found active local SubscriptionIap');
         return true;
       }
-    }
 
-    return false;
-  } catch (e) {
-    debugPrint('[PlanProvider] Error checking subscription status: $e');
-    return false;
+      // Then check IAP service
+      final bool hasIAPActive = _iapService.hasActiveSubscription();
+      debugPrint(
+        '[PlanProvider] IAP service reports active subscription: $hasIAPActive',
+      );
+
+      if (hasIAPActive) {
+        final PurchaseDetails? activePurchase = _iapService.getActivePurchase();
+
+        if (activePurchase != null) {
+          debugPrint(
+            '[PlanProvider] Creating subscription from active purchase',
+          );
+          await _createSubscriptionFromPurchase(
+            activePurchase,
+            isRestored: true,
+          );
+          // When an active purchase is found on the device, we should sync it with the backend
+          await _sendPurchaseDataToBackend(activePurchase);
+          notifyListeners();
+          return true;
+        }
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('[PlanProvider] Error checking subscription status: $e');
+      return false;
+    }
   }
-}
+
   /// Enable/disable backend verification (for when backend is ready)
   void setBackendVerificationEnabled(bool enabled) {
     _enableBackendVerification = enabled;
-    debugPrint('[PlanProvider] Backend verification ${enabled ? 'enabled' : 'disabled'}');
+    debugPrint(
+      '[PlanProvider] Backend verification ${enabled ? 'enabled' : 'disabled'}',
+    );
   }
 
   /// Enable/disable sending purchase data to backend
   void setSendPurchaseToBackend(bool enabled) {
     _sendPurchaseToBackend = enabled;
-    debugPrint('[PlanProvider] Send purchase to backend ${enabled ? 'enabled' : 'disabled'}');
+    debugPrint(
+      '[PlanProvider] Send purchase to backend ${enabled ? 'enabled' : 'disabled'}',
+    );
   }
 
   /// Select plan
@@ -669,3 +786,4 @@ Future<bool> checkActiveSubscription() async {
     super.dispose();
   }
 }
+

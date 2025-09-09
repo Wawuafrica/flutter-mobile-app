@@ -307,121 +307,105 @@ class MainScreenState extends State<MainScreen> {
     return status.isGranted;
   }
 
-  /// Perform initial subscription check - optimized to prevent repeated redirects
-  // Fixed MainScreen _performInitialSubscriptionCheck method
+  /// --- UPDATED SUBSCRIPTION CHECK ---
+  /// This method now correctly uses the PlanProvider's full logic.
   void _performInitialSubscriptionCheck() async {
     if (_hasCheckedSubscription || _subscriptionCheckInProgress) return;
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUser = userProvider.currentUser;
-    final userType = currentUser?.role?.toLowerCase();
 
     // Skip subscription check for BUYER role or unauthenticated users
-    if (userType == 'buyer' || currentUser == null) {
-      debugPrint(
-        '[MainScreen] Skipping subscription check - BUYER role or no user',
-      );
-      setState(() {
-        _hasCheckedSubscription = true;
-      });
+    if (currentUser == null || currentUser.role?.toLowerCase() == 'buyer') {
+      debugPrint('[MainScreen] Skipping subscription check for Guest or Buyer.');
+      setState(() => _hasCheckedSubscription = true);
       return;
     }
+    
+    // --- FIX: RESTORED CONNECTIVITY CHECK ---
+    final connectivityResult = await (Connectivity().checkConnectivity());
+    if (connectivityResult == ConnectivityResult.none) {
+      debugPrint('[MainScreen] No internet. Allowing user to continue based on cached data.');
+      if (mounted) {
+         CustomSnackBar.show(
+            context,
+            message: 'No internet connection. Subscription status may not be up to date.',
+            isError: false,
+          );
+          // We can still try a quick load from cache, which works offline
+          final planProvider = Provider.of<PlanProvider>(context, listen: false);
+          await planProvider.loadCachedSubscription(currentUser.uuid);
+      }
+       setState(() {
+          _hasCheckedSubscription = true;
+          _subscriptionCheckInProgress = false;
+        });
+      return; // Stop further checks if offline
+    }
+    // --- END FIX ---
 
-    setState(() {
-      _subscriptionCheckInProgress = true;
-    });
+
+    // --- FIX: DERIVE ROLE ID FROM ROLE NAME ---
+    int getRoleId(String? roleName) {
+      switch (roleName?.toUpperCase()) {
+        case 'BUYER':
+          return 1;
+        case 'PROFESSIONAL':
+          return 2;
+        case 'ARTISAN':
+          return 3;
+        default:
+          return 0; // Default case for unknown roles
+      }
+    }
+    final int roleId = getRoleId(currentUser.role);
+    // --- END FIX ---
+
+    setState(() => _subscriptionCheckInProgress = true);
 
     try {
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
-      // First, try to load cached subscription (fastest method)
-      final bool hasCachedSubscription = await planProvider
-          .loadCachedSubscription(currentUser.uuid);
+      // Enable the backend communication flags
+      planProvider.setSendPurchaseToBackend(true);
+      planProvider.setBackendVerificationEnabled(true);
 
-      if (hasCachedSubscription && mounted) {
-        debugPrint(
-          '[MainScreen] Found cached subscription, no need for further checks',
-        );
-        setState(() {
-          _hasCheckedSubscription = true;
-          _subscriptionCheckInProgress = false;
-        });
-        return;
-      }
+      // Call the single, high-level method to perform the entire check
+      await planProvider.fetchUserSubscriptionDetails(
+        currentUser.uuid,
+        roleId, // Use the correctly derived roleId
+      );
 
-      // Check network connectivity before making API calls
-      final connectivityResult = await (Connectivity().checkConnectivity());
-      if (connectivityResult == ConnectivityResult.none) {
-        debugPrint(
-          '[MainScreen] No internet connection, allowing user to stay',
-        );
-        if (mounted) {
-          CustomSnackBar.show(
-            context,
-            message: 'No internet connection. Some features may be limited.',
-            isError: true,
-          );
-          setState(() {
-            _hasCheckedSubscription = true;
-            _subscriptionCheckInProgress = false;
-          });
-        }
-        return;
-      }
-
-      // Initialize IAP if not already done
-      if (!planProvider.isIapInitialized) {
-        final bool iapInitialized = await planProvider.initializeIAP();
-        if (!iapInitialized && mounted) {
-          debugPrint(
-            '[MainScreen] IAP initialization failed, but allowing user to continue',
-          );
-          setState(() {
-            _hasCheckedSubscription = true;
-            _subscriptionCheckInProgress = false;
-          });
-          return;
-        }
-      }
-
-      // After IAP initialization, check subscription status
-      final bool hasActiveSubscription =
-          await planProvider.checkActiveSubscription();
+      // After the check, simply consult the provider's final state
+      final bool hasActiveSubscription = planProvider.hasActiveSubscription;
 
       if (mounted) {
-        if (hasActiveSubscription) {
-          debugPrint('[MainScreen] Active subscription confirmed');
-          setState(() {
-            _hasCheckedSubscription = true;
-            _subscriptionCheckInProgress = false;
-          });
-        } else {
-          // Only redirect if we're certain there's no active subscription
-          debugPrint(
-            '[MainScreen] No active subscription found, redirecting to plan screen',
-          );
-          setState(() {
-            _subscriptionCheckInProgress = false;
-          });
+        if (!hasActiveSubscription) {
+          debugPrint('[MainScreen] No active subscription found, redirecting to plan screen.');
+          // Use pushReplacement to prevent user from going back to a screen they shouldn't access
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const Plan()),
           );
-          return;
+        } else {
+           debugPrint('[MainScreen] Active subscription confirmed.');
         }
       }
     } catch (e) {
-      debugPrint('[MainScreen] Error during subscription check: $e');
+      debugPrint('[MainScreen] Error during subscription check: $e. Allowing user to continue.');
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          message: 'Could not verify subscription status. Please check your connection.',
+          isError: true,
+        );
+      }
+    } finally {
+      // Ensure the progress indicator is always hidden
       if (mounted) {
         setState(() {
           _hasCheckedSubscription = true;
           _subscriptionCheckInProgress = false;
         });
-        CustomSnackBar.show(
-          context,
-          message:
-              'Unable to verify subscription. You can continue using the app.',
-          isError: false,
-        );
       }
     }
   }
@@ -863,3 +847,4 @@ class MainScreenState extends State<MainScreen> {
     );
   }
 }
+
