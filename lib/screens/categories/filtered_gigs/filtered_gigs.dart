@@ -5,7 +5,6 @@ import 'package:wawu_mobile/models/gig.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart';
-import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/widgets/gig_card/horizontal_grid_card.dart';
 
 class FilteredGigs extends StatefulWidget {
