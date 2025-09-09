@@ -605,7 +605,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
         }
 
         final double statusBarHeight =
-            MediaQuery.of(context).viewPadding.top + 76;
+            MediaQuery.of(context).viewPadding.top + 126;
 
         // Show normal content with inline error handling for individual sections
         return Scaffold(
