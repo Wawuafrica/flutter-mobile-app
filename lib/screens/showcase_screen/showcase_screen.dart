@@ -800,7 +800,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                   ),
                                 ),
                           
-                                const SizedBox(height: 60),
+                                const SizedBox(height: 40),
                                 // Categories Section
                                 CustomIntroText(
                                   text: 'Popular Services',
@@ -847,7 +847,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                 // Suggested Gigs Section
                 SliverToBoxAdapter(
                   child: Transform.translate(
-                    offset: Offset(0, -20),
+                    offset: Offset(0, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
