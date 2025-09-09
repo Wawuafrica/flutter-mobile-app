@@ -198,7 +198,7 @@ class _AccountTypeState extends State<AccountType> {
                                 ? () {}
                                 : () => _onAccountTypeSelected('professional'),
                         cardColor: wawuColors.purpleDarkestContainer,
-                        text: 'Professionals',
+                        text: 'Seller',
                         desc:
                             'A highly accomplished and experienced superwoman with a proven track record, formal qualifications, and relevant certifications, operating a registered business.',
                         textColor: Colors.white,
@@ -207,19 +207,19 @@ class _AccountTypeState extends State<AccountType> {
                       SizedBox(height: 20),
 
                       // Artisan Card
-                      AccountTypeCard(
-                        navigate:
-                            userProvider.isLoading
-                                ? () {}
-                                : () => _onAccountTypeSelected('artisan'),
-                        cardColor: wawuColors.purpleContainer,
-                        text: 'Artisan',
-                        desc:
-                            'A super-skilled, confident, and experienced woman ready to work but waiting to get her qualifications, certifications, and business registered.',
-                        textColor: Colors.white,
-                        selected: selectedAccountType == 'artisan',
-                      ),
-                      SizedBox(height: 20),
+                      // AccountTypeCard(
+                      //   navigate:
+                      //       userProvider.isLoading
+                      //           ? () {}
+                      //           : () => _onAccountTypeSelected('artisan'),
+                      //   cardColor: wawuColors.purpleContainer,
+                      //   text: 'Artisan',
+                      //   desc:
+                      //       'A super-skilled, confident, and experienced woman ready to work but waiting to get her qualifications, certifications, and business registered.',
+                      //   textColor: Colors.white,
+                      //   selected: selectedAccountType == 'artisan',
+                      // ),
+                      // SizedBox(height: 20),
 
                       // Buyer Card
                       AccountTypeCard(

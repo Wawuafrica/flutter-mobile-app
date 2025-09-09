@@ -204,11 +204,17 @@ class MainScreenState extends State<MainScreen> {
     super.initState();
     _initializeScreensAndNavItems();
     _requestMicrophonePermission();
+    _performInitialSubscriptionCheck();
 
     // Initialize app bar opacity based on the initial selected tab
-    _appBarOpacity = (_selectedIndex == 0 || _selectedIndex == 1 || _getSettingsScreenIndex() == _selectedIndex) ? 0.0 : 1.0;
+    _appBarOpacity =
+        (_selectedIndex == 0 ||
+                _selectedIndex == 1 ||
+                _getSettingsScreenIndex() == _selectedIndex)
+            ? 0.0
+            : 1.0;
   }
-  
+
   // Helper to get the dynamic index of the settings screen
   int _getSettingsScreenIndex() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -218,11 +224,13 @@ class MainScreenState extends State<MainScreen> {
     return isBuyer ? 4 : 5;
   }
 
-
   // Callback function to update scroll offset from child screens
   void _updateScrollOffset(double offset) {
     int settingsIndex = _getSettingsScreenIndex();
-    if ((_selectedIndex == 0 || _selectedIndex == 1 || _selectedIndex == settingsIndex) && mounted) {
+    if ((_selectedIndex == 0 ||
+            _selectedIndex == 1 ||
+            _selectedIndex == settingsIndex) &&
+        mounted) {
       const double scrollThreshold =
           150.0; // Distance after which app bar becomes fully opaque
       final newOpacity = (offset / scrollThreshold).clamp(0.0, 1.0);
@@ -327,8 +335,8 @@ class MainScreenState extends State<MainScreen> {
       final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
       // First, try to load cached subscription (fastest method)
-      final bool hasCachedSubscription =
-          await planProvider.loadCachedSubscription(currentUser.uuid);
+      final bool hasCachedSubscription = await planProvider
+          .loadCachedSubscription(currentUser.uuid);
 
       if (hasCachedSubscription && mounted) {
         debugPrint(
@@ -474,35 +482,38 @@ class MainScreenState extends State<MainScreen> {
         width: 40,
         height: 40,
         fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.grey[200],
-          ),
-          child: const Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+        placeholder:
+            (context, url) => Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey[200],
+              ),
+              child: const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
             ),
-          ),
-        ),
-        errorWidget: (context, url, error) => Image.asset(
-          'assets/images/other/avatar.webp',
-          width: 40,
-          height: 40,
-          fit: BoxFit.cover,
-        ),
-        imageBuilder: (context, imageProvider) => Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-          ),
-        ),
+        errorWidget:
+            (context, url, error) => Image.asset(
+              'assets/images/other/avatar.webp',
+              width: 40,
+              height: 40,
+              fit: BoxFit.cover,
+            ),
+        imageBuilder:
+            (context, imageProvider) => Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
+              ),
+            ),
       );
     } else {
       return Container(
@@ -526,7 +537,7 @@ class MainScreenState extends State<MainScreen> {
     final isBuyer = userProvider.currentUser?.role?.toUpperCase() == 'BUYER';
 
     final List<Widget> titles = [
-       // Home
+      // Home
       Text(
         userProvider.currentUser != null
             ? "Hello ${userProvider.currentUser?.firstName}"
@@ -539,7 +550,7 @@ class MainScreenState extends State<MainScreen> {
       ),
       // Showcase
       Text(
-         userProvider.currentUser != null
+        userProvider.currentUser != null
             ? "Hello ${userProvider.currentUser?.firstName}"
             : "Hello Guest",
         style: TextStyle(
@@ -595,7 +606,9 @@ class MainScreenState extends State<MainScreen> {
       _selectedIndex = index;
       // Restore the opacity and scroll position for the selected tab
       int settingsIndex = _getSettingsScreenIndex();
-      if (_selectedIndex == 0 || _selectedIndex == 1 || _selectedIndex == settingsIndex) {
+      if (_selectedIndex == 0 ||
+          _selectedIndex == 1 ||
+          _selectedIndex == settingsIndex) {
         _updateScrollOffset(_scrollOffsets[_selectedIndex] ?? 0.0);
       } else {
         _appBarOpacity = 1.0; // Fully opaque for other tabs
@@ -642,30 +655,31 @@ class MainScreenState extends State<MainScreen> {
               horizontal: 15.0,
               vertical: 15.0,
             ),
-            child: _isSearchOpen
-                ? TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: "Search...",
-                      hintStyle: const TextStyle(fontSize: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      filled: true,
-                      fillColor: wawuColors.primary.withAlpha(30),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: wawuColors.primary.withAlpha(60),
+            child:
+                _isSearchOpen
+                    ? TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: "Search...",
+                        hintStyle: const TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        filled: true,
+                        fillColor: wawuColors.primary.withAlpha(30),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: wawuColors.primary.withAlpha(60),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: wawuColors.primary),
                         ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: wawuColors.primary),
-                      ),
-                    ),
-                  )
-                : null,
+                    )
+                    : null,
           ),
         ),
       ),
@@ -748,7 +762,10 @@ class MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     int settingsIndex = _getSettingsScreenIndex();
-    final isTransparentAppBar = _selectedIndex == 0 || _selectedIndex == 1 || _selectedIndex == settingsIndex;
+    final isTransparentAppBar =
+        _selectedIndex == 0 ||
+        _selectedIndex == 1 ||
+        _selectedIndex == settingsIndex;
     final defaultTextColor =
         Theme.of(context).textTheme.bodyLarge?.color ?? Colors.black;
     final appBarItemColor =
@@ -770,31 +787,36 @@ class MainScreenState extends State<MainScreen> {
             Scaffold(
               extendBodyBehindAppBar: isTransparentAppBar,
               appBar: AppBar(
-                leading: _selectedIndex == 0 || _selectedIndex == 1
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 10.0),
-                        child: _buildProfileImage(
-                          userProvider.currentUser?.profileImage,
-                          appBarItemColor, // Pass color to profile image
-                        ),
-                      )
-                    : null,
-                title: appBarTitles.length > _selectedIndex
-                    ? appBarTitles[_selectedIndex]
-                    : null,
-                backgroundColor: isTransparentAppBar
-                    ? Theme.of(
-                        context,
-                      ).scaffoldBackgroundColor.withOpacity(_appBarOpacity)
-                    : Theme.of(context).appBarTheme.backgroundColor,
-                elevation: isTransparentAppBar
-                    ? (_appBarOpacity *
-                        (Theme.of(context).appBarTheme.elevation ??
-                            0.0)) // Fade in elevation
-                    : Theme.of(context).appBarTheme.elevation,
+                leading:
+                    _selectedIndex == 0 || _selectedIndex == 1
+                        ? Padding(
+                          padding: const EdgeInsets.only(left: 10.0),
+                          child: _buildProfileImage(
+                            userProvider.currentUser?.profileImage,
+                            appBarItemColor, // Pass color to profile image
+                          ),
+                        )
+                        : null,
+                title:
+                    appBarTitles.length > _selectedIndex
+                        ? appBarTitles[_selectedIndex]
+                        : null,
+                backgroundColor:
+                    isTransparentAppBar
+                        ? Theme.of(
+                          context,
+                        ).scaffoldBackgroundColor.withOpacity(_appBarOpacity)
+                        : Theme.of(context).appBarTheme.backgroundColor,
+                elevation:
+                    isTransparentAppBar
+                        ? (_appBarOpacity *
+                            (Theme.of(context).appBarTheme.elevation ??
+                                0.0)) // Fade in elevation
+                        : Theme.of(context).appBarTheme.elevation,
                 centerTitle: isCenteredTitle,
                 automaticallyImplyLeading:
-                    _selectedIndex == 0 && _selectedIndex == 1 || _selectedIndex == 5,
+                    _selectedIndex == 0 && _selectedIndex == 1 ||
+                    _selectedIndex == 5,
                 actions: appBarActions, // Use dynamic actions
               ),
               body: Column(
@@ -827,8 +849,8 @@ class MainScreenState extends State<MainScreen> {
                         CircularProgressIndicator(),
                         SizedBox(height: 16),
                         Text(
-                          'Verifying subscription...',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
+                          'Verifying...',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ],
                     ),
@@ -841,4 +863,3 @@ class MainScreenState extends State<MainScreen> {
     );
   }
 }
-

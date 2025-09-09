@@ -149,11 +149,11 @@ class _PlanState extends State<Plan> {
               ),
               onPressed: () {
                 //MUST REMOVE BEFORE PRODUCTION ////////////////////////////////////
-                OnboardingStateService.saveStep('disclaimer');
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => Disclaimer()),
-                );
+                // OnboardingStateService.saveStep('disclaimer');
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute(builder: (context) => Disclaimer()),
+                // );
               },
             ),
           ],
