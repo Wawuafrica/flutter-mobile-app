@@ -205,14 +205,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           },
                         ),
                         _buildSettingsItem(
-                          icon: Icons.credit_card_outlined,
-                          title: 'Checkout Details',
-                          onTap: () {
-                            CustomSnackBar.show(context,
-                                message: 'Coming Soon!', isError: false);
-                          },
-                        ),
-                        _buildSettingsItem(
                           icon: Icons.quiz_outlined,
                           title: 'FAQ',
                           onTap: () {
