@@ -11,6 +11,7 @@ import 'package:wawu_mobile/screens/gigs_screen/gigs_screen.dart';
 import 'package:wawu_mobile/screens/home_screen/home_screen.dart';
 import 'package:wawu_mobile/screens/messages_screen/messages_screen.dart';
 import 'package:wawu_mobile/screens/notifications/notifications.dart';
+import 'package:wawu_mobile/screens/profile/profile_screen.dart';
 import 'package:wawu_mobile/screens/settings_screen/settings_screen.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/showcase_screen/showcase_screen.dart';
@@ -431,7 +432,7 @@ class MainScreenState extends State<MainScreen> {
         BlogScreen(), // No scroll callback needed for this screen
         const MessagesScreen(),
         if (!isBuyer) const GigsScreen(),
-        SettingsScreen(onScroll: _updateScrollOffset), // Pass callback
+        SettingsScreen(), // Pass callback
       ];
 
       _customNavItems = [
@@ -764,7 +765,7 @@ class MainScreenState extends State<MainScreen> {
 
         if (isBlocked) return const BlockedAccountOverlay();
 
-        bool isCenteredTitle = _selectedIndex == 0 && _selectedIndex == 1;
+        bool isCenteredTitle = _selectedIndex == 0 || _selectedIndex == 1;
 
         return Stack(
           children: [
@@ -773,11 +774,20 @@ class MainScreenState extends State<MainScreen> {
               appBar: AppBar(
                 leading:
                     _selectedIndex == 0 || _selectedIndex == 1
-                        ? Padding(
-                          padding: const EdgeInsets.only(left: 10.0),
-                          child: _buildProfileImage(
-                            userProvider.currentUser?.profileImage,
-                            appBarItemColor, // Pass color to profile image
+                        ? GestureDetector(
+                          onTap: () {
+                             Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const ProfileScreen()),
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 10.0),
+                            child: _buildProfileImage(
+                              userProvider.currentUser?.profileImage,
+                              appBarItemColor, // Pass color to profile image
+                            ),
                           ),
                         )
                         : null,
@@ -799,7 +809,7 @@ class MainScreenState extends State<MainScreen> {
                         : Theme.of(context).appBarTheme.elevation,
                 centerTitle: isCenteredTitle,
                 automaticallyImplyLeading:
-                    _selectedIndex == 0 && _selectedIndex == 1 ||
+                    _selectedIndex == 0 || _selectedIndex == 1 ||
                     _selectedIndex == 5,
                 actions: appBarActions, // Use dynamic actions
               ),

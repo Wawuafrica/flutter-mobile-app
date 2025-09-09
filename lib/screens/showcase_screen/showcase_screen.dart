@@ -603,6 +603,9 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
           );
         }
 
+      final double statusBarHeight = MediaQuery.of(context).viewPadding.top + 50;
+
+
         // Show normal content with inline error handling for individual sections
         return Scaffold(
           body: RefreshIndicator(
@@ -674,7 +677,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                 mainAxisAlignment: MainAxisAlignment.start,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  const SizedBox(height: 76.0),
+                                  SizedBox(height: statusBarHeight),
 
                                   // Search Bar Section
                                   Hero(

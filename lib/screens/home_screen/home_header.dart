@@ -15,6 +15,9 @@ class HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final wawuAfricaProvider = Provider.of<WawuAfricaProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
+    // --- FIX START ---
+    final double statusBarHeight = MediaQuery.of(context).viewPadding.top + 50;
+    // --- FIX END ---
     final totalHeaderHeight = screenHeight * 0.6;
 
     return SizedBox(
@@ -24,6 +27,7 @@ class HomeHeader extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           // LAYER 1: BACKGROUND (CLIPPED)
+          // This part is fine and doesn't need changes.
           Positioned.fill(
             child: ClipRRect(
               child: Stack(
@@ -69,7 +73,11 @@ class HomeHeader extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 76.0),
+                  // --- FIX START ---
+                  // Replace the hardcoded height with the dynamic status bar height
+                  // plus any additional margin you want.
+                  SizedBox(height: statusBarHeight + 26.0), // Adjust 26.0 as needed
+                  // --- FIX END ---
 
                   // Search Bar Section
                   SizedBox(
@@ -102,10 +110,11 @@ class HomeHeader extends StatelessWidget {
                                       ),
                                       pageBuilder:
                                           (
-                                            context,
-                                            animation,
-                                            secondaryAnimation,
-                                          ) => const SearchScreen(),
+                                        context,
+                                        animation,
+                                        secondaryAnimation,
+                                      ) =>
+                                              const SearchScreen(),
                                       transitionsBuilder: (
                                         context,
                                         animation,
@@ -176,7 +185,7 @@ class HomeHeader extends StatelessWidget {
                   // Use Expanded and LayoutBuilder for a robust, dynamic grid
                   Expanded(
                     child: Transform.translate(
-                      offset: const Offset(0, -30),
+                      offset: const Offset(0, -80),
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           const double gridSpacing = 10.0;
@@ -192,11 +201,10 @@ class HomeHeader extends StatelessWidget {
 
                           final double itemWidth =
                               (constraints.maxWidth -
-                                  (gridSpacing * (crossAxisCount - 1))) /
-                              crossAxisCount;
+                                      (gridSpacing * (crossAxisCount - 1))) /
+                                  crossAxisCount;
 
-                          final double itemHeight =
-                              (correctedHeight -
+                          final double itemHeight = (correctedHeight -
                                   (gridSpacing * (rowCount - 1))) /
                               rowCount;
 
@@ -210,11 +218,11 @@ class HomeHeader extends StatelessWidget {
                             itemCount: wawuAfricaProvider.categories.length,
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  crossAxisSpacing: gridSpacing,
-                                  mainAxisSpacing: gridSpacing,
-                                  childAspectRatio: itemWidth / itemHeight,
-                                ),
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: gridSpacing,
+                              mainAxisSpacing: gridSpacing,
+                              childAspectRatio: itemWidth / itemHeight,
+                            ),
                             itemBuilder: (context, index) {
                               final category =
                                   wawuAfricaProvider.categories[index];
@@ -224,19 +232,21 @@ class HomeHeader extends StatelessWidget {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder:
-                                          (context) =>
-                                              const WawuAfricaSubCategory(),
+                                      builder: (context) =>
+                                          const WawuAfricaSubCategory(),
                                     ),
                                   );
                                 },
                                 child: Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 6.0),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 6.0),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.6),
                                     borderRadius: BorderRadius.circular(10.0),
                                     border: Border.all(
-                                      color: const Color.fromARGB(255, 201, 201, 201).withOpacity(0.2),
+                                      color: const Color.fromARGB(
+                                              255, 201, 201, 201)
+                                          .withOpacity(0.2),
                                       width: 1.0,
                                     ),
                                   ),
@@ -248,33 +258,29 @@ class HomeHeader extends StatelessWidget {
                                           8.0,
                                         ),
                                         child: CachedNetworkImage(
-                                          imageUrl: 
-                                            category.imageUrl,
+                                          imageUrl: category.imageUrl,
                                           width: 50,
                                           height: 50,
                                           fit: BoxFit.contain,
-                                          placeholder:
-                                              (context, url) => const Center(
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2.0,
-                                                  color:
-                                                      wawuColors
-                                                          .purpleDarkestContainer,
-                                                ),
-                                              ),
-                                          errorWidget:
-                                              (
-                                                context,
-                                                url,
-                                                error,
-                                              ) => const Icon(
-                                                Icons.image_not_supported,
-                                                color:
-                                                    wawuColors
-                                                        .purpleDarkestContainer,
-
-                                                size: 50,
-                                              ),
+                                          placeholder: (context, url) =>
+                                              const Center(
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.0,
+                                              color: wawuColors
+                                                  .purpleDarkestContainer,
+                                            ),
+                                          ),
+                                          errorWidget: (
+                                            context,
+                                            url,
+                                            error,
+                                          ) =>
+                                              const Icon(
+                                            Icons.image_not_supported,
+                                            color: wawuColors
+                                                .purpleDarkestContainer,
+                                            size: 50,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(height: 8),
