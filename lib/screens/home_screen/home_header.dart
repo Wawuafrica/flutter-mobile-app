@@ -15,9 +15,7 @@ class HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final wawuAfricaProvider = Provider.of<WawuAfricaProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
-    // --- FIX START ---
     final double statusBarHeight = MediaQuery.of(context).viewPadding.top + 50;
-    // --- FIX END ---
     final totalHeaderHeight = screenHeight * 0.6;
 
     return SizedBox(
@@ -27,7 +25,6 @@ class HomeHeader extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           // LAYER 1: BACKGROUND (CLIPPED)
-          // This part is fine and doesn't need changes.
           Positioned.fill(
             child: ClipRRect(
               child: Stack(
@@ -72,11 +69,8 @@ class HomeHeader extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // --- FIX START ---
-                // Replace the hardcoded height with the dynamic status bar height
-                // plus any additional margin you want.
-                SizedBox(height: statusBarHeight + 76.0), // Adjust 26.0 as needed
-                // --- FIX END ---
+                // Status bar height spacing
+                SizedBox(height: statusBarHeight + 76.0),
           
                 // Search Bar Section
                 SizedBox(
@@ -107,13 +101,11 @@ class HomeHeader extends StatelessWidget {
                                     transitionDuration: const Duration(
                                       milliseconds: 300,
                                     ),
-                                    pageBuilder:
-                                        (
+                                    pageBuilder: (
                                       context,
                                       animation,
                                       secondaryAnimation,
-                                    ) =>
-                                            const SearchScreen(),
+                                    ) => const SearchScreen(),
                                     transitionsBuilder: (
                                       context,
                                       animation,
@@ -180,122 +172,86 @@ class HomeHeader extends StatelessWidget {
                   text: 'WAWUAfrica +HER',
                   color: Colors.white,
                 ),
-<<<<<<< HEAD
-          // Replace Expanded(...) with this:
-          Transform.translate(
-            offset: const Offset(0, -80),
-              child: GridView.builder(
-                  shrinkWrap: true, // let it size itself
-                      physics: const NeverScrollableScrollPhysics(), // no inner scroll
-=======
-          
-                // Use Expanded and LayoutBuilder for a robust, dynamic grid
+
+                // Grid View Section
                 Expanded(
                   child: Transform.translate(
                     offset: const Offset(0, -80),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        const double gridSpacing = 10.0;
-                        const int crossAxisCount = 3;
-                        const int rowCount = 2;
-          
-                        // The specific pixel offset caused by the Stack's layout behavior
-                        const double layoutErrorOffset = 66.0;
-          
-                        // Correct the available height by subtracting the offset
-                        final double correctedHeight =
-                            constraints.maxHeight - layoutErrorOffset;
-          
-                        final double itemWidth =
-                            (constraints.maxWidth -
-                                    (gridSpacing * (crossAxisCount - 1))) /
-                                crossAxisCount;
-          
-                        final double itemHeight = (correctedHeight -
-                                (gridSpacing * (rowCount - 1))) /
-                            rowCount;
-          
-                        // Prevent errors if constraints are zero or negative
-                        if (itemHeight <= 0 || itemWidth <= 0) {
-                          return const SizedBox.shrink();
-                        }
-          
-                        return GridView.builder(
-                          physics: const NeverScrollableScrollPhysics(),
->>>>>>> ac5dd08812ac061bf7aa2b0f5dbcae7d097e349e
-                          itemCount: wawuAfricaProvider.categories.length,
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,          // 3 items per row
-                                          crossAxisSpacing: 10.0,     // spacing between columns
-                                                mainAxisSpacing: 10.0,      // spacing between rows
-                                                      childAspectRatio: 1,        // square items (adjust if needed)
-                                                          ),
-                                                              itemBuilder: (context, index) {
-                                                                    final category = wawuAfricaProvider.categories[index];
-                                                                          return GestureDetector(
-                                                                                  onTap: () {
-                                                                                            wawuAfricaProvider.selectCategory(category);
-                                                                                                      Navigator.push(
-                                                                                                                  context,
-                                                                                                                              MaterialPageRoute(
-                                                                                                                                            builder: (context) => const WawuAfricaSubCategory(),
-                                                                                                                                                        ),
-                                                                                                                                                                  );
-                                                                                                                                                                          },
-                                                                                                                                                                                  child: Container(
-                                                                                                                                                                                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                                                                                                                                                                                                      decoration: BoxDecoration(
-                                                                                                                                                                                                                  color: Colors.white.withOpacity(0.6),
-                                                                                                                                                                                                                              borderRadius: BorderRadius.circular(10.0),
-                                                                                                                                                                                                                                          border: Border.all(
-                                                                                                                                                                                                                                                        color: const Color.fromARGB(255, 201, 201, 201).withOpacity(0.2),
-                                                                                                                                                                                                                                                                      width: 1.0,
-                                                                                                                                                                                                                                                                                  ),
-                                                                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                                                                                      child: Column(
-                                                                                                                                                                                                                                                                                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                                                                                                                                                                                                                                                                                              children: [
-                                                                                                                                                                                                                                                                                                                                            ClipRRect(
-                                                                                                                                                                                                                                                                                                                                                            borderRadius: BorderRadius.circular(8.0),
-                                                                                                                                                                                                                                                                                                                                                                            child: CachedNetworkImage(
-                                                                                                                                                                                                                                                                                                                                                                                              imageUrl: category.imageUrl,
-                                                                                                                                                                                                                                                                                                                                                                                                                width: 50,
-                                                                                                                                                                                                                                                                                                                                                                                                                                  height: 50,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                    fit: BoxFit.contain,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                      placeholder: (context, url) => const Center(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          child: CircularProgressIndicator(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                strokeWidth: 2.0,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      color: wawuColors.purpleDarkestContainer,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              errorWidget: (context, url, error) => const Icon(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  Icons.image_not_supported,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      color: wawuColors.purpleDarkestContainer,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          size: 50,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        const SizedBox(height: 8),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      Text(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      category.name,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      textAlign: TextAlign.center,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      maxLines: 2,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      overflow: TextOverflow.ellipsis,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      style: const TextStyle(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        color: wawuColors.purpleDarkestContainer,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          fontSize: 12,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            fontWeight: FontWeight.bold,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ],
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  },
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ),
-                // Use Expanded and LayoutBuilder for a robust, dynamic grid
-                
+                    child: GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: wawuAfricaProvider.categories.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 10.0,
+                        mainAxisSpacing: 10.0,
+                        childAspectRatio: 1,
+                      ),
+                      itemBuilder: (context, index) {
+                        final category = wawuAfricaProvider.categories[index];
+                        return GestureDetector(
+                          onTap: () {
+                            wawuAfricaProvider.selectCategory(category);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const WawuAfricaSubCategory(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.6),
+                              borderRadius: BorderRadius.circular(10.0),
+                              border: Border.all(
+                                color: const Color.fromARGB(255, 201, 201, 201).withOpacity(0.2),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  child: CachedNetworkImage(
+                                    imageUrl: category.imageUrl,
+                                    width: 50,
+                                    height: 50,
+                                    fit: BoxFit.contain,
+                                    placeholder: (context, url) => const Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.0,
+                                        color: wawuColors.purpleDarkestContainer,
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) => const Icon(
+                                      Icons.image_not_supported,
+                                      color: wawuColors.purpleDarkestContainer,
+                                      size: 50,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  category.name,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: wawuColors.purpleDarkestContainer,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
