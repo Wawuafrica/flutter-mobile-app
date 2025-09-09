@@ -2,8 +2,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
@@ -56,6 +58,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
     final categoryProvider = Provider.of<CategoryProvider>(context);
     final categories = categoryProvider.categories;
     final categoryCount = categories.length;
@@ -103,7 +106,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   ),
                   BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
-                    child: Container(color: Colors.black.withOpacity(0.2)),
+                    child: Container(color: Colors.black.withOpacity(0.4)),
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -236,17 +239,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Implement "Become a Seller" logic
-        },
-        backgroundColor: Colors.purple,
-        icon: const Icon(Icons.store, color: Colors.white),
-        label: const Text(
-          'Become a Seller',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      floatingActionButton:
+          userProvider.currentUser != null
+              ? FloatingActionButton.extended(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SignUp()),
+                  );
+                },
+                backgroundColor: Colors.purple,
+                icon: const Icon(Icons.store, color: Colors.white),
+                label: const Text(
+                  'Become a Seller',
+                  style: TextStyle(color: Colors.white),
+                ),
+              )
+              : null,
     );
   }
 }

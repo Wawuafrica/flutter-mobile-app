@@ -10,6 +10,7 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_sub_category/wawu_africa_sub_category.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
@@ -603,8 +604,8 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
           );
         }
 
-      final double statusBarHeight = MediaQuery.of(context).viewPadding.top + 50;
-
+        final double statusBarHeight =
+            MediaQuery.of(context).viewPadding.top + 50;
 
         // Show normal content with inline error handling for individual sections
         return Scaffold(
@@ -800,7 +801,6 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                     ),
                                   ),
 
-
                                   const SizedBox(height: 60),
                                   // Categories Section
                                   CustomIntroText(
@@ -887,6 +887,23 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
               ],
             ),
           ),
+          floatingActionButton:
+              userProvider.currentUser != null
+                  ? FloatingActionButton.extended(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SignUp()),
+                      );
+                    },
+                    backgroundColor: Colors.purple,
+                    icon: const Icon(Icons.store, color: Colors.white),
+                    label: const Text(
+                      'Become a Seller',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  )
+                  : null,
         );
       },
     );

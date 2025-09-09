@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/models/category.dart';
+import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/categories/filtered_gigs/filtered_gigs.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class SubCategoriesAndServices extends StatefulWidget {
@@ -19,10 +21,14 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
   final Map<String, List<Service>> _subCategoryServices = {};
   final Map<String, bool> _loadingServices = {};
   bool _isInitialLoading = true;
+  late ScrollController _scrollController;
+  bool _isAppBarOpaque = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_scrollListener);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeScreen();
     });
@@ -84,9 +90,30 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
   }
 
   @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    const scrollThreshold = 200.0; // Point at which the app bar title appears
+    final isOpaque =
+        _scrollController.hasClients &&
+        _scrollController.offset > scrollThreshold;
+    if (isOpaque != _isAppBarOpaque) {
+      setState(() {
+        _isAppBarOpaque = isOpaque;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Consumer<CategoryProvider>(
       builder: (context, categoryProvider, child) {
+        final userProvider = Provider.of<UserProvider>(context);
+
         final selectedCategory = categoryProvider.selectedCategory;
         final categoryName = selectedCategory?.name ?? 'Category';
         final subCategoryCount = categoryProvider.subCategories.length;
@@ -101,6 +128,17 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 iconTheme: const IconThemeData(color: Colors.white),
+                title: AnimatedOpacity(
+                  opacity: _isAppBarOpaque ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    categoryName, // Renamed
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
@@ -118,7 +156,7 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                       ),
                       BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
-                        child: Container(color: Colors.black.withOpacity(0.2)),
+                        child: Container(color: Colors.black.withOpacity(0.4)),
                       ),
                       Container(
                         decoration: BoxDecoration(
@@ -239,6 +277,23 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                 ),
             ],
           ),
+          floatingActionButton:
+              userProvider.currentUser != null
+                  ? FloatingActionButton.extended(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SignUp()),
+                      );
+                    },
+                    backgroundColor: Colors.purple,
+                    icon: const Icon(Icons.store, color: Colors.white),
+                    label: const Text(
+                      'Become a Seller',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  )
+                  : null,
         );
       },
     );
@@ -285,9 +340,7 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
 
     return Container(
       margin: EdgeInsets.only(top: 13.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15.0),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(15.0)),
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
       child: Builder(
         builder: (context) {
