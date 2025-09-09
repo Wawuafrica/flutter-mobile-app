@@ -126,9 +126,9 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
-                      crossAxisSpacing: 16.0,
-                      mainAxisSpacing: 16.0,
-                      childAspectRatio: 0.95,
+                      crossAxisSpacing: 8.0,
+                      mainAxisSpacing: 8.0,
+                      childAspectRatio: 1.0,
                     ),
                     itemCount: provider.subCategories.length,
                     itemBuilder: (context, index) {
@@ -160,7 +160,7 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(12.0),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
