@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -181,20 +180,12 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
             // Use CachedNetworkImage to display the image with fallbacks
             ClipRRect(
               borderRadius: BorderRadius.circular(8.0),
-              child: CachedNetworkImage(
-                imageUrl: subCategory.imageUrl,
+              child: SvgPicture.network(
+                subCategory.imageUrl,
                 width: 50,
                 height: 50,
                 fit: BoxFit.contain,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey.shade200,
-                  child: const Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.0,
-                    ),
-                  ),
-                ),
-                errorWidget: (context, url, error) {
+                errorBuilder: (context, url, error) {
                   // Primary fallback: try to load the local SVG asset
                   return SvgPicture.asset(
                     'assets/wawu_svg.svg',
