@@ -215,8 +215,8 @@ class HomeHeader extends StatelessWidget {
                                 // === CHANGED WIDGET HERE ===
                                 SvgPicture.network(
                                   category.imageUrl,
-                                  width: 50,
-                                  height: 50,
+                                  width: 40,
+                                  height: 40,
                                   fit: BoxFit.contain,
                                   placeholderBuilder: (context) => const Center(
                                     child: CircularProgressIndicator(
