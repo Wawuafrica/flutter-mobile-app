@@ -75,7 +75,7 @@ class HomeHeader extends StatelessWidget {
                 // --- FIX START ---
                 // Replace the hardcoded height with the dynamic status bar height
                 // plus any additional margin you want.
-                SizedBox(height: statusBarHeight + 26.0), // Adjust 26.0 as needed
+                SizedBox(height: statusBarHeight + 76.0), // Adjust 26.0 as needed
                 // --- FIX END ---
           
                 // Search Bar Section
@@ -184,7 +184,7 @@ class HomeHeader extends StatelessWidget {
                 // Use Expanded and LayoutBuilder for a robust, dynamic grid
                 Expanded(
                   child: Transform.translate(
-                    offset: const Offset(0, 0),
+                    offset: const Offset(0, -80),
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         const double gridSpacing = 10.0;
