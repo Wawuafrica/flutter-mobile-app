@@ -174,74 +174,72 @@ class HomeHeader extends StatelessWidget {
                 ),
 
                 // Grid View Section
-                Expanded(
-                  child: Transform.translate(
-                    offset: const Offset(0, -80),
-                    child: GridView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: wawuAfricaProvider.categories.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 10.0,
-                        mainAxisSpacing: 10.0,
-                        childAspectRatio: 1,
-                      ),
-                      itemBuilder: (context, index) {
-                        final category = wawuAfricaProvider.categories[index];
-                        return GestureDetector(
-                          onTap: () {
-                            wawuAfricaProvider.selectCategory(category);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const WawuAfricaSubCategory(),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(10.0),
-                              border: Border.all(
-                                color: const Color.fromARGB(255, 201, 201, 201).withOpacity(0.2),
-                                width: 1.0,
-                              ),
+                SizedBox(
+                  height: totalHeaderHeight * 0.55, // Set height to 55% of the parent
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: wawuAfricaProvider.categories.length,
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 10.0,
+                      mainAxisSpacing: 10.0,
+                      childAspectRatio: 1,
+                    ),
+                    itemBuilder: (context, index) {
+                      final category = wawuAfricaProvider.categories[index];
+                      return GestureDetector(
+                        onTap: () {
+                          wawuAfricaProvider.selectCategory(category);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const WawuAfricaSubCategory(),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                // === CHANGED WIDGET HERE ===
-                                SvgPicture.network(
-                                  category.imageUrl,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.contain,
-                                  placeholderBuilder: (context) => const Center(
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.0,
-                                      color: wawuColors.purpleDarkestContainer,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  category.name,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: wawuColors.purpleDarkestContainer,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(10.0),
+                            border: Border.all(
+                              color: const Color.fromARGB(255, 201, 201, 201).withOpacity(0.2),
+                              width: 1.0,
                             ),
                           ),
-                        );
-                      },
-                    ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // === CHANGED WIDGET HERE ===
+                              SvgPicture.network(
+                                category.imageUrl,
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.contain,
+                                placeholderBuilder: (context) => const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                    color: wawuColors.purpleDarkestContainer,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                category.name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: wawuColors.purpleDarkestContainer,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -252,3 +250,5 @@ class HomeHeader extends StatelessWidget {
     );
   }
 }
+
+
