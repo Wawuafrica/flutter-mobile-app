@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/blog_screen/blog_screen.dart';
 import 'package:wawu_mobile/screens/gigs_screen/gigs_screen.dart';
 import 'package:wawu_mobile/screens/home_screen/home_screen.dart';
 import 'package:wawu_mobile/screens/messages_screen/messages_screen.dart';
@@ -194,7 +193,7 @@ class MainScreenState extends State<MainScreen> {
   final Map<int, double> _scrollOffsets = {
     0: 0.0,
     1: 0.0,
-    5: 0.0, // Added for Settings Screen
+    4: 0.0, // Updated for Settings Screen (index changed due to blog removal)
   }; // Store scroll offsets for each tab
 
   List<Widget> _screens = [];
@@ -220,9 +219,9 @@ class MainScreenState extends State<MainScreen> {
   int _getSettingsScreenIndex() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final isBuyer = userProvider.currentUser?.role?.toUpperCase() == 'BUYER';
-    // If buyer: 4 screens before settings -> index 4
-    // If not buyer: 5 screens before settings -> index 5
-    return isBuyer ? 4 : 5;
+    // If buyer: 3 screens before settings -> index 3
+    // If not buyer: 4 screens before settings -> index 4
+    return isBuyer ? 3 : 4;
   }
 
   // Callback function to update scroll offset from child screens
@@ -429,7 +428,6 @@ class MainScreenState extends State<MainScreen> {
       _screens = [
         HomeScreen(onScroll: _updateScrollOffset), // Pass callback
         ShowcaseScreen(onScroll: _updateScrollOffset),
-        BlogScreen(), // No scroll callback needed for this screen
         const MessagesScreen(),
         if (!isBuyer) const GigsScreen(),
         SettingsScreen(), // Pass callback
@@ -441,7 +439,6 @@ class MainScreenState extends State<MainScreen> {
           iconPath: 'assets/images/svg/showcase_svg.svg',
           label: 'Showcase',
         ),
-        CustomNavItem(iconPath: 'assets/images/svg/blog.svg', label: 'Blog'),
         CustomNavItem(
           iconPath: 'assets/images/svg/message.svg',
           label: 'Messages',
@@ -544,15 +541,6 @@ class MainScreenState extends State<MainScreen> {
           color: color,
         ),
       ),
-      // Blog
-      Text(
-        'Blog',
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: color,
-        ),
-      ),
       // Messages
       const Text(
         'Messages',
@@ -581,8 +569,8 @@ class MainScreenState extends State<MainScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final currentUser = userProvider.currentUser;
 
-    // Allow Home, Showcase, and Blog for unauthenticated users
-    if (currentUser == null && ![0, 1, 2].contains(index)) {
+    // Allow Home and Showcase for unauthenticated users
+    if (currentUser == null && ![0, 1].contains(index)) {
       _showAuthModal();
       return;
     }
@@ -810,7 +798,7 @@ class MainScreenState extends State<MainScreen> {
                 centerTitle: isCenteredTitle,
                 automaticallyImplyLeading:
                     _selectedIndex == 0 || _selectedIndex == 1 ||
-                    _selectedIndex == 5,
+                    _selectedIndex == 4,
                 actions: appBarActions, // Use dynamic actions
               ),
               body: Column(
@@ -857,4 +845,3 @@ class MainScreenState extends State<MainScreen> {
     );
   }
 }
-
