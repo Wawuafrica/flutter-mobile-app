@@ -165,7 +165,7 @@ class HomeHeader extends StatelessWidget {
                   ),
                 ),
           
-                const SizedBox(height: 30.0),
+                const SizedBox(height: 20.0),
           
                 // WAWUAfrica +HER Text
                 const CustomIntroText(
