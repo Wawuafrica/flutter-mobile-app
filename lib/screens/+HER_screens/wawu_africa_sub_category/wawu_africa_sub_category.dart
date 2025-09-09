@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -159,7 +160,7 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(8.0),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -182,15 +183,15 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
               borderRadius: BorderRadius.circular(8.0),
               child: SvgPicture.network(
                 subCategory.imageUrl,
-                width: 50,
-                height: 50,
+                width: 40,
+                height: 40,
                 fit: BoxFit.contain,
                 errorBuilder: (context, url, error) {
                   // Primary fallback: try to load the local SVG asset
                   return SvgPicture.asset(
                     'assets/wawu_svg.svg',
-                    width: 50,
-                    height: 50,
+                    width: 40,
+                    height: 40,
                     fit: BoxFit.contain,
                     // Secondary fallback: if the local asset fails, show an icon
                     errorBuilder: (context, error, stackTrace) => Container(
