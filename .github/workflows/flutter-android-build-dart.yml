@@ -9,34 +9,34 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-           
+            
     - name: Set up Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
-             
+              
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
         channel: 'master'
         cache: true
-             
+              
     - name: Create .env file
       run: |
         echo "PUSHER_APP_KEY=${{ secrets.PUSHER_APP_KEY }}" >> .env
         echo "PUSHER_CLUSTER=${{ secrets.PUSHER_CLUSTER }}" >> .env
         echo "ENVIRONMENT=production" >> .env
-             
+              
     - name: Get Flutter dependencies
       run: flutter pub get
-           
+            
     - name: Build release APK
       run: flutter build apk --release
-           
+            
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: wawu-release-apk
         path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 30  # Optional: how long to keep the artifact
+        retention-days: 30

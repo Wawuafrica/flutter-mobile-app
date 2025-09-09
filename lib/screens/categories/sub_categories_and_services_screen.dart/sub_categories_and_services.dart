@@ -7,7 +7,6 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/categories/filtered_gigs/filtered_gigs.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
-import 'package:wawu_mobile/utils/constants/colors.dart';
 
 class SubCategoriesAndServices extends StatefulWidget {
   const SubCategoriesAndServices({super.key});
@@ -121,20 +120,26 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
         return Scaffold(
           backgroundColor: const Color(0xFFF8F5FC),
           body: CustomScrollView(
+            controller: _scrollController, // Assign the controller here
             slivers: [
+              // ===== START OF CORRECTED CODE =====
               SliverAppBar(
                 expandedHeight: 250.0,
                 pinned: true,
-                backgroundColor: Colors.transparent,
+                // DYNAMIC: Changes color based on the scroll position
+                backgroundColor: _isAppBarOpaque ? const Color(0xFFF8F5FC) : Colors.transparent,
+                // DYNAMIC: Ensures the correct color tint in the collapsed state for Material 3
+                surfaceTintColor: const Color(0xFFF8F5FC),
                 elevation: 0,
-                iconTheme: const IconThemeData(color: Colors.white),
+                // DYNAMIC: Changes the back button color
+                iconTheme: IconThemeData(color: _isAppBarOpaque ? Colors.black : Colors.white),
                 title: AnimatedOpacity(
                   opacity: _isAppBarOpaque ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 300),
                   child: Text(
-                    categoryName, // Renamed
-                    style: TextStyle(
-                      color: Colors.black,
+                    categoryName,
+                    style: const TextStyle(
+                      color: Colors.black, // This is correct for the collapsed state
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -194,12 +199,12 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                                 readOnly: true,
                                 onTap:
                                     () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => const SearchScreen(),
-                                      ),
-                                    ),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => const SearchScreen(),
+                                  ),
+                                ),
                                 decoration: InputDecoration(
                                   hintText: 'Search Service',
                                   hintStyle: TextStyle(
@@ -236,6 +241,8 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
                   ),
                 ),
               ),
+              // ===== END OF CORRECTED CODE =====
+              
               if (_isInitialLoading)
                 const SliverFillRemaining(
                   child: Center(child: CircularProgressIndicator()),
@@ -280,19 +287,19 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
           floatingActionButton:
               userProvider.currentUser == null
                   ? FloatingActionButton.extended(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SignUp()),
-                      );
-                    },
-                    backgroundColor: Colors.purple,
-                    icon: const Icon(Icons.store, color: Colors.white),
-                    label: const Text(
-                      'Become a Seller',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  )
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const SignUp()),
+                        );
+                      },
+                      backgroundColor: Colors.purple,
+                      icon: const Icon(Icons.store, color: Colors.white),
+                      label: const Text(
+                        'Become a Seller',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    )
                   : null,
         );
       },
@@ -301,7 +308,6 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
 
   /// Builds the correctly styled ExpansionTile.
   Widget _buildSubCategoryExpansionTile(SubCategory subCategory) {
-    const radius = Radius.circular(12.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(12.0),
       child: Material(
@@ -339,7 +345,7 @@ class _SubCategoriesAndServicesState extends State<SubCategoriesAndServices> {
     final List<Service> services = _subCategoryServices[subCategoryId] ?? [];
 
     return Container(
-      margin: EdgeInsets.only(top: 13.0),
+      margin: const EdgeInsets.only(top: 13.0),
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(15.0)),
       padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 16.0),
       child: Builder(
