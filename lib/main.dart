@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
-import 'package:wawu_mobile/tests/test.dart';
 import 'providers/network_status_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/skill_provider.dart';
@@ -13,8 +12,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:async';
 import 'package:logger/logger.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-// import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-// import 'package:flutter/foundation.dart'; // Import for compute
+
 
 // Services
 import 'services/api_service.dart';
@@ -292,9 +290,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _initializeApp() async {
     try {
-      await Future.delayed(
-        const Duration(milliseconds: 2000),
-      ); // Splash minimum duration
 
       if (!mounted) return;
 
