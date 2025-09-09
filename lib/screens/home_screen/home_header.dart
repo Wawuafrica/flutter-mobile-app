@@ -66,105 +66,103 @@ class HomeHeader extends StatelessWidget {
           ),
 
           // LAYER 2: FOREGROUND (NOT CLIPPED)
-          Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // --- FIX START ---
-                  // Replace the hardcoded height with the dynamic status bar height
-                  // plus any additional margin you want.
-                  SizedBox(height: statusBarHeight + 26.0), // Adjust 26.0 as needed
-                  // --- FIX END ---
-
-                  // Search Bar Section
-                  SizedBox(
-                    height: 50.0,
-                    child: Hero(
-                      tag: 'searchBar',
-                      child: Material(
-                        color: Colors.transparent,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10.0),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10.0),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
-                                  width: 1.0,
-                                ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // --- FIX START ---
+                // Replace the hardcoded height with the dynamic status bar height
+                // plus any additional margin you want.
+                SizedBox(height: statusBarHeight + 26.0), // Adjust 26.0 as needed
+                // --- FIX END ---
+          
+                // Search Bar Section
+                SizedBox(
+                  height: 50.0,
+                  child: Hero(
+                    tag: 'searchBar',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10.0),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10.0),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1.0,
                               ),
-                              child: TextField(
-                                readOnly: true,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    PageRouteBuilder(
-                                      transitionDuration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      pageBuilder:
-                                          (
-                                        context,
-                                        animation,
-                                        secondaryAnimation,
-                                      ) =>
-                                              const SearchScreen(),
-                                      transitionsBuilder: (
-                                        context,
-                                        animation,
-                                        secondaryAnimation,
-                                        child,
-                                      ) {
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: child,
-                                        );
-                                      },
+                            ),
+                            child: TextField(
+                              readOnly: true,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  PageRouteBuilder(
+                                    transitionDuration: const Duration(
+                                      milliseconds: 300,
                                     ),
-                                  );
-                                },
-                                decoration: InputDecoration(
-                                  hintText: 'Search for gigs...',
-                                  hintStyle: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w400,
+                                    pageBuilder:
+                                        (
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                    ) =>
+                                            const SearchScreen(),
+                                    transitionsBuilder: (
+                                      context,
+                                      animation,
+                                      secondaryAnimation,
+                                      child,
+                                    ) {
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: child,
+                                      );
+                                    },
                                   ),
-                                  prefixIcon: const Icon(
-                                    Icons.search,
-                                    color: Colors.white,
+                                );
+                              },
+                              decoration: InputDecoration(
+                                hintText: 'Search for gigs...',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.white,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  borderSide: const BorderSide(
+                                    color: Colors.transparent,
+                                    width: 1.0,
                                   ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10.0),
-                                    borderSide: const BorderSide(
-                                      color: Colors.transparent,
-                                      width: 1.0,
-                                    ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  borderSide: const BorderSide(
+                                    color: Colors.transparent,
+                                    width: 1.0,
                                   ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10.0),
-                                    borderSide: const BorderSide(
-                                      color: Colors.transparent,
-                                      width: 1.0,
-                                    ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  borderSide: BorderSide(
+                                    color: Theme.of(context).primaryColor,
+                                    width: 2.0,
                                   ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10.0),
-                                    borderSide: BorderSide(
-                                      color: Theme.of(context).primaryColor,
-                                      width: 2.0,
-                                    ),
-                                  ),
-                                  filled: false,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    vertical: 15.0,
-                                    horizontal: 10.0,
-                                  ),
+                                ),
+                                filled: false,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 15.0,
+                                  horizontal: 10.0,
                                 ),
                               ),
                             ),
@@ -173,141 +171,141 @@ class HomeHeader extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 30.0),
-
-                  // WAWUAfrica +HER Text
-                  const CustomIntroText(
-                    text: 'WAWUAfrica +HER',
-                    color: Colors.white,
-                  ),
-
-                  // Use Expanded and LayoutBuilder for a robust, dynamic grid
-                  Expanded(
-                    child: Transform.translate(
-                      offset: const Offset(0, -80),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          const double gridSpacing = 10.0;
-                          const int crossAxisCount = 3;
-                          const int rowCount = 2;
-
-                          // The specific pixel offset caused by the Stack's layout behavior
-                          const double layoutErrorOffset = 0.0;
-
-                          // Correct the available height by subtracting the offset
-                          final double correctedHeight =
-                              constraints.maxHeight - layoutErrorOffset;
-
-                          final double itemWidth =
-                              (constraints.maxWidth -
-                                      (gridSpacing * (crossAxisCount - 1))) /
-                                  crossAxisCount;
-
-                          final double itemHeight = (correctedHeight -
-                                  (gridSpacing * (rowCount - 1))) /
-                              rowCount;
-
-                          // Prevent errors if constraints are zero or negative
-                          if (itemHeight <= 0 || itemWidth <= 0) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return GridView.builder(
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: wawuAfricaProvider.categories.length,
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              crossAxisSpacing: gridSpacing,
-                              mainAxisSpacing: gridSpacing,
-                              childAspectRatio: itemWidth / itemHeight,
-                            ),
-                            itemBuilder: (context, index) {
-                              final category =
-                                  wawuAfricaProvider.categories[index];
-                              return GestureDetector(
-                                onTap: () {
-                                  wawuAfricaProvider.selectCategory(category);
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const WawuAfricaSubCategory(),
-                                    ),
-                                  );
-                                },
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 6.0),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(10.0),
-                                    border: Border.all(
-                                      color: const Color.fromARGB(
-                                              255, 201, 201, 201)
-                                          .withOpacity(0.2),
-                                      width: 1.0,
-                                    ),
+                ),
+          
+                const SizedBox(height: 30.0),
+          
+                // WAWUAfrica +HER Text
+                const CustomIntroText(
+                  text: 'WAWUAfrica +HER',
+                  color: Colors.white,
+                ),
+          
+                // Use Expanded and LayoutBuilder for a robust, dynamic grid
+                Expanded(
+                  child: Transform.translate(
+                    offset: const Offset(0, 0),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        const double gridSpacing = 10.0;
+                        const int crossAxisCount = 3;
+                        const int rowCount = 2;
+          
+                        // The specific pixel offset caused by the Stack's layout behavior
+                        const double layoutErrorOffset = 66.0;
+          
+                        // Correct the available height by subtracting the offset
+                        final double correctedHeight =
+                            constraints.maxHeight - layoutErrorOffset;
+          
+                        final double itemWidth =
+                            (constraints.maxWidth -
+                                    (gridSpacing * (crossAxisCount - 1))) /
+                                crossAxisCount;
+          
+                        final double itemHeight = (correctedHeight -
+                                (gridSpacing * (rowCount - 1))) /
+                            rowCount;
+          
+                        // Prevent errors if constraints are zero or negative
+                        if (itemHeight <= 0 || itemWidth <= 0) {
+                          return const SizedBox.shrink();
+                        }
+          
+                        return GridView.builder(
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: wawuAfricaProvider.categories.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            crossAxisSpacing: gridSpacing,
+                            mainAxisSpacing: gridSpacing,
+                            childAspectRatio: itemWidth / itemHeight,
+                          ),
+                          itemBuilder: (context, index) {
+                            final category =
+                                wawuAfricaProvider.categories[index];
+                            return GestureDetector(
+                              onTap: () {
+                                wawuAfricaProvider.selectCategory(category);
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const WawuAfricaSubCategory(),
                                   ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          8.0,
-                                        ),
-                                        child: CachedNetworkImage(
-                                          imageUrl: category.imageUrl,
-                                          width: 50,
-                                          height: 50,
-                                          fit: BoxFit.contain,
-                                          placeholder: (context, url) =>
-                                              const Center(
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.0,
-                                              color: wawuColors
-                                                  .purpleDarkestContainer,
-                                            ),
-                                          ),
-                                          errorWidget: (
-                                            context,
-                                            url,
-                                            error,
-                                          ) =>
-                                              const Icon(
-                                            Icons.image_not_supported,
-                                            color: wawuColors
-                                                .purpleDarkestContainer,
-                                            size: 50,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        category.name,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color:
-                                              wawuColors.purpleDarkestContainer,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                                );
+                              },
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.6),
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  border: Border.all(
+                                    color: const Color.fromARGB(
+                                            255, 201, 201, 201)
+                                        .withOpacity(0.2),
+                                    width: 1.0,
                                   ),
                                 ),
-                              );
-                            },
-                          );
-                        },
-                      ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(
+                                        8.0,
+                                      ),
+                                      child: CachedNetworkImage(
+                                        imageUrl: category.imageUrl,
+                                        width: 50,
+                                        height: 50,
+                                        fit: BoxFit.contain,
+                                        placeholder: (context, url) =>
+                                            const Center(
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.0,
+                                            color: wawuColors
+                                                .purpleDarkestContainer,
+                                          ),
+                                        ),
+                                        errorWidget: (
+                                          context,
+                                          url,
+                                          error,
+                                        ) =>
+                                            const Icon(
+                                          Icons.image_not_supported,
+                                          color: wawuColors
+                                              .purpleDarkestContainer,
+                                          size: 50,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      category.name,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color:
+                                            wawuColors.purpleDarkestContainer,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

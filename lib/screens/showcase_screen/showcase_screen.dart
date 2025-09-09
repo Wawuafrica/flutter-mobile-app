@@ -669,166 +669,164 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                           ),
 
                           // Main content - Fixed the Column/Expanded issue
-                          Positioned.fill(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20.0,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  SizedBox(height: statusBarHeight),
-
-                                  // Search Bar Section
-                                  Hero(
-                                    tag: 'searchBar',
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                          10.0,
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20.0,
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                SizedBox(height: statusBarHeight),
+                          
+                                // Search Bar Section
+                                Hero(
+                                  tag: 'searchBar',
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(
+                                        10.0,
+                                      ),
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                          sigmaX: 10,
+                                          sigmaY: 10,
                                         ),
-                                        child: BackdropFilter(
-                                          filter: ImageFilter.blur(
-                                            sigmaX: 10,
-                                            sigmaY: 10,
-                                          ),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(
-                                                0.1,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(10.0),
-                                              border: Border.all(
-                                                color: Colors.white.withOpacity(
-                                                  0.2,
-                                                ),
-                                                width: 1.0,
-                                              ),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(
+                                              0.1,
                                             ),
-                                            child: TextField(
-                                              readOnly: true,
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  PageRouteBuilder(
-                                                    transitionDuration:
-                                                        const Duration(
-                                                          milliseconds: 300,
-                                                        ),
-                                                    pageBuilder:
-                                                        (
-                                                          context,
-                                                          animation,
-                                                          secondaryAnimation,
-                                                        ) =>
-                                                            const SearchScreen(),
-                                                    transitionsBuilder: (
-                                                      context,
-                                                      animation,
-                                                      secondaryAnimation,
-                                                      child,
-                                                    ) {
-                                                      return FadeTransition(
-                                                        opacity: animation,
-                                                        child: child,
-                                                      );
-                                                    },
-                                                  ),
-                                                );
-                                              },
-                                              decoration: InputDecoration(
-                                                hintText: 'Search for gigs...',
-                                                hintStyle: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w400,
-                                                ),
-                                                prefixIcon: const Icon(
-                                                  Icons.search,
-                                                  color: Colors.white,
-                                                ),
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        10.0,
-                                                      ),
-                                                  borderSide: const BorderSide(
-                                                    color: Colors.transparent,
-                                                    width: 1.0,
-                                                  ),
-                                                ),
-                                                enabledBorder:
-                                                    OutlineInputBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            10.0,
-                                                          ),
-                                                      borderSide:
-                                                          const BorderSide(
-                                                            color:
-                                                                Colors
-                                                                    .transparent,
-                                                            width: 1.0,
-                                                          ),
-                                                    ),
-                                                focusedBorder:
-                                                    OutlineInputBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            10.0,
-                                                          ),
-                                                      borderSide: BorderSide(
-                                                        color:
-                                                            Theme.of(
-                                                              context,
-                                                            ).primaryColor,
-                                                        width: 2.0,
-                                                      ),
-                                                    ),
-                                                filled: false,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 15.0,
-                                                      horizontal: 10.0,
-                                                    ),
+                                            borderRadius:
+                                                BorderRadius.circular(10.0),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.2,
                                               ),
+                                              width: 1.0,
+                                            ),
+                                          ),
+                                          child: TextField(
+                                            readOnly: true,
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                PageRouteBuilder(
+                                                  transitionDuration:
+                                                      const Duration(
+                                                        milliseconds: 300,
+                                                      ),
+                                                  pageBuilder:
+                                                      (
+                                                        context,
+                                                        animation,
+                                                        secondaryAnimation,
+                                                      ) =>
+                                                          const SearchScreen(),
+                                                  transitionsBuilder: (
+                                                    context,
+                                                    animation,
+                                                    secondaryAnimation,
+                                                    child,
+                                                  ) {
+                                                    return FadeTransition(
+                                                      opacity: animation,
+                                                      child: child,
+                                                    );
+                                                  },
+                                                ),
+                                              );
+                                            },
+                                            decoration: InputDecoration(
+                                              hintText: 'Search for gigs...',
+                                              hintStyle: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                              prefixIcon: const Icon(
+                                                Icons.search,
+                                                color: Colors.white,
+                                              ),
+                                              border: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      10.0,
+                                                    ),
+                                                borderSide: const BorderSide(
+                                                  color: Colors.transparent,
+                                                  width: 1.0,
+                                                ),
+                                              ),
+                                              enabledBorder:
+                                                  OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10.0,
+                                                        ),
+                                                    borderSide:
+                                                        const BorderSide(
+                                                          color:
+                                                              Colors
+                                                                  .transparent,
+                                                          width: 1.0,
+                                                        ),
+                                                  ),
+                                              focusedBorder:
+                                                  OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10.0,
+                                                        ),
+                                                    borderSide: BorderSide(
+                                                      color:
+                                                          Theme.of(
+                                                            context,
+                                                          ).primaryColor,
+                                                      width: 2.0,
+                                                    ),
+                                                  ),
+                                              filled: false,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 15.0,
+                                                    horizontal: 10.0,
+                                                  ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-
-                                  const SizedBox(height: 60),
-                                  // Categories Section
-                                  CustomIntroText(
-                                    text: 'Popular Services',
-                                    color: Colors.white,
-                                    isRightText: true,
-                                    navFunction: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder:
-                                              (context) =>
-                                                  const CategoriesScreen(),
-                                        ),
-                                      );
-                                    },
+                                ),
+                          
+                                const SizedBox(height: 60),
+                                // Categories Section
+                                CustomIntroText(
+                                  text: 'Popular Services',
+                                  color: Colors.white,
+                                  isRightText: true,
+                                  navFunction: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) =>
+                                                const CategoriesScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 30),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 160,
+                                  child: _buildCategoriesSection(
+                                    categoryProvider,
                                   ),
-                                  const SizedBox(height: 30),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: 160,
-                                    child: _buildCategoriesSection(
-                                      categoryProvider,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 30),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(height: 30),
+                              ],
                             ),
                           ),
                         ],
