@@ -484,7 +484,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 children: [
                   _isInitialized && _currentScreen != null
                       ? _currentScreen! 
-                      : const SplashScreen(),
+                      : const Center(child: CircularProgressIndicator()),
                   // Show "No internet connection" banner when offline
                   if (_isOfflineNotificationShown)
                     Positioned(
@@ -568,42 +568,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       // Default name for smallest screens
       defaultName: MOBILE,
-    );
-  }
-}
-
-class SplashScreen extends StatelessWidget {
-  const SplashScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: wawuColors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset('assets/logo2.png', width: 180, cacheWidth: 400),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: SizedBox(
-                width: 300,
-                child: Text(
-                  "Are you tired? Worn out? Burned out on getting the world to see you and pay you? Come to me. Get away with me and you'll recover your life. I'll show you how to take a real rest. Walk with me and work with me watch how I do it",
-                  style: GoogleFonts.sora(fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Matthew 11:28 MSG',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
