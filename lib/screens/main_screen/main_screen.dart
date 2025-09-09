@@ -205,6 +205,7 @@ class MainScreenState extends State<MainScreen> {
     _initializeScreensAndNavItems();
     _requestMicrophonePermission();
     _performInitialSubscriptionCheck();
+    _fetchUserDataIfNull();
 
     // Initialize app bar opacity based on the initial selected tab
     _appBarOpacity =
@@ -213,6 +214,13 @@ class MainScreenState extends State<MainScreen> {
                 _getSettingsScreenIndex() == _selectedIndex)
             ? 0.0
             : 1.0;
+  }
+
+  void _fetchUserDataIfNull() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (userProvider.currentUser == null) {
+      await userProvider.fetchCurrentUser();
+    }
   }
 
   // Helper to get the dynamic index of the settings screen
@@ -317,33 +325,37 @@ class MainScreenState extends State<MainScreen> {
 
     // Skip subscription check for BUYER role or unauthenticated users
     if (currentUser == null || currentUser.role?.toLowerCase() == 'buyer') {
-      debugPrint('[MainScreen] Skipping subscription check for Guest or Buyer.');
+      debugPrint(
+        '[MainScreen] Skipping subscription check for Guest or Buyer.',
+      );
       setState(() => _hasCheckedSubscription = true);
       return;
     }
-    
+
     // --- FIX: RESTORED CONNECTIVITY CHECK ---
     final connectivityResult = await (Connectivity().checkConnectivity());
     if (connectivityResult == ConnectivityResult.none) {
-      debugPrint('[MainScreen] No internet. Allowing user to continue based on cached data.');
+      debugPrint(
+        '[MainScreen] No internet. Allowing user to continue based on cached data.',
+      );
       if (mounted) {
-         CustomSnackBar.show(
-            context,
-            message: 'No internet connection. Subscription status may not be up to date.',
-            isError: false,
-          );
-          // We can still try a quick load from cache, which works offline
-          final planProvider = Provider.of<PlanProvider>(context, listen: false);
-          await planProvider.loadCachedSubscription(currentUser.uuid);
+        CustomSnackBar.show(
+          context,
+          message:
+              'No internet connection. Subscription status may not be up to date.',
+          isError: false,
+        );
+        // We can still try a quick load from cache, which works offline
+        final planProvider = Provider.of<PlanProvider>(context, listen: false);
+        await planProvider.loadCachedSubscription(currentUser.uuid);
       }
-       setState(() {
-          _hasCheckedSubscription = true;
-          _subscriptionCheckInProgress = false;
-        });
+      setState(() {
+        _hasCheckedSubscription = true;
+        _subscriptionCheckInProgress = false;
+      });
       return; // Stop further checks if offline
     }
     // --- END FIX ---
-
 
     // --- FIX: DERIVE ROLE ID FROM ROLE NAME ---
     int getRoleId(String? roleName) {
@@ -358,6 +370,7 @@ class MainScreenState extends State<MainScreen> {
           return 0; // Default case for unknown roles
       }
     }
+
     final int roleId = getRoleId(currentUser.role);
     // --- END FIX ---
 
@@ -381,21 +394,26 @@ class MainScreenState extends State<MainScreen> {
 
       if (mounted) {
         if (!hasActiveSubscription) {
-          debugPrint('[MainScreen] No active subscription found, redirecting to plan screen.');
+          debugPrint(
+            '[MainScreen] No active subscription found, redirecting to plan screen.',
+          );
           // Use pushReplacement to prevent user from going back to a screen they shouldn't access
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const Plan()),
           );
         } else {
-           debugPrint('[MainScreen] Active subscription confirmed.');
+          debugPrint('[MainScreen] Active subscription confirmed.');
         }
       }
     } catch (e) {
-      debugPrint('[MainScreen] Error during subscription check: $e. Allowing user to continue.');
+      debugPrint(
+        '[MainScreen] Error during subscription check: $e. Allowing user to continue.',
+      );
       if (mounted) {
         CustomSnackBar.show(
           context,
-          message: 'Could not verify subscription status. Please check your connection.',
+          message:
+              'Could not verify subscription status. Please check your connection.',
           isError: true,
         );
       }
@@ -522,8 +540,8 @@ class MainScreenState extends State<MainScreen> {
       // Home
       Text(
         userProvider.currentUser != null
-            ? "Hello ${userProvider.currentUser?.firstName}"
-            : "Hello Guest",
+            ? "${userProvider.currentUser?.country}, ${userProvider.currentUser?.state}"
+            : "WAWUAfrica",
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 14,
@@ -533,8 +551,8 @@ class MainScreenState extends State<MainScreen> {
       // Showcase
       Text(
         userProvider.currentUser != null
-            ? "Hello ${userProvider.currentUser?.firstName}"
-            : "Hello Guest",
+            ? "${userProvider.currentUser?.country}, ${userProvider.currentUser?.state}"
+            : "WAWUAfrica",
         style: TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 14,
@@ -764,10 +782,11 @@ class MainScreenState extends State<MainScreen> {
                     _selectedIndex == 0 || _selectedIndex == 1
                         ? GestureDetector(
                           onTap: () {
-                             Navigator.push(
+                            Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => const ProfileScreen()),
+                                builder: (context) => const ProfileScreen(),
+                              ),
                             );
                           },
                           child: Padding(
@@ -797,7 +816,8 @@ class MainScreenState extends State<MainScreen> {
                         : Theme.of(context).appBarTheme.elevation,
                 centerTitle: isCenteredTitle,
                 automaticallyImplyLeading:
-                    _selectedIndex == 0 || _selectedIndex == 1 ||
+                    _selectedIndex == 0 ||
+                    _selectedIndex == 1 ||
                     _selectedIndex == 4,
                 actions: appBarActions, // Use dynamic actions
               ),
