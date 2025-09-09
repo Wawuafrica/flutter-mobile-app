@@ -1,8 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
-import 'package:wawu_mobile/utils/error_utils.dart';
+import 'package:wawu_mobile/screens/search/search_screen.dart';
+import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -12,203 +14,219 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
-  // final bool _isSearchOpen = false;
-  // final TextEditingController _searchController = TextEditingController();
-  String? _selectedCategoryId;
+  late ScrollController _scrollController;
+  bool _isAppBarOpaque = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_scrollListener);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final categoryProvider = Provider.of<CategoryProvider>(
-        context,
-        listen: false,
-      );
+      final categoryProvider =
+          Provider.of<CategoryProvider>(context, listen: false);
       if (categoryProvider.categories.isEmpty && !categoryProvider.isLoading) {
         categoryProvider.fetchCategories();
       }
     });
   }
 
-  void _toggleSelection(String categoryId) {
-    setState(() {
-      if (_selectedCategoryId == categoryId) {
-        _selectedCategoryId = null;
-      } else {
-        _selectedCategoryId = categoryId;
-      }
-    });
+  @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    const scrollThreshold = 200.0; // Point at which the app bar becomes opaque
+    final isOpaque =
+        _scrollController.hasClients && _scrollController.offset > scrollThreshold;
+    if (isOpaque != _isAppBarOpaque) {
+      setState(() {
+        _isAppBarOpaque = isOpaque;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<CategoryProvider>(
-      builder: (context, categoryProvider, child) {
-        if (categoryProvider.isLoading) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
+    final categoryProvider = Provider.of<CategoryProvider>(context);
+    final categories = categoryProvider.categories;
+    final categoryCount = categories.length;
 
-        if (categoryProvider.hasError) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F5FC), // Light purple background
+      body: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 220.0,
+            pinned: true,
+            backgroundColor: _isAppBarOpaque
+                ? const Color(0xFFF8F5FC)
+                : Colors.transparent,
+            elevation: _isAppBarOpaque ? 1 : 0,
+            iconTheme: IconThemeData(
+              color: _isAppBarOpaque ? Colors.black : Colors.white,
+            ),
+            // Title that appears on scroll
+            title: AnimatedOpacity(
+              opacity: _isAppBarOpaque ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 300),
+              child: const Text(
+                'Design and Creative',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Text(
-                    'Error loading categories: ${categoryProvider.errorMessage}',
-                    style: const TextStyle(color: Colors.red),
-                    textAlign: TextAlign.center,
+                  // Replicated from HomeHeader: Image
+                  Image.asset(
+                    'assets/background_wawu.png',
+                    fit: BoxFit.cover,
                   ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(
-                    onPressed: () {
-                      categoryProvider.fetchCategories();
-                    },
-                    child: const Text('Retry'),
+                  // Replicated from HomeHeader: Blur
+                  BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                    child: Container(color: Colors.black.withOpacity(0.2)),
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.mail_outline),
-                    label: const Text('Contact Support'),
-                    onPressed: () {
-                      showErrorSupportDialog(
-                        context: context,
-                        title: 'Contact Support',
-                        message: 'If this problem persists, please contact our support team. We are here to help!',
-                      );
-                    },
+                  // Replicated from HomeHeader: Gradient Blend
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          const Color(0xFFF8F5FC),
+                          const Color(0xFFF8F5FC).withOpacity(0.0),
+                        ],
+                        stops: const [0.0, 0.9],
+                      ),
+                    ),
                   ),
+                  // Content within the header
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 60, left: 16, right: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                           const Text(
+                            'Design and Creative',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                           TextField(
+                            readOnly: true,
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SearchScreen())),
+                            decoration: InputDecoration(
+                              hintText: 'Search Service',
+                              hintStyle: TextStyle(
+                                  color: Colors.white.withOpacity(0.8)),
+                              prefixIcon:
+                                  const Icon(Icons.search, color: Colors.white70),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.2),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 0),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                 ],
               ),
             ),
-          );
-        }
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('Categories'),
-            // actions: [
-            //   Container(
-            //     decoration: BoxDecoration(
-            //       color: wawuColors.primary.withAlpha(30),
-            //       shape: BoxShape.circle,
-            //     ),
-            //     margin: EdgeInsets.only(right: 10),
-            //     height: 36,
-            //     width: 36,
-            //     child: IconButton(
-            //       icon: Icon(Icons.search, size: 17, color: wawuColors.primary),
-            //       onPressed: () {
-            //         setState(() {
-            //           _isSearchOpen = !_isSearchOpen;
-            //         });
-            //       },
-            //     ),
-            //   ),
-            // ],
           ),
-          body: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0),
-            child: ListView(
-              children: [
-                // _buildInPageSearchBar(),
-                SizedBox(height: 10),
-                ...categoryProvider.categories.map(
-                  (category) => (Column(
-                    children: [
-                      _buildItem(title: category.name, uuid: category.uuid),
-                      SizedBox(height: 10),
-                    ],
-                  )),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
-  Widget _buildItem({required String title, required String uuid}) {
-    CategoryProvider categoryProvider = Provider.of<CategoryProvider>(context);
-    return GestureDetector(
-      onTap: () {
-        final selectedCategory = categoryProvider.categories.firstWhere(
-          (category) => category.name == title,
-        );
-        _toggleSelection(selectedCategory.uuid);
-        categoryProvider.selectCategory(selectedCategory);
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => SubCategoriesAndServices()),
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(20.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color.fromARGB(255, 235, 235, 235)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                // fontWeight: FontWeight.bold,
-                color: Colors.black,
+          // Main Content List
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+              child: Text(
+                '"Design and Creative"\n$categoryCount Results',
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
-          ],
+          ),
+          if (categoryProvider.isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (categoryProvider.hasError && categories.isEmpty)
+            SliverFillRemaining(
+              child: FullErrorDisplay(
+                errorMessage:
+                    categoryProvider.errorMessage ?? 'Failed to load categories',
+                onRetry: () => categoryProvider.fetchCategories(), onContactSupport: () {  },
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final category = categories[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 6.0),
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      elevation: 1,
+                      shadowColor: Colors.purple.withOpacity(0.1),
+                      child: ListTile(
+                        title: Text(category.name),
+                        trailing: const Icon(Icons.keyboard_arrow_down),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        onTap: () {
+                          categoryProvider.selectCategory(category);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    const SubCategoriesAndServices()),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
+                childCount: categoryCount,
+              ),
+            ),
+        ],
+      ),
+       floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // TODO: Implement "Become a Seller" logic
+        },
+        backgroundColor: Colors.purple,
+        icon: const Icon(Icons.store, color: Colors.white),
+        label: const Text(
+          'Become a Seller',
+          style: TextStyle(color: Colors.white),
         ),
       ),
     );
   }
-
-  // Widget _buildInPageSearchBar() {
-  //   return AnimatedContainer(
-  //     duration: Duration(milliseconds: 200),
-  //     curve: Curves.ease,
-  //     height: _isSearchOpen ? 55 : 0,
-  //     child: ClipRRect(
-  //       child: SizedBox(
-  //         height: _isSearchOpen ? 55 : 0,
-  //         child: Padding(
-  //           padding: EdgeInsets.symmetric(horizontal: 0.0, vertical: 10.0),
-  //           child:
-  //               _isSearchOpen
-  //                   ? TextField(
-  //                     controller: _searchController,
-  //                     decoration: InputDecoration(
-  //                       hintText: "Search...",
-  //                       hintStyle: TextStyle(fontSize: 12),
-  //                       border: OutlineInputBorder(
-  //                         borderRadius: BorderRadius.circular(10),
-  //                       ),
-  //                       filled: true,
-  //                       fillColor: wawuColors.primary.withAlpha(30),
-  //                       enabledBorder: OutlineInputBorder(
-  //                         borderRadius: BorderRadius.circular(10),
-  //                         borderSide: BorderSide(
-  //                           color: wawuColors.primary.withAlpha(60),
-  //                         ),
-  //                       ),
-  //                       focusedBorder: OutlineInputBorder(
-  //                         borderRadius: BorderRadius.circular(10),
-  //                         borderSide: BorderSide(color: wawuColors.primary),
-  //                       ),
-  //                     ),
-  //                   )
-  //                   : null,
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
 }
+

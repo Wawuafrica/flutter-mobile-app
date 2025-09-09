@@ -15,7 +15,7 @@ class HomeHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final wawuAfricaProvider = Provider.of<WawuAfricaProvider>(context);
     final screenHeight = MediaQuery.of(context).size.height;
-    final totalHeaderHeight = screenHeight * 0.5;
+    final totalHeaderHeight = screenHeight * 0.6;
 
     return SizedBox(
       width: double.infinity,
