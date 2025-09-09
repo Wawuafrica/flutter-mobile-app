@@ -193,7 +193,7 @@ class HomeHeader extends StatelessWidget {
                           const int rowCount = 2;
 
                           // The specific pixel offset caused by the Stack's layout behavior
-                          const double layoutErrorOffset = 66.0;
+                          const double layoutErrorOffset = 0.0;
 
                           // Correct the available height by subtracting the offset
                           final double correctedHeight =
