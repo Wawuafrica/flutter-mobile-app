@@ -784,19 +784,45 @@ class MainScreenState extends State<MainScreen> {
                     _selectedIndex == 0 || _selectedIndex == 1
                         ? GestureDetector(
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ProfileScreen(),
-                              ),
-                            );
+                            if (userProvider.currentUser != null) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ProfileScreen(),
+                                ),
+                              );
+                            }
                           },
                           child: Padding(
                             padding: const EdgeInsets.only(left: 10.0),
-                            child: _buildProfileImage(
-                              userProvider.currentUser?.profileImage,
-                              appBarItemColor, // Pass color to profile image
-                            ),
+                            // --- START FIX ---
+                            // Handle the case where user data is still loading
+                            child:
+                                userProvider.currentUser == null
+                                    // If user is null (loading), show a dedicated placeholder
+                                    ? Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.grey[200],
+                                      ),
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    // Once user is loaded, build the profile image
+                                    : _buildProfileImage(
+                                      userProvider.currentUser!.profileImage,
+                                      appBarItemColor,
+                                    ),
+                            // --- END FIX ---
                           ),
                         )
                         : null,

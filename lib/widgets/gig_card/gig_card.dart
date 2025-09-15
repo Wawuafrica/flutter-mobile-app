@@ -317,7 +317,7 @@ class GigCard extends StatelessWidget {
       return CachedNetworkImage(
         cacheManager: CustomCacheManager.instance,
         imageUrl: gig.seller.profileImage!,
-        fit: BoxFit.contain,
+        fit: BoxFit.cover,
         placeholder:
             (context, url) => Container(
               color: Colors.grey[300],
