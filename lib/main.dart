@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:wawu_mobile/providers/her_purchase_provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'providers/network_status_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
@@ -12,7 +13,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:async';
 import 'package:logger/logger.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
-
 
 // Services
 import 'services/api_service.dart';
@@ -210,6 +210,9 @@ void main() async {
                     ),
           ),
           ChangeNotifierProvider(
+            create: (context) => HerPurchaseProvider(apiService: apiService),
+          ),
+          ChangeNotifierProvider(
             create:
                 (context) => ProductProvider(
                   apiService: apiService,
@@ -290,7 +293,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _initializeApp() async {
     try {
-
       if (!mounted) return;
 
       final authService = Provider.of<AuthService>(context, listen: false);
@@ -375,11 +377,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               'MyApp: User authenticated with role $userRole. Navigating to MainScreen.',
             );
             initialScreen = const MainScreen();
-          // } else if (userRole == 'ECOMMERCE_USER') {
-          //   _logger.i(
-          //     'MyApp: User authenticated with role $userRole. Navigating to WawuMerchMain.',
-          //   );
-          //   initialScreen = const WawuMerchMain();
+            // } else if (userRole == 'ECOMMERCE_USER') {
+            //   _logger.i(
+            //     'MyApp: User authenticated with role $userRole. Navigating to WawuMerchMain.',
+            //   );
+            //   initialScreen = const WawuMerchMain();
           } else {
             _logger.i(
               'MyApp: User authenticated with role $userRole. Navigating to Wawu.',
@@ -478,7 +480,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               return Stack(
                 children: [
                   _isInitialized && _currentScreen != null
-                      ? _currentScreen! 
+                      ? _currentScreen!
                       : const Center(child: CircularProgressIndicator()),
                   // Show "No internet connection" banner when offline
                   if (_isOfflineNotificationShown)

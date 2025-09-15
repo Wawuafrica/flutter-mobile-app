@@ -166,8 +166,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context);
+
     final user = userProvider.currentUser;
-    final fullName = '${user?.firstName ?? ''} ${user?.lastName ?? ''}'.trim();
+
+    if (user == null) {
+      return Scaffold(
+        backgroundColor:
+            wawuColors.primary, // Match the screen's background color
+        body: const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          ),
+        ),
+      );
+    }
+
+    final fullName = '${user.firstName ?? ''} ${user.lastName ?? ''}'.trim();
     final displayName = fullName.isEmpty ? 'Guest' : fullName;
 
     return Scaffold(
@@ -175,7 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: Stack(
         children: [
           // --- HEADER BACKGROUND ---
-          _buildHeaderBackground(user?.coverImage),
+          _buildHeaderBackground(user.coverImage),
 
           // --- MAIN CONTENT SHEET ---
           Column(
@@ -293,7 +307,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
 
           // --- HEADER FOREGROUND CONTENT ---
-          _buildHeaderContent(context, displayName, user?.profileImage),
+          _buildHeaderContent(context, displayName, user.profileImage),
         ],
       ),
     );

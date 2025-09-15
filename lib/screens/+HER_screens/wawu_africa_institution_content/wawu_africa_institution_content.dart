@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:provider/provider.dart';
+import 'package:wawu_mobile/providers/her_purchase_provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 
@@ -29,7 +30,10 @@ class _WawuAfricaInstitutionContentScreenState
 
   void _scrollListener() {
     const scrollThreshold = 150.0;
-    double opacity = (_scrollController.offset / scrollThreshold).clamp(0.0, 1.0);
+    double opacity = (_scrollController.offset / scrollThreshold).clamp(
+      0.0,
+      1.0,
+    );
     Color itemColor = opacity > 0.5 ? Colors.black : Colors.white;
 
     if (opacity != (_appBarBgColor.opacity) || itemColor != _appBarItemColor) {
@@ -52,45 +56,100 @@ class _WawuAfricaInstitutionContentScreenState
       _isRegistering = true;
     });
 
-    final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
-    final contentId = provider.selectedInstitutionContent?.id;
+    final wawuProvider = Provider.of<WawuAfricaProvider>(
+      context,
+      listen: false,
+    );
+    final purchaseProvider = Provider.of<HerPurchaseProvider>(
+      context,
+      listen: false,
+    ); // Get the provider
+    final contentId = wawuProvider.selectedInstitutionContent?.id;
 
     if (contentId == null) {
-      CustomSnackBar.show(context,
-          message: 'Content ID is missing.', isError: true);
-      setState(() {
-        _isRegistering = false;
-      });
+      CustomSnackBar.show(
+        context,
+        message: 'Content ID is missing.',
+        isError: true,
+      );
+      setState(() => _isRegistering = false);
       return;
     }
 
     try {
-      await provider.registerForContent(contentId);
-      // This block will only run if the provider method does not throw an error
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          message: 'Request sent\nYou will be contacted soon',
-          isError: false,
-        );
+      // 1. Check if user has already paid for this specific content
+      bool hasPaid = await purchaseProvider.hasPurchasedContent(
+        contentId.toString(),
+      );
+
+      if (!hasPaid) {
+        // 2. If not paid, show a payment dialog and initiate purchase
+        final bool? wantsToPay = await _showPaymentConfirmationDialog();
+        if (wantsToPay == true) {
+          hasPaid = await purchaseProvider.purchaseContent(
+            contentId.toString(),
+          );
+        }
+      }
+
+      // 3. If payment is confirmed (either previously or just now), proceed with registration
+      if (hasPaid) {
+        await wawuProvider.registerForContent(contentId);
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            message: 'Request sent\nYou will be contacted soon',
+            isError: false,
+          );
+        }
+      } else {
+        // User cancelled payment or it failed
+        if (mounted && (purchaseProvider.errorMessage?.isNotEmpty ?? false)) {
+          CustomSnackBar.show(
+            context,
+            message: purchaseProvider.errorMessage!,
+            isError: true,
+          );
+        }
       }
     } catch (e) {
-      // Handle the error thrown by the provider
+      // Handle errors from either provider
       if (mounted) {
-        CustomSnackBar.show(
-          context,
-          message: provider.errorMessage ?? 'Registration failed.',
-          isError: true,
-        );
+        final errorMessage =
+            purchaseProvider.errorMessage ??
+            wawuProvider.errorMessage ??
+            'An unexpected error occurred.';
+        CustomSnackBar.show(context, message: errorMessage, isError: true);
       }
     } finally {
-      // This will run regardless of success or failure
       if (mounted) {
-        setState(() {
-          _isRegistering = false;
-        });
+        setState(() => _isRegistering = false);
       }
     }
+  }
+
+  // Helper method to show a confirmation dialog
+  Future<bool?> _showPaymentConfirmationDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('One-Time Fee'),
+            content: const Text(
+              'A one-time fee is required to send a request to this institution. Do you want to proceed with the payment?',
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              FilledButton(
+                child: const Text('Pay Now'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          ),
+    );
   }
 
   @override
@@ -102,18 +161,20 @@ class _WawuAfricaInstitutionContentScreenState
     if (content == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Error')),
-        body: const Center(
-          child: Text('No content selected. Please go back.'),
-        ),
+        body: const Center(child: Text('No content selected. Please go back.')),
       );
     }
 
-    final markdownStyle =
-        MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+    final markdownStyle = MarkdownStyleSheet.fromTheme(
+      Theme.of(context),
+    ).copyWith(
       p: TextStyle(color: Colors.grey[700], fontSize: 16, height: 1.5),
       strong: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
       listBullet: const TextStyle(
-          color: Color(0xFFF50057), fontSize: 16, fontWeight: FontWeight.bold),
+        color: Color(0xFFF50057),
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+      ),
     );
 
     return Scaffold(
@@ -167,10 +228,7 @@ class _WawuAfricaInstitutionContentScreenState
           duration: const Duration(milliseconds: 300),
           child: const Text(
             'Send a request',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ),
       ),
@@ -186,19 +244,26 @@ class _WawuAfricaInstitutionContentScreenState
                   height: 250,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
-                    height: 250,
-                    color: Colors.grey[200],
-                    child: const Center(
-                        child:
-                            CircularProgressIndicator(color: Colors.pinkAccent)),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    height: 250,
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.error_outline,
-                        color: Colors.red, size: 50),
-                  ),
+                  placeholder:
+                      (context, url) => Container(
+                        height: 250,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.pinkAccent,
+                          ),
+                        ),
+                      ),
+                  errorWidget:
+                      (context, url, error) => Container(
+                        height: 250,
+                        color: Colors.grey[200],
+                        child: const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 50,
+                        ),
+                      ),
                 ),
                 Container(
                   height: 120,
@@ -275,4 +340,3 @@ class _WawuAfricaInstitutionContentScreenState
     );
   }
 }
-

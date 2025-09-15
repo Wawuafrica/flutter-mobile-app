@@ -14,13 +14,16 @@ class IAPService {
 
   // Stream controllers for purchase updates
   StreamSubscription<List<PurchaseDetails>>? _subscription;
-  final StreamController<PurchaseDetails> _purchaseController = StreamController<PurchaseDetails>.broadcast();
+  final StreamController<PurchaseDetails> _purchaseController =
+      StreamController<PurchaseDetails>.broadcast();
 
   // Product IDs - Update these with your actual product IDs
   static const String _iOSProductId = 'com.wawuafrica.standard_yearly';
-  static const String _androidProductId = 'standard_yearly'; // Update with your Google Play product ID
-
+  static const String _androidProductId =
+      'standard_yearly'; // Update with your Google Play product ID
+  static const String herOneTimeProductId = 'com.wawuafrica.her_one_time';
   // Getters for product IDs
+  // String get herOneTimeProductId => _herOneTimeProductId;
   String get productId => Platform.isIOS ? _iOSProductId : _androidProductId;
 
   // Stream for listening to purchase updates
@@ -37,132 +40,156 @@ class IAPService {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
-/// Fixed Initialize IAP service with better error handling
-Future<bool> initialize() async {
-  try {
-    _logger.i('Initializing IAP Service...');
-    debugPrint('[IAP] Starting initialization');
+  /// Fixed Initialize IAP service with better error handling
+  Future<bool> initialize() async {
+    try {
+      _logger.i('Initializing IAP Service...');
+      debugPrint('[IAP] Starting initialization');
 
-    // Check if IAP is available
-    final bool isAvailable = await _inAppPurchase.isAvailable();
-    debugPrint('[IAP] IAP available: $isAvailable');
+      // Check if IAP is available
+      final bool isAvailable = await _inAppPurchase.isAvailable();
+      debugPrint('[IAP] IAP available: $isAvailable');
 
-    if (!isAvailable) {
-      _logger.e('IAP not available on this device');
-      debugPrint('[IAP] IAP not available on this device');
+      if (!isAvailable) {
+        _logger.e('IAP not available on this device');
+        debugPrint('[IAP] IAP not available on this device');
+        return false;
+      }
+
+      // Listen to purchase updates
+      _subscription = _inAppPurchase.purchaseStream.listen(
+        _handlePurchaseUpdates,
+        onError: (error) {
+          _logger.e('IAP purchase stream error: $error');
+          debugPrint('[IAP] Purchase stream error: $error');
+        },
+      );
+
+      // Check for existing purchases/subscriptions
+      await _checkExistingPurchases();
+
+      _isInitialized = true;
+      _logger.i('IAP Service initialized successfully');
+      debugPrint('[IAP] Service initialized successfully');
+      return true;
+    } catch (e) {
+      _logger.e('Failed to initialize IAP Service: $e');
+      debugPrint('[IAP] Failed to initialize: $e');
+      _isInitialized = false;
       return false;
     }
-
-    // Listen to purchase updates
-    _subscription = _inAppPurchase.purchaseStream.listen(
-      _handlePurchaseUpdates,
-      onError: (error) {
-        _logger.e('IAP purchase stream error: $error');
-        debugPrint('[IAP] Purchase stream error: $error');
-      },
-    );
-
-    // Check for existing purchases/subscriptions
-    await _checkExistingPurchases();
-
-    _isInitialized = true;
-    _logger.i('IAP Service initialized successfully');
-    debugPrint('[IAP] Service initialized successfully');
-    return true;
-  } catch (e) {
-    _logger.e('Failed to initialize IAP Service: $e');
-    debugPrint('[IAP] Failed to initialize: $e');
-    _isInitialized = false;
-    return false;
   }
-}
 
-/// Fixed Load available products with better error handling
-Future<bool> loadProducts() async {
-  try {
-    _logger.i('Loading products...');
-    debugPrint('[IAP] Loading products for ID: $productId');
+  /// Fixed Load available products with better error handling
+  Future<bool> loadProducts({Set<String>? additionalProductIds}) async {
+    try {
+      // Start with the default, platform-specific subscription ID.
+      // 'productId' is an instance getter, so this is the correct way to access it.
+      final Set<String> idsToLoad = {productId};
 
-    if (!_isInitialized) {
-      _logger.w('IAP Service not initialized');
-      debugPrint('[IAP] Service not initialized');
-      return false;
-    }
+      // If the caller provided extra IDs, add them to the set.
+      if (additionalProductIds != null) {
+        idsToLoad.addAll(additionalProductIds);
+      }
 
-    // Query product details with timeout
-    final ProductDetailsResponse response = await _inAppPurchase
-        .queryProductDetails({productId})
-        .timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            debugPrint('[IAP] Product query timeout');
-            throw TimeoutException('Product query timeout', const Duration(seconds: 10));
-          },
+      _logger.i('Loading products for IDs: $idsToLoad');
+      debugPrint('[IAP] Loading products for IDs: $idsToLoad');
+
+      if (!_isInitialized) {
+        _logger.w('IAP Service not initialized');
+        debugPrint('[IAP] Service not initialized');
+        return false;
+      }
+
+      final ProductDetailsResponse response = await _inAppPurchase
+          .queryProductDetails(idsToLoad)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              debugPrint('[IAP] Product query timeout');
+              throw TimeoutException(
+                'Product query timeout',
+                const Duration(seconds: 10),
+              );
+            },
+          );
+
+      debugPrint('[IAP] Product query response - Error: ${response.error}');
+      debugPrint(
+        '[IAP] Product query response - Products found: ${response.productDetails.length}',
+      );
+      debugPrint(
+        '[IAP] Product query response - Not found IDs: ${response.notFoundIDs}',
+      );
+
+      if (response.error != null) {
+        _logger.e('Error loading products: ${response.error}');
+        debugPrint('[IAP] Error loading products: ${response.error}');
+        return false;
+      }
+
+      if (response.productDetails.isEmpty) {
+        _logger.w('No products found for ID: $productId');
+        debugPrint('[IAP] No products found for ID: $productId');
+        debugPrint('[IAP] Not found IDs: ${response.notFoundIDs}');
+
+        // Don't fail completely - just no products available
+        _products = [];
+        return true; // Return true to allow app to continue
+      }
+
+      _products = response.productDetails;
+      _logger.i('Loaded ${_products.length} products');
+      debugPrint('[IAP] Loaded ${_products.length} products');
+
+      for (var product in _products) {
+        _logger.i(
+          'Product: ${product.id}, Price: ${product.price}, Title: ${product.title}',
         );
+        debugPrint(
+          '[IAP] Product: ${product.id}, Price: ${product.price}, Title: ${product.title}',
+        );
+      }
 
-    debugPrint('[IAP] Product query response - Error: ${response.error}');
-    debugPrint('[IAP] Product query response - Products found: ${response.productDetails.length}');
-    debugPrint('[IAP] Product query response - Not found IDs: ${response.notFoundIDs}');
-
-    if (response.error != null) {
-      _logger.e('Error loading products: ${response.error}');
-      debugPrint('[IAP] Error loading products: ${response.error}');
-      return false;
-    }
-
-    if (response.productDetails.isEmpty) {
-      _logger.w('No products found for ID: $productId');
-      debugPrint('[IAP] No products found for ID: $productId');
-      debugPrint('[IAP] Not found IDs: ${response.notFoundIDs}');
-      
-      // Don't fail completely - just no products available
+      return true;
+    } catch (e) {
+      _logger.e('Failed to load products: $e');
+      debugPrint('[IAP] Failed to load products: $e');
+      // Don't fail completely - return true to allow app to continue
       _products = [];
-      return true; // Return true to allow app to continue
+      return true;
     }
+  }
 
-    _products = response.productDetails;
-    _logger.i('Loaded ${_products.length} products');
-    debugPrint('[IAP] Loaded ${_products.length} products');
+  /// Fixed Check for existing purchases with timeout
+  Future<void> _checkExistingPurchases() async {
+    try {
+      debugPrint('[IAP] Checking for existing purchases...');
 
-    for (var product in _products) {
-      _logger.i('Product: ${product.id}, Price: ${product.price}, Title: ${product.title}');
-      debugPrint('[IAP] Product: ${product.id}, Price: ${product.price}, Title: ${product.title}');
+      // Add timeout to prevent hanging
+      await _inAppPurchase.restorePurchases().timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          debugPrint('[IAP] Restore purchases timeout - continuing anyway');
+          return;
+        },
+      );
+
+      debugPrint('[IAP] Existing purchase check completed');
+    } catch (e) {
+      debugPrint(
+        '[IAP] Error checking existing purchases: $e - continuing anyway',
+      );
+      // Don't throw - just log and continue
     }
-
-    return true;
-  } catch (e) {
-    _logger.e('Failed to load products: $e');
-    debugPrint('[IAP] Failed to load products: $e');
-    // Don't fail completely - return true to allow app to continue
-    _products = [];
-    return true;
   }
-}
 
-/// Fixed Check for existing purchases with timeout
-Future<void> _checkExistingPurchases() async {
-  try {
-    debugPrint('[IAP] Checking for existing purchases...');
-    
-    // Add timeout to prevent hanging
-    await _inAppPurchase.restorePurchases().timeout(
-      const Duration(seconds: 15),
-      onTimeout: () {
-        debugPrint('[IAP] Restore purchases timeout - continuing anyway');
-        return;
-      },
-    );
-    
-    debugPrint('[IAP] Existing purchase check completed');
-  } catch (e) {
-    debugPrint('[IAP] Error checking existing purchases: $e - continuing anyway');
-    // Don't throw - just log and continue
-  }
-}
   /// Get product details by ID - COMPLETELY REWRITTEN TO AVOID TYPE ISSUES
   ProductDetails? getProduct(String productId) {
-    debugPrint('[IAP] Looking for product: $productId in ${_products.length} products');
-    
+    debugPrint(
+      '[IAP] Looking for product: $productId in ${_products.length} products',
+    );
+
     if (_products.isEmpty) {
       debugPrint('[IAP] No products available to search');
       return null;
@@ -195,8 +222,12 @@ Future<void> _checkExistingPurchases() async {
 
       // Check if user already has an active subscription for this product
       if (hasActiveSubscription()) {
-        _logger.w('User already has active subscription for: $productId. Simulating restored purchase.');
-        debugPrint('[IAP] User already has active subscription for: $productId. Simulating restored purchase.');
+        _logger.w(
+          'User already has active subscription for: $productId. Simulating restored purchase.',
+        );
+        debugPrint(
+          '[IAP] User already has active subscription for: $productId. Simulating restored purchase.',
+        );
 
         // Find the existing purchase and emit it as a "restored" purchase
         for (final purchase in _activePurchases) {
@@ -205,21 +236,27 @@ Future<void> _checkExistingPurchases() async {
             return true;
           }
         }
-        
+
         // If we have any active purchase, use it as fallback
         if (_activePurchases.isNotEmpty) {
           _purchaseController.add(_activePurchases.first);
           return true;
         }
-        
-        _logger.e('No active purchases found despite hasActiveSubscription being true');
-        debugPrint('[IAP] No active purchases found despite hasActiveSubscription being true');
+
+        _logger.e(
+          'No active purchases found despite hasActiveSubscription being true',
+        );
+        debugPrint(
+          '[IAP] No active purchases found despite hasActiveSubscription being true',
+        );
         return false;
       }
 
       // THIS IS THE CRITICAL PART - Make sure products are loaded
       if (_products.isEmpty) {
-        debugPrint('[IAP] No products loaded, attempting to load products first');
+        debugPrint(
+          '[IAP] No products loaded, attempting to load products first',
+        );
         final bool productsLoaded = await loadProducts();
         if (!productsLoaded) {
           _logger.e('Failed to load products before purchase');
@@ -232,19 +269,25 @@ Future<void> _checkExistingPurchases() async {
       if (product == null) {
         _logger.e('Product not found: $productId');
         debugPrint('[IAP] Product not found: $productId');
-        debugPrint('[IAP] Available products: ${_products.map((p) => p.id).toList()}');
+        debugPrint(
+          '[IAP] Available products: ${_products.map((p) => p.id).toList()}',
+        );
         return false;
       }
 
       debugPrint('[IAP] Product found: ${product.title} - ${product.price}');
 
       // Create purchase param
-      final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
+      final PurchaseParam purchaseParam = PurchaseParam(
+        productDetails: product,
+      );
 
       debugPrint('[IAP] Created purchase param, starting purchase...');
 
       // Start the purchase
-      final bool success = await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+      final bool success = await _inAppPurchase.buyNonConsumable(
+        purchaseParam: purchaseParam,
+      );
 
       debugPrint('[IAP] Purchase initiation result: $success');
 
@@ -269,14 +312,22 @@ Future<void> _checkExistingPurchases() async {
     debugPrint('[IAP] Received ${purchaseDetailsList.length} purchase updates');
 
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
-      _logger.i('Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}');
-      debugPrint('[IAP] Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}');
+      _logger.i(
+        'Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}',
+      );
+      debugPrint(
+        '[IAP] Purchase update: ${purchaseDetails.status} for ${purchaseDetails.productID}',
+      );
       debugPrint('[IAP] Purchase ID: ${purchaseDetails.purchaseID}');
       debugPrint('[IAP] Transaction date: ${purchaseDetails.transactionDate}');
-      debugPrint('[IAP] Pending complete: ${purchaseDetails.pendingCompletePurchase}');
+      debugPrint(
+        '[IAP] Pending complete: ${purchaseDetails.pendingCompletePurchase}',
+      );
 
       if (purchaseDetails.error != null) {
-        debugPrint('[IAP] Purchase error: ${purchaseDetails.error!.code} - ${purchaseDetails.error!.message}');
+        debugPrint(
+          '[IAP] Purchase error: ${purchaseDetails.error!.code} - ${purchaseDetails.error!.message}',
+        );
       }
 
       // Update our active purchases list
@@ -299,7 +350,9 @@ Future<void> _checkExistingPurchases() async {
   /// This is crucial for keeping track of active subscriptions.
   void _updateActivePurchases(PurchaseDetails purchaseDetails) {
     // Remove if already exists to add the most recent status
-    _activePurchases.removeWhere((p) => p.productID == purchaseDetails.productID);
+    _activePurchases.removeWhere(
+      (p) => p.productID == purchaseDetails.productID,
+    );
 
     // Only add if it's an active (purchased/restored) subscription.
     // In-app-purchase package marks restored purchases as PurchaseStatus.purchased
@@ -307,9 +360,13 @@ Future<void> _checkExistingPurchases() async {
     if (purchaseDetails.status == PurchaseStatus.purchased ||
         purchaseDetails.status == PurchaseStatus.restored) {
       _activePurchases.add(purchaseDetails);
-      debugPrint('[IAP] Added/Updated active purchase: ${purchaseDetails.productID}');
+      debugPrint(
+        '[IAP] Added/Updated active purchase: ${purchaseDetails.productID}',
+      );
     } else {
-      debugPrint('[IAP] Not adding to active purchases (status: ${purchaseDetails.status})');
+      debugPrint(
+        '[IAP] Not adding to active purchases (status: ${purchaseDetails.status})',
+      );
     }
   }
 
@@ -339,10 +396,15 @@ Future<void> _checkExistingPurchases() async {
   /// This method now relies on the `_activePurchases` list.
   bool hasActiveSubscription() {
     // Check if any active purchase matches our product ID
-    final bool isActive = _activePurchases.any((purchase) =>
-        purchase.productID == productId &&
-        (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored));
-    debugPrint('[IAP] Current active subscription status for $productId: $isActive');
+    final bool isActive = _activePurchases.any(
+      (purchase) =>
+          purchase.productID == productId &&
+          (purchase.status == PurchaseStatus.purchased ||
+              purchase.status == PurchaseStatus.restored),
+    );
+    debugPrint(
+      '[IAP] Current active subscription status for $productId: $isActive',
+    );
     return isActive;
   }
 
@@ -350,16 +412,19 @@ Future<void> _checkExistingPurchases() async {
   PurchaseDetails? getActivePurchase() {
     debugPrint('[IAP] Looking for active purchase for product: $productId');
     debugPrint('[IAP] Active purchases count: ${_activePurchases.length}');
-    
+
     for (final purchase in _activePurchases) {
-      debugPrint('[IAP] Checking purchase: ${purchase.productID} with status: ${purchase.status}');
+      debugPrint(
+        '[IAP] Checking purchase: ${purchase.productID} with status: ${purchase.status}',
+      );
       if (purchase.productID == productId &&
-          (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored)) {
+          (purchase.status == PurchaseStatus.purchased ||
+              purchase.status == PurchaseStatus.restored)) {
         debugPrint('[IAP] Found active purchase for $productId');
         return purchase;
       }
     }
-    
+
     debugPrint('[IAP] No active purchase found for $productId');
     return null;
   }
