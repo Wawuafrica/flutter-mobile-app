@@ -5,6 +5,7 @@ import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/gigs_screen/single_gig_screen/single_gig_screen.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wawu_mobile/utils/helpers/cache_manager.dart';
 
 class GigCard extends StatelessWidget {
   final Gig gig;
@@ -24,11 +25,15 @@ class GigCard extends StatelessWidget {
           final gigProvider = Provider.of<GigProvider>(context, listen: false);
 
           if (gig.uuid.isEmpty) {
-            debugPrint('[GigCard][ERROR] Gig has empty UUID, skipping navigation');
+            debugPrint(
+              '[GigCard][ERROR] Gig has empty UUID, skipping navigation',
+            );
             return;
           }
 
-          debugPrint('[GigCard] Tapped gig: uuid=${gig.uuid}, title=${gig.title}');
+          debugPrint(
+            '[GigCard] Tapped gig: uuid=${gig.uuid}, title=${gig.title}',
+          );
 
           gigProvider.selectGig(gig);
           gigProvider.addRecentlyViewedGig(gig);
@@ -42,7 +47,10 @@ class GigCard extends StatelessWidget {
           debugPrint('[GigCard][ERROR] Stack trace: $stackTrace');
 
           try {
-            final gigProvider = Provider.of<GigProvider>(context, listen: false);
+            final gigProvider = Provider.of<GigProvider>(
+              context,
+              listen: false,
+            );
             gigProvider.selectGig(gig);
             Navigator.push(
               context,
@@ -75,20 +83,26 @@ class GigCard extends StatelessWidget {
                 // Gig Image
                 Positioned.fill(
                   child: CachedNetworkImage(
-                    imageUrl: gig.assets.photos.isNotEmpty && gig.assets.photos[0].link.isNotEmpty
-                        ? gig.assets.photos[0].link
-                        : '',
+                    cacheManager: CustomCacheManager.instance,
+                    imageUrl:
+                        gig.assets.photos.isNotEmpty &&
+                                gig.assets.photos[0].link.isNotEmpty
+                            ? gig.assets.photos[0].link
+                            : '',
                     fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[200],
-                      child: const Center(
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => _buildPlaceholderImage(isSmallScreen, textScaler),
+                    placeholder:
+                        (context, url) => Container(
+                          color: Colors.grey[200],
+                          child: const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                    errorWidget:
+                        (context, url, error) =>
+                            _buildPlaceholderImage(isSmallScreen, textScaler),
                   ),
                 ),
-              
+
                 // Gradient Overlay
                 Positioned.fill(
                   child: Container(
@@ -105,7 +119,7 @@ class GigCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              
+
                 // Top Section - Seller Info
                 Positioned(
                   top: isSmallScreen ? 8 : 12,
@@ -169,7 +183,9 @@ class GigCard extends StatelessWidget {
                                   ? gig.averageRating.toStringAsFixed(1)
                                   : '4.7',
                               style: textTheme.labelSmall?.copyWith(
-                                fontSize: textScaler.scale(isSmallScreen ? 10 : 11),
+                                fontSize: textScaler.scale(
+                                  isSmallScreen ? 10 : 11,
+                                ),
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -180,7 +196,7 @@ class GigCard extends StatelessWidget {
                     ],
                   ),
                 ),
-              
+
                 // Bottom Section - Content
                 Positioned(
                   bottom: 0,
@@ -204,9 +220,9 @@ class GigCard extends StatelessWidget {
                           maxLines: isSmallScreen ? 1 : 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        
+
                         SizedBox(height: isSmallScreen ? 8 : 12),
-                        
+
                         // Price and Action Row
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -221,7 +237,9 @@ class GigCard extends StatelessWidget {
                                   Text(
                                     'Starting from',
                                     style: textTheme.bodySmall?.copyWith(
-                                      fontSize: textScaler.scale(isSmallScreen ? 10 : 11),
+                                      fontSize: textScaler.scale(
+                                        isSmallScreen ? 10 : 11,
+                                      ),
                                       color: Colors.white.withOpacity(0.8),
                                       fontFamily: 'Roboto',
                                       fontFamilyFallback: const ['sans-serif'],
@@ -231,11 +249,16 @@ class GigCard extends StatelessWidget {
                                   Text(
                                     _getPriceText(),
                                     style: textTheme.titleMedium?.copyWith(
-                                      fontSize: textScaler.scale(isSmallScreen ? 14 : 16),
+                                      fontSize: textScaler.scale(
+                                        isSmallScreen ? 14 : 16,
+                                      ),
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
                                       fontFamily: 'Roboto',
-                                      fontFamilyFallback: const ['Roboto','sans-serif'],
+                                      fontFamilyFallback: const [
+                                        'Roboto',
+                                        'sans-serif',
+                                      ],
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -243,9 +266,9 @@ class GigCard extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            
+
                             const SizedBox(width: 8),
-                            
+
                             // Action Button
                             Container(
                               padding: EdgeInsets.symmetric(
@@ -266,7 +289,9 @@ class GigCard extends StatelessWidget {
                               child: Text(
                                 isSmallScreen ? 'View' : 'View Details',
                                 style: textTheme.labelMedium?.copyWith(
-                                  fontSize: textScaler.scale(isSmallScreen ? 11 : 12),
+                                  fontSize: textScaler.scale(
+                                    isSmallScreen ? 11 : 12,
+                                  ),
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                 ),
@@ -287,20 +312,24 @@ class GigCard extends StatelessWidget {
   }
 
   Widget _buildSellerImage() {
-    if (gig.seller.profileImage != null && gig.seller.profileImage!.isNotEmpty) {
+    if (gig.seller.profileImage != null &&
+        gig.seller.profileImage!.isNotEmpty) {
       return CachedNetworkImage(
+        cacheManager: CustomCacheManager.instance,
         imageUrl: gig.seller.profileImage!,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => Container(
-          color: Colors.grey[300],
-          child: const Center(
-            child: CircularProgressIndicator(strokeWidth: 1),
-          ),
-        ),
-        errorWidget: (context, url, error) => Image.asset(
-          'assets/images/other/avatar.webp',
-          fit: BoxFit.cover,
-        ),
+        fit: BoxFit.contain,
+        placeholder:
+            (context, url) => Container(
+              color: Colors.grey[300],
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 1),
+              ),
+            ),
+        errorWidget:
+            (context, url, error) => Image.asset(
+              'assets/images/other/avatar.webp',
+              fit: BoxFit.cover,
+            ),
       );
     }
     return Image.asset('assets/images/other/avatar.webp', fit: BoxFit.cover);

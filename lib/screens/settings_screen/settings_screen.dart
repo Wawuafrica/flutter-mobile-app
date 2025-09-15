@@ -20,10 +20,11 @@ import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/screens/profile/profile_screen.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/utils/helpers/cache_manager.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
+// import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
 class SettingsScreen extends StatefulWidget {
   final ValueChanged<double>? onScroll;
@@ -90,16 +91,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final adProvider = Provider.of<AdProvider>(context, listen: false);
     final blogProvider = Provider.of<BlogProvider>(context, listen: false);
-    final categoryProvider =
-        Provider.of<CategoryProvider>(context, listen: false);
+    final categoryProvider = Provider.of<CategoryProvider>(
+      context,
+      listen: false,
+    );
     final gigProvider = Provider.of<GigProvider>(context, listen: false);
-    final notificationProvider =
-        Provider.of<NotificationProvider>(context, listen: false);
+    final notificationProvider = Provider.of<NotificationProvider>(
+      context,
+      listen: false,
+    );
     final planProvider = Provider.of<PlanProvider>(context, listen: false);
-    final productProvider =
-        Provider.of<ProductProvider>(context, listen: false);
-    final messageProvider =
-        Provider.of<MessageProvider>(context, listen: false);
+    final productProvider = Provider.of<ProductProvider>(
+      context,
+      listen: false,
+    );
+    final messageProvider = Provider.of<MessageProvider>(
+      context,
+      listen: false,
+    );
 
     userProvider.logout();
     await OnboardingStateService.clear();
@@ -136,14 +145,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         if (mounted) {
-          CustomSnackBar.show(context,
-              message: 'Could not open the link.', isError: true);
+          CustomSnackBar.show(
+            context,
+            message: 'Could not open the link.',
+            isError: true,
+          );
         }
       }
     } else {
       if (mounted) {
-        CustomSnackBar.show(context,
-            message: 'Link is not available at the moment.', isError: true);
+        CustomSnackBar.show(
+          context,
+          message: 'Link is not available at the moment.',
+          isError: true,
+        );
       }
     }
   }
@@ -186,7 +201,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const Text(
                           'Profile',
                           style: TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.bold),
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 10),
 
@@ -200,7 +217,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => const ProfileScreen()),
+                                builder: (context) => const ProfileScreen(),
+                              ),
                             );
                           },
                         ),
@@ -211,7 +229,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) => const FAQScreen()),
+                                builder: (context) => const FAQScreen(),
+                              ),
                             );
                           },
                         ),
@@ -222,8 +241,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) =>
-                                      const InvitePeopleScreen()),
+                                builder:
+                                    (context) => const InvitePeopleScreen(),
+                              ),
                             );
                           },
                         ),
@@ -234,8 +254,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                  builder: (context) =>
-                                      const ContactUsScreen()),
+                                builder: (context) => const ContactUsScreen(),
+                              ),
                             );
                           },
                         ),
@@ -249,14 +269,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: 'Terms of Use',
                           onTap: () => _launchLink(context, 'terms of use'),
                         ),
-                        
+
                         const SizedBox(height: 20),
                         // --- STYLED LOGOUT BUTTON (AS LIST ITEM) ---
                         _buildStyledLogoutButton(),
 
                         const SizedBox(height: 20),
                         _buildDeleteAccountButton(context),
-                        
+
                         const SizedBox(height: 20),
                         const Center(
                           child: Text(
@@ -293,6 +313,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Cover image if it exists
           if (coverImageUrl != null && coverImageUrl.isNotEmpty)
             CachedNetworkImage(
+              cacheManager: CustomCacheManager.instance,
               imageUrl: coverImageUrl,
               fit: BoxFit.cover,
               errorWidget: (context, url, error) => const SizedBox.shrink(),
@@ -313,7 +334,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildHeaderContent(
-      BuildContext context, String displayName, String? profileImageUrl) {
+    BuildContext context,
+    String displayName,
+    String? profileImageUrl,
+  ) {
     return Positioned(
       top: 0,
       left: 0,
@@ -346,9 +370,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               GestureDetector(
                 onTap: () {
                   Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const ProfileScreen()));
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileScreen(),
+                    ),
+                  );
                 },
                 child: Row(
                   children: [
@@ -357,14 +383,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       width: 50,
                       child: ClipOval(
                         child: CachedNetworkImage(
+                          cacheManager: CustomCacheManager.instance,
                           imageUrl: profileImageUrl ?? '',
                           fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                              Container(color: Colors.white24),
-                          errorWidget: (context, url, error) => Image.asset(
-                            'assets/images/other/avatar.webp',
-                            fit: BoxFit.cover,
-                          ),
+                          placeholder:
+                              (context, url) =>
+                                  Container(color: Colors.white24),
+                          errorWidget:
+                              (context, url, error) => Image.asset(
+                                'assets/images/other/avatar.webp',
+                                fit: BoxFit.cover,
+                              ),
                         ),
                       ),
                     ),
@@ -376,20 +405,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Text(
                             displayName,
                             style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold),
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const Text(
                             'View your profile', // UPDATED TEXT
                             style: TextStyle(
-                                color: Colors.white70, fontSize: 13),
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right,
-                        color: Colors.white, size: 32),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ],
                 ),
               ),
@@ -403,10 +438,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSubscriptionSection() {
     return Consumer<PlanProvider>(
       builder: (context, planProvider, child) {
-        final userType = Provider.of<UserProvider>(context, listen: false)
-            .currentUser
-            ?.role
-            ?.toLowerCase();
+        final userType =
+            Provider.of<UserProvider>(
+              context,
+              listen: false,
+            ).currentUser?.role?.toLowerCase();
 
         // Only show subscription section for non-buyer roles
         if (userType == 'buyer') {
@@ -418,15 +454,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
         if (isLoading) {
           return const Center(
-              child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: CircularProgressIndicator(),
-          ));
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
 
         if (subscription == null || !subscription.isActive) {
-          return const SizedBox
-              .shrink(); // Don't show anything if no active sub
+          return const SizedBox.shrink(); // Don't show anything if no active sub
         }
 
         final String planName =
@@ -447,32 +483,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               CustomRowSingleColumn(
                 leftText: 'Subscription Plan',
                 leftTextStyle: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600),
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
                 rightText: planName,
                 rightTextStyle: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600),
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               CustomRowSingleColumn(
                 leftText: 'Status',
-                leftTextStyle:
-                    const TextStyle(color: Colors.white, fontSize: 14),
+                leftTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
                 rightText: statusText,
-                rightTextStyle:
-                    const TextStyle(color: Colors.white, fontSize: 11),
+                rightTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
               ),
               const SizedBox(height: 8),
               CustomRowSingleColumn(
                 leftText: 'Expires On',
-                leftTextStyle:
-                    const TextStyle(color: Colors.white, fontSize: 14),
+                leftTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
                 rightText: formattedEndDate,
-                rightTextStyle:
-                    const TextStyle(color: Colors.white, fontSize: 11),
+                rightTextStyle: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
               ),
             ],
           ),
@@ -481,7 +527,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-Widget _buildStyledLogoutButton() {
+  Widget _buildStyledLogoutButton() {
     return GestureDetector(
       onTap: () async {
         await _handleLogout();
@@ -502,7 +548,7 @@ Widget _buildStyledLogoutButton() {
               style: TextStyle(
                 color: Colors.red,
                 fontWeight: FontWeight.bold,
-                fontSize: 16
+                fontSize: 16,
               ),
             ),
           ],
@@ -517,34 +563,40 @@ Widget _buildStyledLogoutButton() {
         onPressed: () async {
           final confirmed = await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Delete Account'),
-              content: const Text(
-                  'Are you sure you want to delete your account? This action is irreversible.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
+            builder:
+                (context) => AlertDialog(
+                  title: const Text('Delete Account'),
+                  content: const Text(
+                    'Are you sure you want to delete your account? This action is irreversible.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child:
-                      const Text('Delete', style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
           );
           if (confirmed != true) return;
 
-          final userProvider =
-              Provider.of<UserProvider>(context, listen: false);
+          final userProvider = Provider.of<UserProvider>(
+            context,
+            listen: false,
+          );
 
           // Show loading dialog
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (context) =>
-                const Center(child: CircularProgressIndicator()),
+            builder:
+                (context) => const Center(child: CircularProgressIndicator()),
           );
 
           final success = await userProvider.deleteUserAccount();
@@ -586,4 +638,3 @@ Widget _buildStyledLogoutButton() {
     );
   }
 }
-

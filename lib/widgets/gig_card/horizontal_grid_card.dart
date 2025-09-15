@@ -4,6 +4,7 @@ import 'package:wawu_mobile/models/gig.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/gigs_screen/single_gig_screen/single_gig_screen.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:wawu_mobile/utils/helpers/cache_manager.dart';
 
 class HorizontalGigCard extends StatelessWidget {
   final Gig gig;
@@ -74,13 +75,20 @@ class HorizontalGigCard extends StatelessWidget {
         width: 100,
         height: 120, // A fixed height often works well in list items
         child: CachedNetworkImage(
-          imageUrl: gig.assets.photos.isNotEmpty ? gig.assets.photos[0].link : '',
+          cacheManager: CustomCacheManager.instance,
+
+          imageUrl:
+              gig.assets.photos.isNotEmpty ? gig.assets.photos[0].link : '',
           fit: BoxFit.cover,
           placeholder: (context, url) => Container(color: Colors.grey[200]),
-          errorWidget: (context, url, error) => Container(
-            color: Colors.grey[200],
-            child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey),
-          ),
+          errorWidget:
+              (context, url, error) => Container(
+                color: Colors.grey[200],
+                child: const Icon(
+                  Icons.image_not_supported_outlined,
+                  color: Colors.grey,
+                ),
+              ),
         ),
       ),
     );
@@ -131,10 +139,7 @@ class HorizontalGigCard extends StatelessWidget {
   Widget _buildSellerName() {
     return Text(
       gig.seller.fullName.isNotEmpty ? gig.seller.fullName : 'Unknown Seller',
-      style: TextStyle(
-        fontSize: 13,
-        color: Colors.grey[600],
-      ),
+      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
     );
   }
 
@@ -179,7 +184,9 @@ class HorizontalGigCard extends StatelessWidget {
               const Icon(Icons.star, color: Colors.white, size: 14),
               const SizedBox(width: 4),
               Text(
-                gig.averageRating > 0 ? gig.averageRating.toStringAsFixed(1) : '4.4',
+                gig.averageRating > 0
+                    ? gig.averageRating.toStringAsFixed(1)
+                    : '4.4',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,

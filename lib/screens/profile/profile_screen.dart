@@ -14,6 +14,7 @@ import 'package:wawu_mobile/screens/profile/change_password_screen/change_passwo
 import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/services/auth_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+import 'package:wawu_mobile/utils/helpers/cache_manager.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
 import 'package:wawu_mobile/widgets/custom_dropdown/custom_dropdown.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
@@ -868,6 +869,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       )
                                       : (user?.coverImage != null
                                           ? CachedNetworkImage(
+                                            cacheManager:
+                                                CustomCacheManager.instance,
+
                                             imageUrl: user!.coverImage!,
                                             fit: BoxFit.cover,
                                             placeholder:
@@ -961,6 +965,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                                 )
                                                 : (user?.profileImage != null
                                                     ? CachedNetworkImage(
+                                                      cacheManager:
+                                                          CustomCacheManager
+                                                              .instance,
+
                                                       imageUrl:
                                                           user!.profileImage!,
                                                       fit: BoxFit.cover,

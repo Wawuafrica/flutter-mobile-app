@@ -18,6 +18,7 @@ import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/providers/notification_provider.dart';
+import 'package:wawu_mobile/utils/helpers/cache_manager.dart';
 import 'package:wawu_mobile/widgets/custom_bottom_navigation_bar/custom_bottom_navigation_bar.dart';
 import 'package:wawu_mobile/widgets/blocked_account_overlay.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
@@ -478,6 +479,7 @@ class MainScreenState extends State<MainScreen> {
   Widget _buildProfileImage(String? profileImageUrl, Color color) {
     if (profileImageUrl != null && profileImageUrl.startsWith('http')) {
       return CachedNetworkImage(
+        cacheManager: CustomCacheManager.instance,
         imageUrl: profileImageUrl,
         width: 40,
         height: 40,
