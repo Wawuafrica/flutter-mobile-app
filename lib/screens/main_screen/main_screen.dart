@@ -542,7 +542,7 @@ class MainScreenState extends State<MainScreen> {
       // Home
       Text(
         userProvider.currentUser != null
-            ? "${userProvider.currentUser?.country}, ${userProvider.currentUser?.state}"
+            ? "${userProvider.currentUser?.state}, ${userProvider.currentUser?.country}."
             : "WAWUAfrica",
         style: TextStyle(
           fontWeight: FontWeight.w600,
@@ -553,7 +553,7 @@ class MainScreenState extends State<MainScreen> {
       // Showcase
       Text(
         userProvider.currentUser != null
-            ? "${userProvider.currentUser?.country}, ${userProvider.currentUser?.state}"
+            ? "${userProvider.currentUser?.state}, ${userProvider.currentUser?.country}."
             : "WAWUAfrica",
         style: TextStyle(
           fontWeight: FontWeight.w600,
