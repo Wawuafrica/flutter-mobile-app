@@ -13,6 +13,9 @@ class HerPurchaseProvider extends BaseProvider {
   final IAPService _iapService = IAPService();
   StreamSubscription<PurchaseDetails>? _purchaseSubscription;
 
+  // A class-level completer to manage the active purchase flow initiated by the UI.
+  Completer<bool>? _purchaseCompleter;
+
   // Your new one-time product ID
   static const String herProductId = 'com.wawuafrica.her_one_time';
 
@@ -22,7 +25,72 @@ class HerPurchaseProvider extends BaseProvider {
 
   HerPurchaseProvider({required ApiService apiService})
     : _apiService = apiService,
-      super();
+      super() {
+    // Start listening for purchases as soon as the provider is initialized.
+    // This is crucial for catching transactions from previous sessions.
+    _listenToPurchases();
+  }
+
+  /// A persistent, centralized listener for all HER-related purchases.
+  void _listenToPurchases() {
+    _purchaseSubscription = _iapService.purchaseStream.listen(
+      (purchaseDetails) async {
+        // Only handle purchases for this specific product
+        if (purchaseDetails.productID != herProductId) return;
+
+        // Retrieve the contentId from the purchase details.
+        // It's passed via `applicationUserName` during the purchase request.
+        final String? contentId = purchaseDetails.verificationData.localVerificationData;
+
+        // If contentId is missing, we cannot process it with the backend.
+        // This might happen for very old, stuck transactions.
+        if (contentId == null || contentId.isEmpty) {
+          debugPrint('Purchase event received without a contentId. Cannot process.');
+          // Still, we should resolve any pending UI flow to avoid hangs.
+          if (purchaseDetails.status == PurchaseStatus.error && _purchaseCompleter != null && !_purchaseCompleter!.isCompleted) {
+             setError('Purchase failed and content ID was missing.');
+             _purchaseCompleter!.complete(false);
+          }
+          return;
+        }
+
+        switch (purchaseDetails.status) {
+          case PurchaseStatus.purchased:
+          case PurchaseStatus.restored:
+            // Handles both new purchases and leftover/restored transactions.
+            await _sendPurchaseToBackend(purchaseDetails, contentId);
+            setSuccess();
+            // If a purchase flow is currently active, complete it with success.
+            if (_purchaseCompleter != null && !_purchaseCompleter!.isCompleted) {
+              _purchaseCompleter!.complete(true);
+            }
+            break;
+          case PurchaseStatus.error:
+            setError('Purchase failed. Please try again.');
+            if (_purchaseCompleter != null && !_purchaseCompleter!.isCompleted) {
+              _purchaseCompleter!.complete(false);
+            }
+            break;
+          case PurchaseStatus.canceled:
+            setError('Purchase was canceled.');
+            if (_purchaseCompleter != null && !_purchaseCompleter!.isCompleted) {
+              _purchaseCompleter!.complete(false);
+            }
+            break;
+          case PurchaseStatus.pending:
+            // The purchase is pending user action (e.g., parental approval).
+            // Do not complete the future yet; the UI should wait.
+            break;
+        }
+      },
+      onError: (error) {
+        setError('An error occurred in the purchase stream.');
+        if (_purchaseCompleter != null && !_purchaseCompleter!.isCompleted) {
+          _purchaseCompleter!.complete(false);
+        }
+      },
+    );
+  }
 
   /// Checks the backend to see if the user has already paid for this content.
   Future<bool> hasPurchasedContent(String contentId) async {
@@ -43,61 +111,58 @@ class HerPurchaseProvider extends BaseProvider {
     }
   }
 
-  /// Initiates the IAP flow for the content.
+  /// Initiates the IAP flow for the content. (REWRITTEN FOR ROBUSTNESS)
   /// Returns `true` if the purchase is successful, `false` otherwise.
   Future<bool> purchaseContent(String contentId) async {
-    final completer = Completer<bool>();
+    // If a purchase is already in progress, return its future instead of starting a new one.
+    if (_purchaseCompleter != null && !_purchaseCompleter!.isCompleted) {
+        return _purchaseCompleter!.future;
+    }
+    
+    _purchaseCompleter = Completer<bool>();
     setLoading();
 
-    // Ensure IAP is ready
-    if (!_iapService.isInitialized) {
-      await _iapService.initialize();
-      await _iapService.loadProducts(
-        additionalProductIds: {IAPService.herOneTimeProductId},
-      ); // Load all products
-    }
-
-    _purchaseSubscription = _iapService.purchaseStream.listen(
-      (purchaseDetails) async {
-        if (purchaseDetails.productID != herProductId) return;
-
-        switch (purchaseDetails.status) {
-          case PurchaseStatus.purchased:
-          case PurchaseStatus.restored:
-            await _sendPurchaseToBackend(purchaseDetails, contentId);
-            setSuccess();
-            if (!completer.isCompleted) completer.complete(true);
-            break;
-          case PurchaseStatus.error:
-            setError('Purchase failed. Please try again.');
-            if (!completer.isCompleted) completer.complete(false);
-            break;
-          case PurchaseStatus.canceled:
-            setError('Purchase was canceled.');
-            if (!completer.isCompleted) completer.complete(false);
-            break;
-          case PurchaseStatus.pending:
-            // Waiting for user action
-            break;
+    try {
+        // Ensure IAP is ready before initiating a purchase
+        if (!_iapService.isInitialized) {
+            await _iapService.initialize();
+            await _iapService.loadProducts(
+                additionalProductIds: {herProductId},
+            );
         }
-      },
-      onError: (error) {
-        setError('An error occurred during purchase.');
-        if (!completer.isCompleted) completer.complete(false);
-      },
-    );
 
-    // Start the purchase
-    final purchaseStarted = await _iapService.purchaseProduct(herProductId);
-    if (!purchaseStarted) {
-      setError('Could not start purchase process.');
-      if (!completer.isCompleted) completer.complete(false);
+        // The IAP service will now initiate the purchase.
+        // The result will be caught by our persistent `_listenToPurchases` method.
+        // We pass the contentId here so it can be retrieved from the PurchaseDetails later.
+        final purchaseStarted = await _iapService.purchaseProduct(
+            herProductId,
+            applicationUsername: contentId
+        );
+        
+        if (!purchaseStarted) {
+            setError('Could not start purchase process.');
+            if (!_purchaseCompleter!.isCompleted) {
+                _purchaseCompleter!.complete(false);
+            }
+        }
+
+        // Add a timeout as a safeguard against the app store never responding.
+        return await _purchaseCompleter!.future.timeout(
+            const Duration(minutes: 5), 
+            onTimeout: () {
+                if (_purchaseCompleter != null && !_purchaseCompleter!.isCompleted) {
+                   setError('Purchase timed out. Please check your connection and try again.');
+                }
+                return false; // Return false on timeout
+            }
+        );
+    } catch (e) {
+        setError('An error occurred while starting the purchase: $e');
+        if (!_purchaseCompleter!.isCompleted) {
+          _purchaseCompleter!.complete(false);
+        }
+        return false;
     }
-
-    // Clean up listener after completion
-    completer.future.whenComplete(() => _purchaseSubscription?.cancel());
-
-    return completer.future;
   }
 
   /// Sends the successful purchase data to your backend.

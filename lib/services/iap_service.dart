@@ -209,10 +209,11 @@ class IAPService {
   }
 
   /// Purchase a product
-  Future<bool> purchaseProduct(String productId) async {
+/// Purchase a product, now with support for associating it with user data.
+  Future<bool> purchaseProduct(String productId, {String? applicationUsername}) async {
     try {
       _logger.i('Initiating purchase for product: $productId');
-      debugPrint('[IAP] Initiating purchase for product: $productId');
+      debugPrint('[IAP] Initiating purchase for product: $productId with username: $applicationUsername');
 
       if (!_isInitialized) {
         _logger.e('IAP Service not initialized');
@@ -220,45 +221,12 @@ class IAPService {
         return false;
       }
 
-      // Check if user already has an active subscription for this product
-      if (hasActiveSubscription()) {
-        _logger.w(
-          'User already has active subscription for: $productId. Simulating restored purchase.',
-        );
-        debugPrint(
-          '[IAP] User already has active subscription for: $productId. Simulating restored purchase.',
-        );
-
-        // Find the existing purchase and emit it as a "restored" purchase
-        for (final purchase in _activePurchases) {
-          if (purchase.productID == productId) {
-            _purchaseController.add(purchase);
-            return true;
-          }
-        }
-
-        // If we have any active purchase, use it as fallback
-        if (_activePurchases.isNotEmpty) {
-          _purchaseController.add(_activePurchases.first);
-          return true;
-        }
-
-        _logger.e(
-          'No active purchases found despite hasActiveSubscription being true',
-        );
-        debugPrint(
-          '[IAP] No active purchases found despite hasActiveSubscription being true',
-        );
-        return false;
-      }
-
       // THIS IS THE CRITICAL PART - Make sure products are loaded
       if (_products.isEmpty) {
-        debugPrint(
-          '[IAP] No products loaded, attempting to load products first',
-        );
-        final bool productsLoaded = await loadProducts();
-        if (!productsLoaded) {
+        debugPrint('[IAP] No products loaded, attempting to load products first');
+        // Pass the specific product ID to ensure it gets loaded if the list is empty
+        final bool productsLoaded = await loadProducts(additionalProductIds: {productId});
+        if (!productsLoaded || _products.isEmpty) {
           _logger.e('Failed to load products before purchase');
           debugPrint('[IAP] Failed to load products before purchase');
           return false;
@@ -269,22 +237,22 @@ class IAPService {
       if (product == null) {
         _logger.e('Product not found: $productId');
         debugPrint('[IAP] Product not found: $productId');
-        debugPrint(
-          '[IAP] Available products: ${_products.map((p) => p.id).toList()}',
-        );
+        debugPrint('[IAP] Available products: ${_products.map((p) => p.id).toList()}');
         return false;
       }
 
       debugPrint('[IAP] Product found: ${product.title} - ${product.price}');
 
-      // Create purchase param
+      // Create purchase param, including the applicationUsername if provided.
+      // This is used to link the purchase to a specific content ID or user action.
       final PurchaseParam purchaseParam = PurchaseParam(
         productDetails: product,
+        applicationUserName: applicationUsername,
       );
 
       debugPrint('[IAP] Created purchase param, starting purchase...');
 
-      // Start the purchase
+      // Use `buyNonConsumable` for one-time purchases or subscriptions.
       final bool success = await _inAppPurchase.buyNonConsumable(
         purchaseParam: purchaseParam,
       );
@@ -306,7 +274,6 @@ class IAPService {
       return false;
     }
   }
-
   /// Handle purchase updates from the store
   void _handlePurchaseUpdates(List<PurchaseDetails> purchaseDetailsList) {
     debugPrint('[IAP] Received ${purchaseDetailsList.length} purchase updates');
