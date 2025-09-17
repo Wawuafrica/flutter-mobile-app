@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -145,86 +144,86 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
     );
   }
 
-  Widget _buildItem(
-      BuildContext context, sub_category_model.WawuAfricaSubCategory subCategory) {
-    final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
+Widget _buildItem(
+    BuildContext context, sub_category_model.WawuAfricaSubCategory subCategory) {
+  final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
 
-    return GestureDetector(
-      onTap: () {
-        // Select the tapped sub-category and navigate to the next screen
-        provider.selectSubCategory(subCategory);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (context) => const WawuAfricaInstitution()),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Use CachedNetworkImage to display the image with fallbacks
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8.0),
-              child: SvgPicture.network(
-                subCategory.imageUrl,
-                width: 40,
-                height: 40,
-                fit: BoxFit.contain,
-                errorBuilder: (context, url, error) {
-                  // Primary fallback: try to load the local SVG asset
-                  return SvgPicture.asset(
-                    'assets/wawu_svg.svg',
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.contain,
-                    // Secondary fallback: if the local asset fails, show an icon
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey.shade200,
-                      child: Icon(
-                        Icons.category,
-                        color: Colors.grey.shade400,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Text container that can handle multi-line names
-            Expanded(
-              child: Center(
-                child: Text(
-                  subCategory.name,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-        ),
+  return GestureDetector(
+    onTap: () {
+      // Select the tapped sub-category and navigate to the next screen
+      provider.selectSubCategory(subCategory);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => const WawuAfricaInstitution()),
+      );
+    },
+    child: Container(
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-    );
-  }
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, // This will now work correctly
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Use a larger, more balanced size for the image
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: SvgPicture.network(
+              subCategory.imageUrl,
+              width: 50, // CHANGED: Increased size for better visuals
+              height: 50, // CHANGED: Increased size for better visuals
+              fit: BoxFit.contain,
+              // Your errorBuilder logic is good and remains unchanged
+              errorBuilder: (context, url, error) {
+                return SvgPicture.asset(
+                  'assets/wawu_svg.svg',
+                  width: 50,
+                  height: 50,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Icon(
+                      Icons.category,
+                      color: Colors.grey.shade400,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8), // Slightly reduced spacing
+          // REMOVED: The 'Expanded' and 'Center' widgets were removed from here.
+          Text(
+            subCategory.name,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    ),
+  );
+}
 }
