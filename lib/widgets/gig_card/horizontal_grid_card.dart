@@ -162,11 +162,13 @@ class HorizontalGigCard extends StatelessWidget {
               // In Nigeria, you should display the price in Naira (₦)
               // The design shows $, so I'll keep it for visual consistency.
               // Use _getPriceText() if you prefer your original logic.
-              '\$${gig.pricings.isNotEmpty ? gig.pricings[0].package.amount : '100'}',
+              '₦${gig.pricings.isNotEmpty ? gig.pricings[0].package.amount : '100'}',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
                 color: Colors.black,
+                fontFamily: 'Roboto',
+                fontFamilyFallback: ['sans-serif'],
               ),
             ),
           ],
