@@ -83,32 +83,11 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
           // --- Empty State ---
           if (provider.subCategories.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // REPLACED: The Icon widget is now an Image.asset widget
-                  Image.asset(
-                    'assets/wawuback.png',
-                    width: 220, // You can adjust the size as needed
-                    height: 220,
-                    fit: BoxFit.contain,
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'No Sub-Categories Found',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'There are no sub-categories available in this section yet.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
+              child: Image.asset(
+                'assets/wawuback.png',
+                width: 220, // You can adjust the size as needed
+                height: 220,
+                fit: BoxFit.contain,
               ),
             );
           }
