@@ -45,10 +45,7 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
             // Display the name of the selected category in the AppBar
             return Text(
               provider.selectedCategory?.name ?? 'Sub-Categories',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             );
           },
         ),
@@ -85,17 +82,19 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
 
           // --- Empty State ---
           if (provider.subCategories.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.category_outlined,
-                    size: 80,
-                    color: Colors.grey,
+                  // REPLACED: The Icon widget is now an Image.asset widget
+                  Image.asset(
+                    'assets/wawuback.png',
+                    width: 120, // You can adjust the size as needed
+                    height: 120,
+                    fit: BoxFit.contain,
                   ),
-                  SizedBox(height: 20),
-                  Text(
+                  const SizedBox(height: 20),
+                  const Text(
                     'No Sub-Categories Found',
                     style: TextStyle(
                       fontSize: 18,
@@ -103,8 +102,8 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                       color: Colors.grey,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'There are no sub-categories available in this section yet.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey),
@@ -124,11 +123,11 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                   child: GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 8.0,
-                      mainAxisSpacing: 8.0,
-                      childAspectRatio: 1.0,
-                    ),
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8.0,
+                          mainAxisSpacing: 8.0,
+                          childAspectRatio: 1.0,
+                        ),
                     itemCount: provider.subCategories.length,
                     itemBuilder: (context, index) {
                       final subCategory = provider.subCategories[index];
@@ -144,86 +143,91 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
     );
   }
 
-Widget _buildItem(
-    BuildContext context, sub_category_model.WawuAfricaSubCategory subCategory) {
-  final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
+  Widget _buildItem(
+    BuildContext context,
+    sub_category_model.WawuAfricaSubCategory subCategory,
+  ) {
+    final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
 
-  return GestureDetector(
-    onTap: () {
-      // Select the tapped sub-category and navigate to the next screen
-      provider.selectSubCategory(subCategory);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => const WawuAfricaInstitution()),
-      );
-    },
-    child: Container(
-      padding: const EdgeInsets.all(8.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-            offset: const Offset(0, 2),
+    return GestureDetector(
+      onTap: () {
+        // Select the tapped sub-category and navigate to the next screen
+        provider.selectSubCategory(subCategory);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const WawuAfricaInstitution(),
           ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center, // This will now work correctly
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Use a larger, more balanced size for the image
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8.0),
-            child: SvgPicture.network(
-              subCategory.imageUrl,
-              width: 50, // CHANGED: Increased size for better visuals
-              height: 50, // CHANGED: Increased size for better visuals
-              fit: BoxFit.contain,
-              // Your errorBuilder logic is good and remains unchanged
-              errorBuilder: (context, url, error) {
-                return SvgPicture.asset(
-                  'assets/wawu_svg.svg',
-                  width: 50,
-                  height: 50,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Container(
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment:
+              MainAxisAlignment.center, // This will now work correctly
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Use a larger, more balanced size for the image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8.0),
+              child: SvgPicture.network(
+                subCategory.imageUrl,
+                width: 50, // CHANGED: Increased size for better visuals
+                height: 50, // CHANGED: Increased size for better visuals
+                fit: BoxFit.contain,
+                // Your errorBuilder logic is good and remains unchanged
+                errorBuilder: (context, url, error) {
+                  return SvgPicture.asset(
+                    'assets/wawu_svg.svg',
                     width: 50,
                     height: 50,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Icon(
-                      Icons.category,
-                      color: Colors.grey.shade400,
-                    ),
-                  ),
-                );
-              },
+                    fit: BoxFit.contain,
+                    errorBuilder:
+                        (context, error, stackTrace) => Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Icon(
+                            Icons.category,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 8), // Slightly reduced spacing
-          // REMOVED: The 'Expanded' and 'Center' widgets were removed from here.
-          Text(
-            subCategory.name,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black,
-              fontWeight: FontWeight.w500,
+            const SizedBox(height: 8), // Slightly reduced spacing
+            // REMOVED: The 'Expanded' and 'Center' widgets were removed from here.
+            Text(
+              subCategory.name,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
