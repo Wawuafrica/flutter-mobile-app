@@ -9,7 +9,7 @@ class WawuAfricaProvider extends BaseProvider {
 
   // Base URL for the Node.js/Express backend
   static const String _tsBackendBaseUrl =
-      'https://wawu-ts-backend.onrender.com/api';
+      'https://ts.wawuafrica.com/api';
 
   List<WawuAfricaCategory> _categories = [];
   List<WawuAfricaSubCategory> _subCategories = [];

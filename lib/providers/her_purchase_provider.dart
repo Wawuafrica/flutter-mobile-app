@@ -18,7 +18,7 @@ class HerPurchaseProvider extends BaseProvider {
 
   // Base URL for the Node.js/Express backend
   static const String _tsBackendBaseUrl =
-      'https://wawu-ts-backend.onrender.com/api';
+      'https://ts.wawuafrica.com/api';
 
   HerPurchaseProvider({required ApiService apiService})
     : _apiService = apiService,

@@ -40,7 +40,7 @@ class PlanProvider extends BaseProvider {
 
     // Base URL for the Node.js/Express backend
   static const String _tsBackendBaseUrl =
-      'https://wawu-ts-backend.onrender.com/api';
+      'https://ts.wawuafrica.com/api';
 
 
   // Cache duration (24 hours)

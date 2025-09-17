@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/subscription_iap.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
@@ -25,6 +26,7 @@ import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_c
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 // import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
+// settings_screen.dart
 
 class SettingsScreen extends StatefulWidget {
   final ValueChanged<double>? onScroll;
@@ -37,6 +39,10 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late ScrollController _internalScrollController;
+  // 2. ADD STATE VARIABLES FOR VERSION INFO
+  String _version = '...';
+  String _buildNumber = '...';
+
 
   @override
   void initState() {
@@ -46,7 +52,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchSubscriptionDetails();
     });
+    // 4. CALL THE NEW METHOD TO GET VERSION INFO
+    _initPackageInfo();
   }
+
+  // 3. CREATE A METHOD TO GET PACKAGE INFO
+  Future<void> _initPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _version = info.version;
+        _buildNumber = info.buildNumber;
+      });
+    }
+  }
+
 
   @override
   void dispose() {
@@ -55,6 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  // ... (rest of your methods like _handleScroll, _fetchSubscriptionDetails, _handleLogout, _launchLink remain unchanged)
   void _handleScroll() {
     if (widget.onScroll != null) {
       widget.onScroll!(_internalScrollController.offset);
@@ -162,6 +183,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -292,10 +314,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _buildDeleteAccountButton(context),
 
                         const SizedBox(height: 20),
-                        const Center(
+                         Center(
+                          // 5. UPDATE THE TEXT WIDGET
                           child: Text(
-                            'Version 1.2.96.001',
-                            style: TextStyle(color: Colors.grey),
+                            'Version $_version ($_buildNumber)', // Use the dynamic values
+                            style: const TextStyle(color: Colors.grey),
                           ),
                         ),
                       ],
@@ -312,7 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
+  // ... (All other build helper methods like _buildHeaderBackground, _buildSubscriptionSection, etc., remain unchanged)
   Widget _buildHeaderBackground(String? coverImageUrl) {
     return Positioned(
       top: 0,
