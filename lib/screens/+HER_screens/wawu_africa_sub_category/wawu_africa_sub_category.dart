@@ -89,8 +89,8 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                   // REPLACED: The Icon widget is now an Image.asset widget
                   Image.asset(
                     'assets/wawuback.png',
-                    width: 180, // You can adjust the size as needed
-                    height: 180,
+                    width: 220, // You can adjust the size as needed
+                    height: 220,
                     fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 20),
