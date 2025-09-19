@@ -105,7 +105,7 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                           crossAxisCount: 3,
                           crossAxisSpacing: 8.0,
                           mainAxisSpacing: 8.0,
-                          childAspectRatio: 1.0,
+                          childAspectRatio: 0.9,
                         ),
                     itemCount: provider.subCategories.length,
                     itemBuilder: (context, index) {
@@ -164,20 +164,20 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
               borderRadius: BorderRadius.circular(8.0),
               child: SvgPicture.network(
                 subCategory.imageUrl,
-                width: 50, // CHANGED: Increased size for better visuals
-                height: 50, // CHANGED: Increased size for better visuals
+                width: 30, // CHANGED: Increased size for better visuals
+                height: 30, // CHANGED: Increased size for better visuals
                 fit: BoxFit.contain,
                 // Your errorBuilder logic is good and remains unchanged
                 errorBuilder: (context, url, error) {
                   return SvgPicture.asset(
                     'assets/wawu_svg.svg',
-                    width: 50,
-                    height: 50,
+                    width: 30,
+                    height: 30,
                     fit: BoxFit.contain,
                     errorBuilder:
                         (context, error, stackTrace) => Container(
-                          width: 50,
-                          height: 50,
+                          width: 30,
+                          height: 30,
                           decoration: BoxDecoration(
                             color: Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(8.0),
