@@ -481,6 +481,8 @@ class MainScreenState extends State<MainScreen> {
       return CachedNetworkImage(
         cacheManager: CustomCacheManager.instance,
         imageUrl: profileImageUrl,
+        memCacheHeight: 200,
+        memCacheWidth: 200,
         width: 40,
         height: 40,
         fit: BoxFit.cover,
@@ -780,52 +782,51 @@ class MainScreenState extends State<MainScreen> {
             Scaffold(
               extendBodyBehindAppBar: isTransparentAppBar,
               appBar: AppBar(
-                leading:
-                    _selectedIndex == 0 || _selectedIndex == 1
-                        ? GestureDetector(
-                          onTap: () {
-                            if (userProvider.currentUser != null) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ProfileScreen(),
-                                ),
-                              );
-                            }
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 10.0),
+                leading: _selectedIndex == 0 || _selectedIndex == 1
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 10.0),
+                        child: userProvider.currentUser == null
                             // --- START FIX ---
-                            // Handle the case where user data is still loading
-                            child:
-                                userProvider.currentUser == null
-                                    // If user is null (loading), show a dedicated placeholder
-                                    ? Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.grey[200],
-                                      ),
-                                      child: const Center(
-                                        child: SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    // Once user is loaded, build the profile image
-                                    : _buildProfileImage(
-                                      userProvider.currentUser!.profileImage,
-                                      appBarItemColor,
+                            // User is not logged in: Show avatar, tap to Sign Up
+                            ? GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const SignUp(),
                                     ),
+                                  );
+                                },
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    image: DecorationImage(
+                                      image: AssetImage('assets/images/other/avatar.webp'),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            // User is logged in: Show profile image, tap to go to Profile
+                            : GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const ProfileScreen(),
+                                    ),
+                                  );
+                                },
+                                child: _buildProfileImage(
+                                  userProvider.currentUser!.profileImage,
+                                  appBarItemColor,
+                                ),
+                              ),
                             // --- END FIX ---
-                          ),
-                        )
-                        : null,
+                      )
+                    : null,
                 title:
                     appBarTitles.length > _selectedIndex
                         ? appBarTitles[_selectedIndex]

@@ -137,16 +137,6 @@ class _SignInState extends State<SignIn> {
                       ),
                     ),
 
-                  // Removed the old inline error Text widget for userProvider.
-                  // if (userProvider.hasError)
-                  //   Padding(
-                  //     padding: const EdgeInsets.only(bottom: 10.0),
-                  //     child: Text(
-                  //       userProvider.errorMessage ?? 'An error occurred',
-                  //       style: TextStyle(color: Colors.red),
-                  //       textAlign: TextAlign.center,
-                  //     ),
-                  //   ),
                   if (!userProvider
                       .isLoading) // Show button only when not loading
                     CustomButton(
@@ -191,6 +181,25 @@ class _SignInState extends State<SignIn> {
                       color: wawuColors.buttonPrimary,
                       textColor: Colors.white,
                     ),
+                  const SizedBox(height: 20),
+                  CustomButton(
+                    function: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MainScreen(),
+                        ),
+                      );
+                    },
+                    widget: const Text(
+                      'Skip',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    color: const Color.fromARGB(255, 247, 223, 255),
+                  ),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

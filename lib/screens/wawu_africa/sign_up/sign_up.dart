@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/providers/links_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'otp_screen.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/services/api_service.dart';
@@ -618,6 +619,27 @@ class _SignUpState extends State<SignUp> {
                         textColor: Colors.white,
                       ),
                     const SizedBox(height: 20),
+
+                    //Skip
+                    CustomButton(
+                    function: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const MainScreen(),
+                        ),
+                      );
+                    },
+                    widget: const Text(
+                      'Skip',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    color: const Color.fromARGB(255, 247, 223, 255),
+                  ),
+                  const SizedBox(height: 20),
 
                     // Login Link
                     Row(

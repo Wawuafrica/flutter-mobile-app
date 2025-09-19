@@ -19,6 +19,7 @@ import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
 import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
 import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/screens/profile/profile_screen.dart';
+import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/utils/helpers/cache_manager.dart';
@@ -43,7 +44,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '...';
   String _buildNumber = '...';
 
-
   @override
   void initState() {
     super.initState();
@@ -66,7 +66,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
     }
   }
-
 
   @override
   void dispose() {
@@ -139,14 +138,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     categoryProvider.clearSelectedCategory();
     categoryProvider.clearSelectedSubCategory();
     categoryProvider.clearSelectedService();
-    gigProvider.clearAll();
+    gigProvider.clearUserData();
     notificationProvider.clearAll();
     planProvider.reset();
     productProvider.clearAll();
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => const MainScreen()),
+      MaterialPageRoute(builder: (context) => const SignIn()),
       (Route<dynamic> route) => false,
     );
   }
@@ -183,7 +182,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -314,7 +312,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _buildDeleteAccountButton(context),
 
                         const SizedBox(height: 20),
-                         Center(
+                        Center(
                           // 5. UPDATE THE TEXT WIDGET
                           child: Text(
                             'Version $_version ($_buildNumber)', // Use the dynamic values
@@ -335,6 +333,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
   // ... (All other build helper methods like _buildHeaderBackground, _buildSubscriptionSection, etc., remain unchanged)
   Widget _buildHeaderBackground(String? coverImageUrl) {
     return Positioned(
@@ -352,6 +351,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             CachedNetworkImage(
               cacheManager: CustomCacheManager.instance,
               imageUrl: coverImageUrl,
+              memCacheHeight: 200,
+              memCacheWidth: 200,
               fit: BoxFit.cover,
               errorWidget: (context, url, error) => const SizedBox.shrink(),
             ),
@@ -421,6 +422,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: ClipOval(
                         child: CachedNetworkImage(
                           cacheManager: CustomCacheManager.instance,
+                          memCacheHeight: 200,
+                          memCacheWidth: 200,
                           imageUrl: profileImageUrl ?? '',
                           fit: BoxFit.cover,
                           placeholder:
