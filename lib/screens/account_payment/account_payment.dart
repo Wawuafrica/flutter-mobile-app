@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/plan.dart' as plan_model;
 import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/base_provider.dart';
-import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
+import 'package:wawu_mobile/screens/update_profile/update_profile.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
@@ -85,11 +85,11 @@ class _AccountPaymentState extends State<AccountPayment> {
       if (hasActive && planProvider.hasActiveSubscription && mounted && !_isNavigatingAway) {
         debugPrint('Active subscription found, navigating to Disclaimer');
         _isNavigatingAway = true;
-        await OnboardingStateService.saveStep('disclaimer');
+        await OnboardingStateService.saveStep('update_profile');
 
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const Disclaimer()),
+          MaterialPageRoute(builder: (context) => const UpdateProfile()),
           (Route<dynamic> route) => false,
         );
       }
@@ -313,10 +313,10 @@ class _AccountPaymentState extends State<AccountPayment> {
     
     try {
       _isNavigatingAway = true;
-      await OnboardingStateService.saveStep('disclaimer');
+      await OnboardingStateService.saveStep('update_profile');
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const Disclaimer()),
+        MaterialPageRoute(builder: (context) => const UpdateProfile()),
         (Route<dynamic> route) => false,
       );
     } catch (e) {
@@ -484,7 +484,7 @@ class _AccountPaymentState extends State<AccountPayment> {
       await OnboardingStateService.setComplete();
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const Disclaimer()),
+        MaterialPageRoute(builder: (context) => const UpdateProfile()),
         (Route<dynamic> route) => false,
       );
     }

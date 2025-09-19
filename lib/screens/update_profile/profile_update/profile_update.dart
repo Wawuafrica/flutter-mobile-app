@@ -12,7 +12,6 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/providers/location_provider.dart';
 import 'package:wawu_mobile/providers/skill_provider.dart'; // Add this import
 import 'package:wawu_mobile/models/country.dart';
-import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/account_payment/disclaimer/disclaimer.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_button/custom_button.dart';
@@ -144,26 +143,26 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
           context,
           listen: false,
         );
-              // Location
-      if (user.country != null && locationProvider.countries.isNotEmpty) {
-        _selectedCountry = locationProvider.countries.firstWhere(
-          (c) => c.name.toLowerCase() == user.country!.toLowerCase(),
-          orElse: () => Country(id: 0, name: user.country!, flag: ''),
-        );
-        if (_selectedCountry != null && _selectedCountry!.id != 0) {
-          // Fetch states and set the user's state
-          locationProvider.fetchStates(_selectedCountry!.id).then((_) {
-            if (mounted) {
-              setState(() {
-                _selectedState = user.state;
-              });
-            }
-          });
+        // Location
+        if (user.country != null && locationProvider.countries.isNotEmpty) {
+          _selectedCountry = locationProvider.countries.firstWhere(
+            (c) => c.name.toLowerCase() == user.country!.toLowerCase(),
+            orElse: () => Country(id: 0, name: user.country!, flag: ''),
+          );
+          if (_selectedCountry != null && _selectedCountry!.id != 0) {
+            // Fetch states and set the user's state
+            locationProvider.fetchStates(_selectedCountry!.id).then((_) {
+              if (mounted) {
+                setState(() {
+                  _selectedState = user.state;
+                });
+              }
+            });
+          }
+        } else {
+          _selectedCountry = null;
+          _selectedState = null;
         }
-      } else {
-        _selectedCountry = null;
-        _selectedState = null;
-      }
       }
       // Populate social media controllers with extracted handles
       _facebookController.text = _extractSocialHandle(
@@ -408,18 +407,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
             message: 'Profile updated successfully!',
             isError: false,
           );
-          final role = userProvider.currentUser?.role?.toLowerCase();
-          if (role == 'buyer') {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Disclaimer()),
-            );
-          } else {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const Plan()),
-            );
-          }
+          await OnboardingStateService.setComplete();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const Disclaimer()),
+          );
         }
       } else {
         if (mounted) {
@@ -642,11 +634,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   'account_type',
                   'category_selection',
                   'subcategory_selection',
-                  'update_profile',
-                  'profile_update',
                   'plan',
                   'payment',
                   'payment_processing',
+                  'update_profile',
+                  'profile_update',
                   'verify_payment',
                   'disclaimer',
                 ],
@@ -654,11 +646,11 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                   'account_type': 'Account',
                   'category_selection': 'Category',
                   'subcategory_selection': 'Subcategory',
-                  'update_profile': 'Intro',
-                  'profile_update': 'Profile',
                   'plan': 'Plan',
                   'payment': 'Payment',
                   'payment_processing': 'Processing',
+                  'update_profile': 'Intro',
+                  'profile_update': 'Profile',
                   'verify_payment': 'Verify',
                   'disclaimer': 'Disclaimer',
                 },
@@ -1412,30 +1404,15 @@ class _ProfileUpdateState extends State<ProfileUpdate> {
                       _isSavingProfile
                           ? null
                           : () async {
-                            final userProvider = Provider.of<UserProvider>(
-                              context,
-                              listen: false,
-                            );
-                            final role =
-                                userProvider.currentUser?.role?.toLowerCase();
                             if (!_isDirty) {
                               // Skip: Navigate to the next screen or back
-                              if (role == 'buyer') {
-                                await OnboardingStateService.setComplete();
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const Disclaimer(),
-                                  ),
-                                );
-                              } else {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const Plan(),
-                                  ),
-                                );
-                              }
+                              await OnboardingStateService.setComplete();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const Disclaimer(),
+                                ),
+                              );
                             } else {
                               // Continue: Save the profile
                               _saveProfile();

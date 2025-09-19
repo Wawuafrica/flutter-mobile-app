@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
+import 'package:wawu_mobile/screens/plan/plan.dart';
 import 'package:wawu_mobile/screens/update_profile/update_profile.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
@@ -292,16 +293,32 @@ class _SubCategorySelectionState extends State<SubCategorySelection> {
                           return;
                         }
 
-                        await OnboardingStateService.saveStep('profile_update');
-                        await OnboardingStateService.saveSubCategory(
-                          _selectedSubCategoryId!,
-                        );
-                        Navigator.push(
+                        final userProvider = Provider.of<UserProvider>(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const UpdateProfile(),
-                          ),
+                          listen: false,
                         );
+                        final role =
+                            userProvider.currentUser?.role?.toLowerCase();
+                        if (role == 'buyer') {
+                          await OnboardingStateService.saveStep('update_profile');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UpdateProfile(),
+                            ),
+                          );
+                        } else {
+                          await OnboardingStateService.saveStep('plan');
+                          await OnboardingStateService.saveSubCategory(
+                            _selectedSubCategoryId!,
+                          );
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const Plan(),
+                            ),
+                          );
+                        }
                       },
                       widget: const Text(
                         'Continue',
