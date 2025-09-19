@@ -481,8 +481,6 @@ class MainScreenState extends State<MainScreen> {
       return CachedNetworkImage(
         cacheManager: CustomCacheManager.instance,
         imageUrl: profileImageUrl,
-        memCacheHeight: 200,
-        memCacheWidth: 200,
         width: 40,
         height: 40,
         fit: BoxFit.cover,

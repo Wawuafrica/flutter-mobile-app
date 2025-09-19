@@ -71,6 +71,7 @@ class Gig {
   final Assets assets;
   final String status;
   final List<Review> reviews;
+  final DateTime createdAt; // MODIFIED: Added this field
 
   Gig({
     required this.uuid,
@@ -85,6 +86,7 @@ class Gig {
     required this.assets,
     required this.status,
     required this.reviews,
+    required this.createdAt, // MODIFIED: Added to constructor
   });
 
   factory Gig.fromJson(Map<String, dynamic>? json) {
@@ -102,6 +104,7 @@ class Gig {
         assets: Assets.fromJson(null),
         status: 'PENDING',
         reviews: [],
+        createdAt: DateTime.now(), // Default value for null json
       );
     }
 
@@ -202,6 +205,8 @@ class Gig {
       assets: assets,
       status: json['status']?.toString() ?? 'PENDING',
       reviews: reviews,
+      // MODIFIED: Safely parse the new field
+      createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
     );
   }
 
@@ -219,22 +224,12 @@ class Gig {
       'assets': assets.toJson(),
       'status': status,
       'reviews': reviews.map((r) => r.toJson()).toList(),
+      // MODIFIED: Add to toJson method
+      'createdAt': createdAt.toIso8601String(),
     };
   }
-
-  DateTime get createdAt {
-    try {
-      if (services.isNotEmpty && services[0].createdAt.isNotEmpty) {
-        return DateTime.tryParse(services[0].createdAt) ?? DateTime.now();
-      }
-      if (pricings.isNotEmpty && pricings[0].createdAt.isNotEmpty) {
-        return DateTime.tryParse(pricings[0].createdAt) ?? DateTime.now();
-      }
-    } catch (e) {
-      debugPrint('Error parsing createdAt: $e');
-    }
-    return DateTime.now();
-  }
+  
+  // MODIFIED: DELETED the old getter for createdAt
 
   bool isPending() => status == 'PENDING';
   bool isVerified() => status == 'VERIFIED';

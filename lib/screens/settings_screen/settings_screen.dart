@@ -351,8 +351,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             CachedNetworkImage(
               cacheManager: CustomCacheManager.instance,
               imageUrl: coverImageUrl,
-              memCacheHeight: 200,
-              memCacheWidth: 200,
               fit: BoxFit.cover,
               errorWidget: (context, url, error) => const SizedBox.shrink(),
             ),
@@ -422,8 +420,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: ClipOval(
                         child: CachedNetworkImage(
                           cacheManager: CustomCacheManager.instance,
-                          memCacheHeight: 200,
-                          memCacheWidth: 200,
                           imageUrl: profileImageUrl ?? '',
                           fit: BoxFit.cover,
                           placeholder:

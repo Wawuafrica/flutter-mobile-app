@@ -156,7 +156,8 @@ class GigProvider extends BaseProvider {
           json['title'] == null ||
           json['description'] == null ||
           json['seller'] == null ||
-          json['created_at'] == null) {
+          // MODIFIED: Corrected the key from 'created_at' to 'createdAt'
+          json['createdAt'] == null) {
         return false;
       }
 
@@ -241,6 +242,9 @@ class GigProvider extends BaseProvider {
       final response = await _apiService.get<Map<String, dynamic>>(
         '/gigs/recently-viewed', // New API endpoint
       );
+
+          debugPrint('[RecentlyViewed] API response: ${response['data']}');
+
 
       if (_isDisposed) return;
 
@@ -1030,7 +1034,7 @@ class GigProvider extends BaseProvider {
       );
       if (index != -1) {
         final currentGig = _gigsByStatus[status]![index];
-        final updatedReviews = [...currentGig.reviews, newReview];
+        final updatedReviews = List<Review>.from(currentGig.reviews)..add(newReview);
 
         final updatedGig = Gig(
           uuid: currentGig.uuid,
@@ -1045,6 +1049,7 @@ class GigProvider extends BaseProvider {
           assets: currentGig.assets,
           status: currentGig.status,
           reviews: updatedReviews,
+          createdAt: currentGig.createdAt, // Pass the createdAt
         );
 
         _gigsByStatus[status]![index] = updatedGig;
@@ -1053,7 +1058,7 @@ class GigProvider extends BaseProvider {
 
     if (_selectedGig?.uuid == gigUuid) {
       final g = _selectedGig!;
-      final updatedReviews = [...g.reviews, newReview];
+      final updatedReviews = List<Review>.from(g.reviews)..add(newReview);
 
       _selectedGig = Gig(
         uuid: g.uuid,
@@ -1068,6 +1073,7 @@ class GigProvider extends BaseProvider {
         assets: g.assets,
         status: g.status,
         reviews: updatedReviews,
+        createdAt: g.createdAt, // Pass the createdAt
       );
     }
 
