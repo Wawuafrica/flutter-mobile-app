@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/wawu_africa_nest.dart' as model;
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_single_institution/wawu_africa_single_institution.dart';
-import 'package:wawu_mobile/services/api_service.dart';
 import 'package:wawu_mobile/utils/error_utils.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 

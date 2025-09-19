@@ -2,8 +2,11 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/wawu_africa_nest.dart' as model;
+import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_institution_content/wawu_africa_institution_content.dart';
+import 'package:wawu_mobile/screens/home_screen/ads_section.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/utils/error_utils.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 
@@ -27,13 +30,18 @@ class _WawuAfricaSingleInstitutionState
     _scrollController.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final adProvider = Provider.of<AdProvider>(context, listen: false);
       final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
       final selectedInstitutionId = provider.selectedInstitution?.id;
+      if (adProvider.ads.isEmpty && !adProvider.isLoading) {
+        adProvider.fetchAds();
+      }
 
       if (selectedInstitutionId != null) {
         provider.clearInstitutionContents();
         provider.fetchInstitutionContentsByInstitutionId(
-            selectedInstitutionId.toString());
+          selectedInstitutionId.toString(),
+        );
       } else {
         print("Error: No institution selected.");
         // Optionally, pop the navigation if no institution is selected
@@ -88,9 +96,10 @@ class _WawuAfricaSingleInstitutionState
         ),
         centerTitle: true,
         elevation: _isScrolled ? 1.0 : 0.0,
-        backgroundColor: _isScrolled
-            ? Theme.of(context).scaffoldBackgroundColor
-            : Colors.transparent,
+        backgroundColor:
+            _isScrolled
+                ? Theme.of(context).scaffoldBackgroundColor
+                : Colors.transparent,
         iconTheme: IconThemeData(
           color: _isScrolled ? Colors.black : Colors.white,
         ),
@@ -99,9 +108,7 @@ class _WawuAfricaSingleInstitutionState
         controller: _scrollController,
         slivers: [
           // Header Section
-          SliverToBoxAdapter(
-            child: _buildHeaderSection(institution),
-          ),
+          SliverToBoxAdapter(child: _buildHeaderSection(institution)),
 
           // Institution Info
           SliverToBoxAdapter(
@@ -113,6 +120,17 @@ class _WawuAfricaSingleInstitutionState
                   const SizedBox(height: 20),
                   _buildInstitutionInfo(institution),
                   const SizedBox(height: 30),
+                  const Text(
+                    'Ads',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  AdsSection(),
+                  const SizedBox(height: 20),
                   const Text(
                     'Content',
                     style: TextStyle(
@@ -150,14 +168,16 @@ class _WawuAfricaSingleInstitutionState
             final selectedInstitutionId = provider.selectedInstitution?.id;
             if (selectedInstitutionId != null) {
               provider.fetchInstitutionContentsByInstitutionId(
-                  selectedInstitutionId.toString());
+                selectedInstitutionId.toString(),
+              );
             }
           },
-          onContactSupport: () => showErrorSupportDialog(
-            context: context,
-            message: 'If the problem persists, please contact support.',
-            title: 'Error',
-          ),
+          onContactSupport:
+              () => showErrorSupportDialog(
+                context: context,
+                message: 'If the problem persists, please contact support.',
+                title: 'Error',
+              ),
         ),
       );
     }
@@ -173,9 +193,10 @@ class _WawuAfricaSingleInstitutionState
               Text(
                 'No Content Available',
                 style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey,
+                ),
               ),
               SizedBox(height: 8),
               Text(
@@ -190,17 +211,13 @@ class _WawuAfricaSingleInstitutionState
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final content = provider.institutionContents[index];
-          return Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-            child: _buildContentItem(context, content),
-          );
-        },
-        childCount: provider.institutionContents.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final content = provider.institutionContents[index];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+          child: _buildContentItem(context, content),
+        );
+      }, childCount: provider.institutionContents.length),
     );
   }
 
@@ -216,19 +233,20 @@ class _WawuAfricaSingleInstitutionState
             child: CachedNetworkImage(
               imageUrl: institution?.coverImageUrl ?? '',
               fit: BoxFit.cover,
-              placeholder: (context, url) =>
-                  Container(color: Colors.grey.shade300),
-              errorWidget: (context, url, error) => Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.orange.shade400, Colors.red.shade600],
+              placeholder:
+                  (context, url) => Container(color: Colors.grey.shade300),
+              errorWidget:
+                  (context, url, error) => Container(
+                    color: wawuColors.primary.withAlpha(30),
+                        child: Icon(
+                          Icons.image,
+                          size: 60,
+                          color: wawuColors.primary.withAlpha(50),
+                    ),
                   ),
-                ),
-                child: const Icon(Icons.school, size: 80, color: Colors.white),
-              ),
             ),
           ),
-          
+
           // Gradient Overlay for Text Visibility
           Container(
             height: 200,
@@ -237,10 +255,7 @@ class _WawuAfricaSingleInstitutionState
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.5),
-                  Colors.transparent,
-                ],
+                colors: [Colors.black.withOpacity(0.5), Colors.transparent],
                 stops: const [0.0, 0.5], // Adjust stops for desired fade effect
               ),
             ),
@@ -268,18 +283,20 @@ class _WawuAfricaSingleInstitutionState
                 child: CachedNetworkImage(
                   imageUrl: institution?.profileImageUrl ?? '',
                   fit: BoxFit.cover,
-                  placeholder: (context, url) =>
-                      Container(color: Colors.grey.shade300),
-                  errorWidget: (context, url, error) => Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Colors.blue.shade400, Colors.purple.shade600],
+                  placeholder:
+                      (context, url) => Container(color: Colors.grey.shade300),
+                  errorWidget:
+                      (context, url, error) => Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: wawuColors.primary.withAlpha(30)
+                        ),
+                        child: const Icon(
+                          Icons.account_balance,
+                          size: 60,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    child: const Icon(Icons.account_balance,
-                        size: 60, color: Colors.white),
-                  ),
                 ),
               ),
             ),
@@ -315,7 +332,9 @@ class _WawuAfricaSingleInstitutionState
   }
 
   Widget _buildContentItem(
-      BuildContext context, model.WawuAfricaInstitutionContent content) {
+    BuildContext context,
+    model.WawuAfricaInstitutionContent content,
+  ) {
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 16),
@@ -338,13 +357,17 @@ class _WawuAfricaSingleInstitutionState
                 child: CachedNetworkImage(
                   imageUrl: content.imageUrl,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) =>
-                      Container(color: Colors.grey.shade200),
-                  errorWidget: (context, url, error) => Container(
-                    color: Colors.blue.shade100,
-                    child: Icon(Icons.image,
-                        size: 60, color: Colors.blue.shade300),
-                  ),
+                  placeholder:
+                      (context, url) => Container(color: Colors.grey.shade200),
+                  errorWidget:
+                      (context, url, error) => Container(
+                        color: wawuColors.primary.withAlpha(30),
+                        child: Icon(
+                          Icons.image,
+                          size: 60,
+                          color: wawuColors.primary.withAlpha(50),
+                        ),
+                      ),
                 ),
               ),
             ),
@@ -386,7 +409,9 @@ class _WawuAfricaSingleInstitutionState
   }
 
   void _navigateToContent(
-      BuildContext context, model.WawuAfricaInstitutionContent content) {
+    BuildContext context,
+    model.WawuAfricaInstitutionContent content,
+  ) {
     final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
     provider.selectInstitutionContent(content); // Set the selected content
     Navigator.push(
@@ -397,4 +422,3 @@ class _WawuAfricaSingleInstitutionState
     );
   }
 }
-
