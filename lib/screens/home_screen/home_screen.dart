@@ -66,6 +66,8 @@ class _HomeScreenState extends State<HomeScreen> {
       listen: false,
     );
 
+    userProvider.fetchCurrentUser();
+
     if (wawuAfricProvider.categories.isEmpty && !wawuAfricProvider.isLoading) {
       wawuAfricProvider.fetchCategories();
     }
@@ -108,6 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
       final futures = <Future>[
+        userProvider.fetchCurrentUser(),
         categoryProvider.fetchCategories(),
         wawuAfricProvider.fetchCategories(),
         adProvider.refresh(),
