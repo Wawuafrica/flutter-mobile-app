@@ -2,23 +2,18 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/providers/category_provider.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
-import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_sub_category/wawu_africa_sub_category.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
 import 'package:wawu_mobile/screens/categories/sub_categories_and_services_screen.dart/sub_categories_and_services.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
-import 'package:wawu_mobile/widgets/fading_carousel/fading_carousel.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:wawu_mobile/widgets/image_text_card/image_text_card.dart';
 import 'package:wawu_mobile/widgets/gig_card/gig_card.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
 import 'package:wawu_mobile/screens/search/search_screen.dart'; // Import the new search screen
@@ -140,41 +135,6 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
         CustomSnackBar.show(
           context,
           message: 'Failed to refresh data: $error',
-          isError: true,
-        );
-      }
-    }
-  }
-
-  /// Handle ad tap with improved error handling
-  Future<void> _handleAdTap(String adLink) async {
-    if (adLink.isEmpty) {
-      CustomSnackBar.show(
-        context,
-        message: 'This ad has no link',
-        isError: false,
-      );
-      return;
-    }
-
-    try {
-      final uri = Uri.parse(adLink);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          CustomSnackBar.show(
-            context,
-            message: 'Could not open the ad link',
-            isError: true,
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          message: 'Error opening link: ${e.toString()}',
           isError: true,
         );
       }
@@ -309,104 +269,6 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
         loadingAds ||
         loadingSuggestedGigs ||
         loadingRecentlyViewedGigs;
-  }
-
-  /// Build ads section with inline error handling
-  Widget _buildAdsSection(AdProvider adProvider) {
-    if (adProvider.isLoading && adProvider.ads.isEmpty) {
-      return Container(
-        width: double.infinity,
-        height: 250,
-        decoration: BoxDecoration(
-          color: wawuColors.borderPrimary.withAlpha(50),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (adProvider.ads.isEmpty && !adProvider.hasError) {
-      return Container(
-        width: double.infinity,
-        height: 250,
-        decoration: BoxDecoration(
-          color: wawuColors.borderPrimary.withAlpha(50),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.announcement_outlined, color: Colors.grey, size: 48),
-              SizedBox(height: 16),
-              Text(
-                'No ads available',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (adProvider.ads.isNotEmpty) {
-      final List<Widget> carouselItems =
-          adProvider.ads.map((ad) {
-            return GestureDetector(
-              onTap: () => _handleAdTap(ad.link),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: CachedNetworkImage(
-                  imageUrl: ad.media.link,
-                  fit: BoxFit.cover,
-                  placeholder:
-                      (context, url) => Container(
-                        color: wawuColors.borderPrimary.withAlpha(50),
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                  errorWidget:
-                      (context, url, error) => Container(
-                        color: wawuColors.borderPrimary.withAlpha(50),
-                        child: const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.broken_image,
-                                color: Colors.grey,
-                                size: 48,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Failed to load image',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                ),
-              ),
-            );
-          }).toList();
-
-      return FadingCarousel(height: 220, children: carouselItems);
-    }
-
-    return Container(
-      width: double.infinity,
-      height: 250,
-      decoration: BoxDecoration(
-        color: wawuColors.borderPrimary.withAlpha(50),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: const Center(
-        child: Text(
-          'No updates available',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      ),
-    );
   }
 
   /// Build categories section with inline error handling
@@ -564,16 +426,6 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
           gigProvider,
           userProvider,
         );
-
-        final List<Map<String, String>> backendData = [
-          {'text': 'Music', 'svgPath': 'assets/icons/music.svg'},
-          {'text': 'Art', 'svgPath': 'assets/icons/art.svg'},
-          {'text': 'Tech', 'svgPath': 'assets/icons/tech.svg'},
-          {'text': 'Food', 'svgPath': 'assets/icons/food.svg'},
-          {'text': 'Fashion', 'svgPath': 'assets/icons/fashion.svg'},
-          {'text': 'Fitness', 'svgPath': 'assets/icons/fitness.svg'},
-        ];
-
         // Show full screen error if there's a critical error
         if (hasCriticalError) {
           final errorInfo = _getPrimaryError(
@@ -585,8 +437,8 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
 
           return Scaffold(
             body: FullErrorDisplay(
-              errorMessage: errorInfo?['message'] ?? 'An error occurred',
-              onRetry: errorInfo?['retry'] ?? () {},
+              errorMessage: errorInfo['message'] ?? 'An error occurred',
+              onRetry: errorInfo['retry'] ?? () {},
               onContactSupport: () {
                 _showErrorSupportDialog(
                   context,
@@ -678,16 +530,14 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 SizedBox(height: statusBarHeight),
-                          
+
                                 // Search Bar Section
                                 Hero(
                                   tag: 'searchBar',
                                   child: Material(
                                     color: Colors.transparent,
                                     child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                        10.0,
-                                      ),
+                                      borderRadius: BorderRadius.circular(10.0),
                                       child: BackdropFilter(
                                         filter: ImageFilter.blur(
                                           sigmaX: 10,
@@ -698,8 +548,9 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                             color: Colors.white.withOpacity(
                                               0.1,
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(10.0),
+                                            borderRadius: BorderRadius.circular(
+                                              10.0,
+                                            ),
                                             border: Border.all(
                                               color: Colors.white.withOpacity(
                                                 0.2,
@@ -722,8 +573,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                                         context,
                                                         animation,
                                                         secondaryAnimation,
-                                                      ) =>
-                                                          const SearchScreen(),
+                                                      ) => const SearchScreen(),
                                                   transitionsBuilder: (
                                                     context,
                                                     animation,
@@ -750,42 +600,31 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                               ),
                                               border: OutlineInputBorder(
                                                 borderRadius:
-                                                    BorderRadius.circular(
-                                                      10.0,
-                                                    ),
+                                                    BorderRadius.circular(10.0),
                                                 borderSide: const BorderSide(
                                                   color: Colors.transparent,
                                                   width: 1.0,
                                                 ),
                                               ),
-                                              enabledBorder:
-                                                  OutlineInputBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          10.0,
-                                                        ),
-                                                    borderSide:
-                                                        const BorderSide(
-                                                          color:
-                                                              Colors
-                                                                  .transparent,
-                                                          width: 1.0,
-                                                        ),
-                                                  ),
-                                              focusedBorder:
-                                                  OutlineInputBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          10.0,
-                                                        ),
-                                                    borderSide: BorderSide(
-                                                      color:
-                                                          Theme.of(
-                                                            context,
-                                                          ).primaryColor,
-                                                      width: 2.0,
-                                                    ),
-                                                  ),
+                                              enabledBorder: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10.0),
+                                                borderSide: const BorderSide(
+                                                  color: Colors.transparent,
+                                                  width: 1.0,
+                                                ),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(10.0),
+                                                borderSide: BorderSide(
+                                                  color:
+                                                      Theme.of(
+                                                        context,
+                                                      ).primaryColor,
+                                                  width: 2.0,
+                                                ),
+                                              ),
                                               filled: false,
                                               contentPadding:
                                                   const EdgeInsets.symmetric(
@@ -799,7 +638,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                     ),
                                   ),
                                 ),
-                          
+
                                 const SizedBox(height: 40),
                                 // Categories Section
                                 CustomIntroText(
@@ -825,7 +664,7 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                                     categoryProvider,
                                   ),
                                 ),
-                                const SizedBox(height: 30),
+                                const SizedBox(height: 20),
                               ],
                             ),
                           ),
@@ -859,6 +698,15 @@ class _ShowcaseScreenState extends State<ShowcaseScreen> {
                         _buildSuggestedGigsSection(gigProvider),
                       ],
                     ),
+                  ),
+                ),
+
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      const SizedBox(height: 20),
+                    ]),
                   ),
                 ),
                 // Recently Viewed Gigs Section

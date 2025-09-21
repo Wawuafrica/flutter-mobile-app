@@ -623,7 +623,7 @@ class _SignUpState extends State<SignUp> {
                     //Skip
                     CustomButton(
                     function: () {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const MainScreen(),

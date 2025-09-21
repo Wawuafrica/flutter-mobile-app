@@ -231,10 +231,9 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.sentiment_dissatisfied_outlined,
-                        size: 48,
-                        color: Colors.grey[400],
+                      Image.asset(
+                        'assets/no_gigs.png',
+                        width: 150,
                       ),
                       const SizedBox(height: 16),
                       Text(

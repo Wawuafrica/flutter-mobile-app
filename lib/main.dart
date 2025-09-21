@@ -279,6 +279,9 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isInitialized = false;
   Widget? _currentScreen;
+  
+  // --- MODIFIED: Added state for splash screen timer ---
+  bool _isSplashTimerFinished = false;
 
   // Tracks if the "No internet connection" notification is currently shown
   bool _isOfflineNotificationShown = false;
@@ -289,6 +292,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _logger.d('MyApp: App state initialized');
     _initializeApp();
+    
+    // --- ADDED: Timer for splash screen minimum duration ---
+    Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _isSplashTimerFinished = true;
+        });
+      }
+    });
   }
 
   Future<void> _initializeApp() async {
@@ -462,7 +474,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       BouncingScrollWrapper.builder(
         context,
         MaterialApp(
-          title: 'Wawu Mobile',
+          title: 'WAWUAfrica',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             textTheme: GoogleFonts.soraTextTheme(Theme.of(context).textTheme),
@@ -479,9 +491,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
               return Stack(
                 children: [
-                  _isInitialized && _currentScreen != null
+                  // --- MODIFIED: Logic to show splash screen ---
+                  // Show the main screen only after initialization and the splash timer are both complete.
+                  // Otherwise, show the splash screen.
+                  _isInitialized && _isSplashTimerFinished && _currentScreen != null
                       ? _currentScreen!
-                      : const Center(child: CircularProgressIndicator()),
+                      : Scaffold(
+                          body: Center(
+                            child: Image.asset(
+                              'assets/images/none.png',
+                              width: 200,
+                              cacheWidth: 500,
+                            ),
+                          ),
+                        ),
                   // Show "No internet connection" banner when offline
                   if (_isOfflineNotificationShown)
                     Positioned(

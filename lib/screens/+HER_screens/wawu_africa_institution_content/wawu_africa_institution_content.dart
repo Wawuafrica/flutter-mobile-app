@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:provider/provider.dart';
-import 'package:wawu_mobile/providers/her_purchase_provider.dart';
+import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
@@ -54,91 +56,115 @@ class _WawuAfricaInstitutionContentScreenState
     super.dispose();
   }
 
+  /// --- REFACTORED: Handles registration with graceful subscription checking ---
   Future<void> _handleRegistration() async {
-    setState(() {
-      _isRegistering = true;
-    });
+    setState(() => _isRegistering = true);
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final wawuProvider = Provider.of<WawuAfricaProvider>(context, listen: false);
+    final planProvider = Provider.of<PlanProvider>(context, listen: false);
 
+    // 1. Check if user is logged in
     if (userProvider.currentUser == null) {
       CustomSnackBar.show(
         context,
         message: 'Please log in or sign up to send a request',
         isError: true,
       );
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const SignUp()),
-      );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const SignUp()),
+        );
+      }
       setState(() => _isRegistering = false);
       return;
     }
 
-    final wawuProvider = Provider.of<WawuAfricaProvider>(
-      context,
-      listen: false,
-    );
-    final purchaseProvider = Provider.of<HerPurchaseProvider>(
-      context,
-      listen: false,
-    ); // Get the provider
     final contentId = wawuProvider.selectedInstitutionContent?.id;
-
     if (contentId == null) {
-      CustomSnackBar.show(
-        context,
-        message: 'Content ID is missing.',
-        isError: true,
-      );
+      CustomSnackBar.show(context, message: 'Content ID is missing.', isError: true);
+      setState(() => _isRegistering = false);
+      return;
+    }
+
+    // 2. Gracefully handle offline state, like in main_screen.dart
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (connectivityResult == ConnectivityResult.none) {
+      if (mounted) {
+        CustomSnackBar.show(
+          context,
+          message: 'No internet connection. Please try again later.',
+          isError: true,
+        );
+      }
       setState(() => _isRegistering = false);
       return;
     }
 
     try {
-      // 1. Check if user has already paid for this specific content
-      bool hasPaid = await purchaseProvider.hasPurchasedContent(
-        contentId.toString(),
-      );
-
-      if (!hasPaid) {
-        // 2. If not paid, show a payment dialog and initiate purchase
-        final bool? wantsToPay = await _showPaymentConfirmationDialog();
-        if (wantsToPay == true) {
-          hasPaid = await purchaseProvider.purchaseContent(
-            contentId.toString(),
-          );
+      // FIX: Convert String role to int roleId, as required by the provider.
+      int getRoleId(String? roleName) {
+        switch (roleName?.toUpperCase()) {
+          case 'BUYER':
+            return 1;
+          case 'PROFESSIONAL':
+            return 2;
+          case 'ARTISAN':
+            return 3;
+          default:
+            return 0; // Default for guest or unknown roles
         }
       }
 
-      // 3. If payment is confirmed (either previously or just now), proceed with registration
-      if (hasPaid) {
+      final int roleId = getRoleId(userProvider.currentUser!.role);
+
+      // 3. CRITICAL: Force a check against all sources (cache, backend, IAP)
+      // to get the most up-to-date subscription status.
+      await planProvider.fetchUserSubscriptionDetails(
+        userProvider.currentUser!.uuid,
+        roleId, // Use the corrected integer roleId
+      );
+
+      if (!mounted) return;
+
+      // 4. Now, check the provider for an active subscription
+      if (planProvider.hasActiveSubscription) {
+        // If subscribed, proceed to register for the content
         await wawuProvider.registerForContent(contentId);
         if (mounted) {
           CustomSnackBar.show(
             context,
             message: 'Request sent\nYou will be contacted soon',
-            isError: false,
           );
         }
       } else {
-        // User cancelled payment or it failed
-        if (mounted && (purchaseProvider.errorMessage?.isNotEmpty ?? false)) {
+        // 5. If not subscribed, guide the user through the subscription process
+        final bool? wantsToSubscribe = await _showSubscriptionDialog(planProvider);
+
+        if (wantsToSubscribe == true && mounted) {
+          // Initiate the subscription purchase flow
+          await planProvider.purchaseSubscription(
+            planUuid: '', // planUuid is handled internally by the provider
+            userId: userProvider.currentUser!.uuid,
+          );
+
+          // The purchase result is handled asynchronously by PlanProvider.
+          // Inform the user about the next step.
           CustomSnackBar.show(
             context,
-            message: purchaseProvider.errorMessage!,
-            isError: true,
+            message: 'Once your subscription is confirmed, please tap "Send a request" again.',
           );
         }
       }
     } catch (e) {
-      // Handle errors from either provider
+      debugPrint('[WawuAfricaContentScreen] Error during registration: $e');
       if (mounted) {
-        final errorMessage =
-            purchaseProvider.errorMessage ??
-            wawuProvider.errorMessage ??
-            'An unexpected error occurred.';
-        CustomSnackBar.show(context, message: errorMessage, isError: true);
+        CustomSnackBar.show(
+          context,
+          message: 'An error occurred. Please check your connection and try again.',
+          isError: true,
+        );
       }
     } finally {
       if (mounted) {
@@ -147,118 +173,99 @@ class _WawuAfricaInstitutionContentScreenState
     }
   }
 
-  /// Helper method to show a confirmation dialog as a modal bottom sheet.
-  Future<bool?> _showPaymentConfirmationDialog() {
+  /// Helper method to show the new subscription dialog.
+  Future<bool?> _showSubscriptionDialog(PlanProvider planProvider) async {
+    // Ensure IAP is initialized to get product details
+    if (!planProvider.isIapInitialized) {
+      await planProvider.initializeIAP();
+    }
+
+    ProductDetails? product;
+    if (planProvider.iapProducts.isNotEmpty) {
+      product = planProvider.iapProducts.first;
+    }
+
     return showModalBottomSheet<bool>(
       context: context,
-      // Use the scaffold's background color for a seamless look
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      // Apply rounded corners to the top
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28.0)),
       ),
-      builder:
-          (context) => Padding(
-            // Add padding for content and respect the safe area at the bottom
-            padding: EdgeInsets.fromLTRB(
-              24,
-              20,
-              24,
-              MediaQuery.of(context).padding.bottom + 24,
+      builder: (context) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            24, 20, 24, MediaQuery.of(context).padding.bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize
-                      .min, // Make the sheet only as tall as its content
-              children: [
-                // 1. Grab Handle for visual affordance
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+            const SizedBox(height: 28),
+            const Text(
+              'Subscription Required',
+              style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'A yearly subscription is required to send requests to institutions. This gives you unlimited access.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.black54, height: 1.5),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: wawuColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                const SizedBox(height: 28),
-
-                // 2. Title
-                const Text(
-                  'One-Time Fee',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(
+                  // Show price if available, otherwise show a generic message
+                  product != null
+                      ? 'Subscribe Now for ${product.price}/year'
+                      : 'Subscribe Now',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                const SizedBox(height: 12),
-
-                // 3. Descriptive Content
-                const Text(
-                  'A one-time fee is required to send a request to this institution. Do you want to proceed with the payment?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black54,
-                    height: 1.5,
-                  ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
-                const SizedBox(height: 32),
-
-                // 4. "Pay Now" Button (Primary Action)
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor:
-                          wawuColors
-                              .primary, // Using the specific color from your FAB
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text(
-                      'Pay Now',
-                      style: TextStyle(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel',
+                    style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // 5. "Cancel" Button (Secondary Action)
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                        color: Colors.black54)),
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Build method remains the same as before
     final provider = Provider.of<WawuAfricaProvider>(context);
     final content = provider.selectedInstitutionContent;
     final institution = provider.selectedInstitution;
@@ -274,7 +281,8 @@ class _WawuAfricaInstitutionContentScreenState
       Theme.of(context),
     ).copyWith(
       p: TextStyle(color: Colors.grey[700], fontSize: 16, height: 1.5),
-      strong: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+      strong:
+          const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
       listBullet: const TextStyle(
         color: Color(0xFFF50057),
         fontSize: 16,
@@ -305,7 +313,6 @@ class _WawuAfricaInstitutionContentScreenState
         icon: Stack(
           alignment: Alignment.center,
           children: [
-            // The image is always present but may be covered by the loader
             if (institution?.profileImageUrl.isNotEmpty ?? false)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -316,7 +323,6 @@ class _WawuAfricaInstitutionContentScreenState
                   fit: BoxFit.cover,
                 ),
               ),
-            // The loader appears on top of the image when registering
             if (_isRegistering)
               const SizedBox(
                 width: 28,
@@ -349,26 +355,18 @@ class _WawuAfricaInstitutionContentScreenState
                   height: 250,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  placeholder:
-                      (context, url) => Container(
-                        height: 250,
-                        color: Colors.grey[200],
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.pinkAccent,
-                          ),
-                        ),
-                      ),
-                  errorWidget:
-                      (context, url, error) => Container(
-                        height: 250,
-                        color: Colors.grey[200],
-                        child: const Icon(
-                          Icons.error_outline,
-                          color: Colors.red,
-                          size: 50,
-                        ),
-                      ),
+                  placeholder: (context, url) => Container(
+                    height: 250,
+                    color: Colors.grey[200],
+                    child: const Center(
+                        child: CircularProgressIndicator(color: Colors.pinkAccent)),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    height: 250,
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.error_outline,
+                        color: Colors.red, size: 50),
+                  ),
                 ),
                 Container(
                   height: 120,
@@ -376,10 +374,7 @@ class _WawuAfricaInstitutionContentScreenState
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withOpacity(0.6),
-                        Colors.transparent,
-                      ],
+                      colors: [Colors.black.withOpacity(0.6), Colors.transparent],
                     ),
                   ),
                 ),
@@ -393,34 +388,30 @@ class _WawuAfricaInstitutionContentScreenState
                   Text(
                     content.name,
                     style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        color: Colors.black,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     content.description,
                     style: TextStyle(
-                      color: Colors.black.withOpacity(0.7),
-                      fontSize: 16,
-                      height: 1.5,
-                    ),
+                        color: Colors.black.withOpacity(0.7),
+                        fontSize: 16,
+                        height: 1.5),
                   ),
                   const SizedBox(height: 24),
                   _buildSectionTitle('Requirements'),
                   MarkdownBody(
-                    data: content.requirements,
-                    styleSheet: markdownStyle,
-                    shrinkWrap: true,
-                  ),
+                      data: content.requirements,
+                      styleSheet: markdownStyle,
+                      shrinkWrap: true),
                   const SizedBox(height: 24),
                   _buildSectionTitle('Key Benefits'),
                   MarkdownBody(
-                    data: content.keyBenefits,
-                    styleSheet: markdownStyle,
-                    shrinkWrap: true,
-                  ),
+                      data: content.keyBenefits,
+                      styleSheet: markdownStyle,
+                      shrinkWrap: true),
                   const SizedBox(height: 80),
                 ],
               ),
@@ -437,10 +428,7 @@ class _WawuAfricaInstitutionContentScreenState
       child: Text(
         title,
         style: const TextStyle(
-          color: Colors.black,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+            color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
       ),
     );
   }

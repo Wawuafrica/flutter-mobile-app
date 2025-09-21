@@ -184,7 +184,7 @@ class _SignInState extends State<SignIn> {
                   const SizedBox(height: 20),
                   CustomButton(
                     function: () {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const MainScreen(),

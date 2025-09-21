@@ -120,26 +120,9 @@ class _WawuAfricaSingleInstitutionState
                   const SizedBox(height: 20),
                   _buildInstitutionInfo(institution),
                   const SizedBox(height: 30),
-                  const Text(
-                    'Ads',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+
                   AdsSection(),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Content',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -238,10 +221,10 @@ class _WawuAfricaSingleInstitutionState
               errorWidget:
                   (context, url, error) => Container(
                     color: wawuColors.primary.withAlpha(30),
-                        child: Icon(
-                          Icons.image,
-                          size: 60,
-                          color: wawuColors.primary.withAlpha(50),
+                    child: Icon(
+                      Icons.image,
+                      size: 60,
+                      color: wawuColors.primary.withAlpha(50),
                     ),
                   ),
             ),
@@ -289,7 +272,7 @@ class _WawuAfricaSingleInstitutionState
                       (context, url, error) => Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: wawuColors.primary.withAlpha(30)
+                          color: wawuColors.primary.withAlpha(30),
                         ),
                         child: const Icon(
                           Icons.account_balance,

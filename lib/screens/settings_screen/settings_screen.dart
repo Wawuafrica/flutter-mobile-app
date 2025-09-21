@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:wawu_mobile/models/subscription_iap.dart';
 import 'package:wawu_mobile/providers/ad_provider.dart';
@@ -17,7 +16,6 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/screens/contact_us_screen/contact_us_screen.dart';
 import 'package:wawu_mobile/screens/faq_screen/faq_screen.dart';
 import 'package:wawu_mobile/screens/invite_people_screen/invite_people_screen.dart';
-import 'package:wawu_mobile/screens/main_screen/main_screen.dart';
 import 'package:wawu_mobile/screens/profile/profile_screen.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_in/sign_in.dart';
 import 'package:wawu_mobile/services/onboarding_state_service.dart';
@@ -26,8 +24,6 @@ import 'package:wawu_mobile/utils/helpers/cache_manager.dart';
 import 'package:wawu_mobile/widgets/custom_row_single_column/custom_row_single_column.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
-// import 'package:wawu_mobile/widgets/full_ui_error_display.dart';
-// settings_screen.dart
 
 class SettingsScreen extends StatefulWidget {
   final ValueChanged<double>? onScroll;
@@ -40,9 +36,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late ScrollController _internalScrollController;
-  // 2. ADD STATE VARIABLES FOR VERSION INFO
-  String _version = '...';
-  String _buildNumber = '...';
+
 
   @override
   void initState() {
@@ -52,20 +46,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchSubscriptionDetails();
     });
-    // 4. CALL THE NEW METHOD TO GET VERSION INFO
-    _initPackageInfo();
   }
 
-  // 3. CREATE A METHOD TO GET PACKAGE INFO
-  Future<void> _initPackageInfo() async {
-    final info = await PackageInfo.fromPlatform();
-    if (mounted) {
-      setState(() {
-        _version = info.version;
-        _buildNumber = info.buildNumber;
-      });
-    }
-  }
+
 
   @override
   void dispose() {
@@ -310,15 +293,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         const SizedBox(height: 20),
                         _buildDeleteAccountButton(context),
-
-                        const SizedBox(height: 20),
-                        Center(
-                          // 5. UPDATE THE TEXT WIDGET
-                          child: Text(
-                            'Version $_version ($_buildNumber)', // Use the dynamic values
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ),
                       ],
                     ),
                   ),
@@ -474,16 +448,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSubscriptionSection() {
     return Consumer<PlanProvider>(
       builder: (context, planProvider, child) {
-        final userType =
-            Provider.of<UserProvider>(
-              context,
-              listen: false,
-            ).currentUser?.role?.toLowerCase();
+        // final userType =
+        //     Provider.of<UserProvider>(
+        //       context,
+        //       listen: false,
+        //     ).currentUser?.role?.toLowerCase();
 
         // Only show subscription section for non-buyer roles
-        if (userType == 'buyer') {
-          return const SizedBox.shrink();
-        }
+        // if (userType == 'buyer') {
+        //   return const SizedBox.shrink();
+        // }
 
         final SubscriptionIap? subscription = planProvider.subscriptionIap;
         final bool isLoading = planProvider.isLoading;
