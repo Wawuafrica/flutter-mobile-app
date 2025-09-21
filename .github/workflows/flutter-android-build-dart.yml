@@ -19,7 +19,8 @@ jobs:
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        channel: 'master'
+        # It's recommended to use 'stable' for production builds
+        channel: 'stable' 
         cache: true
               
     - name: Create .env file
@@ -28,15 +29,46 @@ jobs:
         echo "PUSHER_CLUSTER=${{ secrets.PUSHER_CLUSTER }}" >> .env
         echo "ENVIRONMENT=production" >> .env
               
+    # -- NEW STEP: Decode and set up the keystore --
+    - name: Decode Keystore
+      run: |
+        # Create the directory if it doesn't exist
+        mkdir -p android/app
+        # Decode the base64 secret and create the keystore file
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
+    # -- NEW STEP: Create the key.properties file from secrets --
+    - name: Create key.properties file
+      run: |
+        echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/key.properties
+        echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+        echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+        # The path to the decoded keystore file
+        echo "storeFile=../app/upload-keystore.jks" >> android/key.properties
+
     - name: Get Flutter dependencies
       run: flutter pub get
             
+    # -- UPDATED STEP: Build the signed App Bundle (.aab) --
+    - name: Build release App Bundle
+      run: flutter build appbundle --release
+            
+    # -- UPDATED STEP: Build the signed APK --
     - name: Build release APK
       run: flutter build apk --release
             
+    # -- UPDATED STEP: Upload the App Bundle artifact --
+    - name: Upload App Bundle artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wawu-release-bundle
+        path: build/app/outputs/bundle/release/app-release.aab
+        retention-days: 2
+
+    # -- UPDATED STEP: Upload the APK artifact --
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: wawu-release-apk
         path: build/app/outputs/flutter-apk/app-release.apk
-        retention-days: 30
+        retention-days: 2
