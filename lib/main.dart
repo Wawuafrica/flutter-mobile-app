@@ -499,7 +499,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       : Scaffold(
                           body: Center(
                             child: Image.asset(
-                              'assets/images/none.png',
+                              'assets/none.png',
                               width: 200,
                               cacheWidth: 500,
                             ),
