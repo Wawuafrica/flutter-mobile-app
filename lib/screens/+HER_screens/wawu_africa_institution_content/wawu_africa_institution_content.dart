@@ -159,13 +159,26 @@ class _WawuAfricaInstitutionContentScreenState
       }
     } catch (e) {
       debugPrint('[WawuAfricaContentScreen] Error during registration: $e');
+      
+      // -- START FIX: Check for the specific error message --
+      String errorMessage = 'An error occurred. Please check your connection and try again.';
+      bool isError = true;
+
+      // Check for the "already registered" error from the API
+      if (e.toString().toLowerCase().contains('user is already registered')) {
+        errorMessage = 'You have already sent a request for this content.';
+        isError = false; // This is an informational message, not a critical error
+      }
+
       if (mounted) {
         CustomSnackBar.show(
           context,
-          message: 'An error occurred. Please check your connection and try again.',
-          isError: true,
+          message: errorMessage,
+          isError: isError,
         );
       }
+      // -- END FIX --
+      
     } finally {
       if (mounted) {
         setState(() => _isRegistering = false);
