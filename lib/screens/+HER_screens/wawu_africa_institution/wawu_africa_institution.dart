@@ -41,7 +41,7 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
             return Text(
               provider.selectedSubCategory?.name ?? 'Institutions',
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 14,
                 fontWeight: FontWeight.bold,
               ),
             );

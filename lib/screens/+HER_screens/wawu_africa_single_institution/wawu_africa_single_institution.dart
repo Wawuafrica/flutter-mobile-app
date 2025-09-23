@@ -92,6 +92,7 @@ class _WawuAfricaSingleInstitutionState
           style: TextStyle(
             color: _isScrolled ? Colors.black : Colors.white,
             fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
         ),
         centerTitle: true,
@@ -328,10 +329,9 @@ class _WawuAfricaSingleInstitutionState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Content Image
-            SizedBox(
-              width: double.infinity,
-              height: 180,
+            // MODIFIED: Replaced SizedBox with AspectRatio
+            AspectRatio(
+              aspectRatio: 4 / 2,
               child: ClipRRect(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
@@ -355,7 +355,7 @@ class _WawuAfricaSingleInstitutionState
               ),
             ),
 
-            // Content Text
+            // Content Text (No changes below this line)
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(

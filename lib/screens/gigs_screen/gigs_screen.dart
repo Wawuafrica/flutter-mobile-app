@@ -235,22 +235,22 @@ class _GigTabState extends State<GigTab> with AutomaticKeepAliveClientMixin {
                         'assets/no_gigs.png',
                         width: 150,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        widget.status == null
-                            ? 'No gigs available yet.'
-                            : 'No ${widget.status?.toLowerCase()} gigs found.',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Pull down to refresh or create a new gig.',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-                      ),
+                      // const SizedBox(height: 16),
+                      // Text(
+                      //   widget.status == null
+                      //       ? 'No gigs available yet.'
+                      //       : 'No ${widget.status?.toLowerCase()} gigs found.',
+                      //   style: TextStyle(
+                      //     fontSize: 16,
+                      //     color: Colors.grey[600],
+                      //     fontWeight: FontWeight.w500,
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 8),
+                      // Text(
+                      //   'Pull down to refresh or create a new gig.',
+                      //   style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                      // ),
                     ],
                   ),
                 ),

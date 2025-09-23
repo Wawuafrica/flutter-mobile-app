@@ -45,7 +45,7 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
             // Display the name of the selected category in the AppBar
             return Text(
               provider.selectedCategory?.name ?? 'Sub-Categories',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             );
           },
         ),
@@ -103,9 +103,9 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 3,
-                          crossAxisSpacing: 8.0,
-                          mainAxisSpacing: 8.0,
-                          childAspectRatio: 0.9,
+                          crossAxisSpacing: 5.0,
+                          mainAxisSpacing: 5.0,
+                          childAspectRatio: 0.85,
                         ),
                     itemCount: provider.subCategories.length,
                     itemBuilder: (context, index) {
@@ -198,7 +198,7 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
-              maxLines: 2,
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
           ],

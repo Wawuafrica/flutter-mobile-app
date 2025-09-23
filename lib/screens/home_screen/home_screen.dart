@@ -6,6 +6,7 @@ import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/providers/gig_provider.dart';
 import 'package:wawu_mobile/screens/categories/categories_screen.dart';
+import 'package:wawu_mobile/screens/home_screen/ads_section.dart';
 import 'package:wawu_mobile/screens/home_screen/home_header.dart';
 import 'package:wawu_mobile/screens/home_screen/popular_service_section.dart';
 import 'package:wawu_mobile/screens/home_screen/recently_viewed_gigs_section.dart';
@@ -390,10 +391,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       SizedBox(height: 20),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 20.0),
-                        child: CustomIntroText(text: 'Gigs You May Like'),
+                        child: AdsSection(),
                       ),
-                      SizedBox(height: 20),
-                      SuggestedGigsSection(),
                       SizedBox(height: 30),
                     ],
                   ),

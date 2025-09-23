@@ -96,16 +96,16 @@ class _FilteredGigsState extends State<FilteredGigs> {
                   fit: StackFit.expand,
                   children: [
                     ClipRect(
-                        // Prevents the zoomed image from overflowing
-                        child: Transform.scale(
-                          scale:
-                              1.5, // Zoom factor. 1.0 is normal, 1.5 is 50% zoom.
-                          child: Image.asset(
-                            'assets/background_wawu.png',
-                            fit: BoxFit.cover,
-                          ),
+                      // Prevents the zoomed image from overflowing
+                      child: Transform.scale(
+                        scale:
+                            1.5, // Zoom factor. 1.0 is normal, 1.5 is 50% zoom.
+                        child: Image.asset(
+                          'assets/background_wawu.png',
+                          fit: BoxFit.cover,
                         ),
                       ),
+                    ),
                     BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
                       child: Container(color: Colors.black.withOpacity(0.2)),
@@ -126,7 +126,10 @@ class _FilteredGigsState extends State<FilteredGigs> {
                     SafeArea(
                       child: Padding(
                         padding: const EdgeInsets.only(
-                            top: 60, left: 16, right: 16),
+                          top: 60,
+                          left: 16,
+                          right: 16,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -141,25 +144,32 @@ class _FilteredGigsState extends State<FilteredGigs> {
                             const SizedBox(height: 16),
                             TextField(
                               readOnly: true,
-                              onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          const SearchScreen())),
+                              onTap:
+                                  () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => const SearchScreen(),
+                                    ),
+                                  ),
                               decoration: InputDecoration(
                                 hintText: 'Search for Gigs',
                                 hintStyle: TextStyle(
-                                    color: Colors.white.withOpacity(0.8)),
-                                prefixIcon: const Icon(Icons.search,
-                                    color: Colors.white70),
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.white70,
+                                ),
                                 filled: true,
                                 fillColor: Colors.white.withOpacity(0.2),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
                                 ),
-                                contentPadding:
-                                    const EdgeInsets.symmetric(vertical: 0),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 0,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -174,7 +184,7 @@ class _FilteredGigsState extends State<FilteredGigs> {
                           ],
                         ),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -217,7 +227,10 @@ class _FilteredGigsState extends State<FilteredGigs> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
-                ElevatedButton(onPressed: _fetchGigs, child: const Text('Retry')),
+                ElevatedButton(
+                  onPressed: _fetchGigs,
+                  child: const Text('Retry'),
+                ),
               ],
             ),
           ),
@@ -226,29 +239,20 @@ class _FilteredGigsState extends State<FilteredGigs> {
     }
 
     if (_gigs.isEmpty) {
-      return const SliverFillRemaining(
-        child: Center(
-          child: Text(
-            'No gigs available for this service',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return SliverFillRemaining(
+        child: Center(child: Image.asset('assets/no_gigs.png', width: 150)),
       );
     }
 
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(16.0, 24.0, 16.0, 16.0),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16.0),
-              child: HorizontalGigCard(gig: _gigs[index]),
-            );
-          },
-          childCount: _gigs.length,
-        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: HorizontalGigCard(gig: _gigs[index]),
+          );
+        }, childCount: _gigs.length),
       ),
     );
   }

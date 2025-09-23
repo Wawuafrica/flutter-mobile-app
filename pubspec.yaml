@@ -2,7 +2,7 @@ name: wawu_mobile
 description: "A Platform for the African Creative"
 
 publish_to: 'none'
-version: 2.0.0+9
+version: 2.0.0+91
 
 environment:
   sdk: ^3.7.0
@@ -60,6 +60,7 @@ dependencies:
   connectivity_plus: ^6.1.4
   equatable: ^2.0.7
   flutter_cache_manager: ^3.4.1
+  socket_io_client: ^3.1.2
 
 flutter_native_splash:
   color: "#ffffff"  # Change this to your desired background color
