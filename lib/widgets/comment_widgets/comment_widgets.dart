@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:wawu_mobile/models/wawu_africa_social.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:wawu_mobile/utils/constants/colors.dart';
 
 /// A text input field and send button for creating new comments.
 class CommentInputWidget extends StatelessWidget {
@@ -99,7 +100,7 @@ class LikeButton extends StatelessWidget {
           children: [
             Icon(
               isLiked ? Icons.favorite : Icons.favorite_border,
-              color: isLiked ? Colors.red : Colors.grey,
+              color: isLiked ? wawuColors.primary : Colors.grey,
               size: 20,
             ),
             const SizedBox(width: 4),
