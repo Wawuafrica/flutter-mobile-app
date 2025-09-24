@@ -10,6 +10,8 @@
         android:label="WAWUAfrica"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <property android:name="android.supports_16k_pages" android:value="true" />
         
         <!-- Notification receivers -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
