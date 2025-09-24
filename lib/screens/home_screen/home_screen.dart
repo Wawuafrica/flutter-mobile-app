@@ -10,7 +10,6 @@ import 'package:wawu_mobile/screens/home_screen/ads_section.dart';
 import 'package:wawu_mobile/screens/home_screen/home_header.dart';
 import 'package:wawu_mobile/screens/home_screen/popular_service_section.dart';
 import 'package:wawu_mobile/screens/home_screen/recently_viewed_gigs_section.dart';
-import 'package:wawu_mobile/screens/home_screen/suggested_gigs_section.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/custom_intro_text/custom_intro_text.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
