@@ -39,7 +39,6 @@ class GigPackagesSectionNew extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.purple.shade100),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,15 +48,19 @@ class GigPackagesSectionNew extends StatelessWidget {
             children: [
               Text(
                 pricing.package.name,
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               Text(
                 '₦${pricing.package.amount}',
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Colors.purple),
+                  fontFamily: 'Roboto',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.purple,
+                ),
               ),
             ],
           ),
@@ -81,14 +84,14 @@ class GigPackagesSectionNew extends StatelessWidget {
           isYes
               ? const Icon(Icons.check, color: Colors.purple, size: 18)
               : Text(
-                  value == 'no' ? '-' : feature.value,
-                  style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.bold),
+                value == 'no' ? '-' : feature.value,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
                 ),
+              ),
         ],
       ),
     );
   }
 }
-

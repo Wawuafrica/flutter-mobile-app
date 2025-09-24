@@ -12,6 +12,8 @@ import 'package:wawu_mobile/screens/gigs_screen/single_gig_screen/gig_seller_inf
 import 'package:wawu_mobile/screens/messages_screen/single_message_screen/single_message_screen.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
 import 'package:wawu_mobile/utils/constants/colors.dart';
+// Import the new PDF section
+import 'package:wawu_mobile/screens/gigs_screen/single_gig_screen/gig_pdf_section.dart';
 
 class SingleGigScreen extends StatefulWidget {
   const SingleGigScreen({super.key});
@@ -151,6 +153,12 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
                         content: currentGig.about,
                       ),
                       const SizedBox(height: 16),
+                      // ADD THE PDF SECTION HERE
+                      GigPdfSection(gig: currentGig),
+                      // Add spacing if a PDF was rendered
+                      if (currentGig.assets.pdf?.link != null &&
+                          currentGig.assets.pdf!.link.isNotEmpty)
+                        const SizedBox(height: 16),
                       GigPackagesSectionNew(gig: currentGig),
                       const SizedBox(height: 16),
                       GigFaqSectionNew(gig: currentGig),
@@ -168,4 +176,3 @@ class _SingleGigScreenState extends State<SingleGigScreen> {
     );
   }
 }
-
