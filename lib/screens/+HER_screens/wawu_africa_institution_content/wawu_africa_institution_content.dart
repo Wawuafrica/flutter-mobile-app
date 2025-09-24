@@ -9,6 +9,7 @@ import 'package:wawu_mobile/providers/plan_provider.dart';
 import 'package:wawu_mobile/providers/user_provider.dart';
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/wawu_africa/sign_up/sign_up.dart';
+import 'package:wawu_mobile/utils/constants/colors.dart';
 import 'package:wawu_mobile/widgets/comment_widgets/comment_widgets.dart';
 import 'package:wawu_mobile/widgets/custom_snackbar.dart';
 
@@ -350,7 +351,7 @@ class _WawuAfricaInstitutionContentScreenState
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isRegistering ? null : _handleRegistration,
-        backgroundColor: const Color(0xFFF50057),
+        backgroundColor: wawuColors.primary,
         icon:
             _isRegistering
                 ? const SizedBox(
