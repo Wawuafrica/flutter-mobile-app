@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -160,33 +161,23 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Use a larger, more balanced size for the image
-            SvgPicture.network(
-              subCategory.imageUrl,
-              width: 30, // CHANGED: Increased size for better visuals
-              height: 30, // CHANGED: Increased size for better visuals
-              fit: BoxFit.contain,
-              // Your errorBuilder logic is good and remains unchanged
-              errorBuilder: (context, url, error) {
-                return SvgPicture.asset(
-                  'assets/wawu_svg.svg',
-                  width: 30,
-                  height: 30,
-                  fit: BoxFit.contain,
-                  errorBuilder:
-                      (context, error, stackTrace) => Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8.0),
-                        ),
-                        child: Icon(
-                          Icons.category,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                );
-              },
+            CachedNetworkImage(
+              imageUrl: subCategory.imageUrl,
+              fit: BoxFit.cover,
+              placeholder:
+                  (context, url) => SvgPicture.asset(
+                    'assets/wawu_svg.svg',
+                    width: 30,
+                    height: 30,
+                    fit: BoxFit.contain,
+                  ),
+              errorWidget:
+                  (context, url, error) => SvgPicture.asset(
+                    'assets/wawu_svg.svg',
+                    width: 30,
+                    height: 30,
+                    fit: BoxFit.contain,
+                  ),
             ),
             const SizedBox(height: 8), // Slightly reduced spacing
             // REMOVED: The 'Expanded' and 'Center' widgets were removed from here.
