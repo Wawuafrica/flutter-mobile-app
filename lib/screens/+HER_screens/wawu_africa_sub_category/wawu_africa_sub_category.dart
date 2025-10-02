@@ -147,7 +147,7 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
           // Use Flexible and AspectRatio to make the image larger and responsive
           Flexible(
             child: AspectRatio(
-              aspectRatio: 4 / 3, // Enforces the 4:2 ratio
+              aspectRatio: 4 / 2, // Enforces the 4:2 ratio
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8.0),
                 child: CachedNetworkImage(
