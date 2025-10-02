@@ -167,30 +167,15 @@ class _WawuAfricaSingleInstitutionState
     }
 
     if (provider.institutionContents.isEmpty) {
-      return const SliverFillRemaining(
+      return SliverFillRemaining(
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.video_library_outlined, size: 80, color: Colors.grey),
-              SizedBox(height: 20),
-              Text(
-                'No Content Available',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey,
-                ),
+              child: Image.asset(
+                'assets/wawuback.png',
+                width: 220, // You can adjust the size as needed
+                height: 220,
+                fit: BoxFit.contain,
               ),
-              SizedBox(height: 8),
-              Text(
-                'This institution has not published any content yet.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
+            ),
       );
     }
 

@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:shimmer/shimmer.dart'; // Import the shimmer package
 import 'package:wawu_mobile/models/wawu_africa_nest.dart' as sub_category_model;
 import 'package:wawu_mobile/providers/wawu_africa_provider.dart';
 import 'package:wawu_mobile/screens/+HER_screens/wawu_africa_institution/wawu_africa_institution.dart';
@@ -106,7 +107,8 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                       crossAxisCount: 3,
                       crossAxisSpacing: 5.0,
                       mainAxisSpacing: 5.0,
-                      childAspectRatio: 0.85,
+                      // Set to 1.0 for a square grid cell
+                      childAspectRatio: 1.0,
                     ),
                     itemCount: provider.subCategories.length,
                     itemBuilder: (context, index) {
@@ -140,45 +142,27 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
           ),
         );
       },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Use Flexible and AspectRatio to make the image larger and responsive
-          Flexible(
-            child: AspectRatio(
-              aspectRatio: 4 / 2, // Enforces the 4:2 ratio
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8.0),
-                child: CachedNetworkImage(
-                  imageUrl: subCategory.imageUrl,
-                  // No fixed width/height, it's now controlled by the parent widgets
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => SvgPicture.asset(
-                    'assets/wawu_svg.svg',
-                    fit: BoxFit.contain,
-                  ),
-                  errorWidget: (context, url, error) => SvgPicture.asset(
-                    'assets/wawu_svg.svg',
-                    fit: BoxFit.contain,
-                  ),
-                ),
+      child: AspectRatio(
+        aspectRatio: 1 / 1,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8.0),
+          child: CachedNetworkImage(
+            imageUrl: subCategory.imageUrl,
+            fit: BoxFit.cover,
+            // Use Shimmer as the placeholder
+            placeholder: (context, url) => Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade100,
+              child: Container(
+                color: Colors.white,
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subCategory.name,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.black,
-              fontWeight: FontWeight.w500,
+            // A static gray container for the error state
+            errorWidget: (context, url, error) => Container(
+              color: Colors.grey.shade200,
             ),
-            textAlign: TextAlign.center,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
           ),
-        ],
+        ),
       ),
     );
   }
