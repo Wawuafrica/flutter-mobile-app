@@ -2,7 +2,7 @@ name: wawu_mobile
 description: "A Platform for the African Creative"
 
 publish_to: 'none'
-version: 2.0.0+92
+version: 2.0.0+93
 
 environment:
   sdk: ^3.7.0
