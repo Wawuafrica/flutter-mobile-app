@@ -24,8 +24,9 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
 
       if (selectedSubCategoryId != null) {
         provider.clearInstitutions();
-        provider
-            .fetchInstitutionsBySubCategory(selectedSubCategoryId.toString());
+        provider.fetchInstitutionsBySubCategory(
+          selectedSubCategoryId.toString(),
+        );
       } else {
         print("Error: No sub-category selected to fetch institutions for.");
       }
@@ -40,10 +41,7 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
           builder: (context, provider, child) {
             return Text(
               provider.selectedSubCategory?.name ?? 'Institutions',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             );
           },
         ),
@@ -65,7 +63,8 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
                 final selectedSubCategoryId = provider.selectedSubCategory?.id;
                 if (selectedSubCategoryId != null) {
                   provider.fetchInstitutionsBySubCategory(
-                      selectedSubCategoryId.toString());
+                    selectedSubCategoryId.toString(),
+                  );
                 }
               },
               onContactSupport: () {
@@ -81,38 +80,22 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
 
           // --- Empty State ---
           if (provider.institutions.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.business_outlined,
-                    size: 80,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'No Institutions Found',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'There are no institutions available in this section yet.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
+            return Center(
+              child: Image.asset(
+                'assets/wawuback.png',
+                width: 220, // You can adjust the size as needed
+                height: 220,
+                fit: BoxFit.contain,
               ),
             );
           }
 
           // --- Success State ---
           return ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 10.0,
+            ),
             itemCount: provider.institutions.length,
             separatorBuilder: (context, index) => const SizedBox(height: 10),
             itemBuilder: (context, index) {
@@ -125,7 +108,10 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
     );
   }
 
-  Widget _buildItem(BuildContext context, model.WawuAfricaInstitution institution) {
+  Widget _buildItem(
+    BuildContext context,
+    model.WawuAfricaInstitution institution,
+  ) {
     final provider = Provider.of<WawuAfricaProvider>(context, listen: false);
 
     return GestureDetector(
@@ -134,7 +120,8 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
         Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => const WawuAfricaSingleInstitution()),
+            builder: (context) => const WawuAfricaSingleInstitution(),
+          ),
         );
       },
       child: Container(
@@ -143,7 +130,7 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade200),
-           boxShadow: [
+          boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.1),
               spreadRadius: 1,
@@ -161,20 +148,19 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
                 width: 70,
                 height: 70,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey.shade200,
-                  width: 70,
-                  height: 70,
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey.shade200,
-                  width: 70,
-                  height: 70,
-                  child: Icon(
-                    Icons.business,
-                    color: Colors.grey.shade400,
-                  ),
-                ),
+                placeholder:
+                    (context, url) => Container(
+                      color: Colors.grey.shade200,
+                      width: 70,
+                      height: 70,
+                    ),
+                errorWidget:
+                    (context, url, error) => Container(
+                      color: Colors.grey.shade200,
+                      width: 70,
+                      height: 70,
+                      child: Icon(Icons.business, color: Colors.grey.shade400),
+                    ),
               ),
             ),
             const SizedBox(width: 15),
@@ -195,10 +181,7 @@ class _WawuAfricaInstitutionState extends State<WawuAfricaInstitution> {
                     institution.description,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                   ),
                 ],
               ),

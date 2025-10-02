@@ -175,7 +175,7 @@ class _WawuAfricaSingleInstitutionState
                 height: 220,
                 fit: BoxFit.contain,
               ),
-            ),
+            )
       );
     }
 
