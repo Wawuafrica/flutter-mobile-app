@@ -103,11 +103,11 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
                   child: GridView.builder(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 5.0,
-                          mainAxisSpacing: 5.0,
-                          childAspectRatio: 0.85,
-                        ),
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 5.0,
+                      mainAxisSpacing: 5.0,
+                      childAspectRatio: 0.85,
+                    ),
                     itemCount: provider.subCategories.length,
                     itemBuilder: (context, index) {
                       final subCategory = provider.subCategories[index];
@@ -140,60 +140,48 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
           ),
         );
       },
-      child: Container(
-        padding: const EdgeInsets.all(8.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center, // This will now work correctly
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Use a larger, more balanced size for the image
-            CachedNetworkImage(
+      // The container with background, border, and shadow has been removed.
+      // The Column is now the direct child of the GestureDetector.
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Image with fixed width and height (4:2 ratio)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: CachedNetworkImage(
               imageUrl: subCategory.imageUrl,
+              // Fixed width and height for a 4:2 aspect ratio
+              width: 80,
+              height: 40,
               fit: BoxFit.cover,
-              placeholder:
-                  (context, url) => SvgPicture.asset(
-                    'assets/wawu_svg.svg',
-                    width: 30,
-                    height: 30,
-                    fit: BoxFit.contain,
-                  ),
-              errorWidget:
-                  (context, url, error) => SvgPicture.asset(
-                    'assets/wawu_svg.svg',
-                    width: 30,
-                    height: 30,
-                    fit: BoxFit.contain,
-                  ),
-            ),
-            const SizedBox(height: 8), // Slightly reduced spacing
-            // REMOVED: The 'Expanded' and 'Center' widgets were removed from here.
-            Text(
-              subCategory.name,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.black,
-                fontWeight: FontWeight.w500,
+              placeholder: (context, url) => SvgPicture.asset(
+                'assets/wawu_svg.svg',
+                width: 80,
+                height: 40,
+                fit: BoxFit.contain,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
+              errorWidget: (context, url, error) => SvgPicture.asset(
+                'assets/wawu_svg.svg',
+                width: 80,
+                height: 40,
+                fit: BoxFit.contain,
+              ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subCategory.name,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
