@@ -140,32 +140,29 @@ class _WawuAfricaSubCategoryState extends State<WawuAfricaSubCategory> {
           ),
         );
       },
-      // The container with background, border, and shadow has been removed.
-      // The Column is now the direct child of the GestureDetector.
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Image with fixed width and height (4:2 ratio)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8.0),
-            child: CachedNetworkImage(
-              imageUrl: subCategory.imageUrl,
-              // Fixed width and height for a 4:2 aspect ratio
-              width: 80,
-              height: 40,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => SvgPicture.asset(
-                'assets/wawu_svg.svg',
-                width: 80,
-                height: 40,
-                fit: BoxFit.contain,
-              ),
-              errorWidget: (context, url, error) => SvgPicture.asset(
-                'assets/wawu_svg.svg',
-                width: 80,
-                height: 40,
-                fit: BoxFit.contain,
+          // Use Flexible and AspectRatio to make the image larger and responsive
+          Flexible(
+            child: AspectRatio(
+              aspectRatio: 4 / 3, // Enforces the 4:2 ratio
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: CachedNetworkImage(
+                  imageUrl: subCategory.imageUrl,
+                  // No fixed width/height, it's now controlled by the parent widgets
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => SvgPicture.asset(
+                    'assets/wawu_svg.svg',
+                    fit: BoxFit.contain,
+                  ),
+                  errorWidget: (context, url, error) => SvgPicture.asset(
+                    'assets/wawu_svg.svg',
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
             ),
           ),
